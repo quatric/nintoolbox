@@ -719,7 +719,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// decompression instead of the MSH decoder. A genuine LZ10/LZ11
 		// stream always declares a nonzero decompressed size; reject the
 		// zero-size case as the cheap disambiguator.
-		if (d[0] != 0x10 && d[0] != 0x11 && size >= 8 && (d[4] == 0x10 || d[4] == 0x11)
+		if (d[0] != 0x10 && d[0] != 0x11 && size >= 8 && memcmp (d, "RIFF", 4) && (d[4] == 0x10 || d[4] == 0x11)
 			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
 		{
 			nfmt_info_t inf = make_info (d[4] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true,
@@ -740,7 +740,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// only needs to get the *type* right for GetByMagicFF() callers --
 		// payload_offset is set for consistency with the LZ10/11 case above,
 		// but no caller currently reads it off this path.
-		if (d[0] != 0x24 && d[0] != 0x28 && size >= 8 && (d[4] == 0x24 || d[4] == 0x28)
+		if (d[0] != 0x24 && d[0] != 0x28 && size >= 8 && memcmp (d, "RIFF", 4) && (d[4] == 0x24 || d[4] == 0x28)
 			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
 		{
 			nfmt_info_t inf = make_info (d[4] == 0x24 ? NFMT_HUFF4 : NFMT_HUFF8, false, true,
@@ -753,7 +753,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// Same 4-byte wrapped header as LZ10/Huffman above, for Nintendo Run Length (0x30)
 		// streams (e.g. Professor Layton / Level-5 DS .arc / .arj containers, where 0x01
 		// flags RLE compression). Nonzero decompressed size disambiguates against false positives.
-		if (d[0] != 0x30 && size >= 8 && d[4] == 0x30
+		if (d[0] != 0x30 && size >= 8 && memcmp (d, "RIFF", 4) && d[4] == 0x30
 			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
 		{
 			nfmt_info_t inf = make_info (NFMT_RL, false, true,
@@ -765,7 +765,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// the stream in a 4-byte LE size prefix, so 0x40 may sit at offset 4.
 		if (d[0] == 0x40 && size >= 4)
 			return make_info (NFMT_LZH8, false, true, (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16);
-		if (d[0] != 0x40 && size >= 8 && d[4] == 0x40)
+		if (d[0] != 0x40 && size >= 8 && memcmp (d, "RIFF", 4) && d[4] == 0x40)
 			return make_info (NFMT_LZH8, false, true, (u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16);
 		// Camelot header: codec 1/2 plus a three-byte output size. The extension
 		// check prevents random binary files from being called STPL.

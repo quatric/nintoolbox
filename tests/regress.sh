@@ -10839,6 +10839,20 @@ open(d+'/t.sdl','wb').write(s)
     fno "Super Fruit Fall .tdw" "mk_tdw.py failed"
   fi
 
+  # DLS bank (Roland GM16 in budget Wii games) -> WAV per wave
+  mkdir -p "$d/dls_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dls.py" "$d/dls_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/dls_test/t.dls" --overwrite >/dev/null 2>&1 \
+    && [ "$(ls "$d/dls_test/t.dls.d" | wc -l | tr -d ' ')" -eq 2 ] \
+    && [ "$(wc -c < "$d/dls_test/t.dls.d/0000_PIANO.wav" | tr -d ' ')" -eq 52 ] \
+    && [ "$(xxd -s 44 -l 4 -p "$d/dls_test/t.dls.d/0000_PIANO.wav")" = "0000e803" ] \
+    && [ "$(wc -c < "$d/dls_test/t.dls.d/0001.wav" | tr -d ' ')" -eq 50 ] \
+    && fok "DLS bank -> WAV" \
+    || fno "DLS bank" "failed on synthetic t.dls"
+  else
+    fno "DLS bank" "mk_dls.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then

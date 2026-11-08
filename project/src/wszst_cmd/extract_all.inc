@@ -254,6 +254,7 @@
 #include "extract/twi.inc"
 #include "extract/tdw.inc"
 #include "extract/mee.inc"
+#include "extract/dls.inc"
 #include "extract/ubisb.inc"
 #include "extract/abc.inc"
 #include "extract/musx.inc"
