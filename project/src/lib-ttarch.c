@@ -14,12 +14,12 @@
 // one independently-compressed block into a caller-sized buffer. Used both
 // for the (possibly chunked) file-table header and for each 64KiB data
 // chunk -- both are raw deflate streams in every sample seen.
-static enumError ttarch_inflate_raw (
-	const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size)
+static enumError ttarch_inflate_wb (
+	const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size, int wbits)
 {
 	z_stream zs;
 	memset (&zs, 0, sizeof (zs));
-	if (inflateInit2 (&zs, -15) != Z_OK)
+	if (inflateInit2 (&zs, wbits) != Z_OK)
 		return ERR_INVALID_DATA;
 
 	zs.next_in = (Bytef *)src;
@@ -36,6 +36,19 @@ static enumError ttarch_inflate_raw (
 	if (out_size)
 		*out_size = produced;
 	return ERR_OK;
+}
+
+static enumError ttarch_inflate_raw (
+	const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size)
+{
+	return ttarch_inflate_wb (src, src_size, dest, dest_cap, out_size, -15);
+}
+
+// Versions 3..6 wrap every chunk in a zlib header.
+static enumError ttarch_inflate_zlib (
+	const u8 *src, uint src_size, u8 *dest, uint dest_cap, uint *out_size)
+{
+	return ttarch_inflate_wb (src, src_size, dest, dest_cap, out_size, 15);
 }
 
 // Reads a little-endian u32 at *pos (bounds-checked against 'limit') and
@@ -62,8 +75,12 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 	// Only versions 8 and 9 were seen on the disc this was reverse-engineered
 	// against; earlier versions have a materially different header layout
 	// (fewer fields -- see lib-ttarch.h) that was never exercised or tested.
-	if (version < 8 || version > 9)
+	// Versions 3..6 (Sam & Max, Bone, CSI; Wii little-endian) use the older, shorter header handled below
+	// (layout per Luigi Auriemma's ttarchext): no chunk size / unknown byte / crc fields and a stored
+	// (never separately compressed) file table; their chunks are 64 KiB.
+	if (version < 3 || version > 9 || version == 7)
 		return ERR_INVALID_DATA;
+	const bool old_ver = version < 7;
 
 	if (!tt_read_u32 (data, size, &p, &encryption) || !tt_read_u32 (data, size, &p, &unused_field)
 		|| !tt_read_u32 (data, size, &p, &files_mode))
@@ -85,28 +102,38 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 	u64 block_sum = 0;
 	for (u32 i = 0; i < chunk_count; i++)
 		block_sum += rd_le32 ((const u8 *)(block_size + i));
-	if (chunk_count && block_sum != file_data_size)
+	if (chunk_count && !old_ver && block_sum != file_data_size)
 		return ERR_INVALID_DATA;
 
-	u32 priority, priority2, xmode1, xmode2;
-	if (!tt_read_u32 (data, size, &p, &priority) || !tt_read_u32 (data, size, &p, &priority2)
-		|| !tt_read_u32 (data, size, &p, &xmode1) || !tt_read_u32 (data, size, &p, &xmode2))
-		return ERR_INVALID_DATA;
-
-	u32 chunk_size_kb;
-	if (!tt_read_u32 (data, size, &p, &chunk_size_kb))
-		return ERR_INVALID_DATA;
-	const u32 chunk_size = chunk_size_kb ? chunk_size_kb * 1024 : 65536;
-
-	if (p + 1 > size)
-		return ERR_INVALID_DATA;
-	p += 1; // unknown_byte, version >= 8
-
-	if (files_mode >= 1)
+	u32 chunk_size = 65536;
+	if (old_ver)
 	{
-		u32 crc32_unused;
-		if (!tt_read_u32 (data, size, &p, &crc32_unused))
+		u32 dummy;
+		if (version >= 4 && (!tt_read_u32 (data, size, &p, &dummy) || !tt_read_u32 (data, size, &p, &dummy)))
 			return ERR_INVALID_DATA;
+	}
+	else
+	{
+		u32 priority, priority2, xmode1, xmode2;
+		if (!tt_read_u32 (data, size, &p, &priority) || !tt_read_u32 (data, size, &p, &priority2)
+			|| !tt_read_u32 (data, size, &p, &xmode1) || !tt_read_u32 (data, size, &p, &xmode2))
+			return ERR_INVALID_DATA;
+
+		u32 chunk_size_kb;
+		if (!tt_read_u32 (data, size, &p, &chunk_size_kb))
+			return ERR_INVALID_DATA;
+		chunk_size = chunk_size_kb ? chunk_size_kb * 1024 : 65536;
+
+		if (p + 1 > size)
+			return ERR_INVALID_DATA;
+		p += 1; // unknown_byte, version >= 8
+
+		if (files_mode >= 1)
+		{
+			u32 crc32_unused;
+			if (!tt_read_u32 (data, size, &p, &crc32_unused))
+				return ERR_INVALID_DATA;
+		}
 	}
 
 	u32 header_size;
@@ -118,7 +145,7 @@ enumError ScanTtarch (ttarch_t *tt, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	u8 *table = 0;
-	if (files_mode >= 2)
+	if (files_mode >= 2 && !old_ver)
 	{
 		u32 compressed_header_size;
 		if (!tt_read_u32 (data, size, &p, &compressed_header_size))
@@ -301,7 +328,16 @@ enumError ReadTtarchEntry (
 			break;
 		}
 		uint produced = 0;
-		err = ttarch_inflate_raw (tt->raw + cursor, comp_size, chunk, tt->chunk_size, &produced);
+		if (tt->version < 7 && comp_size == tt->chunk_size)
+		{
+			// old archives keep incompressible chunks as they are
+			memcpy (chunk, tt->raw + cursor, comp_size);
+			produced = comp_size;
+		}
+		else if (tt->version < 7)
+			err = ttarch_inflate_zlib (tt->raw + cursor, comp_size, chunk, tt->chunk_size, &produced);
+		else
+			err = ttarch_inflate_raw (tt->raw + cursor, comp_size, chunk, tt->chunk_size, &produced);
 		cursor += comp_size;
 		if (err)
 			break;

@@ -10936,6 +10936,19 @@ open(d+'/t.sdl','wb').write(s)
     fno "PK03 hash package" "mk_pk03.py failed"
   fi
 
+  # Classic Telltale .ttarch v4 (Sam & Max Season 2): stored and zlib-chunked data
+  mkdir -p "$d/ttarch4_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ttarch4.py" "$d/ttarch4_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ttarch4_test/m1.ttarch" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" x "$d/ttarch4_test/m2.ttarch" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/ttarch4_test/m1.ttarch.d/b.d3dtx" "$d/ttarch4_test/b.d3dtx" \
+    && cmp -s "$d/ttarch4_test/m2.ttarch.d/b.d3dtx" "$d/ttarch4_test/b.d3dtx" \
+    && fok "Telltale ttarch v4 (stored + zlib chunks) extracts" \
+    || fno "Telltale ttarch v4" "failed to extract synthetic m1/m2.ttarch"
+  else
+    fno "Telltale ttarch v4" "mk_ttarch4.py failed"
+  fi
+
   # Natsume "add" PAC with LZS members (Gintama, 8- and 16-bit units)
   mkdir -p "$d/addpac_test"
   if python3 "$PWD_PROJECT/../tests/mk_addpac.py" "$d/addpac_test" >/dev/null 2>&1; then
