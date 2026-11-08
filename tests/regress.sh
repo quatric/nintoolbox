@@ -10920,6 +10920,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Pet Vet .dat package" "mk_tapsdat.py failed"
   fi
 
+  # PK03 hash package (Deer Drive Legends)
+  mkdir -p "$d/pk03_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pk03.py" "$d/pk03_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pk03_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/pk03_test/t.pak.d/00000011.bin")" = "pk03 compressed member" ] \
+    && [ "$(cat "$d/pk03_test/t.pak.d/00000022.bin")" = "pk03 stored" ] \
+    && fok "PK03 hash package (LZ11)" \
+    || fno "PK03 hash package" "failed on synthetic t.pak"
+  else
+    fno "PK03 hash package" "mk_pk03.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then

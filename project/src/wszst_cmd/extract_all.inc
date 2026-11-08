@@ -261,6 +261,7 @@
 #include "extract/lz11dat.inc"
 #include "extract/zlspak.inc"
 #include "extract/tapsdat.inc"
+#include "extract/pk03.inc"
 #include "extract/ubisb.inc"
 #include "extract/abc.inc"
 #include "extract/musx.inc"
