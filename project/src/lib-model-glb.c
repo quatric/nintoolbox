@@ -991,6 +991,157 @@ static void write_joint_node (
 // GLB (glTF 2.0 Binary) Exporter
 // ---------------------------------------------------------------------------
 
+// ---- MDL0 metadata -> glTF extras ----------------------------------------
+// A minimal growable string for building the extras JSON.
+typedef struct
+{
+	char *s;
+	size_t len, cap;
+} meta_buf_t;
+
+static void mb_put (meta_buf_t *b, const char *fmt, ...)
+{
+	if (!b->s && b->cap == (size_t)-1)
+		return;
+	va_list ap;
+	va_start (ap, fmt);
+	char tmp[512];
+	int n = vsnprintf (tmp, sizeof (tmp), fmt, ap);
+	va_end (ap);
+	if (n < 0 || (size_t)n >= sizeof (tmp))
+		return;
+	if (b->len + (size_t)n + 1 > b->cap)
+	{
+		size_t cap = b->cap ? b->cap * 2 : 256;
+		while (cap < b->len + (size_t)n + 1)
+			cap *= 2;
+		char *p = realloc (b->s, cap);
+		if (!p)
+			return;
+		b->s = p;
+		b->cap = cap;
+	}
+	memcpy (b->s + b->len, tmp, (size_t)n + 1);
+	b->len += (size_t)n;
+}
+
+static void mb_str (meta_buf_t *b, const char *str)
+{
+	mb_put (b, "\"");
+	for (; str && *str; str++)
+	{
+		const unsigned char c = (unsigned char)*str;
+		if (c == '"' || c == '\\')
+			mb_put (b, "\\%c", c);
+		else if (c < 0x20)
+			mb_put (b, "\\u%04x", c);
+		else
+			mb_put (b, "%c", c);
+	}
+	mb_put (b, "\"");
+}
+
+static void mb_user_data (meta_buf_t *b, const user_data_t *ud)
+{
+	mb_put (b, "[");
+	for (size_t i = 0; i < ud->num_entries; i++)
+	{
+		const user_data_entry_t *e = &ud->entries[i];
+		mb_put (b, "%s{\"name\":", i ? "," : "");
+		mb_str (b, e->name);
+		mb_put (b, ",\"type\":\"%s\",\"value\":", e->type == 0 ? "int" : e->type == 1 ? "float" : "string");
+		if (e->type == 2)
+			mb_str (b, e->text ? e->text : "");
+		else
+		{
+			mb_put (b, "[");
+			for (size_t k = 0; k < e->count; k++)
+				mb_put (b, e->type == 0 ? "%s%.0f" : "%s%.9g", k ? "," : "", e->numbers[k]);
+			mb_put (b, "]");
+		}
+		mb_put (b, "}");
+	}
+	mb_put (b, "]");
+}
+
+static char *mdl0_scene_extras (const mdl0_meta_t *m)
+{
+	meta_buf_t b = { 0 };
+	mb_put (&b, "{\"brawlcrate\":{\"mdl0_version\":%u", m->version);
+	if (m->has_props)
+	{
+		mb_put (&b, ",\"scaling_rule\":%d,\"tex_matrix_mode\":%d,\"env_matrix_mode\":%u",
+			m->scaling_rule, m->tex_matrix_mode, m->env_mtx_mode);
+		mb_put (&b, ",\"num_vertices\":%d,\"num_triangles\":%d,\"num_nodes\":%d", m->num_vertices,
+			m->num_triangles, m->num_nodes);
+		mb_put (&b, ",\"need_normal_matrix_array\":%u,\"need_texture_matrix_array\":%u",
+			m->need_nrm_mtx_array, m->need_tex_mtx_array);
+		mb_put (&b, ",\"enable_extents\":%u,\"extents\":[%.9g,%.9g,%.9g,%.9g,%.9g,%.9g]",
+			m->enable_extents, m->extents[0], m->extents[1], m->extents[2], m->extents[3],
+			m->extents[4], m->extents[5]);
+		mb_put (&b, ",\"original_path\":");
+		mb_str (&b, m->orig_path);
+	}
+	if (m->user_data.num_entries)
+	{
+		mb_put (&b, ",\"user_data\":");
+		mb_user_data (&b, &m->user_data);
+	}
+	mb_put (&b, "}}");
+	return b.s;
+}
+
+static char *mdl0_joint_extras (const mdl0_joint_meta_t *j)
+{
+	meta_buf_t b = { 0 };
+	mb_put (&b, "{\"brawlcrate\":{\"node_id\":%d,\"flags\":%u,\"billboard\":%u,\"billboard_ref\":%u",
+		j->node_id, j->flags, j->bb_flags, j->bb_index);
+	mb_put (&b, ",\"visible\":%s,\"has_geometry\":%s,\"seg_scale_comp_apply\":%s", j->flags & 0x100 ? "true" : "false",
+		j->flags & 0x200 ? "true" : "false", j->flags & 0x20 ? "true" : "false");
+	mb_put (&b, ",\"extents\":[%.9g,%.9g,%.9g,%.9g,%.9g,%.9g]", j->extents[0], j->extents[1],
+		j->extents[2], j->extents[3], j->extents[4], j->extents[5]);
+	if (j->user_data.num_entries)
+	{
+		mb_put (&b, ",\"user_data\":");
+		mb_user_data (&b, &j->user_data);
+	}
+	mb_put (&b, "}}");
+	return b.s;
+}
+
+static char *mdl0_material_extras (const mdl0_material_meta_t *m)
+{
+	meta_buf_t b = { 0 };
+	mb_put (&b, "{\"brawlcrate\":{\"usage_flags\":%u,\"xlu\":%s,\"tex_gens\":%u,\"light_channels\":%u",
+		m->usage_flags, m->usage_flags & 0x80000000u ? "true" : "false", m->num_tex_gens,
+		m->num_light_chans);
+	mb_put (&b, ",\"tev_stages\":%u,\"indirect_stages\":%u,\"cull\":%d,\"depth_test_before_texture\":%s",
+		m->num_tev_stages, m->num_ind_tex_stages, m->cull,
+		m->depth_test_before_texture ? "true" : "false");
+	mb_put (&b, ",\"light_set\":%d,\"fog_set\":%d", m->light_set, m->fog_set);
+	if (m->has_mode_block)
+	{
+		mb_put (&b, ",\"alpha_function\":{\"comp0\":%u,\"ref0\":%u,\"logic\":%u,\"comp1\":%u,\"ref1\":%u}",
+			m->alpha_comp0, m->alpha_ref0, m->alpha_logic, m->alpha_comp1, m->alpha_ref1);
+		mb_put (&b, ",\"depth\":{\"test\":%s,\"function\":%u,\"update\":%s}",
+			m->z_enable ? "true" : "false", m->z_func, m->z_update ? "true" : "false");
+		mb_put (&b,
+			",\"blend\":{\"raw\":%u,\"enable\":%s,\"logic_op_enable\":%s,\"dst_factor\":%u,\"src_factor\":%u,\"subtract\":%s,\"logic_op\":%u}",
+			m->blend_raw, m->blend_raw & 1 ? "true" : "false", m->blend_raw & 2 ? "true" : "false",
+			m->blend_raw >> 5 & 7, m->blend_raw >> 8 & 7, m->blend_raw & 0x800 ? "true" : "false",
+			m->blend_raw >> 12 & 15);
+		mb_put (&b, ",\"constant_alpha\":{\"enable\":%s,\"value\":%u}",
+			m->const_alpha_enable ? "true" : "false", m->const_alpha);
+	}
+	if (m->user_data.num_entries)
+	{
+		mb_put (&b, ",\"user_data\":");
+		mb_user_data (&b, &m->user_data);
+	}
+	mb_put (&b, "}}");
+	return b.s;
+}
+
 int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 {
 	if (!model || !out_glb_file)
@@ -1072,6 +1223,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		const material_t *mat = &model->materials[m];
 		cgltf_material *gmat = &data.materials[data.materials_count++];
 		gmat->name = (char *)mat->name;
+		if (model->mdl0_meta && m < model->mdl0_meta->num_materials)
+			gmat->extras.data = mdl0_material_extras (&model->mdl0_meta->materials[m]);
 		gmat->has_pbr_metallic_roughness = 1;
 		gmat->pbr_metallic_roughness.metallic_factor = 0.0f;
 		gmat->pbr_metallic_roughness.roughness_factor
@@ -2027,6 +2180,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	data.scenes[0].nodes
 		= calloc (num_scene_nodes > 0 ? num_scene_nodes : 1, sizeof (cgltf_node *));
 	data.scenes[0].nodes_count = num_scene_nodes;
+	if (model->mdl0_meta)
+		data.scenes[0].extras.data = mdl0_scene_extras (model->mdl0_meta);
 	for (size_t i = 0; i < num_scene_nodes; i++)
 		data.scenes[0].nodes[i] = &data.nodes[scene_nodes_idx[i]];
 
@@ -2035,6 +2190,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 		const joint_t *joint = &model->joints[j];
 		cgltf_node *gnode = &data.nodes[j];
 		gnode->name = (char *)joint->name;
+		if (model->mdl0_meta && j < model->mdl0_meta->num_joints)
+			gnode->extras.data = mdl0_joint_extras (&model->mdl0_meta->joints[j]);
 
 		float local[12];
 		if (!dae_joint_local_matrix (model, j, local))
@@ -2259,8 +2416,15 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 			free ((void *)data.images[i].uri);
 	}
 	for (size_t i = 0; i < data.nodes_count; i++)
+	{
 		if (data.nodes[i].children)
 			free (data.nodes[i].children);
+		free (data.nodes[i].extras.data);
+	}
+	for (size_t i = 0; i < data.materials_count; i++)
+		free (data.materials[i].extras.data);
+	if (data.scenes)
+		free (data.scenes[0].extras.data);
 	if (data.skins && data.skins_count > 0 && data.skins[0].joints)
 		free (data.skins[0].joints);
 

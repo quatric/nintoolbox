@@ -233,6 +233,69 @@ typedef struct
 	size_t size;
 } model_nsb_raw_t;
 
+// BRRES MDL0 metadata BrawlCrate surfaces on a decoded model (header
+// properties, bone flags/extents, material render state and UserData). It is
+// kept apart from joint_t/material_t and indexed the same way as
+// model_t::joints / ::materials; model_t::mdl0_meta is NULL for other formats.
+typedef struct
+{
+	char name[64];
+	uint8_t type; // 0=int, 1=float, 2=string (BrawlCrate UserValueType)
+	size_t count;
+	double *numbers; // int/float values
+	char *text;      // string value
+} user_data_entry_t;
+
+typedef struct
+{
+	user_data_entry_t *entries;
+	size_t num_entries;
+} user_data_t;
+
+typedef struct
+{
+	int32_t node_id;
+	uint32_t flags;    // BrawlCrate BoneFlags
+	uint32_t bb_flags; // BillboardFlags: 0 off .. 6 YPerspective
+	uint32_t bb_index; // billboard reference bone
+	float extents[6];  // min xyz, max xyz
+	user_data_t user_data;
+} mdl0_joint_meta_t;
+
+typedef struct
+{
+	uint32_t usage_flags; // MatUsageFlags (bit 31 = XLU)
+	uint8_t num_tex_gens, num_light_chans, num_tev_stages, num_ind_tex_stages;
+	int32_t cull; // 0 none, 1 outside, 2 inside, 3 all
+	uint8_t depth_test_before_texture;
+	int8_t light_set, fog_set;
+	uint8_t has_mode_block;
+	// GX pixel state from the material's mode block.
+	uint8_t alpha_comp0, alpha_comp1, alpha_logic, alpha_ref0, alpha_ref1;
+	uint8_t z_enable, z_func, z_update;
+	uint16_t blend_raw; // BP blend mode register (enable, logic, factors, ...)
+	uint8_t const_alpha_enable, const_alpha;
+	user_data_t user_data;
+} mdl0_material_meta_t;
+
+typedef struct
+{
+	uint32_t version;
+	int32_t scaling_rule;    // 0 standard, 1 SoftImage, 2 Maya
+	int32_t tex_matrix_mode; // 0 Maya, 1 XSI, 2 3ds Max
+	int32_t num_vertices, num_triangles, num_nodes;
+	uint8_t need_nrm_mtx_array, need_tex_mtx_array, enable_extents;
+	uint8_t env_mtx_mode; // 0 normal, 1 approximate, 2 exact
+	float extents[6];
+	char orig_path[256];
+	int has_props;
+	user_data_t user_data;
+	mdl0_joint_meta_t *joints;
+	size_t num_joints;
+	mdl0_material_meta_t *materials;
+	size_t num_materials;
+} mdl0_meta_t;
+
 typedef struct
 {
 	mesh_t *meshes;
@@ -272,7 +335,11 @@ typedef struct
 	// resources which the generic model representation does not describe.
 	uint8_t *bcres_raw;
 	size_t bcres_raw_size;
+
+	// BRRES MDL0 metadata (see mdl0_meta_t); NULL for other formats.
+	mdl0_meta_t *mdl0_meta;
 } model_t;
+
 
 #ifdef __cplusplus
 extern "C"
@@ -285,6 +352,7 @@ extern "C"
 	model_t *ParseGLB (const uint8_t *data, size_t size);
 	model_t *ParseGLBFile (const char *filename);
 	void FreeModel (model_t *model);
+	void FreeMDL0Meta (mdl0_meta_t *meta);
 
 	// Populate bind/inverse-bind matrices from the joint parent tree and local
 	// TRS fields. Returns false for a cyclic hierarchy or singular transform.

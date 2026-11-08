@@ -1193,6 +1193,220 @@ static int apply_bind_pose_transforms (
 		&& remap_bind_array (mesh, object_node, nodes, num_nodes, 1);
 }
 
+static void free_user_data (user_data_t *ud)
+{
+	for (size_t i = 0; i < ud->num_entries; i++)
+	{
+		free (ud->entries[i].numbers);
+		free (ud->entries[i].text);
+	}
+	free (ud->entries);
+	memset (ud, 0, sizeof (*ud));
+}
+
+void FreeMDL0Meta (mdl0_meta_t *meta)
+{
+	if (!meta)
+		return;
+	free_user_data (&meta->user_data);
+	for (size_t i = 0; i < meta->num_joints; i++)
+		free_user_data (&meta->joints[i].user_data);
+	for (size_t i = 0; i < meta->num_materials; i++)
+		free_user_data (&meta->materials[i].user_data);
+	free (meta->joints);
+	free (meta->materials);
+	free (meta);
+}
+
+// BrawlCrate UserData block: a u32 length, then a resource group whose entries
+// each point at a {len, dataOffset, count, type, string, id} record (offsets
+// relative to the group / the record). Types: 0 int, 1 float, 2 string.
+static void read_user_data (const uint8_t *data, size_t size, const uint8_t *ud, user_data_t *out)
+{
+	if (!in_bounds (data, size, ud, 4 + sizeof (ResourceGroup) + sizeof (ResourceEntry)))
+		return;
+	const ResourceGroup *group = (const ResourceGroup *)(ud + 4);
+	const uint32_t count = swap32 (group->numNodes);
+	if (count > 4096
+		|| !in_bounds (data, size, group + 1, ((size_t)count + 1) * sizeof (ResourceEntry)))
+		return;
+	const ResourceEntry *entries = (const ResourceEntry *)(group + 1);
+	out->entries = calloc (count ? count : 1, sizeof (*out->entries));
+	if (!out->entries)
+		return;
+	for (uint32_t i = 1; i <= count; i++)
+	{
+		const int32_t eoff = (int32_t)swap32 (entries[i].dataOffset);
+		const uint8_t *rec = (const uint8_t *)group + eoff;
+		if (eoff <= 0 || !in_bounds (data, size, rec, 0x18))
+			break;
+		const int32_t doff = (int32_t)swap32 (*(const uint32_t *)(rec + 4));
+		const uint32_t n = swap32 (*(const uint32_t *)(rec + 8));
+		const uint32_t type = swap32 (*(const uint32_t *)(rec + 12));
+		const uint8_t *val = rec + doff;
+		if (doff < 0 || type > 2 || !in_bounds (data, size, val, 1))
+			break;
+		user_data_entry_t *e = &out->entries[out->num_entries];
+		uint32_t nlen;
+		const char *nm = read_pooled_string (data, size,
+			(const uint8_t *)&entries[i].stringOffset, (const uint8_t *)group, &nlen);
+		if (nm)
+			copy_pooled_string (e->name, sizeof (e->name), nm, nlen);
+		e->type = (uint8_t)type;
+		if (type == 2)
+		{
+			size_t len = 0;
+			while (in_bounds (data, size, val + len, 1) && val[len])
+				len++;
+			e->text = malloc (len + 1);
+			if (!e->text)
+				break;
+			memcpy (e->text, val, len);
+			e->text[len] = 0;
+			e->count = 1;
+		}
+		else
+		{
+			if (n > 65536 || !in_bounds (data, size, val, (size_t)n * 4))
+				break;
+			e->numbers = calloc (n ? n : 1, sizeof (double));
+			if (!e->numbers)
+				break;
+			e->count = n;
+			for (uint32_t k = 0; k < n; k++)
+			{
+				const uint32_t raw = swap32 (*(const uint32_t *)(val + k * 4));
+				if (type == 0)
+					e->numbers[k] = (int32_t)raw;
+				else
+				{
+					float f;
+					memcpy (&f, &raw, 4);
+					e->numbers[k] = isfinite (f) ? f : 0.0;
+				}
+			}
+		}
+		out->num_entries++;
+	}
+}
+
+// Header properties (MDL0Props), bone flags/extents, material render state and
+// UserData, as shown by BrawlCrate. Everything is optional: a field that falls
+// outside the buffer is simply left zero.
+static void read_mdl0_meta (const uint8_t *data, size_t size, uint32_t version, model_t *model,
+	const MDL0Bone *const *bones, const uint8_t *const *mats)
+{
+	mdl0_meta_t *meta = calloc (1, sizeof (*meta));
+	if (!meta)
+		return;
+	meta->version = version;
+
+	const size_t props_at = version >= 11 ? 0x4c : version == 10 ? 0x48 : 0x40;
+	if (in_bounds (data, size, data + props_at, 0x40))
+	{
+		const uint8_t *pr = data + props_at;
+		meta->has_props = 1;
+		meta->scaling_rule = (int32_t)swap32 (*(const uint32_t *)(pr + 8));
+		meta->tex_matrix_mode = (int32_t)swap32 (*(const uint32_t *)(pr + 12));
+		meta->num_vertices = (int32_t)swap32 (*(const uint32_t *)(pr + 16));
+		meta->num_triangles = (int32_t)swap32 (*(const uint32_t *)(pr + 20));
+		meta->num_nodes = (int32_t)swap32 (*(const uint32_t *)(pr + 28));
+		meta->need_nrm_mtx_array = pr[32];
+		meta->need_tex_mtx_array = pr[33];
+		meta->enable_extents = pr[34];
+		meta->env_mtx_mode = pr[35];
+		for (int i = 0; i < 6; i++)
+			meta->extents[i] = swapf (*(const float *)(pr + 0x28 + i * 4));
+		const int32_t orig = (int32_t)swap32 (*(const uint32_t *)(pr + 24));
+		if (orig > 0)
+		{
+			const uint8_t *s = pr + orig;
+			size_t len = 0;
+			while (len < sizeof (meta->orig_path) - 1 && in_bounds (data, size, s + len, 1) && s[len])
+				len++;
+			memcpy (meta->orig_path, s, len);
+		}
+	}
+
+	if (version >= 10 && size >= 0x48)
+	{
+		const int32_t ud = (int32_t)swap32 (*(const uint32_t *)(data + (version >= 11 ? 0x44 : 0x40)));
+		if (ud > 0)
+			read_user_data (data, size, data + ud, &meta->user_data);
+	}
+
+	meta->joints = calloc (model->num_joints ? model->num_joints : 1, sizeof (*meta->joints));
+	meta->materials = calloc (model->num_materials ? model->num_materials : 1, sizeof (*meta->materials));
+	if (!meta->joints || !meta->materials)
+	{
+		FreeMDL0Meta (meta);
+		return;
+	}
+	meta->num_joints = model->num_joints;
+	meta->num_materials = model->num_materials;
+
+	for (size_t i = 0; bones && i < model->num_joints; i++)
+	{
+		const MDL0Bone *b = bones[i];
+		if (!b)
+			continue;
+		mdl0_joint_meta_t *j = &meta->joints[i];
+		j->node_id = (int32_t)swap32 ((uint32_t)b->nodeId);
+		j->flags = swap32 (b->flags);
+		j->bb_flags = swap32 (b->bbFlags);
+		j->bb_index = swap32 (b->bbIndex);
+		for (int k = 0; k < 6; k++)
+			j->extents[k] = swapf (b->extents[k]);
+		const int32_t ud = (int32_t)swap32 ((uint32_t)b->userDataOffset);
+		if (ud > 0)
+			read_user_data (data, size, (const uint8_t *)b + ud, &j->user_data);
+	}
+
+	for (size_t i = 0; mats && i < model->num_materials; i++)
+	{
+		const uint8_t *m = mats[i];
+		if (!m || !in_bounds (data, size, m, 0x40))
+			continue;
+		mdl0_material_meta_t *mm = &meta->materials[i];
+		mm->usage_flags = swap32 (*(const uint32_t *)(m + 0x10));
+		mm->num_tex_gens = m[0x14];
+		mm->num_light_chans = m[0x15];
+		mm->num_tev_stages = m[0x16];
+		mm->num_ind_tex_stages = m[0x17];
+		mm->cull = (int32_t)swap32 (*(const uint32_t *)(m + 0x18));
+		mm->depth_test_before_texture = m[0x1c];
+		mm->light_set = (int8_t)m[0x1d];
+		mm->fog_set = (int8_t)m[0x1e];
+
+		const size_t ud_field = version >= 10 ? 0x38 : 0x34;
+		const size_t dl_field = version >= 10 ? 0x3c : 0x38;
+		const int32_t ud = (int32_t)swap32 (*(const uint32_t *)(m + ud_field));
+		if (ud > 0)
+			read_user_data (data, size, m + ud, &mm->user_data);
+
+		// MatModeBlock (0x20 bytes of BP commands): alpha function, z mode,
+		// mask, blend mode, constant alpha.
+		const int32_t dl = (int32_t)swap32 (*(const uint32_t *)(m + dl_field));
+		const uint8_t *b = m + dl;
+		if (dl > 0 && in_bounds (data, size, b, 0x19))
+		{
+			mm->has_mode_block = 1;
+			mm->alpha_comp0 = b[2] & 7;
+			mm->alpha_comp1 = b[2] >> 3 & 7;
+			mm->alpha_logic = b[2] >> 6 & 3;
+			mm->alpha_ref1 = b[3];
+			mm->alpha_ref0 = b[4];
+			mm->z_enable = b[9] & 1;
+			mm->z_func = b[9] >> 1 & 7;
+			mm->z_update = b[9] >> 4 & 1;
+			mm->blend_raw = read_be16 (b + 18);
+			mm->const_alpha_enable = b[23];
+			mm->const_alpha = b[24];
+		}
+	}
+	model->mdl0_meta = meta;
+}
+
 model_t *ParseMDL0 (const uint8_t *data, size_t size)
 {
 	if (!data || size < sizeof (MDL0Header))
@@ -1210,6 +1424,8 @@ model_t *ParseMDL0 (const uint8_t *data, size_t size)
 		return NULL;
 	node_transform_t *node_transforms = NULL;
 	size_t num_node_transforms = 0;
+	MDL0Bone **meta_bones = NULL; // kept for read_mdl0_meta, freed at the end
+	const uint8_t **meta_mats = NULL;
 
 	// Parse Bones
 	{
@@ -1325,7 +1541,7 @@ model_t *ParseMDL0 (const uint8_t *data, size_t size)
 				}
 			}
 		}
-		free (bone_nodes);
+		meta_bones = bone_nodes;
 	}
 skip_bones:
 
@@ -1349,6 +1565,7 @@ skip_bones:
 			goto skip_materials;
 		}
 
+		meta_mats = calloc (numMats ? numMats : 1, sizeof (*meta_mats));
 		ResourceEntry *entries = (ResourceEntry *)(grp + 1);
 		for (int i = 1; i <= numMats; i++)
 		{
@@ -1358,6 +1575,8 @@ skip_bones:
 			if (dOffset < 0 || !in_bounds (data, size, matBase, 16))
 				continue;
 
+			if (meta_mats)
+				meta_mats[i - 1] = matBase;
 			int32_t matLen = (int32_t)swap32 (*(const uint32_t *)matBase);
 			if (matLen < 16 || !in_bounds (data, size, matBase, (size_t)matLen))
 				matLen = 16;
@@ -1704,10 +1923,15 @@ skip_meshes:
 	if (!model->num_meshes && !model->num_joints)
 	{
 		free_node_transforms (node_transforms, num_node_transforms);
+		free (meta_bones);
+		free (meta_mats);
 		FreeModel (model);
 		return NULL;
 	}
 	free_node_transforms (node_transforms, num_node_transforms);
+	read_mdl0_meta (data, size, version, model, (const MDL0Bone *const *)meta_bones, meta_mats);
+	free (meta_bones);
+	free (meta_mats);
 	return model;
 }
 
@@ -1771,6 +1995,7 @@ void FreeModel (model_t *model)
 		free (model->nsb_raw[i].data);
 	free (model->nsb_raw);
 	free (model->bcres_raw);
+	FreeMDL0Meta (model->mdl0_meta);
 	free (model);
 }
 
