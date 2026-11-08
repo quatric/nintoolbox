@@ -10908,6 +10908,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "PAK\\0 hash package" "mk_zlspak.py failed"
   fi
 
+  # Pet Vet style .dat package (0x80 byte entries, zlib)
+  mkdir -p "$d/tapsdat_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tapsdat.py" "$d/tapsdat_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/tapsdat_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/tapsdat_test/t.dat.d/data/wii/a/one.txt")" = "compressed member text" ] \
+    && [ "$(cat "$d/tapsdat_test/t.dat.d/data/wii/two.txt")" = "stored member" ] \
+    && fok "Pet Vet .dat package (zlib)" \
+    || fno "Pet Vet .dat package" "failed on synthetic t.dat"
+  else
+    fno "Pet Vet .dat package" "mk_tapsdat.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
