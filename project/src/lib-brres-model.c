@@ -1920,11 +1920,12 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 		}
 		case 1:
 		{ // I6: numFrames(u16)+unk(u16)+frameScale(f32,unused)+step(f32)+base(f32), then 6-byte
-		  // entries -- CHR0 version < 4 uses an 8-byte header (count+unk+frameScale only,
-		  // fixed step=1/256 and base=0) instead of BrawlLib's 16-byte I6Header
+		  // entries. CHR0 revision 3 (FVS48, early NW4R) has an 8-byte header and different
+		  // fixed-point entries: frame s16/32, angle u16*360/65536 (unwrapped to within 180
+		  // degrees of the previous key), slope s16/256.
 			const int fCount = be16p (p);
 			const int hdr = short_i6_header ? 8 : 16;
-			const float step = short_i6_header ? 1.0f / 256.0f : bef32p (p + 8);
+			const float step = short_i6_header ? 360.0f / 65536.0f : bef32p (p + 8);
 			const float base = short_i6_header ? 0.0f : bef32p (p + 12);
 			const uint8_t *d = p + hdr;
 			if (fCount <= 0 || !in_bounds (fbase, fsize, d, (size_t)fCount * 6))
@@ -1936,8 +1937,18 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 			{
 				const uint16_t data = be16p (d + i * 6), rawstep = be16p (d + i * 6 + 2);
 				const int16_t exp = (int16_t)be16p (d + i * 6 + 4);
-				keys[i].frame = data >> 5;
-				keys[i].value = base + rawstep * step;
+				if (short_i6_header)
+				{
+					keys[i].frame = (int16_t)data >> 5;
+					keys[i].value = rawstep * step;
+					if (i > 0)
+						keys[i].value -= 360.0f * roundf ((keys[i].value - keys[i - 1].value) / 360.0f);
+				}
+				else
+				{
+					keys[i].frame = data >> 5;
+					keys[i].value = base + rawstep * step;
+				}
 				keys[i].tangent = exp / 256.0f;
 			}
 			bake_hermite (dense, numFrames, keys, fCount, loop);
@@ -1947,9 +1958,12 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 		case 0:
 		{ // I4: entries(u16)+unk(u16)+frameScale(f32,unused)+step(f32)+base(f32), then packed
 		  // 4-byte entries
+			// CHR0 revision 3 (FVS32): 8-byte header, angle u12*360/4096 unwrapped to
+			// within 180 degrees of the previous key.
 			const int fCount = be16p (p);
-			const float step = bef32p (p + 8), base = bef32p (p + 12);
-			const uint8_t *d = p + 16;
+			const float step = short_i6_header ? 360.0f / 4096.0f : bef32p (p + 8);
+			const float base = short_i6_header ? 0.0f : bef32p (p + 12);
+			const uint8_t *d = p + (short_i6_header ? 8 : 16);
 			if (fCount <= 0 || !in_bounds (fbase, fsize, d, (size_t)fCount * 4))
 				return 0;
 			br_key_t *keys = malloc (sizeof (br_key_t) * (size_t)fCount);
@@ -1963,6 +1977,8 @@ static int decode_anim_format (float *dense, int numFrames, const uint8_t *fbase
 				keys[i].frame = (int)((raw >> 24) & 0xFF);
 				keys[i].value = base + step12 * step;
 				keys[i].tangent = tan12 / 32.0f;
+				if (short_i6_header && i > 0)
+					keys[i].value -= 360.0f * roundf ((keys[i].value - keys[i - 1].value) / 360.0f);
 			}
 			bake_hermite (dense, numFrames, keys, fCount, loop);
 			free (keys);
@@ -2036,9 +2052,14 @@ static void decode_chr0_entry (chr0_track_t *track, const uint8_t *fbase, size_t
 	const uint32_t scaleRaw = (code >> (rotShift - 2)) & 3;
 	const uint32_t rotRaw = (code >> rotShift) & 7;
 	const uint32_t transRaw = (code >> (rotShift + 3)) & 3;
-	const int scaleFmt = scaleRaw ? (int)scaleRaw - 1 : 2; // fallback: I12
+	const int scaleFmt = (scaleRaw && version >= 4) ? (int)scaleRaw - 1 : 2; // fallback: I12
+	// Revision 3 only has a rotation format (bits 25-27: 0 constant, 1 FVS32, 2 FVS48,
+	// 3 FVS96, 4 baked rotation matrix); scale and translation are always FVS96 (I12), and
+	// the bits BrawlLib reads as their formats are really the has-rotation/translation flags.
+	// A baked matrix (4+) has an unknown size, so the entry can't be decoded past it.
+	const int bakedRot = version < 4 && rotRaw > 3;
+	const int transFmt = (transRaw && version >= 4) ? (int)transRaw - 1 : 2; // fallback: I12
 	const int rotFmt = rotRaw ? (int)rotRaw - 1 : -1; // no fallback: fails safely
-	const int transFmt = transRaw ? (int)transRaw - 1 : 2; // fallback: I12
 	const int short_i6_header = version < 4;
 
 	if (hasScale)
@@ -2113,6 +2134,8 @@ static void decode_chr0_entry (chr0_track_t *track, const uint8_t *fbase, size_t
 
 	if (hasRot)
 	{
+		if (bakedRot)
+			return; // keep the scale decoded above
 		if (rotIso)
 		{
 			if (!in_bounds (fbase, fsize, sp, 4))
