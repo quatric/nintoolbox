@@ -9491,6 +9491,20 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # Unity 2.x Wii SerializedFile (.assets): Texture2D -> PNG, stereo AudioClip -> .dsp, TextAsset -> .bytes
+  mkdir -p "$d/unityassets_test"
+  if python3 "$PWD_PROJECT/../tests/mk_unityassets.py" "$d/unityassets_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/unityassets_test/sharedassets9.assets" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/unityassets_test/sharedassets9.assets.d/00001_tx.png" ] \
+    && [ "$(wc -c < "$d/unityassets_test/sharedassets9.assets.d/00002_sn_ch1.dsp" | tr -d ' ')" = "104" ] \
+    && [ "$(xxd -s 0x60 -l 8 -p "$d/unityassets_test/sharedassets9.assets.d/00002_sn_ch1.dsp")" = "0202020202020202" ] \
+    && [ "$(cat "$d/unityassets_test/sharedassets9.assets.d/00003_tt.bytes")" = "hello" ] \
+    && fok "Unity .assets (v6 BE) extracts LZ11 GX textures, stereo DSP clips and TextAssets" \
+    || fno "Unity .assets" "failed to extract synthetic sharedassets9.assets"
+  else
+    fno "Unity .assets" "mk_unityassets.py failed"
+  fi
+
   # Ubisoft BIGFILE.TOC/.DAT with DKAP (LZO1X) members and _NGCBM01 bitmaps
   mkdir -p "$d/dkapbig_test"
   if python3 "$PWD_PROJECT/../tests/mk_dkapbig.py" "$d/dkapbig_test" >/dev/null 2>&1; then
