@@ -13,6 +13,8 @@ static enumError extract_lz11dat_file (ccp arg, ccp basedir, uint depth)
 	if (!dot || strlen (arg) < 5)
 		return ERR_NOTHING_TO_DO;
 	strcpy (dot, ".tbl");
+	if (access (tbl_path, R_OK))
+		return ERR_NOTHING_TO_DO;
 	u8 *tbl = 0, *dat = 0, *tbl_raw = 0;
 	size_t tsz = 0, dsz = 0;
 	uint tbl_n = 0;

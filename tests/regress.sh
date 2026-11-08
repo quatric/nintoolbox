@@ -10896,6 +10896,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "resource.dat/.tbl" "mk_lz11dat.py failed"
   fi
 
+  # Hash indexed PAK\0 package with !ZLS members (Kid Adventures)
+  mkdir -p "$d/zlspak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_zlspak.py" "$d/zlspak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/zlspak_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/zlspak_test/t.dat.d/00000011.bin")" = "zls member payload" ] \
+    && [ "$(cat "$d/zlspak_test/t.dat.d/00000022.bin")" = "stored member" ] \
+    && fok "PAK\\0 hash package (!ZLS)" \
+    || fno "PAK\\0 hash package" "failed on synthetic t.dat"
+  else
+    fno "PAK\\0 hash package" "mk_zlspak.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
