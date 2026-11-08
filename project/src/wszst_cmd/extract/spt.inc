@@ -50,6 +50,16 @@ static enumError extract_spt_file (ccp arg, ccp basedir, uint depth)
 		FREE (b);
 		return ERR_OUT_OF_MEMORY;
 	}
+	// optional "X.snd": count NUL padded 0x40-byte names (Ubisoft Imagine banks: Beastly, Babyz)
+	u8 *snd = 0;
+	size_t snd_sz = 0;
+	char sndpath[PATH_MAX];
+	snprintf (sndpath, sizeof (sndpath), "%s", other);
+	char *sd = strrchr (sndpath, '.');
+	if (sd)
+		memcpy (sd, ".snd", 5);
+	if (LoadFileAlloc (sndpath, 0, 0, &snd, &snd_sz, 0, 0, 0, false) || !snd || snd_sz != (size_t)count * 0x40)
+		FREE (snd), snd = 0;
 	uint n = 0;
 	for (uint i = 0; i < count; i++)
 	{
@@ -73,12 +83,24 @@ static enumError extract_spt_file (ccp arg, ccp basedir, uint depth)
 		memcpy (tmp + 0x1c, co, 46);
 		memset (tmp + 0x60, 0, b1 - b0);
 		memcpy (tmp + 0x60, spd + b0, have);
-		char name[32];
+		char name[96];
 		snprintf (name, sizeof (name), "%03u.dsp", i);
+		if (snd && snd[i * 0x40])
+		{
+			char base[48];
+			size_t k = 0;
+			for (; k < sizeof (base) - 1 && snd[i * 0x40 + k]; k++)
+				base[k] = (isalnum (snd[i * 0x40 + k]) || snd[i * 0x40 + k] == '_' || snd[i * 0x40 + k] == '-') ? snd[i * 0x40 + k] : '_';
+			base[k] = 0;
+			char nm2[96];
+			snprintf (nm2, sizeof (nm2), "%03u_%s.dsp", i, base);
+			snprintf (name, sizeof (name), "%s", nm2);
+		}
 		if (!OwnedEntryAdd (entries, n, name, tmp, 0x60 + (uint)(b1 - b0)))
 			break;
 		n++;
 	}
+	FREE (snd);
 	FREE (tmp);
 	FREE (a);
 	FREE (b);
