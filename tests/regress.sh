@@ -9491,6 +9491,18 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # EA SCHl streams with EALayer3 (codec 0x17): granule pairs rebuilt into standard MPEG-1 Layer III frames
+  mkdir -p "$d/ealayer3_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ealayer3.py" "$d/ealayer3_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ealayer3_test/t.ast" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/ealayer3_test/t.ast.mp3" | tr -d ' ')" = "1044" ] \
+    && [ "$(xxd -l 3 -p "$d/ealayer3_test/t.ast.mp3")" = "fffbe0" ] \
+    && fok "EA SCHl EALayer3 (.ast) rebuilds MPEG-1 Layer III frames from EA granules" \
+    || fno "EA EALayer3" "failed to extract synthetic t.ast"
+  else
+    fno "EA EALayer3" "mk_ealayer3.py failed"
+  fi
+
   # Unity 2.x Wii SerializedFile (.assets): Texture2D -> PNG, stereo AudioClip -> .dsp, TextAsset -> .bytes
   mkdir -p "$d/unityassets_test"
   if python3 "$PWD_PROJECT/../tests/mk_unityassets.py" "$d/unityassets_test" >/dev/null 2>&1; then
