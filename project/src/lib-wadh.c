@@ -109,7 +109,7 @@ enumError ScanWADH (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 		return ERR_CANT_CREATE;
 	}
 
-	uint n = 0;
+	uint n = 0, skipped = 0;
 	for (uint i = 1; i < count; i++)
 	{
 		const u8 *e = dir + 32 * (size_t)i;
@@ -122,9 +122,15 @@ enumError ScanWADH (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *
 			continue;
 		if ((u64)base + off + fsize > size)
 		{
-			ResetOwnedEntries (out, n);
-			FREE (parent);
-			return EINVAL;
+			// Some titles (Anubis II) list a few dozen members whose data lies beyond the end of the
+			// archive; skip those, but keep refusing files where most members are out of range.
+			if (++skipped > count / 4)
+			{
+				ResetOwnedEntries (out, n);
+				FREE (parent);
+				return EINVAL;
+			}
+			continue;
 		}
 		char name[WADH_MAX_NAME];
 		if (!wadh_path (name, sizeof (name), parent, dir, names, names_size, i)
