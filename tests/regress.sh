@@ -10884,6 +10884,18 @@ open(d+'/t.sdl','wb').write(s)
   && fok "Slam .std -> PGF images" \
   || fno "Slam .std" "failed on synthetic t.std"
 
+  # resource.dat + LZ11 resource.tbl (Deer Drive) -> slots
+  mkdir -p "$d/lz11dat_test"
+  if python3 "$PWD_PROJECT/../tests/mk_lz11dat.py" "$d/lz11dat_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/lz11dat_test/resource.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/lz11dat_test/resource.dat.d/0000.bin")" = "storedblock!!!" ] \
+    && [ "$(cat "$d/lz11dat_test/resource.dat.d/0002.bin")" = "hello lz11 world" ] \
+    && fok "resource.dat/.tbl (LZ11 slots)" \
+    || fno "resource.dat/.tbl" "failed on synthetic fixture"
+  else
+    fno "resource.dat/.tbl" "mk_lz11dat.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
