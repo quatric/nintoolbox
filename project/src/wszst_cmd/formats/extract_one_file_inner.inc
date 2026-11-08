@@ -24,7 +24,11 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// the extension-gated Muramasa probes first refusal, before any of the
 	// generic sniffers below get a chance to misfire on them.
 	// Retro PAK v2 has a strict header; claim it before the loose ".pak" sniffers.
-	enumError err = extract_retropak_file (arg, basedir, depth);
+	// Natsume "add" PAC (strict magic): claim it before the loose ".pac" sniffers below.
+	enumError err = extract_addpac_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_retropak_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_gts_file (arg, basedir, depth);

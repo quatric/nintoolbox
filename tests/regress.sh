@@ -10936,6 +10936,19 @@ open(d+'/t.sdl','wb').write(s)
     fno "PK03 hash package" "mk_pk03.py failed"
   fi
 
+  # Natsume "add" PAC with LZS members (Gintama, 8- and 16-bit units)
+  mkdir -p "$d/addpac_test"
+  if python3 "$PWD_PROJECT/../tests/mk_addpac.py" "$d/addpac_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/addpac_test/t.pac" --overwrite >/dev/null 2>&1 \
+    && cmp -s "$d/addpac_test/t.pac.d/a.brtex" "$d/addpac_test/plain.bin" \
+    && [ "$(head -c 14 "$d/addpac_test/t.pac.d/s.bin")" = "stored-bytes!!" ] \
+    && [ "$(wc -c < "$d/addpac_test/t.pac.d/b.anm" | tr -d ' ')" = "30" ] \
+    && fok "Natsume add PAC unpacks members and decodes LZS" \
+    || fno "Natsume add PAC" "failed to extract synthetic t.pac"
+  else
+    fno "Natsume add PAC" "mk_addpac.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
