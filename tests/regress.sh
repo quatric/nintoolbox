@@ -10822,6 +10822,23 @@ open(d+'/t.sdl','wb').write(s)
     fno "Exient .twi" "mk_twi.py failed"
   fi
 
+  # Super Fruit Fall .tdw textures -> PNG, .mee string tables -> TSV
+  mkdir -p "$d/tdw_test"
+  if python3 "$PWD_PROJECT/../tests/mk_tdw.py" "$d/tdw_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/tdw_test/t.tdw" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0 -l 4 -p "$d/tdw_test/t.tdw.a.png")" = "89504e47" ] \
+    && [ "$(xxd -s 0 -l 4 -p "$d/tdw_test/t.tdw.b.png")" = "89504e47" ] \
+    && fok "Super Fruit Fall .tdw -> PNG" \
+    || fno "Super Fruit Fall .tdw" "failed on synthetic t.tdw"
+    "$B/wszst" xx "$d/tdw_test/l.mee" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 16 "$d/tdw_test/l.mee.d/strings.tsv")" = "TID_A	Hello\\nWor" ] \
+    && grep -q "TID_B	Zur" "$d/tdw_test/l.mee.d/strings.tsv" \
+    && fok "Super Fruit Fall .mee -> strings.tsv" \
+    || fno "Super Fruit Fall .mee" "failed on synthetic l.mee"
+  else
+    fno "Super Fruit Fall .tdw" "mk_tdw.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then

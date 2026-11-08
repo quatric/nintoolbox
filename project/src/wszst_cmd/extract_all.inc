@@ -252,6 +252,8 @@
 #include "extract/stme.inc"
 #include "extract/exibnk.inc"
 #include "extract/twi.inc"
+#include "extract/tdw.inc"
+#include "extract/mee.inc"
 #include "extract/ubisb.inc"
 #include "extract/abc.inc"
 #include "extract/musx.inc"
