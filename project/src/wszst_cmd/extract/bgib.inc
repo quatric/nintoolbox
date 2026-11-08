@@ -73,7 +73,7 @@ static enumError extract_bgib_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	if (sz < 0x200 || rd_be32 (raw + 4) != 0x1f0)
+	if (sz < 0x200 || (rd_be32 (raw + 4) != 0x1f0 && rd_be32 (raw + 4) != 0x1ec))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -99,9 +99,12 @@ static enumError extract_bgib_file (ccp arg, ccp basedir, uint depth)
 	if (good)
 		n++;
 
-	size_t p = 0;
+	// Nickelodeon Dora/Diego builds: three stray bytes first and the "RIFF" tag of every record is overwritten
+	size_t p = (dec_sz > 16 && memcmp (dec + 8, "WAVS", 4) && !memcmp (dec + 11, "WAVS", 4)) ? 3 : 0;
+	const size_t p0 = p;
 	uint idx = 0;
-	while (good && blob && p + 12 <= dec_sz && !memcmp (dec + p, "RIFF", 4))
+	while (good && blob && p + 12 <= dec_sz && (!memcmp (dec + p, "RIFF", 4) || !memcmp (dec + p + 8, "WAVS", 4) || !memcmp (dec + p + 8, "WAVE", 4)
+		|| (dec[p] == 0xac && dec[p + 1] == 0xac && dec[p + 2] == 0xac)))
 	{
 		const size_t rsz = rd_le32 (dec + p + 4);
 		if (p + 8 + rsz > dec_sz || rsz < 4)
@@ -180,7 +183,7 @@ static enumError extract_bgib_file (ccp arg, ccp basedir, uint depth)
 			}
 			idx++;
 		}
-		p = (rend + 31) & ~(size_t)31;
+		p = p0 + ((rend - p0 + 31) & ~(size_t)31);
 	}
 
 	enumError err = ERR_NOTHING_TO_DO;

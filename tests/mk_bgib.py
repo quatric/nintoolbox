@@ -44,3 +44,11 @@ struct.pack_into('>I', hdr, 0x80, len(blob))
 struct.pack_into('>I', hdr, 0x84, len(plain))
 struct.pack_into('>I', hdr, 0x8c, len(comp))
 open(os.path.join(out, 't.gcs'), 'wb').write(bytes(hdr) + comp + blob)
+# Nickelodeon Dora/Diego variant: header size 0x1ec, three stray bytes first, record tags overwritten with 0xac
+plain2 = b'\xac' * 3 + b'\xac' * 4 + rec[4:] + b'abcdabcdabcdabcd'
+comp2 = lz(plain2)
+hdr2 = bytearray(hdr)
+struct.pack_into('>I', hdr2, 4, 0x1ec)
+struct.pack_into('>I', hdr2, 0x84, len(plain2))
+struct.pack_into('>I', hdr2, 0x8c, len(comp2))
+open(os.path.join(out, 't2.gcs'), 'wb').write(bytes(hdr2) + comp2 + blob)

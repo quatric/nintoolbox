@@ -9483,6 +9483,10 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(xxd -s 0 -l 4 -p "$d/bgib_test/t.gcs.d/0000_test.dsp")" = "0000000e" ] \
     && fok "BGIB packs unpack LZ stream and split WAVS records to DSP" \
     || fno "BGIB pack" "failed to extract synthetic t.gcs"
+    "$B/wszst" x "$d/bgib_test/t2.gcs" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/bgib_test/t2.gcs.d/0000_test.dsp" | tr -d ' ')" = "104" ] \
+    && fok "BGIB Nickelodeon variant (0x1ec header, stray bytes, mangled RIFF tags)" \
+    || fno "BGIB variant" "failed to extract synthetic t2.gcs"
   else
     fno "BGIB pack" "mk_bgib.py failed"
   fi
