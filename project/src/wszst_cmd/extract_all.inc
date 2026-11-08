@@ -256,6 +256,8 @@
 #include "extract/mee.inc"
 #include "extract/dls.inc"
 #include "extract/dpk.inc"
+#include "extract/slamad.inc"
+#include "extract/slamtd.inc"
 #include "extract/ubisb.inc"
 #include "extract/abc.inc"
 #include "extract/musx.inc"

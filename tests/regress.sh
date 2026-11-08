@@ -10865,6 +10865,25 @@ open(d+'/t.sdl','wb').write(s)
     fno "Simple Wii .dpk" "mk_dpk.py failed"
   fi
 
+  # Slam Games .atd audio bank -> DSP
+  mkdir -p "$d/slamad_test"
+  if python3 "$PWD_PROJECT/../tests/mk_slamad.py" "$d/slamad_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/slamad_test/t.atd" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/slamad_test/t.atd.d/snd.dsp" | tr -d ' ')" -eq 104 ] \
+    && [ "$(xxd -s 0 -l 4 -p "$d/slamad_test/t.atd.d/snd.dsp")" = "0000000e" ] \
+    && [ "$(xxd -s 0x1c -l 4 -p "$d/slamad_test/t.atd.d/snd.dsp")" = "00010002" ] \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/slamad_test/t.atd.d/snd.dsp")" = "1012" ] \
+    && fok "Slam .atd -> DSP" \
+    || fno "Slam .atd" "failed on synthetic t.atd"
+  else
+    fno "Slam .atd" "mk_slamad.py failed"
+  fi
+  "$B/wszst" x "$d/slamad_test/t.std" --overwrite >/dev/null 2>&1 \
+  && [ "$(wc -c < "$d/slamad_test/t.std.d/img.pgf" | tr -d ' ')" -eq 16 ] \
+  && [ "$(xxd -s 0 -l 3 -p "$d/slamad_test/t.std.d/img.pgf")" = "504746" ] \
+  && fok "Slam .std -> PGF images" \
+  || fno "Slam .std" "failed on synthetic t.std"
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
