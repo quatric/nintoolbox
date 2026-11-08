@@ -10853,6 +10853,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "DLS bank" "mk_dls.py failed"
   fi
 
+  # Simple Wii Series .dpk (Wpbb bundles, Wp16 LZ) -> files
+  mkdir -p "$d/dpk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_dpk.py" "$d/dpk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/dpk_test/t.dpk" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/dpk_test/t.dpk.d/root/b/a.bin")" = "hello!!!" ] \
+    && [ "$(cat "$d/dpk_test/t.dpk.d/root/b/b.bin")" = "ABCDABCD" ] \
+    && fok "Simple Wii .dpk -> files (stored + Wp16)" \
+    || fno "Simple Wii .dpk" "failed on synthetic t.dpk"
+  else
+    fno "Simple Wii .dpk" "mk_dpk.py failed"
+  fi
+
   # Ubisoft .sb7 sound bank (Red Steel) -> DSP
   mkdir -p "$d/ubisb_test"
   if python3 "$PWD_PROJECT/../tests/mk_ubisb.py" "$d/ubisb_test" >/dev/null 2>&1; then
