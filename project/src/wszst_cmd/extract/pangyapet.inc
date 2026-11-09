@@ -5,7 +5,51 @@
 // (3 << 16 normal, 5 << 16 texcoord)}, "prm" primitives, found by tracing the game's MESH loader in Ghidra). A 0x20 byte primitive is {.., u16 index count
 // (+6), u16 vertex count (+8), u16 vertex stride (+0xa), u16 0x98 (GX triangle strip, +0xc), u16 triangle count (+0xe), u16 index buffer (+0x10, 0xffff =
 // none), u16 vertex buffer (+0x12)}. Positions come from the usage-0 element, normals from usage 3, texcoords from the first usage-5 element.
-// Written as "model.obj" (one object per primitive; node transforms and skinning are not applied, textures are not linked).
+// Written as "model.obj" (one object per primitive; node transforms and skinning are not applied, textures are not linked) plus, for rigged
+// models, "skeleton.txt" (bone names from the BONE chunk, parents from "mdl", local matrices from "trns").
+// skeleton of a rigged model: "BONE" name table {u16 count (+0xc), entries {u32 name offset, u16 index, u16 length} from +0x10}; "mdl" 32 byte nodes
+// (parent index in word 2, 0xffff = none) and "trns" 4x4 local float matrices (translation in the last row), one per bone -> "skeleton.txt"
+static enumError pet_write_skeleton (ccp arg, ccp basedir, const u8 *raw, size_t sz, size_t B, const u32 *mdl, const u32 *trns, bool *wrote)
+{
+	*wrote = false;
+	if (sz < 0x20 || memcmp (raw, "BONE", 4) || mdl[1] != 32 || trns[1] != 64)
+		return ERR_OK;
+	const uint nb = rd_be16 (raw + 0xc);
+	if (nb < 2 || nb != mdl[0] || nb != trns[0] || 0x10 + 8 * (size_t)nb > sz || B + mdl[2] + 32 * (size_t)nb > sz || B + trns[2] + 64 * (size_t)nb > sz)
+		return ERR_OK;
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (testmode)
+		return ERR_OK;
+	char *sk = MALLOC (nb * 400 + 64);
+	if (!sk)
+		return ERR_OUT_OF_MEMORY;
+	size_t su = (size_t)sprintf (sk, "# index parent name | 4x4 local matrix (row major, translation in row 4)\n");
+	for (uint i = 0; i < nb; i++)
+	{
+		const u8 *e = raw + 0x10 + 8 * (size_t)i;
+		const u32 no = rd_be32 (e), nl = rd_be16 (e + 6);
+		const u32 par = rd_be32 (raw + B + mdl[2] + 32 * (size_t)i + 8);
+		su += (size_t)sprintf (sk + su, "%u %d ", i, par >= nb ? -1 : (int)par);
+		if ((size_t)no + nl <= sz)
+			for (uint c = 0; c < nl && raw[no + c]; c++)
+				sk[su++] = (char)raw[no + c];
+		sk[su++] = ' ', sk[su++] = '|';
+		for (uint c = 0; c < 16; c++)
+		{
+			const u32 w = rd_be32 (raw + B + trns[2] + 64 * (size_t)i + 4 * c);
+			float f;
+			memcpy (&f, &w, 4);
+			su += (size_t)sprintf (sk + su, " %g", (double)f);
+		}
+		sk[su++] = '\n';
+	}
+	const enumError err = shade_write (arg, dest, basedir, "skeleton.txt", (u8 *)sk, (uint)su);
+	FREE (sk);
+	*wrote = !err;
+	return err;
+}
+
 static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -18,6 +62,7 @@ static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 	enumError err = ERR_NOTHING_TO_DO;
 	char *obj = 0;
 	size_t B = 0;
+	bool skel = false;
 	for (size_t p = 0; p + 8 <= sz;)
 	{
 		const u32 cs = rd_be32 (raw + p + 4);
@@ -36,19 +81,29 @@ static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 		const uint nch = rd_be32 (raw + B + 0x14);
 		if (nch < 2 || nch > 64 || B + 0x20 + 16 * (size_t)nch > sz)
 			goto done;
-		u32 ch[8][3];
-		static const char *const want[8] = { "vbd", "vbh", "ibd", "ibh", "ved", "prm", "msh", "mdl" };
-		bool has[8] = { 0 };
+		u32 ch[9][3];
+		static const char *const want[9] = { "vbd", "vbh", "ibd", "ibh", "ved", "prm", "msh", "mdl", "trns" };
+		bool has[9] = { 0 };
 		for (uint i = 0; i < nch; i++)
 		{
 			const u8 *h = raw + B + 0x20 + 16 * (size_t)i;
 			char t[5] = { (char)h[3], (char)h[2], (char)h[1], (char)h[0], 0 };
-			for (uint w = 0; w < 8; w++)
+			for (uint w = 0; w < 9; w++)
 				if (!strcmp (t, want[w]))
 				{
 					ch[w][0] = rd_be32 (h + 4), ch[w][1] = rd_be32 (h + 8), ch[w][2] = rd_be32 (h + 12);
 					has[w] = true;
 				}
+		}
+		if (has[7] && has[8])
+		{
+			err = pet_write_skeleton (arg, basedir, raw, sz, B, ch[7], ch[8], &skel);
+			if (err)
+				goto done;
+			if (skel)
+				err = ERR_OK;
+			else
+				err = ERR_NOTHING_TO_DO;
 		}
 		if (!has[0] || !has[1] || !has[4] || !has[5] || ch[1][1] != 12 || ch[5][1] != 0x20 || ch[4][1] != 12)
 			goto done;
@@ -195,7 +250,7 @@ static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 	}
 	goto done;
 bad:
-	err = ERR_NOTHING_TO_DO;
+	err = skel ? ERR_OK : ERR_NOTHING_TO_DO;
 done:
 	FREE (obj);
 	FREE (raw);

@@ -8,7 +8,9 @@ vbd = b''.join(struct.pack('>8f', *v) for v in verts)            # stride 32: po
 ved = struct.pack('>3I', 0, 2, 0) + struct.pack('>3I', 12, 2, 0x30000) + struct.pack('>3I', 24, 1, 0x50000) + struct.pack('>3I', 0xff0000, 0xffffffff, 0)
 vbh = struct.pack('>3I', 0x120401, len(vbd), 0)
 prm = bytearray(0x20); struct.pack_into('>HHHHHHHH', prm, 4, 0, 0, 4, 32, 0x98, 2, 0xffff, 0)
-chunks = [(b'vbd', len(vbd), 1, vbd), (b'vbh', 1, 12, vbh), (b'ved', 4, 12, ved), (b'prm', 1, 0x20, bytes(prm))]
+mdl = b''.join(struct.pack('>8I', 0, 0, par, 0, 0xffffffff, 0xffff0000, 0x400, 0) for par in (0xffff, 0))
+trns = struct.pack('>16f', 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) + struct.pack('>16f', 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, 0, 0, 1)
+chunks = [(b'mdl', 2, 32, mdl), (b'trns', 2, 64, trns), (b'vbd', len(vbd), 1, vbd), (b'vbh', 1, 12, vbh), (b'ved', 4, 12, ved), (b'prm', 1, 0x20, bytes(prm))]
 n = len(chunks)
 off = 0x20 + 16 * n
 body = b''; hdrs = b''
@@ -18,4 +20,12 @@ for tag, cnt, es, data in chunks:
 g = struct.pack('>I', 0x20) + b'ffrg\0rmg' + struct.pack('>III', 0, 5, n) + bytes(8) + hdrs + body
 mesh = b'MESH' + struct.pack('>IIIII', 0x1c + len(g), 0x10, 0x10000, 0, 0x1c)[:0x1c - 4] 
 mesh = (b'MESH' + struct.pack('>I', 0x1c + len(g))).ljust(0x1c, b'\0') + g
-open(os.path.join(d, 't.pet'), 'wb').write(mesh)
+names = [b'root\0', b'child\0']
+bone = b'BONE' + bytes(4) + struct.pack('>IHH', 0x10, 2, 0)
+no = 0x10 + 16
+ent = b''
+for i, nm in enumerate(names):
+    ent += struct.pack('>IHH', no, i, len(nm)); no += len(nm)
+bone += ent + b''.join(names)
+bone = bone[:4] + struct.pack('>I', len(bone)) + bone[8:]
+open(os.path.join(d, 't.pet'), 'wb').write(bone + mesh)
