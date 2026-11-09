@@ -9556,6 +9556,14 @@ with open(sys.argv[1], "wb") as f:
     fno "GGXArchiver" "mk_ggxarchiver.py failed"
   fi
 
+  # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
+  if [ -s "$d/ggx_test/toon.pvr" ]; then
+    "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/ggx_test/toon.png" ] \
+    && fok "Sega-style PVR kind 0x48 paletted texture decodes" \
+    || fno "Sega PVR 0x48" "failed to decode synthetic toon.pvr"
+  fi
+
   # Kylotonn "FVRT" data archive (My Body Coach) -> named members
   mkdir -p "$d/fvrt_test"
   if python3 "$PWD_PROJECT/../tests/mk_kylotonn.py" "$d/fvrt_test" >/dev/null 2>&1; then

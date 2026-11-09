@@ -25,3 +25,7 @@ for i, ((nm, m), c) in enumerate(zip(members, comp)):
     recs += struct.pack("<6I", i, 1, len(m), len(c), 1, off)
     off += len(c)
 open(os.path.join(d, "t.bin"), "wb").write(hdr + names + recs + b"".join(comp))
+# loose toon-style paletted texture (kind 0x48): 16 entry ARGB1555 palette, 4 bit indices in 8x8 tiles
+pal = b"".join(struct.pack(">H", v) for v in [0] + [0xfbde] * 14 + [0x8842])
+idx = bytes([0xff]) * 32
+open(os.path.join(d, "toon.pvr"), "wb").write(b"XIBG" + struct.pack(">I", 8) + bytes(8) + b"TRVP" + struct.pack(">IIHH", 0x28 + 32, 0x4800, 8, 8) + pal + idx)
