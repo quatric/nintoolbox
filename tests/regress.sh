@@ -9556,6 +9556,18 @@ with open(sys.argv[1], "wb") as f:
     fno "GGXArchiver" "mk_ggxarchiver.py failed"
   fi
 
+  # Ninja motion (.njm, MDMN) -> motion.json
+  mkdir -p "$d/njm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_njm.py" "$d/njm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/njm_test/t.njm" --overwrite >/dev/null 2>&1 \
+    && grep -q '"pos": \[\[0,1,2,3\]\]' "$d/njm_test/t.njm.d/motion.json" \
+    && grep -q '"rot": \[\[0,90.000,0.000,0.000\],\[1,45.000' "$d/njm_test/t.njm.d/motion.json" \
+    && fok "Ninja motion (.njm) extracts keyframes to motion.json" \
+    || fno "Ninja motion" "failed to extract synthetic t.njm"
+  else
+    fno "Ninja motion" "mk_njm.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
