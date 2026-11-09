@@ -324,6 +324,7 @@
 #include "extract/asobo_sound.inc"
 #include "extract/waud.inc"
 #include "extract/aax.inc"
+#include "extract/kp0.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
 #include "extract/dcx.inc"

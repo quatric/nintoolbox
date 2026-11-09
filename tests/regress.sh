@@ -11371,6 +11371,20 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # KP0 package (.pkt): raw / LZ10 / RLE members and a path reference
+  mkdir -p "$d/kp0_test"
+  if python3 "$PWD_PROJECT/../tests/mk_kp0.py" "$d/kp0_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/kp0_test/t.pkt" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -p "$d/kp0_test/t.pkt.d/raw.bin")" = "68656c6c6f20776f726c6421" ] \
+    && [ "$(xxd -p "$d/kp0_test/t.pkt.d/lz.bin")" = "68656c6c6f20776f726c6421" ] \
+    && [ "$(xxd -p "$d/kp0_test/t.pkt.d/rle.bin")" = "4141414141424344" ] \
+    && [ "$(cat "$d/kp0_test/t.pkt.d/references.txt")" = "../ref/x.dat" ] \
+    && fok "KP0 package -> members" \
+    || fno "KP0 package" "failed on synthetic t.pkt"
+  else
+    fno "KP0 package" "mk_kp0.py failed"
+  fi
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
