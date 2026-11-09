@@ -9604,6 +9604,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Bj BTD" "mk_btd.py failed"
   fi
 
+  # Octomania wavetable (.wt + .pcm) -> wave_NNNN.wav
+  mkdir -p "$d/octowt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_octowt.py" "$d/octowt_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/octowt_test/t.wt" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/octowt_test/t.wt.d/wave_0000.wav" | tr -d ' ')" = 52 ] \
+    && [ "$(wc -c < "$d/octowt_test/t.wt.d/wave_0001.wav" | tr -d ' ')" = 48 ] \
+    && fok "Octomania .wt/.pcm wavetable extracts WAVs" \
+    || fno "Octomania WT" "failed to extract synthetic t.wt"
+  else
+    fno "Octomania WT" "mk_octowt.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
