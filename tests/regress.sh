@@ -11371,6 +11371,19 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # CRI AAX (@UTF table of ADX segments)
+  mkdir -p "$d/aax_test"
+  if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/aax_test/t.aax" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x20 -l 2 -p "$d/aax_test/t.aax.d/000.adx")" = "2863" ] \
+    && [ "$(xxd -s 0x26 -l 1 -p "$d/aax_test/t.aax.d/001.adx")" = "22" ] \
+    && [ "$(xxd -s 8 -l 4 -p "$d/aax_test/t.aax.d/001.adx")" = "00007d00" ] \
+    && fok "CRI AAX -> ADX segments" \
+    || fno "CRI AAX" "failed on synthetic t.aax"
+  else
+    fno "CRI AAX" "mk_aax.py failed"
+  fi
+
   # "waud" raw PCM sounds (.wtss / .wtxs) -> WAV
   mkdir -p "$d/waud_test"
   if python3 "$PWD_PROJECT/../tests/mk_waud.py" "$d/waud_test" >/dev/null 2>&1; then
