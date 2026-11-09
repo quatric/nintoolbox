@@ -3,7 +3,7 @@
 // last section holds one 16 byte record per sample {u32 rate (low 16 bits, high bits flags), u32 start (in samples), u32
 // length (in samples), u32 0} into the companion ".pcm" (big endian s16 mono, consecutive samples). Every sample is written as
 // "wave_NNNN.wav" in the "<file>.d" directory. The "...adpcm" variants (sample starts in nibbles, DSP-ADPCM frames, coefficients in a 46 byte per sample trailer after the
-// last section) are decoded too.
+// last section) are decoded too. The instrument / key maps (the first sections) are written as "map.json".
 static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -101,6 +101,52 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 			snprintf (name, sizeof (name), "wave_%04u.wav", i);
 			err = shade_write (arg, dest, basedir, name, w, 44 + bytes);
 			FREE (w);
+		}
+		// instrument maps: section 0 = drum key maps (128 rows x 128 keys of u16 region ids, 0xffff = none; the non-empty rows are the kits,
+		// e.g. rows 0, 8, 16 ...), section 1 = melodic maps (128 programs x 128 keys of region ids), section 2 = 24 byte regions
+		// {u8 root key, u8 0, s16 tune, s16 volume, u16 ?, u32 loop start, u32 loop length, u32 layer, u32 sample (record of the last section)};
+		// written as "map.json"
+		if (!err && !testmode && o[1] - o[0] == 0x8000 && o[2] - o[1] == 0x8000 && (o[3] - o[2]) % 24 == 0)
+		{
+			njm_out_t j = { MALLOC (1 << 16), 0, 1 << 16 };
+			if (j.b)
+			{
+				njm_put (&j, "{\"drum_kits\": {");
+				bool first = true;
+				for (uint r = 0; r < 128; r++)
+				{
+					const u8 *row = wt + o[0] + 256 * r;
+					uint used = 0;
+					for (uint k = 0; k < 128; k++)
+						used += rd_be16 (row + 2 * k) != 0xffff;
+					if (!used)
+						continue;
+					njm_put (&j, "%s\n \"%u\": [", first ? "" : ",", r);
+					first = false;
+					for (uint k = 0; k < 128; k++)
+						njm_put (&j, "%s%d", k ? "," : "", rd_be16 (row + 2 * k) == 0xffff ? -1 : (int)rd_be16 (row + 2 * k));
+					njm_put (&j, "]");
+				}
+				njm_put (&j, "},\n\"programs\": [");
+				for (uint r = 0; r < 128; r++)
+				{
+					njm_put (&j, "%s\n [", r ? "," : "");
+					for (uint k = 0; k < 128; k++)
+						njm_put (&j, "%s%d", k ? "," : "", rd_be16 (wt + o[1] + 256 * r + 2 * k));
+					njm_put (&j, "]");
+				}
+				njm_put (&j, "],\n\"regions\": [");
+				for (uint r = 0; r < (o[3] - o[2]) / 24; r++)
+				{
+					const u8 *q = wt + o[2] + 24 * r;
+					njm_put (&j, "%s\n {\"root\": %u, \"tune\": %d, \"volume\": %d, \"x\": %u, \"loop_start\": %u, \"loop_length\": %u, \"layer\": %u, \"wave\": %u}",
+						r ? "," : "", q[0], (int)(s16)rd_be16 (q + 2), (int)(s16)rd_be16 (q + 4), rd_be16 (q + 6), rd_be32 (q + 8), rd_be32 (q + 12),
+						rd_be32 (q + 16), rd_be32 (q + 20));
+				}
+				njm_put (&j, "]}\n");
+				err = shade_write (arg, dest, basedir, "map.json", (u8 *)j.b, (uint)j.used);
+				FREE (j.b);
+			}
 		}
 		FREE (wt);
 		FREE (pcm);

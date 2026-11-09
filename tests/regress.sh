@@ -9613,6 +9613,15 @@ with open(sys.argv[1], "wb") as f:
     && "$B/wszst" x "$d/octowt_test/a.wt" --overwrite >/dev/null 2>&1 \
     && [ "$(wc -c < "$d/octowt_test/a.wt.d/wave_0000.wav" | tr -d ' ')" = 72 ] \
     && [ "$(xxd -s 44 -l 8 -p "$d/octowt_test/a.wt.d/wave_0000.wav")" = 0100020003000400 ] \
+    && "$B/wszst" x "$d/octowt_test/m.wt" --overwrite >/dev/null 2>&1 \
+    && python3 -c "
+import json, sys
+m = json.load(open(sys.argv[1]))
+assert m['drum_kits']['0'][36] == 0 and m['drum_kits']['0'][35] == -1
+assert m['programs'][3][60] == 0 and len(m['programs']) == 128
+r = m['regions'][0]
+assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -4, -100, 1, 0)
+" "$d/octowt_test/m.wt.d/map.json" \
     && fok "Octomania .wt/.pcm wavetable extracts WAVs" \
     || fno "Octomania WT" "failed to extract synthetic t.wt"
   else

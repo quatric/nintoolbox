@@ -13,3 +13,12 @@ rec = struct.pack(">4I", 0x15622, 0, 14, 0)
 awt = struct.pack(">6I", head, head, head, head, head, head + 16) + rec + bytes(46)
 open(os.path.join(d, "a.wt"), "wb").write(awt)
 open(os.path.join(d, "a.pcm"), "wb").write(apcm)
+# instrument maps: drum kit row 0 (key 36 -> region 0), program 3 key 60 -> region 0, one region
+s0 = bytearray(b"\xff" * 0x8000); struct.pack_into(">H", s0, 2 * 36, 0)
+s1 = bytearray(0x8000); struct.pack_into(">H", s1, 256 * 3 + 2 * 60, 0)
+reg = struct.pack(">BBhhHIIII", 60, 0, -4, -100, 0, 1, 0, 0, 0)
+o = [0x18, 0x8018, 0x10018, 0x10030, 0x10030]
+mrec = struct.pack(">4I", 0x15622, 0, 2, 0)
+mwt = struct.pack(">6I", *o, o[4] + 16) + bytes(s0) + bytes(s1) + reg + mrec
+open(os.path.join(d, "m.wt"), "wb").write(mwt)
+open(os.path.join(d, "m.pcm"), "wb").write(struct.pack(">2h", 7, 8))
