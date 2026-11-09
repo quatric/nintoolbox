@@ -9630,6 +9630,18 @@ with open(sys.argv[1], "wb") as f:
     fno "NW4R rtex" "mk_rtex.py failed"
   fi
 
+  # UTF-16BE localisation string table (.str) -> strings.tsv
+  mkdir -p "$d/langstr_test"
+  if python3 "$PWD_PROJECT/../tests/mk_langstr.py" "$d/langstr_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/langstr_test/t.str" --overwrite >/dev/null 2>&1 \
+    && grep -q "^1	Hello %s$" "$d/langstr_test/t.str.d/strings.tsv" \
+    && grep -q '^2	Zwei\\nZeilen ' "$d/langstr_test/t.str.d/strings.tsv" \
+    && fok "Localisation .str string table -> strings.tsv" \
+    || fno "Lang STR" "failed to extract synthetic t.str"
+  else
+    fno "Lang STR" "mk_langstr.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
