@@ -214,6 +214,38 @@ static bool chnk_spln (chnk_ctx_t *c, size_t ps, size_t pe)
 	return true;
 }
 
+// BSTR: u32 version (2), float bounds[6] (min, max), u32 a (node count), b (leaf count), c (index count), d (byte size of the "BSPD"
+// chunk below, minus the 8 byte header), then a "BSPD" chunk {u32 3, s32 children[a][2] (>= a: leaf number + a, -1: empty),
+// {u32 count, u32 first}[b] leaf ranges into u32 indices[c], tail tag}, tail tag
+static bool chnk_bstr (chnk_ctx_t *c, size_t ps, size_t pe)
+{
+	if (pe - ps < 52 + 8 || rd_be32 (c->d + ps) != 2 || memcmp (c->d + pe - 4, "BSTR", 4) || memcmp (c->d + ps + 44, "BSPD", 4)
+		|| memcmp (c->d + pe - 8, "BSPD", 4))
+		return false;
+	const u32 a = rd_be32 (c->d + ps + 28), b = rd_be32 (c->d + ps + 32), n = rd_be32 (c->d + ps + 36);
+	const size_t bs = rd_be32 (c->d + ps + 48);
+	if (ps + 44 + bs + 4 != pe || a > 1000000 || b > 1000000 || n > 4000000 || rd_be32 (c->d + ps + 52) != 3
+		|| bs != 8 + 4 + 8 * (size_t)a + 8 * (size_t)b + 4 * (size_t)n + 4)
+		return false;
+	const u8 *q = c->d + ps + 56;
+	njm_put (&c->o, ", \"bsp\": {\"bounds\": [");
+	for (uint k = 0; k < 6; k++)
+		njm_put (&c->o, "%s%.9g", k ? "," : "", njm_f (c->d + ps + 4 + 4 * k));
+	njm_put (&c->o, "], \"nodes\": [");
+	for (u32 k = 0; k < a; k++)
+		njm_put (&c->o, "%s[%d,%d]", k ? "," : "", (int)rd_be32 (q + 8 * (size_t)k), (int)rd_be32 (q + 8 * (size_t)k + 4));
+	q += 8 * (size_t)a;
+	njm_put (&c->o, "], \"leaves\": [");
+	for (u32 k = 0; k < b; k++)
+		njm_put (&c->o, "%s[%u,%u]", k ? "," : "", rd_be32 (q + 8 * (size_t)k), rd_be32 (q + 8 * (size_t)k + 4));
+	q += 8 * (size_t)b;
+	njm_put (&c->o, "], \"indices\": [");
+	for (u32 k = 0; k < n; k++)
+		njm_put (&c->o, "%s%u", k ? "," : "", rd_be32 (q + 4 * (size_t)k));
+	njm_put (&c->o, "]}}");
+	return true;
+}
+
 static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 {
 	bool first = true;
@@ -265,6 +297,9 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 				njm_put (&c->o, "]}");
 			}
 			njm_put (&c->o, "]}");
+		}
+		else if (!memcmp (c->d + p, "BSTR", 4) && chnk_bstr (c, ps, pe))
+		{
 		}
 		else if (!memcmp (c->d + p, "SPLN", 4) && chnk_spln (c, ps, pe))
 		{

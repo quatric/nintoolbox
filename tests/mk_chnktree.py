@@ -36,3 +36,8 @@ open(os.path.join(d, "e.scene"), "wb").write(b"CHNK" + root4)
 pts = struct.pack(">6f", 0, 0, 0, 1, 2, 3)
 sp = ch(b"SPLN", struct.pack(">I", 1) + b"trck" + struct.pack(">I", 2) + pts + b"SPLN")
 open(os.path.join(d, "t.spline"), "wb").write(b"CHNK" + ch(b"CHNK", struct.pack(">II", 0, 1) + sp + b"CHNK"))
+# BSTR (BSP tree): bounds, 2 nodes, 3 leaves (child >= 2 = leaf + 2, -1 = empty), 4 indices
+bsp_body = struct.pack(">I", 3) + struct.pack(">4i", 1, 2, 3, -1) + struct.pack(">6I", 2, 0, 1, 2, 1, 3) + struct.pack(">4I", 7, 8, 9, 10) + b"BSPD"
+bspd = ch(b"BSPD", bsp_body)
+bstr = ch(b"BSTR", struct.pack(">I", 2) + struct.pack(">6f", -1, -2, -3, 1, 2, 3) + struct.pack(">4I", 2, 3, 4, len(bsp_body) + 4 - 4 + 4) + bspd + b"BSTR")
+open(os.path.join(d, "b.scene"), "wb").write(b"CHNK" + ch(b"CHNK", struct.pack(">I", 0) + ch(b"SCEN", struct.pack(">I", 1) + bstr + b"SCEN") + b"CHNK"))
