@@ -45,16 +45,31 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 		first = false;
 		const size_t ps = p + 8, pe = p + s;
 		size_t cs = 0;
-		if (depth < 40 && chnk_tiles (c, ps, pe, c->d + p))
-			cs = ps;
-		else if (depth < 40 && pe >= ps + 4 && chnk_tiles (c, ps + 4, pe, c->d + p))
-			cs = ps + 4;
+		for (uint lead = 0; lead <= 12 && depth < 40 && !cs; lead += 4)
+			if (pe >= ps + lead && chnk_tiles (c, ps + lead, pe, c->d + p))
+				cs = ps + lead;
 		if (cs)
 		{
 			if (cs != ps)
-				njm_put (&c->o, ", \"head\": %u", rd_be32 (c->d + ps));
+			{
+				njm_put (&c->o, ", \"head\": [");
+				for (size_t h = ps; h < cs; h += 4)
+					njm_put (&c->o, "%s%u", h > ps ? "," : "", rd_be32 (c->d + h));
+				njm_put (&c->o, "]");
+			}
 			njm_put (&c->o, ", \"children\": [");
 			chnk_emit (c, cs, pe, depth + 1);
+			njm_put (&c->o, "]}");
+		}
+		else if (!memcmp (c->d + p, "PHNM", 4) && pe - ps >= 24 && (pe - ps - 8 - 12 - 4) % 16 == 0 && !memcmp (c->d + pe - 4, "PHNM", 4)
+			&& rd_be32 (c->d + ps) == 1 && rd_be32 (c->d + ps + 12) == 0x4b)
+		{
+			// lip-sync phonemes: {u32 1, u32 0}, first entry {end, 0x4b, id} (starts at 0), then {start, end, 0x4b, id}, tail tag
+			const u8 *b = c->d + ps + 8;
+			const uint n = (uint)((pe - ps - 8 - 12 - 4) / 16);
+			njm_put (&c->o, ", \"phonemes\": [[0,%.9g,%u]", njm_f (b), rd_be32 (b + 8));
+			for (uint k = 0; k < n; k++)
+				njm_put (&c->o, ",[%.9g,%.9g,%u]", njm_f (b + 12 + 16 * k), njm_f (b + 16 + 16 * k), rd_be32 (b + 24 + 16 * k));
 			njm_put (&c->o, "]}");
 		}
 		else
