@@ -11371,6 +11371,20 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # Grasshopper FLCG collision (.GCL) -> OBJ
+  mkdir -p "$d/flcg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_flcg.py" "$d/flcg_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/flcg_test/t.GCL" --overwrite >/dev/null 2>&1 \
+    && grep -q "^o MODEL1" "$d/flcg_test/t.GCL.d/model.obj" \
+    && grep -q "^usemtl WALL" "$d/flcg_test/t.GCL.d/model.obj" \
+    && grep -q "^v 11.00000 0.00000 0.00000" "$d/flcg_test/t.GCL.d/model.obj" \
+    && grep -q "^f 4 5 6" "$d/flcg_test/t.GCL.d/model.obj" \
+    && fok "FLCG collision -> OBJ" \
+    || fno "FLCG collision" "failed on synthetic t.GCL"
+  else
+    fno "FLCG collision" "mk_flcg.py failed"
+  fi
+
   # Grasshopper GMF2 model (.gm2) -> OBJ
   mkdir -p "$d/gmf2_test"
   if python3 "$PWD_PROJECT/../tests/mk_gmf2.py" "$d/gmf2_test" >/dev/null 2>&1; then
