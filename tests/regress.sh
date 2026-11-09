@@ -9706,6 +9706,8 @@ with open(sys.argv[1], "wb") as f:
   if python3 "$PWD_PROJECT/../tests/mk_momofont.py" "$d/momofont_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/momofont_test/font.bin" --overwrite >/dev/null 2>&1 \
     && file "$d/momofont_test/font.png" | grep -q "1024 x 1152" \
+    && "$B/wszst" x "$d/momofont_test/i4/font.bin" --overwrite >/dev/null 2>&1 \
+    && file "$d/momofont_test/i4/font.png" | grep -q "1024 x 1024" \
     && fok "Momotarou font.bin -> PNG" \
     || fno "Momotarou font.bin" "failed to extract synthetic font.bin"
   else
