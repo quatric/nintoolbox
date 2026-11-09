@@ -9498,6 +9498,10 @@ with open(sys.argv[1], "wb") as f:
     && [ "$(cat "$d/imaginelz_test/x.wiz.d/x.wiz")" = "abcabcabcabc" ] \
     && "$B/wszst" xx "$d/imaginelz_test/y.wsp" --overwrite >/dev/null 2>&1 \
     && [ -s "$d/imaginelz_test/y.wsp.d/y.png" ] \
+    && "$B/wszst" xx "$d/imaginelz_test/z.msk" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/imaginelz_test/z.msk.d/z.png" ] \
+    && "$B/wszst" xx "$d/imaginelz_test/t.tan" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/imaginelz_test/t.tan.d/t.tan.d/frame_00.png" ] \
     && fok "Ubisoft Imagine LZSS (0x87654321) decompresses to <file>.d/<name>" \
     || fno "Imagine LZSS" "failed to extract synthetic x.wiz"
   else

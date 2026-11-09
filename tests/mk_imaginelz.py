@@ -14,3 +14,15 @@ for k in range(0, len(raw), 8):
     chunk = raw[k:k + 8]
     st += bytes([(1 << len(chunk)) - 1]) + chunk
 open(os.path.join(out, 'y.wsp'), 'wb').write(b'\x21\x43\x65\x87' + struct.pack('<II', len(st), len(raw)) + st)
+
+def pack(name, raw):
+    st = b''
+    for k in range(0, len(raw), 8):
+        chunk = raw[k:k + 8]
+        st += bytes([(1 << len(chunk)) - 1]) + chunk
+    open(os.path.join(out, name), 'wb').write(b'\x21\x43\x65\x87' + struct.pack('<II', len(st), len(raw)) + st)
+
+# .msk: LE {w, h}, 16 x 0xcc, w*h bytes
+pack('z.msk', struct.pack('<II', 4, 2) + b'\xcc' * 16 + bytes(range(8)))
+# .tan: BE {frames 1, w 8, h 4, 0}, 0x210 byte RGB565 palette, one 8x4 C8 frame
+pack('t.tan', struct.pack('>4I', 1, 8, 4, 0) + b''.join(struct.pack('>H', (i * 257) & 0xffff) for i in range(264)) + bytes(range(32)))
