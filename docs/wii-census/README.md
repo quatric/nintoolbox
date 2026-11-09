@@ -17,7 +17,6 @@ Web searches (QuickBMS, TCRF, WiiBrew, GitHub) found no public documentation for
 
 | Format | Games | State |
 |---|---|---|
-| `OIBB` `.pak` | Doctor Fizzwizzle's Animal Rescue (`Story_*.pak`) | LE serialized object graph. `TXTR` object: u32 size, data size, data offset, width, height, GX format 9 (C8); pixels are GX C8 tiles (8x4, width padded to 504) and render correctly with an RGB5A3 palette, but only 160 palette entries are stored near the object while indices reach 255; where entries 160-255 live is unsolved |
 | `wii\0` `.ARC` non-texture records | Ski-Doo Snowmobile Challenge, MX vs. ATV, Ultimate Board Game Collection, PDC Darts, Petanque, World Sports Party | the container unpacks (see the *Wii resource ARC* row in `docs/FORMATS.md`) and the type-1 GX textures already decode to PNG (Rebellion Asura engine, `asurarc.inc`); the other record types (`.t3` materials, `.t4` meshes, animations, ...) are raw memory images and not decoded |
 | `.wiz` / `.wsp` / `.LOC` (inner formats) | Babyz, Beastly, Babysitting Party | Ubisoft Imagine engine; the files are LZSS-compressed (`0x87654321`, now extracted); the decompressed `.wsp` sprites / `.wiz` models / `.tan` `.wan` animations are BE structures not decoded yet; `.LOC` starts `LOCV1.0` with a different compression |
 | `.ast` payloads | I Spy Spooky Mansion, I Spy Game Pack, Spore Hero | `SDASSETF` container is walked; model/animation/texture chunks are not decoded |

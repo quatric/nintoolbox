@@ -34,6 +34,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pak3_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_oibb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_imaginelz_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

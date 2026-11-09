@@ -163,6 +163,7 @@
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
 #include "extract/pak3.inc"
+#include "extract/oibb.inc"
 #include "extract/imaginelz.inc"
 #include "extract/imaginewsp.inc"
 #include "extract/imaginemsk.inc"

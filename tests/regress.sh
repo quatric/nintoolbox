@@ -9508,6 +9508,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # "OIBB" object pack (Doctor Fizzwizzle): TXTR objects with a 256-entry RGB5A3 palette before the C8 tiles
+  mkdir -p "$d/oibb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_oibb.py" "$d/oibb_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/oibb_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/oibb_test/t.pak.d/tex_0000_8x4.png" ] \
+    && fok "OIBB pack decodes TXTR C8 textures to PNG" \
+    || fno "OIBB pack" "failed to extract synthetic t.pak"
+  else
+    fno "OIBB pack" "mk_oibb.py failed"
+  fi
+
   # "PAK\3" archive (International Athletics): 140-byte records, byte LZSS with 12-bit distances
   mkdir -p "$d/pak3_test"
   if python3 "$PWD_PROJECT/../tests/mk_pak3.py" "$d/pak3_test" >/dev/null 2>&1; then
