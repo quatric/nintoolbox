@@ -32,6 +32,115 @@ static bool chnk_tiles (const chnk_ctx_t *c, size_t p, size_t end, const u8 *par
 	return p == end;
 }
 
+// "name" field of NULO / ENTY records: C string padded with '0' characters to the next 4 byte boundary strictly after the NUL
+// (length rounded up to 4 of len + 2). Returns the field length or 0.
+static size_t chnk_name (const u8 *p, size_t room, char *out, size_t outsz)
+{
+	size_t len = 0;
+	while (len < room && p[len])
+		len++;
+	if (len >= room || len == 0 || len + 1 >= outsz)
+		return 0;
+	const size_t fld = (len + 2 + 3) & ~(size_t)3;
+	if (fld > room)
+		return 0;
+	for (size_t i = 0; i < len; i++)
+		if (p[i] < 32 || p[i] > 126 || p[i] == '"' || p[i] == '\\')
+			return 0;
+	memcpy (out, p, len);
+	out[len] = 0;
+	return fld;
+}
+
+// NULO: u32 version (2), records {name, float m[3][4] (3x3 rotation + translation per row)} ..., tail tag
+static bool chnk_nulo (chnk_ctx_t *c, size_t ps, size_t pe)
+{
+	if (pe - ps < 12 || rd_be32 (c->d + ps) != 2 || memcmp (c->d + pe - 4, "NULO", 4))
+		return false;
+	size_t q = ps + 4;
+	uint n = 0;
+	while (q + 4 < pe)
+	{
+		char nm[64];
+		const size_t f = chnk_name (c->d + q, pe - 4 - q, nm, sizeof (nm));
+		if (!f || q + f + 48 > pe - 4)
+			return false;
+		q += f + 48;
+		n++;
+	}
+	if (q != pe - 4)
+		return false;
+	njm_put (&c->o, ", \"locators\": [");
+	q = ps + 4;
+	for (uint k = 0; k < n; k++)
+	{
+		char nm[64];
+		const size_t f = chnk_name (c->d + q, pe - 4 - q, nm, sizeof (nm));
+		njm_put (&c->o, "%s\n  {\"name\": \"%s\", \"matrix\": [", k ? "," : "", nm);
+		for (uint m = 0; m < 12; m++)
+			njm_put (&c->o, "%s%.9g", m ? "," : "", njm_f (c->d + q + f + 4 * m));
+		njm_put (&c->o, "]}");
+		q += f + 48;
+	}
+	njm_put (&c->o, "]}");
+	return true;
+}
+
+// ENTY: u32 version (3), u32 kind, u32 1, name, float scale[3], float m[3][4], float box[6] (min, max), then a tail of words and
+// padded strings (resource paths and names), tail tag
+static bool chnk_enty (chnk_ctx_t *c, size_t ps, size_t pe)
+{
+	char nm[64];
+	if (pe - ps < 12 + 8 || rd_be32 (c->d + ps) != 3 || memcmp (c->d + pe - 4, "ENTY", 4))
+		return false;
+	const size_t f = chnk_name (c->d + ps + 12, pe - 4 - ps - 12, nm, sizeof (nm));
+	size_t q = ps + 12 + f;
+	if (!f || q + 84 > pe - 4)
+		return false;
+	njm_put (&c->o, ", \"entity\": {\"name\": \"%s\", \"kind\": %u, \"flag\": %u, \"scale\": [%.9g,%.9g,%.9g], \"matrix\": [", nm, rd_be32 (c->d + ps + 4),
+		rd_be32 (c->d + ps + 8), njm_f (c->d + q), njm_f (c->d + q + 4), njm_f (c->d + q + 8));
+	q += 12;
+	for (uint m = 0; m < 12; m++)
+		njm_put (&c->o, "%s%.9g", m ? "," : "", njm_f (c->d + q + 4 * m));
+	q += 48;
+	njm_put (&c->o, "], \"box\": [");
+	for (uint m = 0; m < 6; m++)
+		njm_put (&c->o, "%s%.9g", m ? "," : "", njm_f (c->d + q + 4 * m));
+	q += 24;
+	njm_put (&c->o, "], \"tail\": [");
+	bool first = true;
+	while (q + 4 <= pe - 4)
+	{
+		char s[256];
+		size_t sl = 0;
+		while (q + sl < pe - 4 && c->d[q + sl] >= 32 && c->d[q + sl] <= 126 && sl < 200)
+			sl++;
+		size_t fl = 0;
+		if (sl >= 3 && q + sl < pe - 4 && !c->d[q + sl])
+		{
+			memcpy (s, c->d + q, sl);
+			s[sl] = 0;
+			fl = (sl + 2 + 3) & ~(size_t)3;
+			for (char *z = s; *z; z++)
+				if (*z == '"' || *z == '\\')
+					*z = '?';
+		}
+		if (fl && q + fl <= pe - 4)
+		{
+			njm_put (&c->o, "%s\"%s\"", first ? "" : ",", s);
+			q += fl;
+		}
+		else
+		{
+			njm_put (&c->o, "%s\"%08x\"", first ? "" : ",", rd_be32 (c->d + q));
+			q += 4;
+		}
+		first = false;
+	}
+	njm_put (&c->o, "]}}");
+	return true;
+}
+
 static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 {
 	bool first = true;
@@ -83,6 +192,12 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 				njm_put (&c->o, "]}");
 			}
 			njm_put (&c->o, "]}");
+		}
+		else if (!memcmp (c->d + p, "NULO", 4) && chnk_nulo (c, ps, pe))
+		{
+		}
+		else if (!memcmp (c->d + p, "ENTY", 4) && chnk_enty (c, ps, pe))
+		{
 		}
 		else if (!memcmp (c->d + p, "PHNM", 4) && pe - ps >= 24 && (pe - ps - 8 - 12 - 4) % 16 == 0 && !memcmp (c->d + pe - 4, "PHNM", 4)
 			&& rd_be32 (c->d + ps) == 1 && rd_be32 (c->d + ps + 12) == 0x4b)
