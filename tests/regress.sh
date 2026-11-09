@@ -11402,6 +11402,24 @@ assert w.getnchannels() == 1 and w.getframerate() == 32000 and w.getnframes() ==
     no ".adpcm DSP" "no 14 frame wav from synthetic t.adpcm"
   fi
 
+  # Imagine .wa2 skeletal animation -> anim.json
+  mkdir -p "$d/wa2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imaginewa2.py" "$d/wa2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wa2_test/t.wa2" --overwrite >/dev/null 2>&1 \
+    && python3 -c '
+import json, sys
+j = json.load(open(sys.argv[1]))
+assert [b["parent"] for b in j["bones"]] == [-1, 0], j["bones"]
+c = j["clips"][0]
+assert c["frames"] == 2 and c["flags"] == [7, 9] and c["root"][1][0] == 0.2 and c["track2"][0] == [10, 20, 30], c
+assert c["rotations"][1][1] == [0, 0, 0, 1]
+' "$d/wa2_test/t.wa2.d/anim.json" \
+    && fok "Imagine .wa2 -> anim.json" \
+    || fno "Imagine .wa2" "failed on synthetic t.wa2"
+  else
+    fno "Imagine .wa2" "mk_imaginewa2.py failed"
+  fi
+
   # Octomania secB scene container -> embedded NW4R members
   mkdir -p "$d/octosec_test"
   if python3 "$PWD_PROJECT/../tests/mk_octosec.py" "$d/octosec_test" >/dev/null 2>&1; then
