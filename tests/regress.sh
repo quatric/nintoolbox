@@ -9592,6 +9592,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine CAM" "mk_imaginecam.py failed"
   fi
 
+  # Bj engine track data (.btd) -> lines.obj
+  mkdir -p "$d/btd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_btd.py" "$d/btd_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/btd_test/t.btd" --overwrite >/dev/null 2>&1 \
+    && [ "$(grep -c '^o line' "$d/btd_test/t.btd.d/lines.obj")" = 19 ] \
+    && grep -q '^v 2 0 5$' "$d/btd_test/t.btd.d/lines.obj" \
+    && fok "Bj .btd track data extracts lines.obj" \
+    || fno "Bj BTD" "failed to extract synthetic t.btd"
+  else
+    fno "Bj BTD" "mk_btd.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \

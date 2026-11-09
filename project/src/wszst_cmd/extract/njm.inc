@@ -43,6 +43,14 @@ static float njm_f (const u8 *p)
 	return f;
 }
 
+static float njm_f_le (const u8 *p)
+{
+	const u32 v = rd_le32 (p);
+	float f;
+	memcpy (&f, &v, 4);
+	return f;
+}
+
 static enumError extract_njm_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
