@@ -11384,6 +11384,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Momotarou Dentetsu message.bin -> text
+  mkdir -p "$d/momomsg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_momomessage.py" "$d/momomsg_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/momomsg_test/message.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q "^あいカB3 !{g210}{a11}$" "$d/momomsg_test/message.txt" \
+    && grep -q "^う$" "$d/momomsg_test/message.txt" \
+    && fok "Momotarou message.bin -> text" \
+    || fno "Momotarou message.bin" "failed on synthetic message.bin"
+  else
+    fno "Momotarou message.bin" "mk_momomessage.py failed"
+  fi
+
   # Pangya .pet model -> OBJ
   mkdir -p "$d/pet_test"
   if python3 "$PWD_PROJECT/../tests/mk_pangyapet.py" "$d/pet_test" >/dev/null 2>&1; then
