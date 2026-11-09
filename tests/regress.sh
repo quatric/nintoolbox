@@ -11371,6 +11371,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # Pangya .gsr texture -> PNG
+  mkdir -p "$d/gsr_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gsr.py" "$d/gsr_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gsr_test/t.gsr" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 1 -l 3 -p "$d/gsr_test/t.png")" = "504e47" ] \
+    && [ "$(xxd -s 16 -l 8 -p "$d/gsr_test/t.png")" = "0000000400000004" ] \
+    && fok "gsr texture -> PNG" \
+    || fno "gsr texture" "failed on synthetic t.gsr"
+  else
+    fno "gsr texture" "mk_gsr.py failed"
+  fi
+
   # .bcpak resource pack
   mkdir -p "$d/bcpak_test"
   if python3 "$PWD_PROJECT/../tests/mk_bcpak.py" "$d/bcpak_test" >/dev/null 2>&1; then
