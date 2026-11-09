@@ -166,6 +166,8 @@
 #include "extract/oibb.inc"
 #include "extract/imaginelz.inc"
 #include "extract/loc.inc"
+#include "extract/segapvr_png.inc"
+#include "extract/ggxarchiver.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"

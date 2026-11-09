@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # GGXArchiver (Radirgy Noa) container: Gage BPE members, Illvelo-style PVR -> PNG
+  mkdir -p "$d/ggx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ggxarchiver.py" "$d/ggx_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/ggx_test/t.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/ggx_test/t.bin.d/NOTE.BIN")" = "hello bpe" ] \
+    && [ -s "$d/ggx_test/t.bin.d/STAGE/TEX.png" ] \
+    && fok "GGXArchiver extracts BPE members and PVR textures" \
+    || fno "GGXArchiver" "failed to extract synthetic t.bin"
+  else
+    fno "GGXArchiver" "mk_ggxarchiver.py failed"
+  fi
+
   # Kylotonn "FVRT" data archive (My Body Coach) -> named members
   mkdir -p "$d/fvrt_test"
   if python3 "$PWD_PROJECT/../tests/mk_kylotonn.py" "$d/fvrt_test" >/dev/null 2>&1; then
