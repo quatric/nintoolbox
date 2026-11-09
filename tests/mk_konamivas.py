@@ -20,3 +20,7 @@ pages = 1 + len(body) // 0x800 + 1
 hdr = bytearray(0x800)
 struct.pack_into('>III', hdr, 0, 0x5a8aab, pages - 1, 2)
 open(os.path.join(d, 't.vas'), 'wb').write(bytes(hdr) + body + bytes(0x800))
+# voice bank variant (MLB Power Pros voiceN.bin): value 0x00c8 in the upper half of the rate word, three extra pages after the trailer
+vb = bytearray(body)
+struct.pack_into('>I', vb, 4, (0xc8 << 16) | 44100)
+open(os.path.join(d, 'v.bin'), 'wb').write(bytes(hdr) + bytes(vb) + bytes(0x800) + bytes(3 * 0x800))

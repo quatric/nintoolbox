@@ -21,7 +21,7 @@ static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 	const long end = ftell (in);
 	const u64 fsz = end < 0 ? 0 : (u64)end;
 	const u32 count = rd_be32 (h + 8);
-	if (!count || count > 4096 || ((u64)rd_be32 (h + 4) + 1) * 0x800 != fsz)
+	if (!count || count > 4096 || ((u64)rd_be32 (h + 4) + 1) * 0x800 > fsz || fsz - ((u64)rd_be32 (h + 4) + 1) * 0x800 > 0x8000)
 	{
 		fclose (in);
 		return ERR_NOTHING_TO_DO;
@@ -38,7 +38,7 @@ static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 		if (!ok)
 			break;
 		u64 total = rd_be32 (hp);
-		const u64 rate = rd_be32 (hp + 4);
+		const u64 rate = rd_be32 (hp + 4) & 0xffff; // upper 16 bits: a per-stream value (volume?) in the voice banks
 		uint chs = 0;
 		while (chs < 6 && rd_be32 (hp + 0x80 + 0x40 * chs + 8))
 			chs++;
@@ -51,7 +51,7 @@ static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 			const u64 alt = need > total ? pos + 0x800 + ((need + 0x7ff) & ~(u64)0x7ff) : next;
 			u8 np[8];
 			const bool ok1 = next + 0x800 == fsz || (next + 0x800 < fsz && read_abe_at (in, next, np, 8)
-				&& rd_be32 (np + 4) >= 4000 && rd_be32 (np + 4) <= 96000);
+				&& (rd_be32 (np + 4) & 0xffff) >= 4000 && (rd_be32 (np + 4) & 0xffff) <= 96000);
 			if (!ok1 && alt != next)
 			{
 				next = alt;
@@ -103,7 +103,7 @@ static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 	}
 	fclose (in);
 	enumError err = ERR_NOTHING_TO_DO;
-	if (ok && n && pos + 0x800 == fsz)
+	if (ok && n && pos == (u64)rd_be32 (h + 4) * 0x800 && pos + 0x800 <= fsz)
 		err = write_owned_entries (arg, basedir, depth, "KONAMI-VAS", entries, n);
 	else if (entries)
 		ResetOwnedEntries (entries, n);
