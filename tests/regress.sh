@@ -9756,6 +9756,8 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     "$B/wszst" x "$d/wiz_test/t.wiz" --overwrite >/dev/null 2>&1 \
     && [ "$(grep -c '^f ' "$d/wiz_test/t.wiz.d/model.obj")" = 2 ] \
     && [ -s "$d/wiz_test/t.wiz.d/tex_0000.png" ] \
+    && "$B/wszst" x "$d/wiz_test/n.wiz" --overwrite >/dev/null 2>&1 \
+    && [ "$(grep -c '^f ' "$d/wiz_test/n.wiz.d/model.obj")" = 2 ] \
     && fok "Imagine .wiz model exports model.obj and textures" \
     || fno "Imagine .wiz" "failed to extract synthetic t.wiz"
   else
