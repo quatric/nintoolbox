@@ -11384,6 +11384,19 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Pangya .pet model -> OBJ
+  mkdir -p "$d/pet_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pangyapet.py" "$d/pet_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pet_test/t.pet" --overwrite >/dev/null 2>&1 \
+    && grep -q "^v 1.00000 1.00000 0.00000" "$d/pet_test/t.pet.d/model.obj" \
+    && grep -q "^f 1/1/1 2/2/2 3/3/3" "$d/pet_test/t.pet.d/model.obj" \
+    && grep -q "^f 2/2/2 4/4/4 3/3/3" "$d/pet_test/t.pet.d/model.obj" \
+    && fok "Pangya .pet -> OBJ" \
+    || fno "Pangya .pet" "failed on synthetic t.pet"
+  else
+    fno "Pangya .pet" "mk_pangyapet.py failed"
+  fi
+
   # Pangya .gsr texture -> PNG
   mkdir -p "$d/gsr_test"
   if python3 "$PWD_PROJECT/../tests/mk_gsr.py" "$d/gsr_test" >/dev/null 2>&1; then

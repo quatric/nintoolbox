@@ -331,6 +331,7 @@
 #include "extract/flcg.inc"
 #include "extract/bcpak.inc"
 #include "extract/gsr.inc"
+#include "extract/pangyapet.inc"
 #include "extract/imaginewsn.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
