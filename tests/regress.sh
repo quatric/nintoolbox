@@ -11428,6 +11428,9 @@ open(d+'/t.sdl','wb').write(s)
     && grep -q "^f 1/1/1 2/2/2 3/3/3" "$d/pet_test/t.pet.d/model.obj" \
     && grep -q "^f 2/2/2 4/4/4 3/3/3" "$d/pet_test/t.pet.d/model.obj" \
     && grep -q "^1 0 child | 1 0 0 0 0 1 0 0 0 0 1 0 2.5 0 0 1$" "$d/pet_test/t.pet.d/skeleton.txt" \
+    && "$B/wszst" x "$d/pet_test/s.pet" --overwrite >/dev/null 2>&1 \
+    && grep -q "^v 10.00000 0.00000 0.00000" "$d/pet_test/s.pet.d/model.obj" \
+    && grep -q "^f 1/1/1 2/2/2 3/3/3" "$d/pet_test/s.pet.d/model.obj" \
     && fok "Pangya .pet -> OBJ" \
     || fno "Pangya .pet" "failed on synthetic t.pet"
   else

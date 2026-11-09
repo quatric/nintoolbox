@@ -29,3 +29,17 @@ for i, nm in enumerate(names):
 bone += ent + b''.join(names)
 bone = bone[:4] + struct.pack('>I', len(bone)) + bone[8:]
 open(os.path.join(d, 't.pet'), 'wb').write(bone + mesh)
+
+# skinned variant: no "ved", 33 byte vertices {u8 bone, float3 position (x + 10), float3 normal, float2 texcoord}
+vbd2 = b''.join(b'\x01' + struct.pack('>8f', v[0] + 10, v[1], v[2], 0, 0, 1, v[6], v[7]) for v in verts)
+vbh2 = struct.pack('>3I', 0x120401, len(vbd2), 0)
+prm2 = bytearray(0x20); struct.pack_into('>HHHHHHHH', prm2, 4, 0, 0, 4, 33, 0x98, 2, 0xffff, 0)
+chunks = [(b'vbd', len(vbd2), 1, vbd2), (b'vbh', 1, 12, vbh2), (b'prm', 1, 0x20, bytes(prm2))]
+n = len(chunks)
+off = 0x20 + 16 * n
+body = b''; hdrs = b''
+for tag, cnt, es, data in chunks:
+    hdrs += tag.ljust(4, b'\0')[::-1] + struct.pack('>III', cnt, es, off + len(body))
+    body += data.ljust((len(data) + 15) & ~15, b'\0')
+g = struct.pack('>I', 0x20) + b'ffrg\0rmg' + struct.pack('>III', 0, 5, n) + bytes(8) + hdrs + body
+open(os.path.join(d, 's.pet'), 'wb').write((b'MESH' + struct.pack('>I', 0x1c + len(g))).ljust(0x1c, b'\0') + g)
