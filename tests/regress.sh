@@ -9650,6 +9650,8 @@ with open(sys.argv[1], "wb") as f:
     && grep -q '"tag": "HEAD".*"hex": "000000023f800000"' "$d/chnk_test/t.scene.d/tree.json" \
     && "$B/wszst" x "$d/chnk_test/t.phn" --overwrite >/dev/null 2>&1 \
     && grep -q '"phonemes": \[\[0,0.5,7\],\[0.5,1.5,9\]\]' "$d/chnk_test/t.phn.d/tree.json" \
+    && "$B/wszst" x "$d/chnk_test/c.scene" --overwrite >/dev/null 2>&1 \
+    && grep -q '"name": "c_test", "params": \[1.5,0.5,300\], "matrix": \[1,0,0,2,0,1,0,3,0,0,1,4\]' "$d/chnk_test/c.scene.d/tree.json" \
     && fok "CHNK tree (.scene) -> tree.json" \
     || fno "CHNK tree" "failed to extract synthetic t.scene"
   else

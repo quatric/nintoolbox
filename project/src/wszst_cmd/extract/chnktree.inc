@@ -61,6 +61,29 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 			chnk_emit (c, cs, pe, depth + 1);
 			njm_put (&c->o, "]}");
 		}
+		else if (!memcmp (c->d + p, "CAMS", 4) && pe - ps >= 8 + 76 && (pe - ps - 8) % 76 == 0 && !memcmp (c->d + pe - 4, "CAMS", 4))
+		{
+			// cameras: u32 version (2), then 76 byte records {char name[16], float aspect, float f1, float far, float m[3][4]
+			// (rotation rows + translation)}, tail tag
+			const uint n = (uint)((pe - ps - 8) / 76);
+			njm_put (&c->o, ", \"cameras\": [");
+			for (uint k = 0; k < n; k++)
+			{
+				const u8 *r = c->d + ps + 4 + 76 * (size_t)k;
+				char nm[17];
+				memcpy (nm, r, 16);
+				nm[16] = 0;
+				for (char *q = nm; *q; q++)
+					if (*q == '"' || *q == '\\' || (u8)*q < 32 || (u8)*q > 126)
+						*q = '?';
+				njm_put (&c->o, "%s\n  {\"name\": \"%s\", \"params\": [%.9g,%.9g,%.9g], \"matrix\": [", k ? "," : "", nm, njm_f (r + 16), njm_f (r + 20),
+					njm_f (r + 24));
+				for (uint m = 0; m < 12; m++)
+					njm_put (&c->o, "%s%.9g", m ? "," : "", njm_f (r + 28 + 4 * m));
+				njm_put (&c->o, "]}");
+			}
+			njm_put (&c->o, "]}");
+		}
 		else if (!memcmp (c->d + p, "PHNM", 4) && pe - ps >= 24 && (pe - ps - 8 - 12 - 4) % 16 == 0 && !memcmp (c->d + pe - 4, "PHNM", 4)
 			&& rd_be32 (c->d + ps) == 1 && rd_be32 (c->d + ps + 12) == 0x4b)
 		{
