@@ -9687,6 +9687,19 @@ with open(sys.argv[1], "wb") as f:
     fno "Momotarou TA texture" "mk_momotex.py failed"
   fi
 }
+# Sony SCEI sound bank (PS-ADPCM) -> WAV
+{
+  mkdir -p "$d/sceibank_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sceibank.py" "$d/sceibank_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/sceibank_test/t.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -l 4 -p "$d/sceibank_test/t.bin.d/b00_s000.wav")" = "01000200" ] \
+    && [ "$(xxd -s 24 -l 4 -p "$d/sceibank_test/t.bin.d/b00_s000.wav")" = "22560000" ] \
+    && fok "SCEI sound bank -> WAV" \
+    || fno "SCEI sound bank" "failed to extract synthetic t.bin"
+  else
+    fno "SCEI sound bank" "mk_sceibank.py failed"
+  fi
+}
 # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \

@@ -181,6 +181,7 @@
 #include "extract/chnktree.inc"
 #include "extract/cmps.inc"
 #include "extract/momotex.inc"
+#include "extract/sceibank.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"
