@@ -11371,6 +11371,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # Grasshopper RMHG container (.rsl): nested groups, GMF2 / GCT0 leaves
+  mkdir -p "$d/rmhg_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rmhg.py" "$d/rmhg_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rmhg_test/t.rsl" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 5 -p "$d/rmhg_test/t.rsl.d/000_0/000_7.gmf2")" = "474d463211" ] \
+    && [ "$(xxd -s 4 -l 1 -p "$d/rmhg_test/t.rsl.d/001_3/000_9.bin")" = "22" ] \
+    && fok "RMHG container -> nested members" \
+    || fno "RMHG container" "failed on synthetic t.rsl"
+  else
+    fno "RMHG container" "mk_rmhg.py failed"
+  fi
+
   # KP0 package (.pkt): raw / LZ10 / RLE members and a path reference
   mkdir -p "$d/kp0_test"
   if python3 "$PWD_PROJECT/../tests/mk_kp0.py" "$d/kp0_test" >/dev/null 2>&1; then
