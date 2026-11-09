@@ -9700,6 +9700,18 @@ with open(sys.argv[1], "wb") as f:
     fno "SCEI sound bank" "mk_sceibank.py failed"
   fi
 }
+# Momotarou Dentetsu 2010 font.bin (1024x1152 I8) -> PNG
+{
+  mkdir -p "$d/momofont_test"
+  if python3 "$PWD_PROJECT/../tests/mk_momofont.py" "$d/momofont_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/momofont_test/font.bin" --overwrite >/dev/null 2>&1 \
+    && file "$d/momofont_test/font.png" | grep -q "1024 x 1152" \
+    && fok "Momotarou font.bin -> PNG" \
+    || fno "Momotarou font.bin" "failed to extract synthetic font.bin"
+  else
+    fno "Momotarou font.bin" "mk_momofont.py failed"
+  fi
+}
 # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \

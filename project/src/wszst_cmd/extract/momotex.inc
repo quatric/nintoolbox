@@ -74,3 +74,44 @@ static enumError extract_momotex_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return k ? err : ERR_NOTHING_TO_DO;
 }
+
+// Momotarou Dentetsu 2010 "data/font.bin", "font2.bin", "kantei.bin" (1179648 bytes): one 1024x1152 GX I8 texture (8x4 tiles) holding a 32x32 pixel
+// glyph sheet (32 columns x 36 rows); written as "<file>.png". The text in "message.bin" indexes these glyphs.
+static enumError extract_momofont_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	(void)depth;
+	if (!is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	if (strncmp (base, "font", 4) && strncmp (base, "kantei", 6))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw || sz != 1024 * 1152)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	u8 *rgba = 0;
+	const enumError de = DecodeGXTexture_RGBA (&rgba, 1024, 1152, 1, raw, (uint)sz, 0, 0, 0);
+	FREE (raw);
+	if (de || !rgba)
+	{
+		FREE (rgba);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".png");
+	if (testmode)
+	{
+		FREE (rgba);
+		fprintf (stdlog, "WOULD EXTRACT MOMO-FONT:%s -> PNG:%s\n", arg, dest);
+		return ERR_OK;
+	}
+	const enumError err = SaveDecodedRGBAToPNG (rgba, 1024, 1152, &be_func, dest, 0, true);
+	if (!err && verbose >= 0)
+		fprintf (stdlog, "%sEXTRACT MOMO-FONT:%s -> PNG:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+	return err;
+}
