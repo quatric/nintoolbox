@@ -9674,6 +9674,19 @@ with open(sys.argv[1], "wb") as f:
     fno "cmps LZ archive" "mk_cmps.py failed"
   fi
 }
+# Momotarou Dentetsu "TA" paletted textures -> PNGs
+{
+  mkdir -p "$d/momotex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_momotex.py" "$d/momotex_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/momotex_test/t.tex1" --overwrite >/dev/null 2>&1 \
+    && file "$d/momotex_test/t.tex1.00.png" | grep -q "16 x 8" \
+    && file "$d/momotex_test/t.tex1.01.png" | grep -q "8 x 8" \
+    && fok "Momotarou TA texture -> PNG" \
+    || fno "Momotarou TA texture" "failed to extract synthetic TA file"
+  else
+    fno "Momotarou TA texture" "mk_momotex.py failed"
+  fi
+}
 # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \

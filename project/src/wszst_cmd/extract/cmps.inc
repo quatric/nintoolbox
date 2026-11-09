@@ -64,12 +64,13 @@ bad:
 	return false;
 }
 
-static enumError cmps_write_blob (ccp arg, ccp dest, ccp basedir, ccp sub, const u8 *o, size_t n)
+static enumError cmps_write_blob (ccp arg, ccp dest, ccp basedir, ccp sub, const u8 *o, size_t n, bool whole)
 {
 	char name[64];
 	enumError err = ERR_OK;
 	snprintf (name, sizeof (name), "%sdata.bin", sub);
-	err = shade_write (arg, dest, basedir, name, (u8 *)o, (uint)n);
+	if (whole)
+		err = shade_write (arg, dest, basedir, name, (u8 *)o, (uint)n);
 	if (err || n < 0x30)
 		return err;
 	const u32 cnt = rd_be32 (o);
@@ -87,6 +88,39 @@ static enumError cmps_write_blob (ccp arg, ccp dest, ccp basedir, ccp sub, const
 	return err;
 }
 
+// the same table container stored uncompressed ("field_tex_*.bin", "vehicle.bin"): strict check, ".bin" only
+static enumError cmps_extract_table (ccp arg, ccp basedir)
+{
+	if (!is_ext (arg, ".bin"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw || sz < 0x30 || sz > 0x20000000)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	const u32 cnt = rd_be32 (raw);
+	bool ok = cnt > 0 && cnt < 100000 && 16 + 4 * (size_t)cnt <= sz && !rd_be32 (raw + 4) && !rd_be32 (raw + 8) && !rd_be32 (raw + 12);
+	for (u32 i = 0; ok && i < cnt; i++)
+	{
+		const u32 a = rd_be32 (raw + 16 + 4 * (size_t)i);
+		ok = a % 32 == 0 && a >= 16 + 4 * cnt && a < sz && (i == 0 || a >= rd_be32 (raw + 12 + 4 * (size_t)i));
+	}
+	if (!ok)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT CMPS-TABLE:%s (%u members) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, cnt, dest);
+	const enumError err = testmode ? ERR_OK : cmps_write_blob (arg, dest, basedir, "", raw, sz, false);
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_cmps_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -96,8 +130,10 @@ static enumError extract_cmps_file (ccp arg, ccp basedir, uint depth)
 	u8 hd[8];
 	const size_t got = fread (hd, 1, 8, f);
 	fclose (f);
-	if (got != 8 || memcmp (hd, "cmps\0\0\0", 7) || (hd[7] != 2 && hd[7] != 4 && hd[7] != 5))
+	if (got != 8)
 		return ERR_NOTHING_TO_DO;
+	if (memcmp (hd, "cmps\0\0\0", 7) || (hd[7] != 2 && hd[7] != 4 && hd[7] != 5))
+		return cmps_extract_table (arg, basedir);
 	u8 *raw = 0;
 	size_t sz = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw || sz < 16 || sz > 0x20000000)
@@ -126,7 +162,7 @@ static enumError extract_cmps_file (ccp arg, ccp basedir, uint depth)
 		if (blobs > 1)
 			snprintf (sub, sizeof (sub), "%04u/", done);
 		if (!testmode)
-			err = cmps_write_blob (arg, dest, basedir, sub, o, n);
+			err = cmps_write_blob (arg, dest, basedir, sub, o, n, true);
 		FREE (o);
 		done++;
 	}

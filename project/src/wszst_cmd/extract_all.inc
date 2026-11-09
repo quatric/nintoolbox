@@ -180,6 +180,7 @@
 #include "extract/lang_str.inc"
 #include "extract/chnktree.inc"
 #include "extract/cmps.inc"
+#include "extract/momotex.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"
