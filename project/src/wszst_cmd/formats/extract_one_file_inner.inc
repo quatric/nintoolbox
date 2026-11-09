@@ -73,6 +73,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_lang_str_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_chnktree_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_cs12_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

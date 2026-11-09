@@ -9642,6 +9642,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Lang STR" "mk_langstr.py failed"
   fi
 
+  # CHNK tree container (.scene) -> tree.json
+  mkdir -p "$d/chnk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_chnktree.py" "$d/chnk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/chnk_test/t.scene" --overwrite >/dev/null 2>&1 \
+    && grep -q '"tag": "SCEN"' "$d/chnk_test/t.scene.d/tree.json" \
+    && grep -q '"tag": "HEAD".*"hex": "000000023f800000"' "$d/chnk_test/t.scene.d/tree.json" \
+    && fok "CHNK tree (.scene) -> tree.json" \
+    || fno "CHNK tree" "failed to extract synthetic t.scene"
+  else
+    fno "CHNK tree" "mk_chnktree.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
