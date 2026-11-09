@@ -11409,6 +11409,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "FLCG collision" "mk_flcg.py failed"
   fi
 
+  # Grasshopper GAN2 animation (.GA2) -> track hierarchy
+  mkdir -p "$d/gan2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gan2.py" "$d/gan2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gan2_test/t.GA2" --overwrite >/dev/null 2>&1 \
+    && grep -q '"name": "HIP", "parent": 0, "child": 2, "prev": -1, "next": -1, "data": 256' "$d/gan2_test/t.GA2.d/tracks.json" \
+    && grep -q '"name": "KNEE", "parent": 1' "$d/gan2_test/t.GA2.d/tracks.json" \
+    && fok "GAN2 animation -> tracks.json" \
+    || fno "GAN2 animation" "failed on synthetic t.GA2"
+  else
+    fno "GAN2 animation" "mk_gan2.py failed"
+  fi
+
   # Grasshopper GMF2 model (.gm2) -> OBJ
   mkdir -p "$d/gmf2_test"
   if python3 "$PWD_PROJECT/../tests/mk_gmf2.py" "$d/gmf2_test" >/dev/null 2>&1; then
@@ -11427,8 +11439,8 @@ open(d+'/t.sdl','wb').write(s)
   mkdir -p "$d/rmhg_test"
   if python3 "$PWD_PROJECT/../tests/mk_rmhg.py" "$d/rmhg_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/rmhg_test/t.rsl" --overwrite >/dev/null 2>&1 \
-    && [ "$(xxd -l 5 -p "$d/rmhg_test/t.rsl.d/000_0/000_7.gmf2")" = "474d463211" ] \
-    && [ "$(xxd -s 4 -l 1 -p "$d/rmhg_test/t.rsl.d/001_3/000_9.bin")" = "22" ] \
+    && [ "$(xxd -l 5 -p "$d/rmhg_test/t.rsl.d/MODEL/M.GM2")" = "474d463211" ] \
+    && [ "$(xxd -s 4 -l 1 -p "$d/rmhg_test/t.rsl.d/TEX/T.BIN")" = "22" ] \
     && fok "RMHG container -> nested members" \
     || fno "RMHG container" "failed on synthetic t.rsl"
   else

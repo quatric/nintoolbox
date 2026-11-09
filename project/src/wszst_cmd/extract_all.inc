@@ -327,6 +327,7 @@
 #include "extract/kp0.inc"
 #include "extract/rmhg.inc"
 #include "extract/gmf2.inc"
+#include "extract/gan2.inc"
 #include "extract/flcg.inc"
 #include "extract/bcpak.inc"
 #include "extract/gsr.inc"
