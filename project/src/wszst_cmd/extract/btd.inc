@@ -3,7 +3,8 @@
 // byte swaps every field per section, see its section fix-up table). Section 3 is a single structure at its offset:
 // +8 = number of points per line (n), +0x5c + 8*i = {u32 offset of 0x20-byte point records, u32 offset of 12-byte records}
 // (offsets relative to the section) for i < 19 lines; a point record is {float x, y, z, 5 floats of direction/side data}.
-// Written as "lines.obj" (one OBJ polyline per line, positions only) and "sections.json" (offset / count of every section).
+// Written as "lines.obj" (one OBJ polyline per line, positions only) and "sections.json" (offset / count of every section plus the
+// decoded sections 0 (11 float4 records), 1 (0x20-byte records: two int vec3, index, float) and 2 (0x40-byte and 0x20-byte records)).
 static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -17,7 +18,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	njm_out_t j = { MALLOC (4096), 0, 4096 }, o = { MALLOC (1 << 16), 0, 1 << 16 };
+	njm_out_t j = { MALLOC (1 << 16), 0, 1 << 16 }, o = { MALLOC (1 << 16), 0, 1 << 16 };
 	if (!j.b || !o.b)
 	{
 		FREE (j.b);
@@ -29,7 +30,63 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < 11; i++)
 		njm_put (&j, "%s\n {\"index\": %u, \"offset\": %u, \"count\": %u}", i ? "," : "", i, rd_le32 (raw + 8 + 12 * i),
 			rd_le32 (raw + 12 + 12 * i));
-	njm_put (&j, "\n]\n}\n");
+	njm_put (&j, "\n],\n\"decoded\": {");
+	{
+		// layouts taken from the game's per-section fix-up functions
+		const u32 b0 = rd_le32 (raw + 8), b1 = rd_le32 (raw + 8 + 12), b2 = rd_le32 (raw + 8 + 24);
+		bool first = true;
+		if (b0 && (u64)b0 + 0x20 <= sz)
+		{
+			const u8 *s0 = raw + b0;
+			const u32 c = rd_le32 (s0), x = rd_le32 (s0 + 4), p8 = rd_le32 (s0 + 8);
+			njm_put (&j, "\n\"section0\": {\"x\": %u, \"records\": [", x);
+			for (uint i = 0; i < c && i < 4096 && (u64)b0 + p8 + 16 * (u64)(i + 1) <= sz; i++)
+				njm_put (&j, "%s[%g,%g,%g,%g]", i ? "," : "", njm_f_le (s0 + p8 + 16 * i), njm_f_le (s0 + p8 + 16 * i + 4),
+					njm_f_le (s0 + p8 + 16 * i + 8), njm_f_le (s0 + p8 + 16 * i + 12));
+			njm_put (&j, "]}");
+			first = false;
+		}
+		if (b1 && (u64)b1 + 8 <= sz)
+		{
+			const u8 *s1 = raw + b1;
+			const u32 c = rd_le32 (s1), p = rd_le32 (s1 + 4);
+			njm_put (&j, "%s\n\"section1\": [", first ? "" : ",");
+			first = false;
+			for (uint i = 0; i < c && i < 4096 && (u64)b1 + p + 0x20 * (u64)(i + 1) <= sz; i++)
+			{
+				const u8 *e = s1 + p + 0x20 * (size_t)i;
+				njm_put (&j, "%s\n {\"a\": [%d,%d,%d], \"b\": [%d,%d,%d], \"index\": %u, \"value\": %g}", i ? "," : "",
+					(int)rd_le32 (e), (int)rd_le32 (e + 4), (int)rd_le32 (e + 8), (int)rd_le32 (e + 12), (int)rd_le32 (e + 16),
+					(int)rd_le32 (e + 20), rd_le32 (e + 24), njm_f_le (e + 28));
+			}
+			njm_put (&j, "]");
+		}
+		if (b2 && (u64)b2 + 0x18 <= sz)
+		{
+			const u8 *s2 = raw + b2;
+			const u32 na = rd_le32 (s2 + 4), nb = rd_le32 (s2 + 8), pa = rd_le32 (s2 + 0x10), pb = rd_le32 (s2 + 0x14);
+			njm_put (&j, "%s\n\"section2\": {\"id\": %u, \"points\": [", first ? "" : ",", rd_le32 (s2));
+			for (uint i = 0; i < na && i < 4096 && (u64)b2 + pa + 0x40 * (u64)(i + 1) <= sz; i++)
+			{
+				const u8 *e = s2 + pa + 0x40 * (size_t)i;
+				njm_put (&j, "%s\n  {\"v0\": [%g,%g,%g,%g], \"v1\": [%g,%g,%g,%g], \"u32\": [", i ? "," : "", njm_f_le (e),
+					njm_f_le (e + 4), njm_f_le (e + 8), njm_f_le (e + 12), njm_f_le (e + 16), njm_f_le (e + 20), njm_f_le (e + 24),
+					njm_f_le (e + 28));
+				for (uint k = 0; k < 7; k++)
+					njm_put (&j, "%s%u", k ? "," : "", rd_le32 (e + 0x20 + 4 * k));
+				njm_put (&j, "], \"u16\": [%u,%u]}", rd_le16 (e + 0x3c), rd_le16 (e + 0x3e));
+			}
+			njm_put (&j, "], \"records\": [");
+			for (uint i = 0; i < nb && i < 4096 && (u64)b2 + pb + 0x20 * (u64)(i + 1) <= sz; i++)
+			{
+				const u8 *e = s2 + pb + 0x20 * (size_t)i;
+				njm_put (&j, "%s\n  {\"v\": [%g,%g,%g,%g], \"u32\": [%u,%u]}", i ? "," : "", njm_f_le (e), njm_f_le (e + 4),
+					njm_f_le (e + 8), njm_f_le (e + 12), rd_le32 (e + 16), rd_le32 (e + 20));
+			}
+			njm_put (&j, "]}");
+		}
+	}
+	njm_put (&j, "\n}\n}\n");
 	uint nl = 0;
 	const u32 s3 = rd_le32 (raw + 8 + 12 * 3);
 	if (s3 && (u64)s3 + 0x100 <= sz)
