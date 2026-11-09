@@ -11384,6 +11384,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Hudson HVQM4 movie -> audio WAV
+  mkdir -p "$d/h4m_test"
+  if python3 "$PWD_PROJECT/../tests/mk_h4m.py" "$d/h4m_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/h4m_test/t.h4m" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 44 -p "$d/h4m_test/t.h4m.d/audio.wav")" = "001001100110" ] \
+    && grep -q "^size 64x48$" "$d/h4m_test/t.h4m.d/info.txt" \
+    && fok "HVQM4 .h4m -> audio WAV" \
+    || fno "HVQM4 .h4m" "failed on synthetic t.h4m"
+  else
+    fno "HVQM4 .h4m" "mk_h4m.py failed"
+  fi
+
   # CRI USM movie container -> streams
   mkdir -p "$d/usm_test"
   if python3 "$PWD_PROJECT/../tests/mk_usm.py" "$d/usm_test" >/dev/null 2>&1; then
