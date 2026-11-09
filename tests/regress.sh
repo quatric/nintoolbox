@@ -9619,6 +9619,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Octomania WT" "mk_octowt.py failed"
   fi
 
+  # NW4R intermediate texture (.rtex) -> PNG
+  mkdir -p "$d/rtex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_rtex.py" "$d/rtex_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rtex_test/t.rtex" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/rtex_test/t.png" ] \
+    && fok "NW4R .rtex intermediate texture -> PNG" \
+    || fno "NW4R rtex" "failed to decode synthetic t.rtex"
+  else
+    fno "NW4R rtex" "mk_rtex.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
