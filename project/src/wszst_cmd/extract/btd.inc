@@ -48,7 +48,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 			const u32 c = rd_le32 (s0), x = rd_le32 (s0 + 4), p8 = rd_le32 (s0 + 8);
 			njm_put (&j, "\n\"section0\": {\"x\": %u, \"records\": [", x);
 			for (uint i = 0; i < c && i < 4096 && (u64)b0 + p8 + 16 * (u64)(i + 1) <= sz; i++)
-				njm_put (&j, "%s[%g,%g,%g,%g]", i ? "," : "", njm_jf (s0 + p8 + 16 * i), njm_jf (s0 + p8 + 16 * i + 4),
+				njm_put (&j, "%s[%.9g,%.9g,%.9g,%.9g]", i ? "," : "", njm_jf (s0 + p8 + 16 * i), njm_jf (s0 + p8 + 16 * i + 4),
 					njm_jf (s0 + p8 + 16 * i + 8), njm_jf (s0 + p8 + 16 * i + 12));
 			njm_put (&j, "]}");
 			first = false;
@@ -62,7 +62,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 			for (uint i = 0; i < c && i < 4096 && (u64)b1 + p + 0x20 * (u64)(i + 1) <= sz; i++)
 			{
 				const u8 *e = s1 + p + 0x20 * (size_t)i;
-				njm_put (&j, "%s\n {\"a\": [%d,%d,%d], \"b\": [%d,%d,%d], \"index\": %u, \"value\": %g}", i ? "," : "",
+				njm_put (&j, "%s\n {\"a\": [%d,%d,%d], \"b\": [%d,%d,%d], \"index\": %u, \"value\": %.9g}", i ? "," : "",
 					(int)rd_le32 (e), (int)rd_le32 (e + 4), (int)rd_le32 (e + 8), (int)rd_le32 (e + 12), (int)rd_le32 (e + 16),
 					(int)rd_le32 (e + 20), rd_le32 (e + 24), njm_jf (e + 28));
 			}
@@ -76,7 +76,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 			for (uint i = 0; i < na && i < 4096 && (u64)b2 + pa + 0x40 * (u64)(i + 1) <= sz; i++)
 			{
 				const u8 *e = s2 + pa + 0x40 * (size_t)i;
-				njm_put (&j, "%s\n  {\"v0\": [%g,%g,%g,%g], \"v1\": [%g,%g,%g,%g], \"u32\": [", i ? "," : "", njm_jf (e),
+				njm_put (&j, "%s\n  {\"v0\": [%.9g,%.9g,%.9g,%.9g], \"v1\": [%.9g,%.9g,%.9g,%.9g], \"u32\": [", i ? "," : "", njm_jf (e),
 					njm_jf (e + 4), njm_jf (e + 8), njm_jf (e + 12), njm_jf (e + 16), njm_jf (e + 20), njm_jf (e + 24),
 					njm_jf (e + 28));
 				for (uint k = 0; k < 7; k++)
@@ -87,7 +87,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 			for (uint i = 0; i < nb && i < 4096 && (u64)b2 + pb + 0x20 * (u64)(i + 1) <= sz; i++)
 			{
 				const u8 *e = s2 + pb + 0x20 * (size_t)i;
-				njm_put (&j, "%s\n  {\"v\": [%g,%g,%g,%g], \"u32\": [%u,%u]}", i ? "," : "", njm_jf (e), njm_jf (e + 4),
+				njm_put (&j, "%s\n  {\"v\": [%.9g,%.9g,%.9g,%.9g], \"u32\": [%u,%u]}", i ? "," : "", njm_jf (e), njm_jf (e + 4),
 					njm_jf (e + 8), njm_jf (e + 12), rd_le32 (e + 16), rd_le32 (e + 20));
 			}
 			njm_put (&j, "]}");
@@ -110,7 +110,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 					njm_put (&j, "%s%u", k ? "," : "", rd_le32 (t + 4 * k));
 				njm_put (&j, "], \"float\": [");
 				for (uint k = 0; k < nw; k++)
-					njm_put (&j, "%s%g", k ? "," : "", njm_jf (t + 4 * k));
+					njm_put (&j, "%s%.9g", k ? "," : "", njm_jf (t + 4 * k));
 				njm_put (&j, "]}");
 			}
 			else if (si == 5 && (u64)b + 0x1c90 + 4 * 114 <= sz)
@@ -120,7 +120,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 				{
 					njm_put (&j, "%s\n [", m ? "," : "");
 					for (uint k = 0; k < 16; k++)
-						njm_put (&j, "%s%g", k ? "," : "", njm_jf (t + 0x10 + 0x40 * m + 4 * k));
+						njm_put (&j, "%s%.9g", k ? "," : "", njm_jf (t + 0x10 + 0x40 * m + 4 * k));
 					njm_put (&j, ", %u, %u]", rd_le16 (t + 0x1c90 + 4 * m), rd_le16 (t + 0x1c92 + 4 * m));
 				}
 				njm_put (&j, "]}");
@@ -163,6 +163,40 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 			else
 				njm_put (&j, "null");
 		}
+		// section 9: {count, count * 8 u32 (the first five are swapped by the game)}; section 10: {count, offset} -> 0x30 byte
+		// records {u16, u16 type, u32 x3, float4 position + w, float4 position + range}
+		{
+			const u32 b9 = rd_le32 (raw + 8 + 12 * 9), b10 = rd_le32 (raw + 8 + 12 * 10);
+			if (b9 && (u64)b9 + 4 <= sz)
+			{
+				const u32 c = rd_le32 (raw + b9);
+				njm_put (&j, "%s\n\"section9\": [", first ? "" : ",");
+				first = false;
+				for (uint i = 0; i < c && i < 4096 && (u64)b9 + 4 + 32 * (u64)(i + 1) <= sz; i++)
+				{
+					const u8 *e = raw + b9 + 4 + 32 * (size_t)i;
+					njm_put (&j, "%s\n [", i ? "," : "");
+					for (uint k = 0; k < 8; k++)
+						njm_put (&j, "%s%u", k ? "," : "", rd_le32 (e + 4 * k));
+					njm_put (&j, "]");
+				}
+				njm_put (&j, "]");
+			}
+			if (b10 && (u64)b10 + 8 <= sz)
+			{
+				const u32 c = rd_le32 (raw + b10), po = rd_le32 (raw + b10 + 4);
+				njm_put (&j, "%s\n\"section10\": [", first ? "" : ",");
+				first = false;
+				for (uint i = 0; i < c && i < 4096 && (u64)b10 + po + 0x30 * (u64)(i + 1) <= sz; i++)
+				{
+					const u8 *e = raw + b10 + po + 0x30 * (size_t)i;
+					njm_put (&j, "%s\n {\"a\": %u, \"type\": %u, \"u32\": [%u,%u,%u], \"p0\": [%.9g,%.9g,%.9g,%.9g], \"p1\": [%.9g,%.9g,%.9g,%.9g]}",
+						i ? "," : "", rd_le16 (e), rd_le16 (e + 2), rd_le32 (e + 4), rd_le32 (e + 8), rd_le32 (e + 12), njm_jf (e + 16),
+						njm_jf (e + 20), njm_jf (e + 24), njm_jf (e + 28), njm_jf (e + 32), njm_jf (e + 36), njm_jf (e + 40), njm_jf (e + 44));
+				}
+				njm_put (&j, "]");
+			}
+		}
 	}
 	njm_put (&j, "\n}\n}\n");
 	uint nl = 0;
@@ -180,7 +214,7 @@ static enumError extract_btd_file (ccp arg, ccp basedir, uint depth)
 				for (uint k = 0; k < n; k++)
 				{
 					const u8 *p = raw + s3 + po + 0x20 * (size_t)k;
-					njm_put (&o, "v %g %g %g\n", njm_jf (p), njm_jf (p + 4), njm_jf (p + 8));
+					njm_put (&o, "v %.9g %.9g %.9g\n", njm_jf (p), njm_jf (p + 4), njm_jf (p + 8));
 				}
 				njm_put (&o, "l");
 				for (uint k = 0; k < n; k++)
