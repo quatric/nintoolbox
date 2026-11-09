@@ -9491,6 +9491,18 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # "PAK\3" archive (International Athletics): 140-byte records, byte LZSS with 12-bit distances
+  mkdir -p "$d/pak3_test"
+  if python3 "$PWD_PROJECT/../tests/mk_pak3.py" "$d/pak3_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/pak3_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/pak3_test/t.pak.d/DIR/A.TXT")" = "abcabcabcabc" ] \
+    && [ "$(cat "$d/pak3_test/t.pak.d/B.BIN")" = "stored member" ] \
+    && fok "PAK\\3 archive unpacks stored and LZSS members with backslash paths" \
+    || fno "PAK3 archive" "failed to extract synthetic t.pak"
+  else
+    fno "PAK3 archive" "mk_pak3.py failed"
+  fi
+
   # Coresoft JPack .pak (zlib members, names from jpack_<pak>.log) + NWTX textures
   mkdir -p "$d/jpack_test"
   if python3 "$PWD_PROJECT/../tests/mk_jpack.py" "$d/jpack_test" >/dev/null 2>&1; then

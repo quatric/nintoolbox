@@ -162,6 +162,7 @@
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
+#include "extract/pak3.inc"
 #include "extract/nwtx.inc"
 #include "extract/unityassets.inc"
 #include "extract/wsbl.inc"

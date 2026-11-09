@@ -21,6 +21,5 @@ Web searches (QuickBMS, TCRF, WiiBrew, GitHub) found no public documentation for
 | `wii\0` `.ARC` | Ski-Doo Snowmobile Challenge, MX vs. ATV | BE typed memory-image pack, no stored names: header count at +8, data base at +0x10, 0x20-byte entries at +0x100 `{0, type, size, offset-in-type-section, id, 0, 0x20, 0}`; payloads are relocatable images, not decoded |
 | `.wiz` / `.wsp` / `.LOC` | Babyz, Beastly, Babysitting Party | Ubisoft Imagine engine; `.LOC` starts `LOCV1.0` and is compressed; headers not understood |
 | `.ast` payloads | I Spy Spooky Mansion, I Spy Game Pack, Spore Hero | `SDASSETF` container is walked; model/animation/texture chunks are not decoded |
-| `PAK\3` | International Athletics (`GameData.pak`) | not analysed |
 | `.mee` language tables | Slam Games titles | custom compressed text |
 | `maxa` payloads | Kid Adventures: Sky Captain | inner payloads of the already extracted `PAK\0` members |
