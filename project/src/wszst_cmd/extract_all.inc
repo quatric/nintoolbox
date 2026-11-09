@@ -164,6 +164,7 @@
 #include "extract/jpack.inc"
 #include "extract/pak3.inc"
 #include "extract/imaginelz.inc"
+#include "extract/imaginewsp.inc"
 #include "extract/athtex.inc"
 #include "extract/nwtx.inc"
 #include "extract/unityassets.inc"

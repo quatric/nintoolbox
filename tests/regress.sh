@@ -9496,6 +9496,8 @@ with open(sys.argv[1], "wb") as f:
   if python3 "$PWD_PROJECT/../tests/mk_imaginelz.py" "$d/imaginelz_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/imaginelz_test/x.wiz" --overwrite >/dev/null 2>&1 \
     && [ "$(cat "$d/imaginelz_test/x.wiz.d/x.wiz")" = "abcabcabcabc" ] \
+    && "$B/wszst" xx "$d/imaginelz_test/y.wsp" --overwrite >/dev/null 2>&1 \
+    && [ -s "$d/imaginelz_test/y.wsp.d/y.png" ] \
     && fok "Ubisoft Imagine LZSS (0x87654321) decompresses to <file>.d/<name>" \
     || fno "Imagine LZSS" "failed to extract synthetic x.wiz"
   else
