@@ -11247,6 +11247,9 @@ open(d+'/t.sdl','wb').write(s)
     && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/t.vas.d/000_ch1.dsp")" = "2121" ] \
     && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/t.vas.d/001_ch1.dsp")" = "4141" ] \
     && [ "$(xxd -s 8 -l 4 -p "$d/konamivas_test/t.vas.d/001_ch0.dsp")" = "0000ac44" ] \
+    && cp "$d/konamivas_test/t.vas" "$d/konamivas_test/s.bin" \
+    && "$B/wszst" x "$d/konamivas_test/s.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 0x60 -l 2 -p "$d/konamivas_test/s.bin.d/000_ch1.dsp")" = "2121" ] \
     && fok "Konami .vas -> per-channel DSP" \
     || fno "Konami .vas" "failed on synthetic t.vas"
   else

@@ -6,7 +6,8 @@
 // placeholder streams without an end address are skipped).
 static enumError extract_konamivas_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".vas"))
+	// ".vas" (Japanese games) or ".bin" (MLB Power Pros "strbgm.bin" / "voiceN.bin", page 0 starts 0x005a8aab)
+	if (!is_ext (arg, ".vas") && !is_ext (arg, ".bin"))
 		return ERR_NOTHING_TO_DO;
 	FILE *in = fopen (arg, "rb");
 	if (!in)
