@@ -172,6 +172,7 @@
 #include "extract/cs12.inc"
 #include "extract/ninjachunk.inc"
 #include "extract/njm.inc"
+#include "extract/athanm.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"

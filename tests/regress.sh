@@ -9568,6 +9568,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Ninja motion" "mk_njm.py failed"
   fi
 
+  # Athletics-engine .ANM -> anim.json
+  mkdir -p "$d/athanm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_athanm.py" "$d/athanm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/athanm_test/t.anm" --overwrite >/dev/null 2>&1 \
+    && grep -q '"node": "Plane01"' "$d/athanm_test/t.anm.d/anim.json" \
+    && grep -q '\[0.5,0.5,0.5,0.5\]' "$d/athanm_test/t.anm.d/anim.json" \
+    && fok "Athletics .ANM extracts to anim.json" \
+    || fno "Athletics ANM" "failed to extract synthetic t.anm"
+  else
+    fno "Athletics ANM" "mk_athanm.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
