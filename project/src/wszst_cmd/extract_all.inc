@@ -168,6 +168,7 @@
 #include "extract/loc.inc"
 #include "extract/segapvr_png.inc"
 #include "extract/ggxarchiver.inc"
+#include "extract/ninjachunk.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"

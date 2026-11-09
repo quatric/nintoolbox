@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # Sega Ninja chunk model (Radirgy Noa, byte-reversed tags) -> model.obj + model.mtl
+  mkdir -p "$d/njc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_ninjachunk.py" "$d/njc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/njc_test/t.nj" --overwrite >/dev/null 2>&1 \
+    && [ "$(grep -c '^f ' "$d/njc_test/t.nj.d/model.obj")" = 1 ] \
+    && grep -q "map_Kd TEXA.png" "$d/njc_test/t.nj.d/model.mtl" \
+    && fok "Ninja chunk model exports model.obj and model.mtl" \
+    || fno "Ninja chunk model" "failed to extract synthetic t.nj"
+  else
+    fno "Ninja chunk model" "mk_ninjachunk.py failed"
+  fi
+
   # GGXArchiver (Radirgy Noa) container: Gage BPE members, Illvelo-style PVR -> PNG
   mkdir -p "$d/ggx_test"
   if python3 "$PWD_PROJECT/../tests/mk_ggxarchiver.py" "$d/ggx_test" >/dev/null 2>&1; then
