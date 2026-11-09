@@ -162,6 +162,40 @@ static bool chnk_head (chnk_ctx_t *c, size_t ps, size_t pe)
 	return true;
 }
 
+// SPLN: u32 version (2), records {char name[4], padded path string (the ".spline" resource)}, tail tag
+static bool chnk_spln (chnk_ctx_t *c, size_t ps, size_t pe)
+{
+	if (pe - ps < 4 + 4 + 4 || rd_be32 (c->d + ps) != 2 || memcmp (c->d + pe - 4, "SPLN", 4))
+		return false;
+	size_t q = ps + 4;
+	uint n = 0;
+	while (q + 4 < pe)
+	{
+		char nm[128];
+		for (uint i = 0; i < 4; i++)
+			if (q + 4 > pe - 4 || c->d[q + i] < 32 || c->d[q + i] > 126 || c->d[q + i] == '"' || c->d[q + i] == '\\')
+				return false;
+		const size_t f = chnk_name (c->d + q + 4, pe - 4 - q - 4, nm, sizeof (nm));
+		if (!f)
+			return false;
+		q += 4 + f;
+		n++;
+	}
+	if (q != pe - 4)
+		return false;
+	njm_put (&c->o, ", \"splines\": [");
+	q = ps + 4;
+	for (uint k = 0; k < n; k++)
+	{
+		char nm[128];
+		const size_t f = chnk_name (c->d + q + 4, pe - 4 - q - 4, nm, sizeof (nm));
+		njm_put (&c->o, "%s\n  {\"name\": \"%.4s\", \"file\": \"%s\"}", k ? "," : "", c->d + q, nm);
+		q += 4 + f;
+	}
+	njm_put (&c->o, "]}");
+	return true;
+}
+
 static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 {
 	bool first = true;
@@ -213,6 +247,9 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 				njm_put (&c->o, "]}");
 			}
 			njm_put (&c->o, "]}");
+		}
+		else if (!memcmp (c->d + p, "SPLN", 4) && chnk_spln (c, ps, pe))
+		{
 		}
 		else if (!memcmp (c->d + p, "HEAD", 4) && chnk_head (c, ps, pe))
 		{

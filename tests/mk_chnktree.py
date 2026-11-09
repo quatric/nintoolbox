@@ -28,6 +28,7 @@ nulo = ch(b"NULO", struct.pack(">I", 2) + nm("PathLoc_0") + m12 + nm("PathLoc_10
 enty = ch(b"ENTY", struct.pack(">III", 3, 1, 1) + nm("jump_1") + struct.pack(">3f", 1, 1, 1) + m12 + struct.pack(">6f", -1, -1, -1, 1, 1, 1)
     + struct.pack(">III", 1, 13, 0) + nm("RND/MDL/a.brmdl") + b"ENTY")
 head = ch(b"HEAD", struct.pack(">If", 2, 1.0) + nm("shop_in") + struct.pack(">6I", 3, 2, 0, 0, 3, 1) + b"HEAD")
-scen3 = ch(b"SCEN", struct.pack(">I", 2) + head + nulo + enty + b"SCEN")
+spln = ch(b"SPLN", struct.pack(">I", 2) + b"BC01" + nm("RND/SCN/a.spline") + b"trck" + nm("RND/SCN/b.spline") + b"SPLN")
+scen3 = ch(b"SCEN", struct.pack(">I", 2) + head + spln + nulo + enty + b"SCEN")
 root4 = ch(b"CHNK", struct.pack(">I", 0) + scen3 + b"CHNK")
 open(os.path.join(d, "e.scene"), "wb").write(b"CHNK" + root4)

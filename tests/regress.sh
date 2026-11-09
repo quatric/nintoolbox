@@ -9654,6 +9654,8 @@ with open(sys.argv[1], "wb") as f:
     && grep -q '"name": "c_test", "params": \[1.5,0.5,300\], "matrix": \[1,0,0,2,0,1,0,3,0,0,1,4\]' "$d/chnk_test/c.scene.d/tree.json" \
     && "$B/wszst" x "$d/chnk_test/e.scene" --overwrite >/dev/null 2>&1 \
     && grep -q '"scene": {"version": 2, "scale": 1, "name": "shop_in", "words": \[3,2,0,0,3,1\]}' "$d/chnk_test/e.scene.d/tree.json" \
+    && grep -q '{"name": "BC01", "file": "RND/SCN/a.spline"}' "$d/chnk_test/e.scene.d/tree.json" \
+    && grep -q '{"name": "trck", "file": "RND/SCN/b.spline"}' "$d/chnk_test/e.scene.d/tree.json" \
     && grep -q '"name": "PathLoc_100", "matrix": \[1,0,0,2,0,1,0,3,0,0,1,4\]' "$d/chnk_test/e.scene.d/tree.json" \
     && grep -q '"entity": {"name": "jump_1", "kind": 1, "flag": 1, "scale": \[1,1,1\].*"box": \[-1,-1,-1,1,1,1\].*"RND/MDL/a.brmdl"' "$d/chnk_test/e.scene.d/tree.json" \
     && fok "CHNK tree (.scene) -> tree.json" \
