@@ -11371,6 +11371,21 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # "waud" raw PCM sounds (.wtss / .wtxs) -> WAV
+  mkdir -p "$d/waud_test"
+  if python3 "$PWD_PROJECT/../tests/mk_waud.py" "$d/waud_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/waud_test/s.wtss" "$d/waud_test/e.wtxs" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 22 -l 2 -p "$d/waud_test/s.wav")" = "0200" ] \
+    && [ "$(xxd -s 24 -l 4 -p "$d/waud_test/s.wav")" = "44ac0000" ] \
+    && [ "$(xxd -s 44 -l 8 -p "$d/waud_test/s.wav")" = "3412feff0201ff7f" ] \
+    && [ "$(xxd -s 24 -l 4 -p "$d/waud_test/e.wav")" = "112b0000" ] \
+    && [ "$(xxd -s 44 -l 3 -p "$d/waud_test/e.wav")" = "809070" ] \
+    && fok "waud sound -> WAV" \
+    || fno "waud sound" "failed on synthetic s.wtss / e.wtxs"
+  else
+    fno "waud sound" "mk_waud.py failed"
+  fi
+
   # EA SCHl stream with EA-XA ADPCM (Wii .exa) decoded natively
   mkdir -p "$d/eaxa_test"
   if python3 "$PWD_PROJECT/../tests/mk_eaxa.py" "$d/eaxa_test" >/dev/null 2>&1; then

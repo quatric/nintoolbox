@@ -322,6 +322,7 @@
 #include "extract/bombshell.inc"
 #include "extract/bttrb.inc"
 #include "extract/asobo_sound.inc"
+#include "extract/waud.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
 #include "extract/dcx.inc"
