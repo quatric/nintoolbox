@@ -11384,6 +11384,24 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Ubisoft Imagine ".adpcm" = plain DSP-ADPCM (Beastly music) -> WAV
+  mkdir -p "$d/adpcm_test"
+  python3 -c '
+import struct, sys
+h = struct.pack(">IIIHHIII", 14, 16, 32000, 0, 0, 2, 15, 2) + struct.pack(">16h", *([0] * 16)) + bytes(0x60 - 28 - 32)
+open(sys.argv[1], "wb").write(h + bytes([0x00, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde]))
+' "$d/adpcm_test/t.adpcm" >/dev/null 2>&1
+  if "$B/wszst" x "$d/adpcm_test/t.adpcm" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import sys, wave
+w = wave.open(sys.argv[1])
+assert w.getnchannels() == 1 and w.getframerate() == 32000 and w.getnframes() == 14, (w.getparams())
+' "$d/adpcm_test/t.wav"; then
+    ok ".adpcm DSP -> WAV"
+  else
+    no ".adpcm DSP" "no 14 frame wav from synthetic t.adpcm"
+  fi
+
   # Octomania secB scene container -> embedded NW4R members
   mkdir -p "$d/octosec_test"
   if python3 "$PWD_PROJECT/../tests/mk_octosec.py" "$d/octosec_test" >/dev/null 2>&1; then

@@ -1,7 +1,7 @@
-// Nintendo GameCube/Wii DSP-ADPCM standalone audio (.dsp; also Madagascar: Escape 2 Africa ".snds", a plain 0x60-byte DSP header + data) -> WAV.
+// Nintendo GameCube/Wii DSP-ADPCM standalone audio (.dsp; also Madagascar: Escape 2 Africa ".snds", a plain 0x60-byte DSP header + data; Ubisoft Imagine "Beastly" ".adpcm" music / effects) -> WAV.
 static enumError extract_dsp_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".dsp") && !is_ext (arg, ".snds"))
+	if (!is_ext (arg, ".dsp") && !is_ext (arg, ".snds") && !is_ext (arg, ".adpcm"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -24,6 +24,8 @@ static enumError extract_dsp_file (ccp arg, ccp basedir, uint depth)
 			size_t blen = strlen (base);
 			if (blen > 4 && !strcasecmp (base + blen - 4, ".dsp"))
 				blen -= 4;
+			else if (blen > 6 && !strcasecmp (base + blen - 6, ".adpcm"))
+				blen -= 6;
 			snprintf (dest, sizeof (dest), "%s/%.*s.wav", opt_dest, (int)blen, base);
 		}
 		else if (is_ext (opt_dest, ".wav"))
