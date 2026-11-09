@@ -9508,6 +9508,17 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # Ubisoft Imagine ".LOCV1.0" localisation table -> strings.tsv
+  mkdir -p "$d/loc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_loc.py" "$d/loc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/loc_test/t.LOC" --overwrite >/dev/null 2>&1 \
+    && grep -qF 'Zwei' "$d/loc_test/t.LOC.d/strings.tsv" \
+    && fok "Imagine .LOC exports strings.tsv" \
+    || fno "Imagine .LOC" "failed to extract synthetic t.LOC"
+  else
+    fno "Imagine .LOC" "mk_loc.py failed"
+  fi
+
   # "OIBB" object pack (Doctor Fizzwizzle): TXTR objects with a 256-entry RGB5A3 palette before the C8 tiles
   mkdir -p "$d/oibb_test"
   if python3 "$PWD_PROJECT/../tests/mk_oibb.py" "$d/oibb_test" >/dev/null 2>&1; then

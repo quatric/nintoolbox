@@ -165,6 +165,7 @@
 #include "extract/pak3.inc"
 #include "extract/oibb.inc"
 #include "extract/imaginelz.inc"
+#include "extract/loc.inc"
 #include "extract/imaginewsp.inc"
 #include "extract/imaginemsk.inc"
 #include "extract/imaginetan.inc"
