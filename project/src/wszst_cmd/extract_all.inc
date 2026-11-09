@@ -326,6 +326,7 @@
 #include "extract/aax.inc"
 #include "extract/kp0.inc"
 #include "extract/rmhg.inc"
+#include "extract/gmf2.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
 #include "extract/dcx.inc"

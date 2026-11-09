@@ -11371,6 +11371,20 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # Grasshopper GMF2 model (.gm2) -> OBJ
+  mkdir -p "$d/gmf2_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gmf2.py" "$d/gmf2_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gmf2_test/t.gm2" --overwrite >/dev/null 2>&1 \
+    && grep -q "^v 2.000000 2.000000 3.000000" "$d/gmf2_test/t.gm2.d/model.obj" \
+    && grep -q "^f 1/1/1 2/2/2 3/3/3" "$d/gmf2_test/t.gm2.d/model.obj" \
+    && grep -q "^vt 0.50000 0.75000" "$d/gmf2_test/t.gm2.d/model.obj" \
+    && grep -q "^newmtl m_MAT1" "$d/gmf2_test/t.gm2.d/model.mtl" \
+    && fok "GMF2 model -> OBJ" \
+    || fno "GMF2 model" "failed on synthetic t.gm2"
+  else
+    fno "GMF2 model" "mk_gmf2.py failed"
+  fi
+
   # Grasshopper RMHG container (.rsl): nested groups, GMF2 / GCT0 leaves
   mkdir -p "$d/rmhg_test"
   if python3 "$PWD_PROJECT/../tests/mk_rmhg.py" "$d/rmhg_test" >/dev/null 2>&1; then
