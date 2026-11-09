@@ -11384,6 +11384,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Octomania secB scene container -> embedded NW4R members
+  mkdir -p "$d/octosec_test"
+  if python3 "$PWD_PROJECT/../tests/mk_octosec.py" "$d/octosec_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/octosec_test/t.sec" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/octosec_test/t.sec.d/000.brstm")" = "5253544d" ] \
+    && [ "$(stat -f %z "$d/octosec_test/t.sec.d/001.brres" 2>/dev/null || stat -c %s "$d/octosec_test/t.sec.d/001.brres")" = "48" ] \
+    && fok "Octomania .sec -> members" \
+    || fno "Octomania .sec" "failed on synthetic t.sec"
+  else
+    fno "Octomania .sec" "mk_octosec.py failed"
+  fi
+
   # Hudson HVQM4 movie -> audio WAV
   mkdir -p "$d/h4m_test"
   if python3 "$PWD_PROJECT/../tests/mk_h4m.py" "$d/h4m_test" >/dev/null 2>&1; then
