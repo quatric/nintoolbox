@@ -11388,6 +11388,17 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # Shrek Forever After APKF package -> texture PNGs
+  mkdir -p "$d/apkf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_apkf.py" "$d/apkf_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/apkf_test/t.apk" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 1 -l 3 -p "$d/apkf_test/t.apk.d/tex_0000.png")" = "504e47" ] \
+    && fok "Shrek .apk -> PNG" \
+    || fno "Shrek .apk" "failed on synthetic t.apk"
+  else
+    fno "Shrek .apk" "mk_apkf.py failed"
+  fi
+
   # Ubisoft Imagine ".adpcm" = plain DSP-ADPCM (Beastly music) -> WAV
   mkdir -p "$d/adpcm_test"
   python3 -c '

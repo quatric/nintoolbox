@@ -336,6 +336,7 @@
 #include "extract/usm.inc"
 #include "extract/octosec.inc"
 #include "extract/imaginewa2.inc"
+#include "extract/apkf.inc"
 #include "extract/imaginewsn.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
