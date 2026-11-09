@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # CS12 sound container (Emergency Heroes): MDWI blocks -> sound_NNNN.dsp + WAV
+  mkdir -p "$d/cs12_test"
+  if python3 "$PWD_PROJECT/../tests/mk_cs12.py" "$d/cs12_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/cs12_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/cs12_test/t.dat.d/sound_0000.dsp" | tr -d ' ')" = 128 ] \
+    && [ -s "$d/cs12_test/t.dat.d/sound_0000.wav" ] \
+    && fok "CS12 sound container extracts DSP and WAV" \
+    || fno "CS12" "failed to extract synthetic t.dat"
+  else
+    fno "CS12" "mk_cs12.py failed"
+  fi
+
   # Ultimate Red Ball Challenge ".mus" (mono DSP-ADPCM) -> .dsp + WAV
   mkdir -p "$d/rbmus_test"
   if python3 "$PWD_PROJECT/../tests/mk_redballmus.py" "$d/rbmus_test" >/dev/null 2>&1; then
