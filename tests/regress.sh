@@ -9661,7 +9661,20 @@ with open(sys.argv[1], "wb") as f:
     fno "CHNK tree" "mk_chnktree.py failed"
   fi
 
-  # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
+  # Momotarou Dentetsu "cmps" LZ archive (32 bit flag words) -> table members
+{
+  mkdir -p "$d/cmps_test"
+  if python3 "$PWD_PROJECT/../tests/mk_cmps.py" "$d/cmps_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/cmps_test/t.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(head -c 8 "$d/cmps_test/t.bin.d/0000.bin")" = "ABCDABCD" ] \
+    && [ "$(wc -c < "$d/cmps_test/t.bin.d/0001.bin" | tr -d ' ')" = "32" ] \
+    && fok "cmps LZ archive -> table members" \
+    || fno "cmps LZ archive" "failed to extract synthetic t.bin"
+  else
+    fno "cmps LZ archive" "mk_cmps.py failed"
+  fi
+}
+# Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \
     && [ -s "$d/ggx_test/toon.png" ] \
