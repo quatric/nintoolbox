@@ -141,6 +141,27 @@ static bool chnk_enty (chnk_ctx_t *c, size_t ps, size_t pe)
 	return true;
 }
 
+// HEAD: u32 version (2), float scale, name (padded like the NULO / ENTY names), then u32 words (the scene header: 3, three counts and
+// padding; the fourth word is the NULO locator count in the scenes checked), tail tag
+static bool chnk_head (chnk_ctx_t *c, size_t ps, size_t pe)
+{
+	char nm[64];
+	if (pe - ps < 8 + 8 + 4 || rd_be32 (c->d + ps) != 2 || memcmp (c->d + pe - 4, "HEAD", 4))
+		return false;
+	const size_t f = chnk_name (c->d + ps + 8, pe - 4 - ps - 8, nm, sizeof (nm));
+	if (!f || (pe - 4 - (ps + 8 + f)) % 4)
+		return false;
+	njm_put (&c->o, ", \"scene\": {\"version\": 2, \"scale\": %.9g, \"name\": \"%s\", \"words\": [", njm_f (c->d + ps + 4), nm);
+	bool first = true;
+	for (size_t q = ps + 8 + f; q + 4 <= pe - 4; q += 4)
+	{
+		njm_put (&c->o, "%s%u", first ? "" : ",", rd_be32 (c->d + q));
+		first = false;
+	}
+	njm_put (&c->o, "]}}");
+	return true;
+}
+
 static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 {
 	bool first = true;
@@ -192,6 +213,9 @@ static void chnk_emit (chnk_ctx_t *c, size_t p, size_t end, uint depth)
 				njm_put (&c->o, "]}");
 			}
 			njm_put (&c->o, "]}");
+		}
+		else if (!memcmp (c->d + p, "HEAD", 4) && chnk_head (c, ps, pe))
+		{
 		}
 		else if (!memcmp (c->d + p, "NULO", 4) && chnk_nulo (c, ps, pe))
 		{
