@@ -33,16 +33,15 @@ static enumError extract_apkf_file (ccp arg, ccp basedir, uint depth)
 		}
 		u32 g = 0x1c;
 		uint ntex = 0;
+		u32 cur[8] = { 0 }; // the running pool offsets are shared by all groups
 		char dest[PATH_MAX];
 		beside_source_dest (dest, sizeof (dest), arg);
 		for (; (u64)g + 20 + 4 * (u64)n <= sz && rd_be32 (raw + g); g += 20 + 4 * n)
 		{
-			if (memcmp (raw + g, "\0XET", 4))
-				continue;
+			const bool istex = !memcmp (raw + g, "\0XET", 4);
 			const u32 isz = rd_be32 (raw + g + 8), ioff = rd_be32 (raw + g + 12), cnt = rd_be32 (raw + g + 16);
 			if (isz < 1 || isz > 16 || cnt > 0x100000 || (u64)g + 0xc + ioff + 4 * (u64)(isz + 1) * cnt > sz)
 				goto done;
-			u32 cur[8] = { 0 };
 			for (uint c = 0; c < cnt; c++)
 			{
 				const u8 *it = raw + g + 0xc + ioff + 4 * (size_t)(isz + 1) * c;
@@ -57,7 +56,7 @@ static enumError extract_apkf_file (ccp arg, ccp basedir, uint depth)
 						cur[idx] = (cur[idx] + al - 1) & ~(al - 1);
 					const u32 s = rd_be32 (it + 4 + 4 * idx);
 					const u64 pos = (u64)pbase[idx] + cur[idx];
-					if (pos + 0x40 <= sz && !memcmp (raw + pos, "GCNT", 4) && pos + s <= sz)
+					if (istex && pos + 0x40 <= sz && !memcmp (raw + pos, "GCNT", 4) && pos + s <= sz)
 						hdr = raw + pos, isize = s;
 					cur[idx] += s;
 				}
