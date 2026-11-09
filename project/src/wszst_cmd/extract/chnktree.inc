@@ -165,6 +165,24 @@ static bool chnk_head (chnk_ctx_t *c, size_t ps, size_t pe)
 // SPLN: u32 version (2), records {char name[4], padded path string (the ".spline" resource)}, tail tag
 static bool chnk_spln (chnk_ctx_t *c, size_t ps, size_t pe)
 {
+	// version 1 (".spline" files): char name[4], u32 point count, count x float xyz, tail tag
+	if (pe - ps >= 12 + 4 && rd_be32 (c->d + ps) == 1 && !memcmp (c->d + pe - 4, "SPLN", 4))
+	{
+		const u32 cnt = rd_be32 (c->d + ps + 8);
+		if (!cnt || (pe - ps - 12 - 4) / 12 != cnt || (pe - ps - 12 - 4) % 12)
+			return false;
+		for (uint i = 0; i < 4; i++)
+			if (c->d[ps + 4 + i] < 32 || c->d[ps + 4 + i] > 126 || c->d[ps + 4 + i] == '"' || c->d[ps + 4 + i] == '\\')
+				return false;
+		njm_put (&c->o, ", \"spline\": {\"name\": \"%.4s\", \"points\": [", c->d + ps + 4);
+		for (u32 k = 0; k < cnt; k++)
+		{
+			const u8 *r = c->d + ps + 12 + 12 * (size_t)k;
+			njm_put (&c->o, "%s[%.9g,%.9g,%.9g]", k ? "," : "", njm_f (r), njm_f (r + 4), njm_f (r + 8));
+		}
+		njm_put (&c->o, "]}}");
+		return true;
+	}
 	if (pe - ps < 4 + 4 + 4 || rd_be32 (c->d + ps) != 2 || memcmp (c->d + pe - 4, "SPLN", 4))
 		return false;
 	size_t q = ps + 4;

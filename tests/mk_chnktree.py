@@ -32,3 +32,7 @@ spln = ch(b"SPLN", struct.pack(">I", 2) + b"BC01" + nm("RND/SCN/a.spline") + b"t
 scen3 = ch(b"SCEN", struct.pack(">I", 2) + head + spln + nulo + enty + b"SCEN")
 root4 = ch(b"CHNK", struct.pack(">I", 0) + scen3 + b"CHNK")
 open(os.path.join(d, "e.scene"), "wb").write(b"CHNK" + root4)
+# ".spline" file: SPLN version 1 {name[4], count, count x xyz}
+pts = struct.pack(">6f", 0, 0, 0, 1, 2, 3)
+sp = ch(b"SPLN", struct.pack(">I", 1) + b"trck" + struct.pack(">I", 2) + pts + b"SPLN")
+open(os.path.join(d, "t.spline"), "wb").write(b"CHNK" + ch(b"CHNK", struct.pack(">II", 0, 1) + sp + b"CHNK"))
