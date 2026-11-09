@@ -11384,6 +11384,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi
 
+  # CRI USM movie container -> streams
+  mkdir -p "$d/usm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_usm.py" "$d/usm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/usm_test/t.usm" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -p "$d/usm_test/t.usm.d/video0.m1v")" = "000001b34141414143434343" ] \
+    && [ "$(xxd -p "$d/usm_test/t.usm.d/audio0.adx")" = "800000204242" ] \
+    && fok "USM -> video/audio streams" \
+    || fno "USM" "failed on synthetic t.usm"
+  else
+    fno "USM" "mk_usm.py failed"
+  fi
+
   # Momotarou Dentetsu message.bin -> text
   mkdir -p "$d/momomsg_test"
   if python3 "$PWD_PROJECT/../tests/mk_momomessage.py" "$d/momomsg_test" >/dev/null 2>&1; then

@@ -333,6 +333,7 @@
 #include "extract/gsr.inc"
 #include "extract/pangyapet.inc"
 #include "extract/momomessage.inc"
+#include "extract/usm.inc"
 #include "extract/imaginewsn.inc"
 #include "extract/asobo_mesh.inc"
 #include "extract/gcg.inc"
