@@ -11371,6 +11371,19 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # Imagine .wsn scene mesh -> OBJ + texture PNG
+  mkdir -p "$d/wsn_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imaginewsn.py" "$d/wsn_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wsn_test/t.wsn" --overwrite >/dev/null 2>&1 \
+    && grep -q "^v 10.0000 0.0000 0.0000 0.000 1.000 0.000" "$d/wsn_test/t.wsn.d/model.obj" \
+    && grep -q "^f 1 2 3" "$d/wsn_test/t.wsn.d/model.obj" \
+    && [ "$(xxd -s 1 -l 3 -p "$d/wsn_test/t.wsn.d/tex_00.png")" = "504e47" ] \
+    && fok "Imagine .wsn -> OBJ + PNG" \
+    || fno "Imagine .wsn" "failed on synthetic t.wsn"
+  else
+    fno "Imagine .wsn" "mk_imaginewsn.py failed"
+  fi
+
   # Pangya .gsr texture -> PNG
   mkdir -p "$d/gsr_test"
   if python3 "$PWD_PROJECT/../tests/mk_gsr.py" "$d/gsr_test" >/dev/null 2>&1; then
