@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # Ubisoft Imagine ".wiz" static model -> model.obj + tex_0000.png
+  mkdir -p "$d/wiz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imaginewiz.py" "$d/wiz_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/wiz_test/t.wiz" --overwrite >/dev/null 2>&1 \
+    && [ "$(grep -c '^f ' "$d/wiz_test/t.wiz.d/model.obj")" = 2 ] \
+    && [ -s "$d/wiz_test/t.wiz.d/tex_0000.png" ] \
+    && fok "Imagine .wiz model exports model.obj and textures" \
+    || fno "Imagine .wiz" "failed to extract synthetic t.wiz"
+  else
+    fno "Imagine .wiz" "mk_imaginewiz.py failed"
+  fi
+
   # Ubisoft Imagine ".LOCV1.0" localisation table -> strings.tsv
   mkdir -p "$d/loc_test"
   if python3 "$PWD_PROJECT/../tests/mk_loc.py" "$d/loc_test" >/dev/null 2>&1; then
