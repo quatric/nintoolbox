@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # Kylotonn "FVRT" data archive (My Body Coach) -> named members
+  mkdir -p "$d/fvrt_test"
+  if python3 "$PWD_PROJECT/../tests/mk_kylotonn.py" "$d/fvrt_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fvrt_test/t.dat" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/fvrt_test/t.dat.d/config/a.cfg")" = "hello world" ] \
+    && [ "$(wc -c < "$d/fvrt_test/t.dat.d/movies/b.bin" | tr -d ' ')" = 200 ] \
+    && fok "Kylotonn FVRT archive extracts named members" \
+    || fno "Kylotonn FVRT" "failed to extract synthetic t.dat"
+  else
+    fno "Kylotonn FVRT" "mk_kylotonn.py failed"
+  fi
+
   # Ubisoft Imagine ".wiz" static model -> model.obj + tex_0000.png
   mkdir -p "$d/wiz_test"
   if python3 "$PWD_PROJECT/../tests/mk_imaginewiz.py" "$d/wiz_test" >/dev/null 2>&1; then
