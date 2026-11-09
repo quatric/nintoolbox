@@ -9494,9 +9494,10 @@ with open(sys.argv[1], "wb") as f:
   # "PAK\3" archive (International Athletics): 140-byte records, byte LZSS with 12-bit distances
   mkdir -p "$d/pak3_test"
   if python3 "$PWD_PROJECT/../tests/mk_pak3.py" "$d/pak3_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/pak3_test/t.pak" --overwrite >/dev/null 2>&1 \
+    "$B/wszst" xx "$d/pak3_test/t.pak" --overwrite >/dev/null 2>&1 \
     && [ "$(cat "$d/pak3_test/t.pak.d/DIR/A.TXT")" = "abcabcabcabc" ] \
     && [ "$(cat "$d/pak3_test/t.pak.d/B.BIN")" = "stored member" ] \
+    && [ -s "$d/pak3_test/t.pak.d/DIR/T.png" ] \
     && fok "PAK\\3 archive unpacks stored and LZSS members with backslash paths" \
     || fno "PAK3 archive" "failed to extract synthetic t.pak"
   else
