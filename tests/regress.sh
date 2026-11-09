@@ -9491,6 +9491,19 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # Coresoft JPack .pak (zlib members, names from jpack_<pak>.log) + NWTX textures
+  mkdir -p "$d/jpack_test"
+  if python3 "$PWD_PROJECT/../tests/mk_jpack.py" "$d/jpack_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/jpack_test/t.pak" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/jpack_test/t.pak.d/tex/a.wtx" | tr -d ' ')" = "64" ] \
+    && [ -s "$d/jpack_test/t.pak.d/tex/a.png" ] \
+    && [ "$(cat "$d/jpack_test/t.pak.d/55667788.bin")" = "plain member" ] \
+    && fok "Coresoft JPack .pak unpacks zlib members with log names; NWTX decodes to PNG" \
+    || fno "Coresoft JPack" "failed to extract synthetic t.pak"
+  else
+    fno "Coresoft JPack" "mk_jpack.py failed"
+  fi
+
   # EA SCHl streams with EALayer3 (codec 0x17): granule pairs rebuilt into standard MPEG-1 Layer III frames
   mkdir -p "$d/ealayer3_test"
   if python3 "$PWD_PROJECT/../tests/mk_ealayer3.py" "$d/ealayer3_test" >/dev/null 2>&1; then

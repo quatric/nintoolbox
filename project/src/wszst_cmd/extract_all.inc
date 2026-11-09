@@ -161,6 +161,8 @@
 #include "extract/dspwrap.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
+#include "extract/jpack.inc"
+#include "extract/nwtx.inc"
 #include "extract/unityassets.inc"
 #include "extract/wsbl.inc"
 #include "extract/dkapbig.inc"
