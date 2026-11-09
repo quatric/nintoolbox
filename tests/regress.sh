@@ -11371,6 +11371,18 @@ open(d+'/t.sdl','wb').write(s)
     fno "Konami .vas" "mk_konamivas.py failed"
   fi
 
+  # .bcpak resource pack
+  mkdir -p "$d/bcpak_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bcpak.py" "$d/bcpak_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/bcpak_test/t.bcpak" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -l 4 -p "$d/bcpak_test/t.bcpak.d/000_11223344.tpl")" = "0020af30" ] \
+    && [ "$(cat "$d/bcpak_test/t.bcpak.d/001_aabbccdd.bin")" = "hello-bcpak!" ] \
+    && fok "bcpak pack -> entries" \
+    || fno "bcpak pack" "failed on synthetic t.bcpak"
+  else
+    fno "bcpak pack" "mk_bcpak.py failed"
+  fi
+
   # Grasshopper FLCG collision (.GCL) -> OBJ
   mkdir -p "$d/flcg_test"
   if python3 "$PWD_PROJECT/../tests/mk_flcg.py" "$d/flcg_test" >/dev/null 2>&1; then
