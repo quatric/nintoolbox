@@ -9508,6 +9508,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Imagine LZSS" "mk_imaginelz.py failed"
   fi
 
+  # Ultimate Red Ball Challenge ".mus" (mono DSP-ADPCM) -> .dsp + WAV
+  mkdir -p "$d/rbmus_test"
+  if python3 "$PWD_PROJECT/../tests/mk_redballmus.py" "$d/rbmus_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/rbmus_test/t.mus" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/rbmus_test/t.mus.d/t.mus.dsp" | tr -d ' ')" = 112 ] \
+    && [ -s "$d/rbmus_test/t.mus.d/t.mus.wav" ] \
+    && fok "Red Ball .mus becomes DSP and WAV" \
+    || fno "Red Ball .mus" "failed to extract synthetic t.mus"
+  else
+    fno "Red Ball .mus" "mk_redballmus.py failed"
+  fi
+
   # Sega Ninja chunk model (Radirgy Noa, byte-reversed tags) -> model.obj + model.mtl
   mkdir -p "$d/njc_test"
   if python3 "$PWD_PROJECT/../tests/mk_ninjachunk.py" "$d/njc_test" >/dev/null 2>&1; then
