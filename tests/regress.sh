@@ -11380,6 +11380,10 @@ open(d+'/t.sdl','wb').write(s)
     && [ "$(xxd -s 1 -l 3 -p "$d/wsn_test/t.wsn.d/tex_00.png")" = "504e47" ] \
     && fok "Imagine .wsn -> OBJ + PNG" \
     || fno "Imagine .wsn" "failed on synthetic t.wsn"
+    "$B/wszst" x "$d/wsn_test/b.wsn" --overwrite >/dev/null 2>&1 \
+    && grep -q "^v 10.0000 0.0000 0.0000" "$d/wsn_test/b.wsn.d/model.obj" \
+    && fok "Imagine .wsn (Beastly +0x28 variant)" \
+    || fno "Imagine .wsn (Beastly)" "failed on synthetic b.wsn"
   else
     fno "Imagine .wsn" "mk_imaginewsn.py failed"
   fi

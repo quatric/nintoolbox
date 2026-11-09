@@ -3,7 +3,8 @@
 // offsets [n], u32 texture offsets [t], u32 texture size words [t] (low 16 bits = square edge in pixels), u32 texture format words [t] (0 = RGB565, 1 = RGB5A3;
 // 16 bit pixels in 4x4 GX tiles)}. An object is {u32 mesh count, ..., u32 mesh offsets [count] at +0x38}; a mesh is a 0x30 byte header {u32 vertex count, ...,
 // u32 vertex pointer at +0x20 (always header + 0x30)} followed by vertex records of 28 bytes {float x, y, z, float a, b (about 1.1 / 0.93, meaning
-// unknown), u32 ?, u8 r, g, b, a}; the vertices form a plain triangle list. Written as "model.obj" (positions with the vertex colours as extra "v" components) and
+// unknown), u32 ?, u8 r, g, b, a}; the vertices form a plain triangle list. Beastly meshes keep the same 28 byte records but point to them from +0x28
+// (positions are huge, about 1e5, and meant to be scaled by the bone matrices). Written as "model.obj" (positions with the vertex colours as extra "v" components) and
 // "tex_NN.png".
 static bool wsn_in (size_t sz, u64 o, u64 n)
 {
@@ -59,8 +60,11 @@ static enumError extract_imaginewsn_file (ccp arg, ccp basedir, uint depth)
 				const u32 mo = rd_be32 (raw + oo + 0x38 + 4 * mi);
 				if (!wsn_in (sz, mo, 0x30))
 					goto bad;
-				const u32 n = rd_be32 (raw + mo), vp = rd_be32 (raw + mo + 0x20);
-				if (vp != mo + 0x30 || n > 0x100000 || !wsn_in (sz, vp, 28 * (u64)n))
+				const u32 n = rd_be32 (raw + mo);
+				u32 vp = rd_be32 (raw + mo + 0x20);
+				if (vp != mo + 0x30 && wsn_in (sz, mo, 0x34))
+					vp = rd_be32 (raw + mo + 0x28); // Beastly variant: {u32 index count, u32 unique vertex count, ..., +0x28 expanded vertex records, +0x2c u16 indices, +0x30 position array}
+				if (vp < mo + 0x30 || n > 0x100000 || !wsn_in (sz, vp, 28 * (u64)n))
 					goto bad;
 				WSN_EMIT ("o obj%u_mesh%u\n", oi, mi);
 				for (uint v = 0; v < n && ok; v++)

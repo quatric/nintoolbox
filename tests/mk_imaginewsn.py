@@ -25,3 +25,9 @@ for x, y, z, rgb in [(0, 0, 0, (255, 0, 0)), (10, 0, 0, (0, 255, 0)), (0, 10, 5,
 struct.pack_into('>I', b, 0x14, len(b))     # texture offset
 b += struct.pack('>16H', *([0xf800] * 16))   # 4x4 RGB565 red tile
 open(os.path.join(d, 't.wsn'), 'wb').write(bytes(b))
+# Beastly variant: vertex records pointed to from mesh +0x28 instead of +0x20
+c = bytearray(b)
+m0 = MESH
+struct.pack_into('>I', c, m0 + 0x20, 0)
+struct.pack_into('>I', c, m0 + 0x28, MESH + 0x30)
+open(os.path.join(d, 'b.wsn'), 'wb').write(bytes(c))
