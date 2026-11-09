@@ -334,7 +334,6 @@
 #include "extract/pangyapet.inc"
 #include "extract/momomessage.inc"
 #include "extract/usm.inc"
-#include "extract/h4m.inc"
 #include "extract/octosec.inc"
 #include "extract/imaginewsn.inc"
 #include "extract/asobo_mesh.inc"
