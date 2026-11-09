@@ -9491,6 +9491,17 @@ with open(sys.argv[1], "wb") as f:
     fno "BGIB pack" "mk_bgib.py failed"
   fi
 
+  # Ubisoft Imagine engine LZSS (0x87654321 magic, 4096-byte ring from position 4078)
+  mkdir -p "$d/imaginelz_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imaginelz.py" "$d/imaginelz_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/imaginelz_test/x.wiz" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/imaginelz_test/x.wiz.d/x.wiz")" = "abcabcabcabc" ] \
+    && fok "Ubisoft Imagine LZSS (0x87654321) decompresses to <file>.d/<name>" \
+    || fno "Imagine LZSS" "failed to extract synthetic x.wiz"
+  else
+    fno "Imagine LZSS" "mk_imaginelz.py failed"
+  fi
+
   # "PAK\3" archive (International Athletics): 140-byte records, byte LZSS with 12-bit distances
   mkdir -p "$d/pak3_test"
   if python3 "$PWD_PROJECT/../tests/mk_pak3.py" "$d/pak3_test" >/dev/null 2>&1; then
