@@ -9580,6 +9580,18 @@ with open(sys.argv[1], "wb") as f:
     fno "Athletics ANM" "mk_athanm.py failed"
   fi
 
+  # Imagine camera path (.cam) -> camera.json
+  mkdir -p "$d/imgcam_test"
+  if python3 "$PWD_PROJECT/../tests/mk_imaginecam.py" "$d/imgcam_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/imgcam_test/t.cam" --overwrite >/dev/null 2>&1 \
+    && grep -q '"keys": 2' "$d/imgcam_test/t.cam.d/camera.json" \
+    && grep -q '\[1,0,0,5,0,1,0,6,0,0,1,7\]' "$d/imgcam_test/t.cam.d/camera.json" \
+    && fok "Imagine .cam camera path extracts to camera.json" \
+    || fno "Imagine CAM" "failed to extract synthetic t.cam"
+  else
+    fno "Imagine CAM" "mk_imaginecam.py failed"
+  fi
+
   # Sega-style PVR kind 0x48 (toon.pvr): paletted 4 bit
   if [ -s "$d/ggx_test/toon.pvr" ]; then
     "$B/wszst" x "$d/ggx_test/toon.pvr" --overwrite >/dev/null 2>&1 \

@@ -173,6 +173,7 @@
 #include "extract/ninjachunk.inc"
 #include "extract/njm.inc"
 #include "extract/athanm.inc"
+#include "extract/imaginecam.inc"
 #include "extract/kylotonn.inc"
 #include "extract/imaginewiz.inc"
 #include "extract/imaginewsp.inc"

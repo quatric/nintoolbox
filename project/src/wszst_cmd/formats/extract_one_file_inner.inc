@@ -58,6 +58,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_athanm_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_imaginecam_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_cs12_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
