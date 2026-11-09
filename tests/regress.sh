@@ -9610,6 +9610,9 @@ with open(sys.argv[1], "wb") as f:
     "$B/wszst" x "$d/octowt_test/t.wt" --overwrite >/dev/null 2>&1 \
     && [ "$(wc -c < "$d/octowt_test/t.wt.d/wave_0000.wav" | tr -d ' ')" = 52 ] \
     && [ "$(wc -c < "$d/octowt_test/t.wt.d/wave_0001.wav" | tr -d ' ')" = 48 ] \
+    && "$B/wszst" x "$d/octowt_test/a.wt" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/octowt_test/a.wt.d/wave_0000.wav" | tr -d ' ')" = 72 ] \
+    && [ "$(xxd -s 44 -l 8 -p "$d/octowt_test/a.wt.d/wave_0000.wav")" = 0100020003000400 ] \
     && fok "Octomania .wt/.pcm wavetable extracts WAVs" \
     || fno "Octomania WT" "failed to extract synthetic t.wt"
   else

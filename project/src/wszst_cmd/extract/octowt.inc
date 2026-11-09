@@ -2,7 +2,8 @@
 // console form of the Roland GM16.DLS bank). The .wt is big endian: six u32 section offsets {0x18, ..., end of file}; the
 // last section holds one 16 byte record per sample {u32 rate (low 16 bits, high bits flags), u32 start (in samples), u32
 // length (in samples), u32 0} into the companion ".pcm" (big endian s16 mono, consecutive samples). Every sample is written as
-// "wave_NNNN.wav" in the "<file>.d" directory. The "...adpcm" variants use compressed samples and are left alone.
+// "wave_NNNN.wav" in the "<file>.d" directory. The "...adpcm" variants (sample starts in nibbles, DSP-ADPCM frames, coefficients in a 46 byte per sample trailer after the
+// last section) are decoded too.
 static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -22,15 +23,24 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 		u32 o[6];
 		for (uint i = 0; i < 6; i++)
 			o[i] = rd_be32 (wt + 4 * i);
-		if (o[0] != 0x18 || o[5] != wsz || o[4] >= o[5] || (o[5] - o[4]) % 16)
+		if (o[0] != 0x18 || o[5] > wsz || o[4] >= o[5] || (o[5] - o[4]) % 16)
 			goto bad;
 		const uint n = (o[5] - o[4]) / 16;
 		u64 next = 0;
+		// ADPCM variant: 46 byte trailer record per sample {16 BE s16 DSP coefficients, 7 more shorts}; sample starts are in nibbles
+		const bool adpcm = wsz - o[5] == 46 * (size_t)n;
 		for (uint i = 0; i < n; i++)
 		{
 			const u8 *r = wt + o[4] + 16 * i;
 			const u32 off = rd_be32 (r + 4), len = rd_be32 (r + 8), rate = rd_be32 (r) & 0xffff;
-			if (!rate || off != next || (u64)(off + len) * 2 > psz)
+			if (!rate || len > 0x1000000)
+				goto bad;
+			if (adpcm)
+			{
+				if ((u64)off / 2 >= psz)
+					goto bad;
+			}
+			else if (off != next || (u64)(off + len) * 2 > psz)
 				goto bad;
 			next = (u64)off + len;
 		}
@@ -45,6 +55,10 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 			const u8 *r = wt + o[4] + 16 * i;
 			const u32 off = rd_be32 (r + 4), len = rd_be32 (r + 8), rate = rd_be32 (r) & 0xffff;
 			const u32 bytes = len * 2;
+			s16 coef[16];
+			if (adpcm)
+				for (uint k = 0; k < 16; k++)
+					coef[k] = (s16)rd_be16 (wt + o[5] + 46 * (size_t)i + 2 * k);
 			u8 *w = MALLOC (44 + (size_t)bytes);
 			if (!w)
 			{
@@ -59,8 +73,30 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 				w[16 + 4 * k] = (u8)hdr[k], w[17 + 4 * k] = (u8)(hdr[k] >> 8), w[18 + 4 * k] = (u8)(hdr[k] >> 16), w[19 + 4 * k] = (u8)(hdr[k] >> 24);
 			memcpy (w + 36, "data", 4);
 			w[40] = (u8)bytes, w[41] = (u8)(bytes >> 8), w[42] = (u8)(bytes >> 16), w[43] = (u8)(bytes >> 24);
-			for (u32 k = 0; k < len; k++)
-				w[44 + 2 * k] = pcm[2 * ((size_t)off + k) + 1], w[45 + 2 * k] = pcm[2 * ((size_t)off + k)];
+			if (!adpcm)
+				for (u32 k = 0; k < len; k++)
+					w[44 + 2 * k] = pcm[2 * ((size_t)off + k) + 1], w[45 + 2 * k] = pcm[2 * ((size_t)off + k)];
+			else
+			{
+				// DSP-ADPCM: 8 byte frames (header = predictor << 4 | scale, 14 nibbles)
+				int h1 = 0, h2 = 0;
+				for (u32 k = 0; k < len; k++)
+				{
+					const size_t fp = (size_t)off / 2 + (k / 14) * 8;
+					const uint hd = fp < psz ? pcm[fp] : 0, ix = k % 14;
+					const size_t bp = fp + 1 + ix / 2;
+					const uint x = bp < psz ? pcm[bp] : 0;
+					int q = ix & 1 ? x & 15 : x >> 4;
+					if (q >= 8)
+						q -= 16;
+					const uint pr = (hd >> 4) & 7;
+					int v = (int)((((s64)q << (hd & 15)) << 11) + 0x400 + (s64)coef[2 * pr] * h1 + (s64)coef[2 * pr + 1] * h2) >> 11;
+					v = v < -32768 ? -32768 : v > 32767 ? 32767 : v;
+					h2 = h1;
+					h1 = v;
+					w[44 + 2 * k] = (u8)v, w[45 + 2 * k] = (u8)(v >> 8);
+				}
+			}
 			char name[32];
 			snprintf (name, sizeof (name), "wave_%04u.wav", i);
 			err = shade_write (arg, dest, basedir, name, w, 44 + bytes);
