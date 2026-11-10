@@ -11772,6 +11772,27 @@ PYE
   && fok "WIS Cauldron chunk -> chunks/*" \
   || fno "WIS Cauldron chunk" "failed on synthetic t.wis"
 
+  # WIS Cauldron chunk with the older footer (no version word)
+  mkdir -p "$d/wischunk_old"
+  python3 - "$d/wischunk_old/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+body = bytearray(b'<Cauldron Chunk File>' + b'\x01\x00\x01\x00').ljust(0x28, b'\0')
+body += b'kfblob' * 4
+fo = len(body)
+names = b'header\0keyframes\0'
+foot = struct.pack('<3I', 0xcdd44ddc, len(names), 2) + names
+objs = struct.pack('<6I', 0, 0xffffffff, 0, 0x20, 1, 0) + struct.pack('<I', 7)
+objs += struct.pack('<6I', 1, 0xffffffff, 0x01000000, 0x28, 2, 0) + struct.pack('<2I', 5, 6)
+foot += struct.pack('<II', len(objs), 2) + objs
+body += foot + struct.pack('<I', fo)
+pay = b'\xff\xff\xff\xff' + struct.pack('<I', 1) + struct.pack('<I', len(body)) + bytes(body)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wischunk_old/t.wis" --overwrite >/dev/null 2>&1 \
+  && grep -q "^1 type keyframes parent -1 kind 1 data 0x28 count 2 words 5 6" "$d/wischunk_old/t.wis.d/chunks/000/objects.txt" \
+  && fok "WIS Cauldron chunk, old footer -> chunks/*" \
+  || fno "WIS Cauldron chunk old footer" "failed on synthetic t.wis"
+
   # WIS Cauldron mesh blob -> OBJ
   mkdir -p "$d/wismesh_test"
   python3 - "$d/wismesh_test/t.wis" <<'PYE' >/dev/null 2>&1

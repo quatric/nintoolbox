@@ -195,16 +195,36 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 		if ((u64)fo + 16 + 8 > bsz || rd_le32 (b + fo) != 0xcdd44ddc)
 			continue;
 		const u32 nb = rd_le32 (b + fo + 4), nt = rd_le32 (b + fo + 8);
-		const u64 ot = (u64)fo + 16 + nb;
+		// new footer: {magic, nb, nt, version, names, obytes, count, objects}; old footer (keyframes chunks): same without the version word
+		bool oldf = false;
+	retry:;
+		const u32 hdrl = oldf ? 12 : 16;
+		const u64 ot = (u64)fo + hdrl + nb;
 		if (!nt || nt > 64 || ot + 8 > bsz)
+		{
+			if (!oldf)
+			{
+				oldf = true;
+				goto retry;
+			}
 			continue;
-		const u32 obytes = rd_le32 (b + ot), no = rd_le32 (b + ot + 4);
+		}
+		const u32 no = rd_le32 (b + ot + 4);
+		const u32 obytes = rd_le32 (b + ot);
+		const u64 tab = 8;
 		if (no > 100000 || ot + 8 + obytes > bsz)
+		{
+			if (!oldf)
+			{
+				oldf = true;
+				goto retry;
+			}
 			continue;
+		}
 		// walk objects
 		const u32 maxo = no;
 		u32 *dof = MALLOC (4 * (maxo + 1)), *typ = MALLOC (4 * (maxo + 1)), *p0 = MALLOC (4 * (maxo + 1));
-		u64 p = ot + 8;
+		u64 p = ot + tab;
 		uint n = 0;
 		for (; n < no && p + 0x18 <= bsz; n++)
 		{
@@ -217,11 +237,16 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 		if (n != no || p != ot + 8 + obytes)
 		{
 			FREE (dof), FREE (typ), FREE (p0);
+			if (!oldf)
+			{
+				oldf = true;
+				goto retry;
+			}
 			continue;
 		}
 		char names[64][48];
 		{
-			const u8 *np = b + fo + 16;
+			const u8 *np = b + fo + hdrl;
 			uint k = 0, pos = 0;
 			for (; k < nt && pos < nb; k++)
 			{
@@ -233,8 +258,8 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 		}
 		const size_t cap = 256 + (size_t)no * 200 + (size_t)obytes * 12;
 		char *t = MALLOC (cap);
-		size_t tl = snprintf (t, cap, "chunk body %u footer 0x%x types %u objects %u flags 0x%x\n", bsz, fo, nt, no, rd_le32 (b + fo + 12));
-		p = ot + 8;
+		size_t tl = snprintf (t, cap, "chunk body %u footer 0x%x types %u objects %u flags 0x%x\n", bsz, fo, nt, no, oldf ? 0 : rd_le32 (b + fo + 12));
+		p = ot + tab;
 		for (uint i = 0; i < no; i++)
 		{
 			const u32 kind = b[p + 11], cnt = rd_le32 (b + p + 16), par = rd_le32 (b + p + 4);
