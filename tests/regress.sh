@@ -11747,6 +11747,31 @@ PYE
   && fok "WIS Cauldron payload -> hkx/*.hkx" \
   || fno "WIS Cauldron Havok" "failed on synthetic t.wis"
 
+  # WIS payload with a Cauldron chunk footer (types + object table)
+  mkdir -p "$d/wischunk_test"
+  python3 - "$d/wischunk_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+magic = b'<Cauldron Chunk File>'
+body = bytearray(magic + b'\x01\x00\x01\x00')
+body = body.ljust(0x28, b'\0')
+mesh = b'meshblob' * 4
+body += mesh
+fo = len(body)
+names = b'header\0mesh\0'
+foot = struct.pack('<4I', 0xcdd44ddc, len(names), 2, 0x10001) + names
+objs = struct.pack('<6I', 0, 0xffffffff, 0, 0x20, 1, 0) + struct.pack('<I', 7)
+objs += struct.pack('<6I', 1, 0xffffffff, 0x01000000, 0x28, 2, 0) + struct.pack('<2I', 5, 6)
+foot += struct.pack('<II', len(objs), 2) + objs
+body += foot + struct.pack('<I', fo)
+pay = b'\xff\xff\xff\xff' + struct.pack('<I', 1) + struct.pack('<I', len(body)) + bytes(body)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wischunk_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && grep -q "^1 type mesh parent -1 kind 1 data 0x28 count 2 words 5 6" "$d/wischunk_test/t.wis.d/chunks/000/objects.txt" \
+  && [ "$(wc -c < "$d/wischunk_test/t.wis.d/chunks/000/001_mesh.bin" | tr -d ' ')" = "32" ] \
+  && fok "WIS Cauldron chunk -> chunks/*" \
+  || fno "WIS Cauldron chunk" "failed on synthetic t.wis"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then

@@ -7,7 +7,11 @@
 // ({NUL-terminated name "[Actor - 11]" / "WorldScript", u32 size, 1b 4c 75 61 51 ... chunk}, sizes verified against a full undump) are also written as
 // "lua/NNN_<name>.luac"; GX textures embedded in the chunk stream ({u32 size = 16 + mip pyramid (+ up to 0x20 tail), w, h, GX format 6 RGBA8 / 14 CMPR, mip
 // count}, then the pyramid; found by a validated scan, level 0 only) are written as "tex/NNN_WxH_fmtF.png". Havok classic packfiles (magic 57 e0 e0 57 10 c0 c0 10, big endian, Havok 6.1.0; the item size word in front equals the packfile's own end, taken from the
-// section table) are carved to "hkx/NNN.hkx". A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
+// section table) are carved to "hkx/NNN.hkx". Cauldron chunk files (item {ffffffff, id, size LE} + body starting at "<Cauldron Chunk File>"; the body's last u32 is the footer offset, the footer
+// {0xcdd44ddc, name bytes, type count, flags(, version > 0x10000)} lists the NUL separated type names (e.g. header / mesh / bone / dummy) and then the object table:
+// {u32 bytes, u32 count} + per object 0x18 bytes {type index, parent (-1), u32 kind (0: one u32 payload follows, 1: `count` u32s follow), data offset into the body, count, ...}) are
+// split to "chunks/NNN/objects.txt" and "chunks/NNN/OOO_<type>.bin" (object blob = bytes up to the next object's data offset); mesh payload words are
+// {0x54 node header size, name bytes, material name bytes, 1, 1, then seven array sizes}. A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
 // name offset, parent, end index}, files {name offset, offset (0x20 aligned), size}; names from the NUL strings behind the table; the member starts
 // 8 bytes after the offset, 0x20 more when the format magic (TPL / RLAN / RLYT / RFNT) only appears there) is split under "gui/"; BRLAN / BRLYT / BRFNT sizes come from their own headers when the table size is up to 0x40 short).
 static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
@@ -105,6 +109,95 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 		if (shade_write (arg, dest, basedir, fn, o + i, (uint)end))
 			return;
 		i += end - 1;
+	}
+}
+
+static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
+{
+	static const char magic[] = "<Cauldron Chunk File>";
+	uint nc = 0;
+	for (size_t m = 12; m + 64 < ol; m++)
+	{
+		if (o[m] != '<' || memcmp (o + m, magic, 21) || rd_le32 (o + m - 12) != 0xffffffff)
+			continue;
+		const u32 bsz = rd_le32 (o + m - 4);
+		if (bsz < 0x40 || m + bsz > ol)
+			continue;
+		const u8 *b = o + m;
+		const u32 fo = rd_le32 (b + bsz - 4);
+		if ((u64)fo + 16 + 8 > bsz || rd_le32 (b + fo) != 0xcdd44ddc)
+			continue;
+		const u32 nb = rd_le32 (b + fo + 4), nt = rd_le32 (b + fo + 8);
+		const u64 ot = (u64)fo + 16 + nb;
+		if (!nt || nt > 64 || ot + 8 > bsz)
+			continue;
+		const u32 obytes = rd_le32 (b + ot), no = rd_le32 (b + ot + 4);
+		if (no > 100000 || ot + 8 + obytes > bsz)
+			continue;
+		// walk objects
+		const u32 maxo = no;
+		u32 *dof = MALLOC (4 * (maxo + 1)), *typ = MALLOC (4 * (maxo + 1));
+		u64 p = ot + 8;
+		uint n = 0;
+		for (; n < no && p + 0x18 <= bsz; n++)
+		{
+			const u32 kind = b[p + 11], cnt = rd_le32 (b + p + 16);
+			typ[n] = rd_le32 (b + p);
+			dof[n] = rd_le32 (b + p + 12);
+			p += 0x18 + (kind == 0 ? 4 : kind == 1 ? 4 * (u64)cnt : 0);
+		}
+		if (n != no || p != ot + 8 + obytes)
+		{
+			FREE (dof), FREE (typ);
+			continue;
+		}
+		char names[64][48];
+		{
+			const u8 *np = b + fo + 16;
+			uint k = 0, pos = 0;
+			for (; k < nt && pos < nb; k++)
+			{
+				snprintf (names[k], 48, "%.40s", (ccp)np + pos);
+				pos += (uint)strlen ((ccp)np + pos) + 1;
+			}
+			for (; k < nt; k++)
+				snprintf (names[k], 48, "t%u", k);
+		}
+		const size_t cap = 256 + (size_t)no * 200 + (size_t)obytes * 12;
+		char *t = MALLOC (cap);
+		size_t tl = snprintf (t, cap, "chunk body %u footer 0x%x types %u objects %u flags 0x%x\n", bsz, fo, nt, no, rd_le32 (b + fo + 12));
+		p = ot + 8;
+		for (uint i = 0; i < no; i++)
+		{
+			const u32 kind = b[p + 11], cnt = rd_le32 (b + p + 16), par = rd_le32 (b + p + 4);
+			const u32 ty = typ[i] < nt ? typ[i] : 0;
+			tl += snprintf (t + tl, cap - tl, "%u type %s parent %d kind %u data 0x%x count %u words", i, names[ty], (int)par, kind, dof[i], cnt);
+			const uint nw = kind == 0 ? 1 : kind == 1 ? cnt : 0;
+			for (uint w = 0; w < nw && tl + 16 < cap; w++)
+				tl += snprintf (t + tl, cap - tl, " %x", rd_le32 (b + p + 0x18 + 4 * (size_t)w));
+			tl += snprintf (t + tl, cap - tl, "\n");
+			p += 0x18 + 4 * (u64)nw;
+		}
+		char fn[96];
+		snprintf (fn, sizeof (fn), "chunks/%03u/objects.txt", nc);
+		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
+		FREE (t);
+		for (uint i = 0; i < no; i++)
+		{
+			u32 end = fo;
+			for (uint j = 0; j < no; j++)
+				if (dof[j] > dof[i] && dof[j] < end)
+					end = dof[j];
+			const u32 ty = typ[i] < nt ? typ[i] : 0;
+			if (ty && dof[i] < end && end <= fo)
+			{
+				snprintf (fn, sizeof (fn), "chunks/%03u/%03u_%s.bin", nc, i, names[ty]);
+				shade_write (arg, dest, basedir, fn, b + dof[i], end - dof[i]);
+			}
+		}
+		FREE (dof), FREE (typ);
+		nc++;
+		m += bsz - 1;
 	}
 }
 
@@ -230,6 +323,8 @@ static enumError extract_wis_file (ccp arg, ccp basedir, uint depth)
 				wis_textures (arg, dest, basedir, out, ol);
 			if (!err && ol > 0x40 && !memcmp (out + 0xc, "<Cauldron Chunk File>", 21))
 				wis_hkx (arg, dest, basedir, out, ol);
+			if (!err && ol > 0x40 && !memcmp (out + 0xc, "<Cauldron Chunk File>", 21))
+				wis_chunks (arg, dest, basedir, out, ol);
 			static const u8 luahdr[12] = { 0x1b, 'L', 'u', 'a', 0x51, 0, 1, 4, 4, 4, 8, 0 };
 			uint nl = 0;
 			for (size_t i = 5; !err && i + 12 <= ol; i++)
