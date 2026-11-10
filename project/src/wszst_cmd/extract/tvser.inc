@@ -98,6 +98,13 @@ static enumError extract_tvser_file (ccp arg, ccp basedir, uint depth)
 		nt++;
 	}
 	tl += snprintf (t + tl, cap - tl, "\n");
+	// PARK version 113: the first fields follow the park writer FUN_8037f1fc (tags LevelNumber, GameTime, Money, Marketing, Research, Attractions, ... are only debug labels there, the stream
+	// carries just the values). Every writer call is exactly one token: LevelNumber 1 int; GameTime 3 floats; Money 142 tokens {3 ints, float (0.01), byte, 4 x 10 ints, 2 ints,
+	// 5 graphed values of {16 floats, 2 bytes, bool}}; Marketing 9 {bool, float, int, short, 3 ints, bool, int}; Research 13 ints / bool; then Attractions: count, followed by entries (each
+	// preceded by the number of skipped slots) of 0xf0 byte objects, then Groups, Guests, Staff, Memories, GraphedValues, Demographics, ParkAudio, ... (token 0 = version). Checked on the park saves:
+	// the last graphed value of Money ends exactly at token 146 ("... 15 2 1"), token 169 is the attraction count (80 in Explorerville) and uninitialised ints show as -842150451 (0xCDCDCDCD).
+	if (!memcmp (t, "PARK\n113 ", 9) && nt > 170)
+		tl += snprintf (t + tl, cap - tl, "# fields: token 0 version, 1 LevelNumber, 2-4 GameTime (3 floats), 5-146 Money, 147-155 Marketing, 156-168 Research, 169 Attractions count (then the entries)\n");
 	// character arrays: runs of 6 or more integer tokens that are printable ASCII codes, mostly letters (e.g. "%PreBuiltOFFTHERAILS"); listed as "# token N: text"
 	for (uint a = 0, b; a < nt; a = b)
 	{

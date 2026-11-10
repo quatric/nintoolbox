@@ -11836,6 +11836,16 @@ PYE
   && fok "Thrillville character array text" \
   || fno "Thrillville char array" "failed on synthetic u.prk"
 
+  # Thrillville PARK 113 field map
+  python3 - "$d/tvser_test/v.prk" <<'PYE' >/dev/null 2>&1
+import sys
+open(sys.argv[1], 'wb').write(b'PARK' + bytes([0xc1, 0x07]) + bytes([4]) + bytes(200) + bytes([0xff]))
+PYE
+  "$B/wszst" x "$d/tvser_test/v.prk" --overwrite >/dev/null 2>&1 \
+  && grep -q '^# fields: token 0 version, 1 LevelNumber, 2-4 GameTime' "$d/tvser_test/v.txt" \
+  && fok "Thrillville PARK field map" \
+  || fno "Thrillville PARK field map" "failed on synthetic v.prk"
+
   # WTXID skinned mesh -> OBJ + skin.txt
   mkdir -p "$d/wtxidmesh_test"
   python3 - "$d/wtxidmesh_test/t.wtxg" <<'PYE' >/dev/null 2>&1
