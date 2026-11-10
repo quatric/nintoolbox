@@ -11634,6 +11634,25 @@ PYE
   && fok "WIS block LZSS -> payload + Lua scripts" \
   || fno "WIS block LZSS" "failed on synthetic t.wis"
 
+  # BGC GX RGBA8 frame table (.bgc, Happy Neuron Academy)
+  mkdir -p "$d/bgc_test"
+  python3 - "$d/bgc_test/t.bgc" <<'PYE' >/dev/null 2>&1
+import struct, sys
+n = 2; w = h = 4; sz = w * h * 4; hdr = 0x20 + 28 * n
+out = struct.pack('>4I', 0xfeedfeed, 1, n, 28 * n) + struct.pack('>H', 1) + b'.Black-Sheep.\0'
+out = out.ljust(0x20, b'\0')
+for i in range(n):
+    out += struct.pack('>7I', 0x1000 + i, w, h, sz, hdr + i * (sz + 0x800), 12, 2)
+for i in range(n):
+    out = out.ljust(hdr + i * (sz + 0x800), b'\0') + (b'\xff\x10' * 16 + b'\x20\x30' * 16)
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/bgc_test/t.bgc" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -l 4 -p "$d/bgc_test/t.bgc.d/0001.png")" = "89504e47" ] \
+  && [ -s "$d/bgc_test/t.bgc.d/0000.png" ] \
+  && fok "BGC frame table -> PNG" \
+  || fno "BGC frame table" "failed on synthetic t.bgc"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
