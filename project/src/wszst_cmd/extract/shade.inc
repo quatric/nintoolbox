@@ -138,6 +138,19 @@ bad:
 	return 0;
 }
 
+// appends the base64 text of n bytes to t (no terminator); returns the new length
+static size_t shade_b64 (char *t, size_t tl, const u8 *d, size_t n)
+{
+	static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	for (size_t i = 0; i < n; i += 3)
+	{
+		const size_t m = n - i < 3 ? n - i : 3;
+		const uint x = d[i] << 16 | (m > 1 ? d[i + 1] << 8 : 0) | (m > 2 ? d[i + 2] : 0);
+		t[tl++] = b64[x >> 18 & 63], t[tl++] = b64[x >> 12 & 63], t[tl++] = m > 1 ? b64[x >> 6 & 63] : '=', t[tl++] = m > 2 ? b64[x & 63] : '=';
+	}
+	return tl;
+}
+
 // static glTF 2.0 text (buffer embedded as base64) of a non indexed triangle list; fl holds 8 floats per corner {pos[3], normal[3], uv[2]}. Returns a MALLOC'd string (length in *len).
 static char *shade_gltf_tris (const float *fl, uint nvx, size_t *len)
 {

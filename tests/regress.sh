@@ -11845,6 +11845,35 @@ assert g['accessors'][0]['count'] == 3 and len(r) == 96 and g['accessors'][0]['m
   && fok "WTXID mesh -> OBJ + glTF + skin" \
   || fno "WTXID mesh" "failed on synthetic t.wtxg"
 
+  # WTXID skinned glTF (skeleton + skin from the bone records)
+  mkdir -p "$d/wtxidskin_test"
+  python3 - "$d/wtxidskin_test/t.wtxg" <<'PYE' >/dev/null 2>&1
+import struct, sys
+b = bytearray(b'WTXIDg\x00\x02\x01').ljust(0x80, b'\0')
+b += b'\0\0\0\x0bCClumpDef\0'
+def bone(name, pos, desc):
+    return struct.pack('>I', len(name)) + name + struct.pack('>7f', 0, 0, 0, 1, *pos) + struct.pack('>I', desc)   # the u32 after the floats = descendants of this bone (low 16 bits)
+b += struct.pack('>I', 0x24934) + bone(b'Root', (0, 0, 0), 1) + bone(b'Kid', (1, 0, 0), 0)
+b += b'CItemSkinMeshDef\0'
+uv = struct.pack('>I', 3) + b''.join(struct.pack('>2f', u, v) for u, v in ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0)))
+dl = struct.pack('>II', 3, 44) + b'\x90' + struct.pack('>H', 3) + b''.join(struct.pack('>2H', i, i) for i in range(3)) + bytes(32)
+vt = struct.pack('>I', 3) + b''.join(struct.pack('>6f', x, 0.0, 0.0, 0.0, 0.0, 1.0) + b'\x01' + struct.pack('>H', 1) + struct.pack('>f', 1.0) for x in (0.0, 1.0, 2.0))
+open(sys.argv[1], 'wb').write(bytes(b) + uv + dl + vt)
+PYE
+  "$B/wszst" x "$d/wtxidskin_test/t.wtxg" --overwrite >/dev/null 2>&1 \
+  && python3 -c "
+import json, sys, base64, struct
+g = json.load(open(sys.argv[1]))
+assert len(g['nodes']) == 3 and g['nodes'][0]['children'] == [1] and g['skins'][0]['joints'] == [0, 1]
+raw = base64.b64decode(g['buffers'][0]['uri'].split(',', 1)[1])
+n = g['accessors'][0]['count']
+ib = struct.unpack('<16f', raw[56 * n + 64:56 * n + 128])
+assert n == 3 and abs(ib[12] + 1) < 1e-6 and ib[0] == 1
+assert struct.unpack('<4H', raw[32 * n:32 * n + 8])[0] == 1
+" "$d/wtxidskin_test/t.skin.gltf" \
+  && fok "WTXID skeleton + skin -> glTF" \
+  || fno "WTXID skinned glTF" "failed on synthetic t.wtxg"
+
   # WTXID object image -> string inventory
   mkdir -p "$d/wtxid_test"
   python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1

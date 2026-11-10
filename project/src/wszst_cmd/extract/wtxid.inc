@@ -77,6 +77,133 @@ static uint wtxid_bone_names (const u8 *r, size_t sz, size_t *offs, uint max)
 	return n;
 }
 
+// Cook Wars skeleton: per bone {u32 word, u32 name length, name, f32 quat x y z w, f32 pos x y z (local, rest pose)}, in parent-first order; the u32 behind a record's floats holds in its low 16 bits
+// the number of descendants of THAT bone (the bones following it that belong to its subtree), so the parent of bone k is the innermost earlier bone j with j < k <= j + descendants(j). Verified by
+// posing the rest pose: head over the pelvis, symmetric arms, feet at the floor, bounding box matching the mesh (the Biped puts the legs under Spine, offsets compensate).
+// Fills local quats / positions / parents; returns the bone count (0 when the records are not contiguous).
+static uint wtxid_skeleton (const u8 *r, size_t sz, const size_t *boff, uint nbn, float (*q)[4], float (*pp)[3], int *par)
+{
+	uint desc[256];
+	// record size: 7 floats {quat, pos} or 10 floats (+ scale xyz, all ~1: the "new" costume models) plus the u32 word; taken from the distance of the first two names
+	if (nbn < 2 || nbn > 256)
+		return 0;
+	const size_t tail = boff[1] - (boff[0] + 4 + rd_be32 (r + boff[0]));
+	if (tail != 32 && tail != 44)
+		return 0;
+	for (uint i = 0; i < nbn; i++)
+	{
+		const size_t e = boff[i] + 4 + rd_be32 (r + boff[i]);
+		if (e + tail > sz || (i + 1 < nbn && boff[i + 1] != e + tail))
+			return 0;
+		for (uint k = 0; k < 7; k++)
+		{
+			const u32 v = rd_be32 (r + e + 4 * k);
+			memcpy (k < 4 ? &q[i][k] : &pp[i][k - 4], &v, 4);
+		}
+		desc[i] = rd_be32 (r + e + tail - 4) & 0xffff;
+	}
+	int st[256], ends[256], sp = 0;
+	for (uint k = 0; k < nbn; k++)
+	{
+		while (sp && ends[sp - 1] <= (int)k)
+			sp--;
+		par[k] = sp ? st[sp - 1] : -1;
+		st[sp] = k, ends[sp++] = k + 1 + (int)(k + 1 < nbn ? desc[k] : 0);
+	}
+	return nbn;
+}
+
+// skinned glTF of one Cook Wars mesh: the skeleton (nodes with local TRS, children), one skin whose inverse bind matrices are the inverses of the rest pose world transforms, JOINTS_0 / WEIGHTS_0
+// (the four strongest weights of a vertex, renormalised). fl: 8 floats per corner, jw: 4 joints + 4 weights (as 8 floats) per corner.
+static char *wtxid_gltf_skinned (const float *fl, const float *jw, uint nvx, uint nj, float (*q)[4], float (*pp)[3], const int *par, const u8 *r, const size_t *boff, size_t *len)
+{
+	const uint nb1 = nvx * 32, nb2 = nvx * 8, nb3 = nvx * 16, nb4 = nj * 64, nbytes = nb1 + nb2 + nb3 + nb4;
+	u8 *buf = CALLOC (nbytes + 4, 1);
+	memcpy (buf, fl, nb1);
+	float mn[3] = { 1e30f, 1e30f, 1e30f }, mx[3] = { -1e30f, -1e30f, -1e30f };
+	for (uint i = 0; i < nvx; i++)
+	{
+		for (uint k = 0; k < 3; k++)
+		{
+			if (fl[8 * i + k] < mn[k]) mn[k] = fl[8 * i + k];
+			if (fl[8 * i + k] > mx[k]) mx[k] = fl[8 * i + k];
+		}
+		u16 *j = (u16 *)(buf + nb1) + 4 * i;
+		float *w = (float *)(buf + nb1 + nb2) + 4 * i;
+		for (uint k = 0; k < 4; k++)
+			j[k] = (u16)jw[8 * i + k], w[k] = jw[8 * i + 4 + k];
+	}
+	// world rest transforms -> inverse bind (column major 4x4 of the rigid inverse)
+	float (*R)[9] = CALLOC (nj, sizeof (*R)), (*P)[3] = CALLOC (nj, sizeof (*P));
+	for (uint k = 0; k < nj; k++)
+	{
+		const float x = q[k][0], y = q[k][1], z = q[k][2], w = q[k][3];
+		const float m[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) };
+		if (par[k] < 0)
+		{
+			memcpy (R[k], m, sizeof (m));
+			memcpy (P[k], pp[k], sizeof (P[k]));
+		}
+		else
+		{
+			const float *a = R[par[k]];
+			for (uint i = 0; i < 3; i++)
+			{
+				for (uint c = 0; c < 3; c++)
+					R[k][3 * i + c] = a[3 * i] * m[c] + a[3 * i + 1] * m[3 + c] + a[3 * i + 2] * m[6 + c];
+				P[k][i] = P[par[k]][i] + a[3 * i] * pp[k][0] + a[3 * i + 1] * pp[k][1] + a[3 * i + 2] * pp[k][2];
+			}
+		}
+		float *ib = (float *)(buf + nb1 + nb2 + nb3) + 16 * k;
+		for (uint c = 0; c < 3; c++)
+			for (uint i = 0; i < 3; i++)
+				ib[4 * c + i] = R[k][3 * c + i];	// R^T, column c row i = R[c][i]
+		for (uint i = 0; i < 3; i++)
+			ib[12 + i] = -(R[k][i] * P[k][0] + R[k][3 + i] * P[k][1] + R[k][6 + i] * P[k][2]);
+		ib[15] = 1;
+	}
+	FREE (R);
+	FREE (P);
+	const size_t cap = 4096 + (size_t)nj * 400 + ((size_t)nbytes + 2) / 3 * 4;
+	char *t = MALLOC (cap);
+	size_t tl = snprintf (t, cap, "{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[");
+	for (uint k = 0; k < nj; k++)
+		if (par[k] < 0)
+			tl += snprintf (t + tl, cap - tl, "%u,", k);
+	tl += snprintf (t + tl, cap - tl, "%u]}],\"nodes\":[", nj);
+	for (uint k = 0; k < nj; k++)
+	{
+		tl += snprintf (t + tl, cap - tl, "{\"name\":\"%.*s\",\"translation\":[%.7g,%.7g,%.7g],\"rotation\":[%.7g,%.7g,%.7g,%.7g]", (int)rd_be32 (r + boff[k]), (ccp)r + boff[k] + 4, pp[k][0], pp[k][1], pp[k][2], q[k][0], q[k][1], q[k][2], q[k][3]);
+		bool first = true;
+		for (uint c = 0; c < nj; c++)
+			if (par[c] == (int)k)
+				tl += snprintf (t + tl, cap - tl, "%s%u", first ? ",\"children\":[" : ",", c), first = false;
+		tl += snprintf (t + tl, cap - tl, "%s},", first ? "" : "]");
+	}
+	tl += snprintf (t + tl, cap - tl, "{\"mesh\":0,\"skin\":0}],\"skins\":[{\"inverseBindMatrices\":3,\"joints\":[");
+	for (uint k = 0; k < nj; k++)
+		tl += snprintf (t + tl, cap - tl, "%s%u", k ? "," : "", k);
+	tl += snprintf (t + tl, cap - tl,
+		"]}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":2,\"JOINTS_0\":4,\"WEIGHTS_0\":5},\"mode\":4}]}],"
+		"\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\",\"min\":[%.6g,%.6g,%.6g],\"max\":[%.6g,%.6g,%.6g]},"
+		"{\"bufferView\":0,\"byteOffset\":12,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\"},"
+		"{\"bufferView\":0,\"byteOffset\":24,\"componentType\":5126,\"count\":%u,\"type\":\"VEC2\"},"
+		"{\"bufferView\":3,\"componentType\":5126,\"count\":%u,\"type\":\"MAT4\"},"
+		"{\"bufferView\":1,\"componentType\":5123,\"count\":%u,\"type\":\"VEC4\"},"
+		"{\"bufferView\":2,\"componentType\":5126,\"count\":%u,\"type\":\"VEC4\"}],"
+		"\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":%u,\"byteStride\":32,\"target\":34962},"
+		"{\"buffer\":0,\"byteOffset\":%u,\"byteLength\":%u,\"target\":34962},"
+		"{\"buffer\":0,\"byteOffset\":%u,\"byteLength\":%u,\"target\":34962},"
+		"{\"buffer\":0,\"byteOffset\":%u,\"byteLength\":%u}],"
+		"\"buffers\":[{\"byteLength\":%u,\"uri\":\"data:application/octet-stream;base64,",
+		nvx, mn[0], mn[1], mn[2], mx[0], mx[1], mx[2], nvx, nvx, nj, nvx, nvx, nb1, nb1, nb2, nb1 + nb2, nb3, nb1 + nb2 + nb3, nb4, nbytes);
+	tl = shade_b64 (t, tl, buf, nbytes);
+	tl += snprintf (t + tl, cap - tl, "\"}]}\n");
+	FREE (buf);
+	*len = tl;
+	return t;
+}
+
 static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 {
 	size_t boff[256];
@@ -196,7 +323,7 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 			if (!err)
 			{
 				// static glTF next to the OBJ (corner list from the same arrays)
-				float *fl = CALLOC (dln * 8 + 8, sizeof (float));
+				float *fl = CALLOC (dln * 8 + 8, sizeof (float)), *jw = CALLOC (dln * 8 + 8, sizeof (float));
 				size_t *vo = CALLOC (nv + 1, sizeof (size_t));	// byte offset of every vertex record
 				for (uint i = 0, qo = p + 4; i < nv; i++)
 					vo[i] = qo, qo += 25 + 6 * (size_t)r[qo + 24];
@@ -222,6 +349,34 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 						memcpy (&u, &ua, 4);
 						memcpy (&v, &ub, 4);
 						fl[8 * nvx + 6] = u, fl[8 * nvx + 7] = 1.0f - v;
+						{
+							// the four strongest skin weights of the vertex (bone index, weight), renormalised
+							const uint ke = r[qq + 24];
+							float tot = 0.f;
+							for (uint a = 0; a < 4; a++)
+							{
+								int best = -1;
+								float bw = 0.f;
+								for (uint e = 0; e < ke; e++)
+								{
+									const u32 wv = rd_be32 (r + qq + 27 + 6 * e);
+									float w;
+									memcpy (&w, &wv, 4);
+									bool used = false;
+									for (uint b2 = 0; b2 < a; b2++)
+										used = used || (uint)jw[8 * nvx + b2] == rd_be16 (r + qq + 25 + 6 * e);
+									if (!used && w > bw && rd_be16 (r + qq + 25 + 6 * e) < 256)
+										bw = w, best = rd_be16 (r + qq + 25 + 6 * e);
+								}
+								if (best >= 0)
+									jw[8 * nvx + a] = (float)best, jw[8 * nvx + 4 + a] = bw, tot += bw;
+							}
+							if (tot > 0.f)
+								for (uint a = 0; a < 4; a++)
+									jw[8 * nvx + 4 + a] /= tot;
+							else
+								jw[8 * nvx + 4] = 1.f;
+						}
 					}
 				}
 				if (nvx)
@@ -238,7 +393,29 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 					ResetFile (&G, opt_preserve);
 					FREE (g);
 				}
+				if (nvx && nbn)
+				{
+					float (*bq)[4] = CALLOC (nbn, sizeof (*bq)), (*bp)[3] = CALLOC (nbn, sizeof (*bp));
+					int bpar[256];
+					if (wtxid_skeleton (r, sz, boff, nbn, bq, bp, bpar))
+					{
+						size_t gl;
+						char *g = wtxid_gltf_skinned (fl, jw, nvx, nbn, bq, bp, bpar, r, boff, &gl);
+						char gdest[PATH_MAX];
+						snprintf (ext, sizeof (ext), nm ? ".%u.skin.gltf" : ".skin.gltf", nm);
+						beside_source_dest_ext (gdest, sizeof (gdest), arg, ext);
+						File_t G;
+						CreateFileOpt (&G, true, gdest, false, arg);
+						if (G.f)
+							fwrite (g, 1, gl, G.f);
+						ResetFile (&G, opt_preserve);
+						FREE (g);
+					}
+					FREE (bq);
+					FREE (bp);
+				}
 				FREE (vo);
+				FREE (jw);
 				FREE (fl);
 			}
 			if (F.f && fwrite (t, 1, tl, F.f) != tl)
