@@ -1,0 +1,107 @@
+// ".wis" block-compressed stream (Cabela's Big Game Hunter 2010 / Dangerous Hunts, Cauldron engine; startup.wis, Maps/*/*.wis, actors, weapons):
+// no magic, little endian; a chain of blocks {u32 size (bit 31 = stored raw), payload}, each normally decoding to 0x7ffc bytes, ended by a
+// 0xffffffff word and 0xff padding to the sector. Compressed blocks are Okumura LZSS (4096 byte ring pre-zeroed per block, write position 0xfee, flag
+// bytes LSB first with 1 = literal, match {b0, b1}: offset = b0 | (b1 & 0xf0) << 4 (ring position), length = (b1 & 15) + 3). The concatenated
+// payload is written as "<stem>.bin": maps / actors decode to "<Cauldron Chunk File>" containers, startup.wis to a GUI archive (BRLAN / TPL members
+// behind a big endian index); those inner containers are not split yet.
+static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
+{
+	static u8 ring[4096];
+	memset (ring, 0, sizeof (ring));
+	uint r = 4096 - 18, sp = 0, dp = 0;
+	while (sp < n)
+	{
+		const uint f = s[sp++];
+		for (uint b = 0; b < 8 && sp < n; b++)
+		{
+			if (f >> b & 1)
+			{
+				const u8 c = s[sp++];
+				if (dp >= 0x7ffc)
+					return false;
+				out[dp++] = ring[r] = c, r = (r + 1) & 4095;
+			}
+			else
+			{
+				if (sp + 2 > n)
+					return false;
+				const uint a = s[sp], j = s[sp + 1], off = a | (j & 0xf0) << 4, len = (j & 15) + 3;
+				sp += 2;
+				if (dp + len > 0x7ffc)
+					return false;
+				for (uint k = 0; k < len; k++)
+				{
+					const u8 c = ring[(off + k) & 4095];
+					out[dp++] = ring[r] = c, r = (r + 1) & 4095;
+				}
+			}
+		}
+	}
+	*olen = dp;
+	return true;
+}
+
+static enumError extract_wis_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	u8 *raw = 0, *out = 0;
+	size_t sz = 0, cap = 0, ol = 0;
+	if (!is_ext (arg, ".wis") || LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	enumError err = ERR_NOTHING_TO_DO;
+	size_t p = 0;
+	uint nb = 0;
+	bool ended = false;
+	while (p + 4 <= sz)
+	{
+		const u32 h = rd_le32 (raw + p);
+		if (h == 0xffffffff)
+		{
+			ended = true;
+			break;
+		}
+		const u32 n = h & 0x7fffffff;
+		if (!n || n > 0x8000 || p + 4 + n > sz)
+			break;
+		if (ol + 0x8000 > cap)
+		{
+			cap = cap ? cap * 2 : 0x100000;
+			out = REALLOC (out, cap);
+		}
+		uint bl = n;
+		if (h >> 31)
+			memcpy (out + ol, raw + p + 4, n);
+		else if (!wis_lzss (out + ol, &bl, raw + p + 4, n))
+			goto done;
+		ol += bl;
+		p += 4 + n;
+		nb++;
+	}
+	if (!nb || !ended)
+		goto done;
+	for (size_t i = p; i < sz; i++)
+		if (raw[i] != 0xff && raw[i] != 0)
+			goto done;
+	{
+		char dest[PATH_MAX], name[PATH_MAX];
+		beside_source_dest (dest, sizeof (dest), arg);
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sEXTRACT WIS:%s (%u blocks, %zu bytes) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nb, ol, dest);
+		err = ERR_OK;
+		if (!testmode)
+		{
+			ccp b = strrchr (arg, '/');
+			b = b ? b + 1 : arg;
+			snprintf (name, sizeof (name), "%s", b);
+			char *dot = strrchr (name, '.');
+			if (dot)
+				*dot = 0;
+			strncat (name, ".bin", sizeof (name) - strlen (name) - 1);
+			err = shade_write (arg, dest, basedir, name, out, ol);
+		}
+	}
+done:
+	FREE (raw);
+	FREE (out);
+	return err;
+}
