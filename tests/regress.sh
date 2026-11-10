@@ -11971,7 +11971,13 @@ PYE
   && [ "$(grep -c '^f ' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj")" = "2" ] \
   && grep -q '^v 1.00000 0.00000 0.00000' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj" \
   && grep -q '^mesh m id=00000000 parent=00000000' "$d/wismesh_test/t.wis.d/chunks/000/skeleton.txt" \
-  && fok "WIS Cauldron mesh -> OBJ + skeleton.txt" \
+  && python3 -c "
+import json, sys, base64
+g = json.load(open(sys.argv[1]))
+raw = base64.b64decode(g['buffers'][0]['uri'].split(',', 1)[1])
+assert g['asset']['version'] == '2.0' and g['accessors'][0]['count'] == 6 and len(raw) == 192 == g['buffers'][0]['byteLength'] and g['accessors'][0]['max'][0] == 1.0
+" "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.gltf" \
+  && fok "WIS Cauldron mesh -> OBJ + glTF + skeleton.txt" \
   || fno "WIS Cauldron mesh OBJ" "failed on synthetic t.wis"
 
   # CRI AAX (@UTF table of ADX segments)
