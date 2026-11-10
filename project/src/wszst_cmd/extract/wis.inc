@@ -113,27 +113,38 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 }
 
 // mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE pos[3], s16 BE normal[3]},
-// uv array {2 x u16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
-// Positions are skin/bone-local fixed point; scaled by 1/8192 here.
+// 2 pad bytes, uv array {2 x s16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
+// Positions are skin/bone-local fixed point; scaled by 1/8192 here; normals /8192, UVs /4096.
 static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w)
 {
 	if (bn < 0x60 || rd_le32 (w) != 0x54)
 		return;
-	const u32 nl = rd_le32 (w + 4), ml = rd_le32 (w + 8), sa = rd_le32 (w + 20), sg = rd_le32 (w + 44);
+	const u32 nl = rd_le32 (w + 4), ml = rd_le32 (w + 8), sa = rd_le32 (w + 20), sb = rd_le32 (w + 24), sg = rd_le32 (w + 44);
 	if (rd_le32 (w - 0x18 + 0x10) < 12)
 		return;
 	const u64 va = 0x54 + (u64)nl + ml;
-	if (sa % 12 || va + sa > bn || sg > bn || sg + va + sa > bn)
+	if (sa % 12 || sb % 4 || va + sa + 2 + sb > bn || sg > bn || sg + va + sa > bn)
 		return;
 	const uint nv = sa / 12;
 	const u8 *sp = bl + bn - sg, *se = bl + bn;
-	size_t cap = 64 + (size_t)nv * 48 + (size_t)sg * 12;
+	const uint nuv = sb / 4;
+	size_t cap = 64 + (size_t)nv * 96 + (size_t)nuv * 32 + (size_t)sg * 24;
 	char *t = MALLOC (cap);
 	size_t tl = snprintf (t, cap, "# %.*s\n", (int)nl > 0 ? (int)nl - 1 : 0, (ccp)bl + 0x54);
 	for (uint i = 0; i < nv; i++)
 	{
 		const u8 *v = bl + va + 12 * (size_t)i;
 		tl += snprintf (t + tl, cap - tl, "v %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0);
+	}
+	for (uint i = 0; i < nv; i++)
+	{
+		const u8 *v = bl + va + 12 * (size_t)i + 6;
+		tl += snprintf (t + tl, cap - tl, "vn %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0);
+	}
+	for (uint i = 0; i < nuv; i++)
+	{
+		const u8 *v = bl + va + sa + 2 + 4 * (size_t)i;
+		tl += snprintf (t + tl, cap - tl, "vt %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 4096.0, 1.0 - (s16)(v[2] << 8 | v[3]) / 4096.0);
 	}
 	uint nt = 0;
 	while (sp + 3 <= se && sp[0] == 0x99)
@@ -142,13 +153,20 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 		sp += 3;
 		if ((u64)n * 6 > (u64)(se - sp))
 			break;
-		for (uint i = 0; i + 2 < n && tl + 64 < cap; i++)
+		for (uint i = 0; i + 2 < n && tl + 96 < cap; i++)
 		{
-			uint a = sp[6 * i] << 8 | sp[6 * i + 1], b2 = sp[6 * (i + 1)] << 8 | sp[6 * (i + 1) + 1], c = sp[6 * (i + 2)] << 8 | sp[6 * (i + 2) + 1];
+			uint ix[3][2];
+			for (uint k = 0; k < 3; k++)
+				ix[k][0] = sp[6 * (i + k)] << 8 | sp[6 * (i + k) + 1], ix[k][1] = sp[6 * (i + k) + 4] << 8 | sp[6 * (i + k) + 5];
 			if (i & 1)
-				b2 ^= c, c ^= b2, b2 ^= c;
-			if (a < nv && b2 < nv && c < nv && a != b2 && b2 != c && a != c)
-				tl += snprintf (t + tl, cap - tl, "f %u %u %u\n", a + 1, b2 + 1, c + 1), nt++;
+				for (uint q = 0; q < 2; q++)
+				{
+					const uint x = ix[0][q];
+					ix[0][q] = ix[1][q], ix[1][q] = x;
+				}
+			const uint a = ix[0][0], b2 = ix[1][0], c = ix[2][0];
+			if (a < nv && b2 < nv && c < nv && a != b2 && b2 != c && a != c && ix[0][1] < nuv && ix[1][1] < nuv && ix[2][1] < nuv)
+				tl += snprintf (t + tl, cap - tl, "f %u/%u/%u %u/%u/%u %u/%u/%u\n", a + 1, ix[0][1] + 1, a + 1, b2 + 1, ix[1][1] + 1, b2 + 1, c + 1, ix[2][1] + 1, c + 1), nt++;
 		}
 		sp += 6 * n;
 	}

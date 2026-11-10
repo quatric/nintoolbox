@@ -11772,6 +11772,38 @@ PYE
   && fok "WIS Cauldron chunk -> chunks/*" \
   || fno "WIS Cauldron chunk" "failed on synthetic t.wis"
 
+  # WIS Cauldron mesh blob -> OBJ
+  mkdir -p "$d/wismesh_test"
+  python3 - "$d/wismesh_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+nm, mt = b'm\0', b'x.mtl\0'
+hdr = bytes(0x54)
+va = b''.join(struct.pack('>6h', x, y, 0, 0, 0, 8192) for x, y in ((0, 0), (8192, 0), (0, 8192), (8192, 8192)))
+uv = struct.pack('>8h', 0, 0, 4096, 0, 0, 4096, 4096, 4096)
+strip = b'\x99' + struct.pack('>H', 4) + b''.join(struct.pack('>3H', i, i, i) for i in range(4))
+blob = hdr + nm + mt + va + b'\0\0' + uv + strip
+words = [0x54, len(nm), len(mt), 1, 1, len(va), len(uv), 0, 0, 0, 0, len(strip)]
+magic = b'<Cauldron Chunk File>'
+body = bytearray(magic + b'\x01\x00\x01\x00').ljust(0x28, b'\0')
+dof = len(body)
+body += blob
+fo = len(body)
+names = b'header\0mesh\0'
+foot = struct.pack('<4I', 0xcdd44ddc, len(names), 2, 0x10001) + names
+objs = struct.pack('<6I', 0, 0xffffffff, 0, 0x20, 1, 0) + struct.pack('<I', 7)
+objs += struct.pack('<6I', 1, 0xffffffff, 0x01000000, dof, len(words), 0) + struct.pack('<%dI' % len(words), *words)
+foot += struct.pack('<II', len(objs), 2) + objs
+body += foot + struct.pack('<I', fo)
+pay = b'\xff\xff\xff\xff' + struct.pack('<I', 1) + struct.pack('<I', len(body)) + bytes(body)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wismesh_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && [ "$(grep -c '^v ' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj")" = "4" ] \
+  && [ "$(grep -c '^f ' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj")" = "2" ] \
+  && grep -q '^v 1.00000 0.00000 0.00000' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj" \
+  && fok "WIS Cauldron mesh -> OBJ" \
+  || fno "WIS Cauldron mesh OBJ" "failed on synthetic t.wis"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
