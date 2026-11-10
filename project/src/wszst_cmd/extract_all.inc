@@ -325,6 +325,7 @@
 #include "extract/asobo_sound.inc"
 #include "extract/waud.inc"
 #include "extract/wtxid.inc"
+#include "extract/tvser.inc"
 #include "extract/aax.inc"
 #include "extract/kp0.inc"
 #include "extract/gvx.inc"

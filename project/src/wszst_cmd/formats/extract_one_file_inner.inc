@@ -1247,6 +1247,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_wtxid_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_tvser_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_asobo_sound_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

@@ -11812,6 +11812,17 @@ PYE
   && fok "wii resource archive stream variant -> WAV" \
   || fno "wii resource archive stream variant" "failed on synthetic t.arc"
 
+  # Thrillville serialised object stream (PARK) -> token text
+  mkdir -p "$d/tvser_test"
+  python3 - "$d/tvser_test/t.prk" <<'PYE' >/dev/null 2>&1
+import sys
+open(sys.argv[1], 'wb').write(b'PARK' + bytes([0xc1, 0x07, 0x04, 0xc4, 0xf9, 0xb9, 0x3f, 0x24, 0x3f, 0xf3, 0xfc, 0x68, 0xe9, 0xff]))
+PYE
+  "$B/wszst" x "$d/tvser_test/t.prk" --overwrite >/dev/null 2>&1 \
+  && grep -q '^113 4 -108 f=1.5707.* true "hi" ;$' "$d/tvser_test/t.txt" \
+  && fok "Thrillville PARK/TRAK/ATTR -> token text" \
+  || fno "Thrillville serial stream" "failed on synthetic t.prk"
+
   # WTXID object image -> string inventory
   mkdir -p "$d/wtxid_test"
   python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1
