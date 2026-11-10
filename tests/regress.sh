@@ -11886,7 +11886,8 @@ PYE
   && [ "$(grep -c '^v ' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj")" = "4" ] \
   && [ "$(grep -c '^f ' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj")" = "2" ] \
   && grep -q '^v 1.00000 0.00000 0.00000' "$d/wismesh_test/t.wis.d/chunks/000/001_mesh.obj" \
-  && fok "WIS Cauldron mesh -> OBJ" \
+  && grep -q '^mesh m id=00000000 parent=00000000' "$d/wismesh_test/t.wis.d/chunks/000/skeleton.txt" \
+  && fok "WIS Cauldron mesh -> OBJ + skeleton.txt" \
   || fno "WIS Cauldron mesh OBJ" "failed on synthetic t.wis"
 
   # CRI AAX (@UTF table of ADX segments)

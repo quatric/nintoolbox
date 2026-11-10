@@ -179,6 +179,50 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 	FREE (t);
 }
 
+// per chunk skeleton listing from the node headers of the mesh / bone objects: 0x54 byte header {u32 id (hash), u32 parent id (0 = root), f32 pos[3], f32 quat xyzw[4], f32 scale[3],
+// 2 zero floats, f32 bbox min[3], max[3], 0}, then the NUL terminated name (bone objects: then a 3x4 f32 matrix, the bind pose inverse). Written as "chunks/NNN/skeleton.txt".
+static void wis_skeleton (ccp arg, ccp dest, ccp basedir, uint nc, uint no, const u32 *typ, const u32 *dof, const u32 *p0, const u8 *b, u32 fo, uint nt, char names[][48])
+{
+	size_t cap = 256 + (size_t)no * 400;
+	char *t = MALLOC (cap);
+	size_t tl = 0;
+	uint nn = 0;
+	for (uint i = 0; i < no; i++)
+	{
+		const u32 ty = typ[i] < nt ? typ[i] : 0;
+		if (!ty || (strcmp (names[ty], "bone") && strcmp (names[ty], "mesh")) || rd_le32 (b + p0[i]) != 0x54 || (u64)dof[i] + 0x54 + 2 > fo)
+			continue;
+		const u8 *h = b + dof[i];
+		float f[19];
+		for (uint k = 0; k < 19; k++)
+		{
+			const u32 v = rd_le32 (h + 8 + 4 * k);
+			memcpy (&f[k], &v, 4);
+		}
+		const u32 id = rd_le32 (h), par = rd_le32 (h + 4);
+		char pn[48] = "-";
+		for (uint j = 0; par && j < no; j++)
+		{
+			const u32 tj = typ[j] < nt ? typ[j] : 0;
+			if (j != i && tj && !strcmp (names[tj], "bone") && rd_le32 (b + p0[j]) == 0x54 && rd_le32 (b + dof[j]) == par)
+			{
+				snprintf (pn, sizeof (pn), "%.40s", (ccp)b + dof[j] + 0x54);
+				break;
+			}
+		}
+		if (tl + 400 > cap)
+			break;
+		tl += snprintf (t + tl, cap - tl, "%s %.40s id=%08x parent=%08x(%s) pos %.5g %.5g %.5g quat %.5g %.5g %.5g %.5g scale %.5g %.5g %.5g bbox %.5g %.5g %.5g %.5g %.5g %.5g\n", names[ty], (ccp)h + 0x54, id, par, pn, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[12], f[13], f[14], f[15], f[16], f[17], f[18]), nn++;
+	}
+	if (nn)
+	{
+		char fn[96];
+		snprintf (fn, sizeof (fn), "chunks/%03u/skeleton.txt", nc);
+		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
+	}
+	FREE (t);
+}
+
 static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 {
 	static const char magic[] = "<Cauldron Chunk File>";
@@ -290,6 +334,7 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 					wis_mesh_obj (arg, dest, basedir, nc, i, b + dof[i], end - dof[i], b + p0[i]);
 			}
 		}
+		wis_skeleton (arg, dest, basedir, nc, no, typ, dof, p0, b, fo, nt, names);
 		FREE (dof), FREE (typ), FREE (p0);
 		nc++;
 		m += bsz - 1;
