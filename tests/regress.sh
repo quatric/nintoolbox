@@ -11920,10 +11920,10 @@ F = bytes([0, 1])
 strip = b'\x99' + struct.pack('>H', 3) + b''.join(struct.pack('>3H', i, i, i) for i in range(3))
 blob = bytes(0x54) + nm + mt + va + b'\0\0' + uv + C + D + E + F + strip
 words = [0x54, len(nm), len(mt), 1, 1, len(va), len(uv), len(C), len(D), len(E), len(F), len(strip)]
-def bone(name):
-    h = struct.pack('<2I', 1, 0) + bytes(0x54 - 8)
+def bone(name, bid, parent, px):
+    h = struct.pack('<2I', bid, parent) + struct.pack('<7f', px, 0, 0, 0, 0, 0, 1) + bytes(0x54 - 8 - 28)
     return h + name + b'\0' + bytes(48)
-b0, b1 = bone(b'BoneA'), bone(b'BoneB')
+b0, b1 = bone(b'BoneA', 1, 0, 0.0), bone(b'BoneB', 2, 1, 1.0)
 magic = b'<Cauldron Chunk File>'
 body = bytearray(magic + b'\x01\x00\x01\x00').ljust(0x28, b'\0')
 d1 = len(body); body += blob
@@ -11945,7 +11945,13 @@ PYE
   && grep -q '^0 BoneA 1$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
   && grep -q '^2 BoneA 1.0000 BoneB 0.0000$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
   && grep -q '^3 BoneA 0.0000 BoneB 1.0000$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
-  && fok "WIS skinned mesh -> skin.txt" \
+  && python3 -c "
+import json, sys
+g = json.load(open(sys.argv[1]))
+assert [n['name'] for n in g['nodes'][:2]] == ['BoneA', 'BoneB'] and g['nodes'][0]['children'] == [1] and g['skins'][0]['joints'] == [0, 1]
+assert abs(g['nodes'][1]['translation'][0] - 1.0) < 1e-6
+" "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.gltf" \
+  && fok "WIS skinned mesh -> skin.txt + skin.gltf" \
   || fno "WIS skin" "failed on synthetic t.wis"
 
   # WIS keyframes object -> keyframes.txt

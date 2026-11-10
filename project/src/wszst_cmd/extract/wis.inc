@@ -115,19 +115,19 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 // mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE nx, px, py, pz, ny, nz},
 // 2 pad bytes, uv array {2 x s16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
 // Positions are model space fixed point /8192 (the min / max match the header bbox exactly); normals /8192, UVs /4096.
-static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb);
+static bool wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb, uint *jo, float *wo);
 // skin table of a mesh (arrays C, D, E and the palette F after the uv array, sizes in payload words 7..10): vertices 0 .. nrigid-1 are rigid and listed by C as groups of 6 bytes
 // {u16 BE count, u16 BE start, u8 palette slot, u8 0}; the remaining vertices are blended between two palette slots: D holds 8 byte entries {u16 count, u16 offset (= nrigid + start),
 // u16 start (cumulative), u8 slot a, u8 slot b} and E one weight byte per blended vertex (E is nblend bytes long; D's offset word is that start + nrigid). Palette slots index the bone objects of the chunk in object order.
 // Verified on the structure (counts / offsets chain, slot pairs are neighbouring bones such as finger segments); that the weight byte belongs to slot a (w / 255) is assumed.
 // Written as "chunks/NNN/OOO_mesh.skin.txt": one line per vertex "index bone weight [bone weight]".
-static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb)
+static bool wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb, uint *jo, float *wo)
 {
 	const u32 sa = rd_le32 (w + 20), sb = rd_le32 (w + 24), sc = rd_le32 (w + 28), sd = rd_le32 (w + 32), se = rd_le32 (w + 36), sf = rd_le32 (w + 40);
 	const uint nv = sa / 12;
 	const u64 cp = va + sa + 2 + sb, dp = cp + sc, ep = dp + sd, fp = ep + se;
 	if (!sf || sf > 255 || sc % 6 || sd % 8 || fp + sf > bn || !nbone)
-		return;
+		return false;
 	uint nrigid = 0;
 	for (uint g = 0; g < sc / 6; g++)
 		nrigid += rd_be16 (bl + cp + 6 * g);
@@ -135,7 +135,7 @@ static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 	for (uint g = 0; g < sd / 8; g++)
 		nblend += rd_be16 (bl + dp + 8 * g);
 	if (nrigid + nblend != nv || se != nblend)
-		return;
+		return false;
 	size_t cap = 64 + (size_t)nv * 120;
 	char *t = MALLOC (cap);
 	size_t tl = 0;
@@ -148,6 +148,8 @@ static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 			const uint bi = bl[fp + slot];
 			const char *nm = bi < nbone ? (ccp)cb + bdof[bi] + 0x54 : "?";
 			tl += snprintf (t + tl, cap - tl, "%u %.40s 1\n", st + j, nm);
+			if (jo && st + j < nv && bi < nbone)
+				jo[2 * (st + j)] = bi, wo[2 * (st + j)] = 1.f;
 		}
 	}
 	for (uint g = 0; g < sd / 8; g++)
@@ -160,6 +162,8 @@ static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 		for (uint j = 0; j < n && ep + st + j < bn && tl + 160 < cap; j++)
 		{
 			const double wt = bl[ep + st + j] / 255.0;
+			if (jo && nrigid + st + j < nv && ba < nbone && bb < nbone)
+				jo[2 * (nrigid + st + j)] = ba, wo[2 * (nrigid + st + j)] = (float)wt, jo[2 * (nrigid + st + j) + 1] = bb, wo[2 * (nrigid + st + j) + 1] = 1.f - (float)wt;
 			tl += snprintf (t + tl, cap - tl, "%u %.40s %.4f %.40s %.4f\n", nrigid + st + j, ba < nbone ? (ccp)cb + bdof[ba] + 0x54 : "?", wt, bb < nbone ? (ccp)cb + bdof[bb] + 0x54 : "?", 1.0 - wt);
 		}
 	}
@@ -167,13 +171,35 @@ static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 	snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.skin.txt", nc, oi);
 	shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
 	FREE (t);
+	return true;
+}
+
+// bone objects of a chunk -> local rest pose for glTF. A bone node header stores the WORLD position and a quaternion that is the inverse of the bone's world rotation (checked on the data: with
+// R = matrix(quat), R * (child position - parent position) is {length, 0, 0} along the parent's x axis for finger / forearm / calf / hand chains, and the mesh vertices lie within a few centimetres of
+// the world position of the bone they are skinned to). Parent = bone whose id hash is the node's parent hash. Local rotation = conj(parent file quat) * ... see below; local position = R_parent * (p - p_parent).
+static void wis_quat_mul (const float *a, const float *b, float *o)
+{
+	o[0] = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+	o[1] = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0];
+	o[2] = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3];
+	o[3] = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+}
+
+static float wis_f32 (const u8 *p)
+{
+	const u32 v = rd_le32 (p);
+	float f;
+	memcpy (&f, &v, 4);
+	return f;
 }
 
 // static glTF 2.0 of a mesh ("chunks/NNN/OOO_mesh.gltf"): one non indexed triangle list with POSITION, NORMAL and TEXCOORD_0 per corner (same values as the OBJ).
-static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u64 va, u32 sa, uint nt, uint (*tri)[6])
+// With skin tables (jo / wo: two bone palette entries and weights per vertex) and the chunk's bones also "OOO_mesh.skin.gltf" (skeleton nodes, one skin, JOINTS_0 / WEIGHTS_0). The weight to bone
+// orientation of blended vertices is the assumption noted at wis_mesh_skin.
+static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u64 va, u32 sa, uint nt, uint (*tri)[6], const uint *jo, const float *wo, const u8 *cb, const u32 *bdof, uint nbone)
 {
 	const uint nvx = nt * 3;
-	float *fl = CALLOC (nvx * 8 + 1, sizeof (float));
+	float *fl = CALLOC (nvx * 8 + 1, sizeof (float)), *jw = CALLOC (nvx * 8 + 1, sizeof (float));
 	for (uint i = 0; i < nvx; i++)
 	{
 		const uint vi = tri[i / 3][i % 3], ui = tri[i / 3][3 + i % 3];
@@ -182,6 +208,12 @@ static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 		o[0] = (s16)(v[2] << 8 | v[3]) / 8192.0f, o[1] = (s16)(v[4] << 8 | v[5]) / 8192.0f, o[2] = (s16)(v[6] << 8 | v[7]) / 8192.0f;
 		o[3] = (s16)(v[0] << 8 | v[1]) / 8192.0f, o[4] = (s16)(v[8] << 8 | v[9]) / 8192.0f, o[5] = (s16)(v[10] << 8 | v[11]) / 8192.0f;
 		o[6] = (s16)(u[0] << 8 | u[1]) / 4096.0f, o[7] = 1.0f - (s16)(u[2] << 8 | u[3]) / 4096.0f;
+		if (jo)
+		{
+			jw[8 * i] = (float)jo[2 * vi], jw[8 * i + 1] = (float)jo[2 * vi + 1], jw[8 * i + 4] = wo[2 * vi], jw[8 * i + 5] = wo[2 * vi + 1];
+			if (wo[2 * vi] + wo[2 * vi + 1] <= 0.f)
+				jw[8 * i + 4] = 1.f;
+		}
 	}
 	size_t tl;
 	char *t = shade_gltf_tris (fl, nvx, &tl);
@@ -189,6 +221,54 @@ static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 	snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.gltf", nc, oi);
 	shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
 	FREE (t);
+	if (jo && nbone >= 2 && nbone <= 256)
+	{
+		float (*q)[4] = CALLOC (nbone, sizeof (*q)), (*pp)[3] = CALLOC (nbone, sizeof (*pp)), (*wq)[4] = CALLOC (nbone, sizeof (*wq)), (*wp)[3] = CALLOC (nbone, sizeof (*wp));
+		int par[256];
+		const char *bnm[256];
+		uint bnl[256];
+		for (uint i = 0; i < nbone; i++)
+		{
+			const u8 *h = cb + bdof[i];
+			for (uint k = 0; k < 3; k++)
+				wp[i][k] = wis_f32 (h + 8 + 4 * k);
+			for (uint k = 0; k < 4; k++)
+				wq[i][k] = wis_f32 (h + 20 + 4 * k);
+			bnm[i] = (ccp)h + 0x54, bnl[i] = strnlen (bnm[i], 47);
+			par[i] = -1;
+			const u32 pid = rd_le32 (h + 4);
+			for (uint j = 0; pid && j < nbone; j++)
+				if (j != i && rd_le32 (cb + bdof[j]) == pid)
+					par[i] = j;
+		}
+		for (uint i = 0; i < nbone; i++)
+		{
+			const float cq[4] = { -wq[i][0], -wq[i][1], -wq[i][2], wq[i][3] };	// actual world rotation of the bone
+			if (par[i] < 0)
+			{
+				memcpy (q[i], cq, sizeof (cq));
+				memcpy (pp[i], wp[i], sizeof (pp[i]));
+				continue;
+			}
+			const float *pq = wq[par[i]];	// file quat of the parent = conj of its world rotation
+			wis_quat_mul (pq, cq, q[i]);	// conj(parent world) * child world
+			const float x = pq[0], y = pq[1], z = pq[2], w = pq[3];
+			const float m[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) };
+			const float d[3] = { wp[i][0] - wp[par[i]][0], wp[i][1] - wp[par[i]][1], wp[i][2] - wp[par[i]][2] };
+			for (uint k = 0; k < 3; k++)
+				pp[i][k] = m[3 * k] * d[0] + m[3 * k + 1] * d[1] + m[3 * k + 2] * d[2];
+		}
+		size_t gl;
+		char *g = wtxid_gltf_skinned (fl, jw, nvx, nbone, q, pp, par, bnm, bnl, &gl);
+		snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.skin.gltf", nc, oi);
+		shade_write (arg, dest, basedir, fn, (const u8 *)g, (uint)gl);
+		FREE (g);
+		FREE (q);
+		FREE (pp);
+		FREE (wq);
+		FREE (wp);
+	}
+	FREE (jw);
 	FREE (fl);
 }
 
@@ -220,7 +300,9 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 			tl += snprintf (t + tl, cap - tl, "\n");
 		}
 	}
-	wis_mesh_skin (arg, dest, basedir, nc, oi, bl, bn, w, va, bdof, nbone, cb);
+	uint *jo = CALLOC (nv * 2 + 2, sizeof (uint));
+	float *wo = CALLOC (nv * 2 + 2, sizeof (float));
+	const bool skinned = wis_mesh_skin (arg, dest, basedir, nc, oi, bl, bn, w, va, bdof, nbone, cb, jo, wo);
 	for (uint i = 0; i < nv; i++)
 	{
 		const u8 *v = bl + va + 12 * (size_t)i;
@@ -266,9 +348,11 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 		char fn[96];
 		snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.obj", nc, oi);
 		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
-		wis_mesh_gltf (arg, dest, basedir, nc, oi, bl, va, sa, nt, tri);
+		wis_mesh_gltf (arg, dest, basedir, nc, oi, bl, va, sa, nt, tri, skinned ? jo : 0, wo, cb, bdof, nbone);
 	}
 	FREE (tri);
+	FREE (jo);
+	FREE (wo);
 	FREE (t);
 }
 

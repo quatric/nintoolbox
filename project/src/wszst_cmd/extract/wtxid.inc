@@ -115,7 +115,7 @@ static uint wtxid_skeleton (const u8 *r, size_t sz, const size_t *boff, uint nbn
 
 // skinned glTF of one Cook Wars mesh: the skeleton (nodes with local TRS, children), one skin whose inverse bind matrices are the inverses of the rest pose world transforms, JOINTS_0 / WEIGHTS_0
 // (the four strongest weights of a vertex, renormalised). fl: 8 floats per corner, jw: 4 joints + 4 weights (as 8 floats) per corner.
-static char *wtxid_gltf_skinned (const float *fl, const float *jw, uint nvx, uint nj, float (*q)[4], float (*pp)[3], const int *par, const u8 *r, const size_t *boff, size_t *len)
+static char *wtxid_gltf_skinned (const float *fl, const float *jw, uint nvx, uint nj, float (*q)[4], float (*pp)[3], const int *par, const char *const *bname, const uint *blen, size_t *len)
 {
 	const uint nb1 = nvx * 32, nb2 = nvx * 8, nb3 = nvx * 16, nb4 = nj * 64, nbytes = nb1 + nb2 + nb3 + nb4;
 	u8 *buf = CALLOC (nbytes + 4, 1);
@@ -135,33 +135,39 @@ static char *wtxid_gltf_skinned (const float *fl, const float *jw, uint nvx, uin
 	}
 	// world rest transforms -> inverse bind (column major 4x4 of the rigid inverse)
 	float (*R)[9] = CALLOC (nj, sizeof (*R)), (*P)[3] = CALLOC (nj, sizeof (*P));
-	for (uint k = 0; k < nj; k++)
-	{
-		const float x = q[k][0], y = q[k][1], z = q[k][2], w = q[k][3];
-		const float m[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) };
-		if (par[k] < 0)
+	bool *done = CALLOC (nj, sizeof (bool));
+	for (uint pass = 0, left = nj; left && pass <= nj; pass++)	// bones need not come parent first
+		for (uint k = 0; k < nj; k++)
 		{
-			memcpy (R[k], m, sizeof (m));
-			memcpy (P[k], pp[k], sizeof (P[k]));
-		}
-		else
-		{
-			const float *a = R[par[k]];
-			for (uint i = 0; i < 3; i++)
+			if (done[k] || (par[k] >= 0 && !done[par[k]]))
+				continue;
+			done[k] = true, left--;
+			const float x = q[k][0], y = q[k][1], z = q[k][2], w = q[k][3];
+			const float m[9] = { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) };
+			if (par[k] < 0)
 			{
-				for (uint c = 0; c < 3; c++)
-					R[k][3 * i + c] = a[3 * i] * m[c] + a[3 * i + 1] * m[3 + c] + a[3 * i + 2] * m[6 + c];
-				P[k][i] = P[par[k]][i] + a[3 * i] * pp[k][0] + a[3 * i + 1] * pp[k][1] + a[3 * i + 2] * pp[k][2];
+				memcpy (R[k], m, sizeof (m));
+				memcpy (P[k], pp[k], sizeof (P[k]));
 			}
-		}
-		float *ib = (float *)(buf + nb1 + nb2 + nb3) + 16 * k;
-		for (uint c = 0; c < 3; c++)
+			else
+			{
+				const float *a = R[par[k]];
+				for (uint i = 0; i < 3; i++)
+				{
+					for (uint c = 0; c < 3; c++)
+						R[k][3 * i + c] = a[3 * i] * m[c] + a[3 * i + 1] * m[3 + c] + a[3 * i + 2] * m[6 + c];
+					P[k][i] = P[par[k]][i] + a[3 * i] * pp[k][0] + a[3 * i + 1] * pp[k][1] + a[3 * i + 2] * pp[k][2];
+				}
+			}
+			float *ib = (float *)(buf + nb1 + nb2 + nb3) + 16 * k;
+			for (uint c = 0; c < 3; c++)
+				for (uint i = 0; i < 3; i++)
+					ib[4 * c + i] = R[k][3 * c + i];	// R^T, column c row i = R[c][i]
 			for (uint i = 0; i < 3; i++)
-				ib[4 * c + i] = R[k][3 * c + i];	// R^T, column c row i = R[c][i]
-		for (uint i = 0; i < 3; i++)
-			ib[12 + i] = -(R[k][i] * P[k][0] + R[k][3 + i] * P[k][1] + R[k][6 + i] * P[k][2]);
-		ib[15] = 1;
-	}
+				ib[12 + i] = -(R[k][i] * P[k][0] + R[k][3 + i] * P[k][1] + R[k][6 + i] * P[k][2]);
+			ib[15] = 1;
+		}
+	FREE (done);
 	FREE (R);
 	FREE (P);
 	const size_t cap = 4096 + (size_t)nj * 400 + ((size_t)nbytes + 2) / 3 * 4;
@@ -173,7 +179,7 @@ static char *wtxid_gltf_skinned (const float *fl, const float *jw, uint nvx, uin
 	tl += snprintf (t + tl, cap - tl, "%u]}],\"nodes\":[", nj);
 	for (uint k = 0; k < nj; k++)
 	{
-		tl += snprintf (t + tl, cap - tl, "{\"name\":\"%.*s\",\"translation\":[%.7g,%.7g,%.7g],\"rotation\":[%.7g,%.7g,%.7g,%.7g]", (int)rd_be32 (r + boff[k]), (ccp)r + boff[k] + 4, pp[k][0], pp[k][1], pp[k][2], q[k][0], q[k][1], q[k][2], q[k][3]);
+		tl += snprintf (t + tl, cap - tl, "{\"name\":\"%.*s\",\"translation\":[%.7g,%.7g,%.7g],\"rotation\":[%.7g,%.7g,%.7g,%.7g]", (int)blen[k], bname[k], pp[k][0], pp[k][1], pp[k][2], q[k][0], q[k][1], q[k][2], q[k][3]);
 		bool first = true;
 		for (uint c = 0; c < nj; c++)
 			if (par[c] == (int)k)
@@ -400,7 +406,11 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 					if (wtxid_skeleton (r, sz, boff, nbn, bq, bp, bpar))
 					{
 						size_t gl;
-						char *g = wtxid_gltf_skinned (fl, jw, nvx, nbn, bq, bp, bpar, r, boff, &gl);
+						const char *bnm[256];
+						uint bnl[256];
+						for (uint i = 0; i < nbn; i++)
+							bnm[i] = (ccp)r + boff[i] + 4, bnl[i] = rd_be32 (r + boff[i]);
+						char *g = wtxid_gltf_skinned (fl, jw, nvx, nbn, bq, bp, bpar, bnm, bnl, &gl);
 						char gdest[PATH_MAX];
 						snprintf (ext, sizeof (ext), nm ? ".%u.skin.gltf" : ".skin.gltf", nm);
 						beside_source_dest_ext (gdest, sizeof (gdest), arg, ext);
