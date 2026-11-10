@@ -11836,6 +11836,48 @@ PYE
   && fok "WTXID -> string inventory" \
   || fno "WTXID" "failed on synthetic t.wtxg"
 
+  # WIS skinned mesh -> skin.txt
+  mkdir -p "$d/wisskin_test"
+  python3 - "$d/wisskin_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+nm, mt = b'm\0', b'x.mtl\0'
+va = b''.join(struct.pack('>6h', x, 0, 0, 0, 0, 8192) for x in range(4))
+uv = struct.pack('>8h', 0, 0, 4096, 0, 0, 4096, 4096, 4096)
+C = struct.pack('>HHBB', 2, 0, 0, 0)
+D = struct.pack('>HHHBB', 2, 2, 0, 0, 1)
+E = bytes([255, 0])
+F = bytes([0, 1])
+strip = b'\x99' + struct.pack('>H', 3) + b''.join(struct.pack('>3H', i, i, i) for i in range(3))
+blob = bytes(0x54) + nm + mt + va + b'\0\0' + uv + C + D + E + F + strip
+words = [0x54, len(nm), len(mt), 1, 1, len(va), len(uv), len(C), len(D), len(E), len(F), len(strip)]
+def bone(name):
+    h = struct.pack('<2I', 1, 0) + bytes(0x54 - 8)
+    return h + name + b'\0' + bytes(48)
+b0, b1 = bone(b'BoneA'), bone(b'BoneB')
+magic = b'<Cauldron Chunk File>'
+body = bytearray(magic + b'\x01\x00\x01\x00').ljust(0x28, b'\0')
+d1 = len(body); body += blob
+d2 = len(body); body += b0
+d3 = len(body); body += b1
+fo = len(body)
+names = b'header\0mesh\0bone\0'
+foot = struct.pack('<4I', 0xcdd44ddc, len(names), 3, 0x10001) + names
+def obj(ty, dof, w):
+    return struct.pack('<6I', ty, 0xffffffff, 0x01000000, dof, len(w), 0) + struct.pack('<%dI' % len(w), *w)
+objs = struct.pack('<6I', 0, 0xffffffff, 0, 0x20, 1, 0) + struct.pack('<I', 7)
+objs += obj(1, d1, words) + obj(2, d2, [0x54, 6, 0x30]) + obj(2, d3, [0x54, 6, 0x30])
+foot += struct.pack('<II', len(objs), 4) + objs
+body += foot + struct.pack('<I', fo)
+pay = b'\xff\xff\xff\xff' + struct.pack('<I', 1) + struct.pack('<I', len(body)) + bytes(body)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wisskin_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && grep -q '^0 BoneA 1$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
+  && grep -q '^2 BoneA 1.0000 BoneB 0.0000$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
+  && grep -q '^3 BoneA 0.0000 BoneB 1.0000$' "$d/wisskin_test/t.wis.d/chunks/000/001_mesh.skin.txt" \
+  && fok "WIS skinned mesh -> skin.txt" \
+  || fno "WIS skin" "failed on synthetic t.wis"
+
   # WIS keyframes object -> keyframes.txt
   mkdir -p "$d/wiskf_test"
   python3 - "$d/wiskf_test/t.wis" <<'PYE' >/dev/null 2>&1
