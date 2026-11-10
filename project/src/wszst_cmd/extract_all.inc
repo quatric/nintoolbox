@@ -327,6 +327,7 @@
 #include "extract/kp0.inc"
 #include "extract/gvx.inc"
 #include "extract/rcchr.inc"
+#include "extract/rcb.inc"
 #include "extract/rmhg.inc"
 #include "extract/gmf2.inc"
 #include "extract/gan2.inc"

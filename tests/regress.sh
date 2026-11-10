@@ -11599,6 +11599,23 @@ assert c["rotations"][1][1] == [0, 0, 0, 1]
   && fok "RC chr fighter record -> chr.txt" \
   || fno "RC chr fighter record" "failed on synthetic t.chr"
 
+  # RCB resource bundle (.rcb, Bass Fishing Wii)
+  mkdir -p "$d/rcb_test"
+  python3 - "$d/rcb_test/t.rcb" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def hdr(span, pl, fl, name): return struct.pack('>4I', span, 0x40, pl, fl) + b'\0' * 16 + name.ljust(32, b'\0')
+out = struct.pack('>3I', 0, 0x40, 1).ljust(0x20, b'\0') + b'bundle'.ljust(32, b'\0')
+for pl, fl, nm, body in ((5, 0, b'system/a.bin', b'hello'), (3, 1, b'b.bin', b'xyz')):
+    span = (0x40 + pl + 0x1f) & ~0x1f
+    out += hdr(span, pl, fl, nm) + body.ljust(span - 0x40, b'\0')
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/rcb_test/t.rcb" --overwrite >/dev/null 2>&1 \
+  && [ "$(cat "$d/rcb_test/t.rcb.d/system/a.bin")" = "hello" ] \
+  && [ "$(cat "$d/rcb_test/t.rcb.d/b.bin")" = "xyz" ] \
+  && fok "RCB bundle -> members" \
+  || fno "RCB bundle" "failed on synthetic t.rcb"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
