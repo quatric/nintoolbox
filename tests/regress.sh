@@ -11793,6 +11793,25 @@ PYE
   && fok "wii resource archive (Ski-Doo) -> resources + PNG" \
   || fno "wii resource archive Ski-Doo" "failed on synthetic t.arc"
 
+  # wii resource archive stream variant (absolute offsets, PCM -> WAV)
+  mkdir -p "$d/wiiarcmus_test"
+  python3 - "$d/wiiarcmus_test/t.arc" <<'PYE' >/dev/null 2>&1
+import struct, sys
+b = bytearray(0x2e0)
+b[0:4] = b'wii\0'
+pcm = struct.pack('>8h', 0, 100, 200, 300, 200, 100, 0, -100)
+total = 0x2e0 + len(pcm)
+struct.pack_into('>IIIIII', b, 4, total, 1, 2, 0x220, 0x2e0, 0)
+struct.pack_into('>8I', b, 0x104, 0x16, len(pcm), 0x2e0, 1, 0, 0x20, 0, 0)
+struct.pack_into('>I', b, 0x220, 0x228)
+b[0x228:0x22d] = b'song\0'
+open(sys.argv[1], 'wb').write(bytes(b) + pcm)
+PYE
+  "$B/wszst" x "$d/wiiarcmus_test/t.arc" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -s 44 -l 4 -p "$d/wiiarcmus_test/t.arc.d/0000_song.wav")" = "00006400" ] \
+  && fok "wii resource archive stream variant -> WAV" \
+  || fno "wii resource archive stream variant" "failed on synthetic t.arc"
+
   # WTXID object image -> string inventory
   mkdir -p "$d/wtxid_test"
   python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1

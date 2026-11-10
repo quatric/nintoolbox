@@ -3,7 +3,58 @@
 // a fixup block), fixup size, data size}; N * 0x20 byte records from 0x104 {u32 type, u32 size, u32 offset into the data area, u32 id, 0, 0x20 align, 0, 0}; N absolute offsets to
 // NUL terminated names. Each resource is written as "NNNN_<name>.t<type>.bin" under "<file>.d/"; type 2 image resources whose 0x60 byte header holds BE u16 {w, h, padded w, padded h}
 // and the GX format at +0x0c (CMPR / RGB565 / RGB5A3 / RGBA8) are also decoded to ".png". Variant 1 (6 *SOUNDS / CROWD / ENGINE ARCs) holds GC DSP-ADPCM images with the standard
-// 0x60 byte header, carved as "NNN.dsp" by a validated scan; variant 2 (the 254 MB MUSIC.ARC streams) is not handled.
+// 0x60 byte header, carved as "NNN.dsp" by a validated scan; variant 2 (MUSIC.ARC) see wiiarcimg_music.
+// variant 2 (MUSIC.ARC): same 0x20 byte records from 0x104 but offsets are absolute and header word 1 is the file size; resources are raw big endian s16 mono PCM
+// (adjacent-sample statistics are identical for even / odd pairs, so not interleaved; the sample rate is not stored, 44100 Hz assumed), written as ".t<type>.bin" and ".wav".
+static enumError wiiarcimg_music (ccp arg, ccp basedir, u8 *raw, size_t sz)
+{
+	const u32 n = rd_be32 (raw + 8), nt = rd_be32 (raw + 0x10);
+	if (!n || n > 1000 || 0x104 + 0x20 * (u64)n > (u64)nt + 4 || (u64)nt + 4 * (u64)n > sz || rd_be32 (raw + 4) != sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT WII-ARC:%s (stream variant, %u resources) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n, dest);
+	enumError err = ERR_OK;
+	for (uint i = 0; i < n && !err && !testmode; i++)
+	{
+		const u8 *r = raw + 0x104 + 0x20 * (size_t)i;
+		const u32 ty = rd_be32 (r), rs = rd_be32 (r + 4), ro = rd_be32 (r + 8), no = rd_be32 (raw + nt + 4 * (size_t)i);
+		if ((u64)ro + rs > sz || no >= sz)
+			continue;
+		char nm[64];
+		uint k = 0;
+		for (; k < sizeof (nm) - 1 && no + k < sz && raw[no + k] > 0x20 && raw[no + k] < 0x7f && raw[no + k] != '/'; k++)
+			nm[k] = raw[no + k];
+		nm[k] = 0;
+		char fn[128];
+		snprintf (fn, sizeof (fn), "%04u_%s.t%u.bin", i, nm, ty);
+		err = shade_write (arg, dest, basedir, fn, raw + ro, rs);
+		if (err)
+			break;
+		const size_t pn = rs & ~(size_t)1;
+		u8 *w = MALLOC (44 + pn);
+		const u32 hdr[] = { 16, (1 << 16) | 1, 44100, 88200, (16 << 16) | 2 };
+		memcpy (w, "RIFF", 4);
+		wr_le32 (w + 4, (u32)(36 + pn));
+		memcpy (w + 8, "WAVEfmt ", 8);
+		for (uint q = 0; q < 5; q++)
+			wr_le32 (w + 16 + 4 * q, hdr[q]);
+		memcpy (w + 36, "data", 4);
+		wr_le32 (w + 40, (u32)pn);
+		for (size_t q = 0; q < pn; q += 2)
+			w[44 + q] = raw[ro + q + 1], w[45 + q] = raw[ro + q];
+		snprintf (fn, sizeof (fn), "%04u_%s.wav", i, nm);
+		err = shade_write (arg, dest, basedir, fn, w, (uint)(44 + pn));
+		FREE (w);
+	}
+	FREE (raw);
+	return err;
+}
+
 static enumError extract_wiiarcimg_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -11,8 +62,10 @@ static enumError extract_wiiarcimg_file (ccp arg, ccp basedir, uint depth)
 	size_t sz = 0;
 	if (!is_ext (arg, ".arc") || LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 		return ERR_NOTHING_TO_DO;
-	if (sz < 0x120 || memcmp (raw, "wii", 4) || rd_be32 (raw + 0xc) > 1)
+	if (sz < 0x120 || memcmp (raw, "wii", 4) || rd_be32 (raw + 0xc) > 2)
 		goto no;
+	if (rd_be32 (raw + 0xc) == 2)
+		return wiiarcimg_music (arg, basedir, raw, sz);
 	if (rd_be32 (raw + 0xc) == 1)
 	{
 		char dest[PATH_MAX];
