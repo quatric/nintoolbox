@@ -193,6 +193,54 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 			}
 			File_t F;
 			enumError err = CreateFileOpt (&F, true, dest, false, arg);
+			if (!err)
+			{
+				// static glTF next to the OBJ (corner list from the same arrays)
+				float *fl = CALLOC (dln * 8 + 8, sizeof (float));
+				size_t *vo = CALLOC (nv + 1, sizeof (size_t));	// byte offset of every vertex record
+				for (uint i = 0, qo = p + 4; i < nv; i++)
+					vo[i] = qo, qo += 25 + 6 * (size_t)r[qo + 24];
+				uint nvx = 0;
+				for (uint i = 0; i + 2 < dln; i += 3)
+				{
+					bool ok = true;
+					for (uint c = 0; c < 3; c++)
+						ok = ok && rd_be16 (r + dlp + 4 * (i + c)) < nv && rd_be16 (r + dlp + 4 * (i + c) + 2) < uvn;
+					if (!ok)
+						continue;
+					for (uint c = 0; c < 3; c++, nvx++)
+					{
+						const uint vi = rd_be16 (r + dlp + 4 * (i + c)), ti = rd_be16 (r + dlp + 4 * (i + c) + 2);
+						const size_t qq = vo[vi];
+						for (uint k = 0; k < 6; k++)
+						{
+							const u32 v = rd_be32 (r + qq + 4 * k);
+							memcpy (&fl[8 * nvx + k], &v, 4);
+						}
+						const u32 ua = rd_be32 (r + uvp + 8 * (size_t)ti), ub = rd_be32 (r + uvp + 4 + 8 * (size_t)ti);
+						float u, v;
+						memcpy (&u, &ua, 4);
+						memcpy (&v, &ub, 4);
+						fl[8 * nvx + 6] = u, fl[8 * nvx + 7] = 1.0f - v;
+					}
+				}
+				if (nvx)
+				{
+					size_t gl;
+					char *g = shade_gltf_tris (fl, nvx, &gl);
+					char gdest[PATH_MAX];
+					snprintf (ext, sizeof (ext), nm ? ".%u.gltf" : ".gltf", nm);
+					beside_source_dest_ext (gdest, sizeof (gdest), arg, ext);
+					File_t G;
+					CreateFileOpt (&G, true, gdest, false, arg);
+					if (G.f)
+						fwrite (g, 1, gl, G.f);
+					ResetFile (&G, opt_preserve);
+					FREE (g);
+				}
+				FREE (vo);
+				FREE (fl);
+			}
 			if (F.f && fwrite (t, 1, tl, F.f) != tl)
 				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", tl, dest);
 			ResetFile (&F, opt_preserve);

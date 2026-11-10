@@ -11836,7 +11836,13 @@ PYE
   "$B/wszst" x "$d/wtxidmesh_test/t.wtxg" --overwrite >/dev/null 2>&1 \
   && grep -q '^v 2 0 0' "$d/wtxidmesh_test/t.obj" && grep -q '^f 1/1/1 2/2/2 3/3/3' "$d/wtxidmesh_test/t.obj" \
   && grep -q '^2 8:1.0000' "$d/wtxidmesh_test/t.skin.txt" \
-  && fok "WTXID mesh -> OBJ + skin" \
+  && python3 -c "
+import json, sys, base64
+g = json.load(open(sys.argv[1]))
+r = base64.b64decode(g['buffers'][0]['uri'].split(',', 1)[1])
+assert g['accessors'][0]['count'] == 3 and len(r) == 96 and g['accessors'][0]['max'][0] == 2.0
+" "$d/wtxidmesh_test/t.gltf" \
+  && fok "WTXID mesh -> OBJ + glTF + skin" \
   || fno "WTXID mesh" "failed on synthetic t.wtxg"
 
   # WTXID object image -> string inventory

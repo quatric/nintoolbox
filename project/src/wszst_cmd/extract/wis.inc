@@ -169,13 +169,11 @@ static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 	FREE (t);
 }
 
-// static glTF 2.0 of a mesh ("chunks/NNN/OOO_mesh.gltf", buffer embedded as base64): one non indexed triangle list with POSITION, NORMAL and TEXCOORD_0 per corner (same values as the OBJ).
-static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u64 va, u32 sa, u32 sb, uint nt, uint (*tri)[6])
+// static glTF 2.0 of a mesh ("chunks/NNN/OOO_mesh.gltf"): one non indexed triangle list with POSITION, NORMAL and TEXCOORD_0 per corner (same values as the OBJ).
+static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u64 va, u32 sa, uint nt, uint (*tri)[6])
 {
-	static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const uint nvx = nt * 3, nbytes = nvx * 32;
+	const uint nvx = nt * 3;
 	float *fl = CALLOC (nvx * 8 + 1, sizeof (float));
-	float mn[3] = { 1e30f, 1e30f, 1e30f }, mx[3] = { -1e30f, -1e30f, -1e30f };
 	for (uint i = 0; i < nvx; i++)
 	{
 		const uint vi = tri[i / 3][i % 3], ui = tri[i / 3][3 + i % 3];
@@ -184,32 +182,9 @@ static void wis_mesh_gltf (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, con
 		o[0] = (s16)(v[2] << 8 | v[3]) / 8192.0f, o[1] = (s16)(v[4] << 8 | v[5]) / 8192.0f, o[2] = (s16)(v[6] << 8 | v[7]) / 8192.0f;
 		o[3] = (s16)(v[0] << 8 | v[1]) / 8192.0f, o[4] = (s16)(v[8] << 8 | v[9]) / 8192.0f, o[5] = (s16)(v[10] << 8 | v[11]) / 8192.0f;
 		o[6] = (s16)(u[0] << 8 | u[1]) / 4096.0f, o[7] = 1.0f - (s16)(u[2] << 8 | u[3]) / 4096.0f;
-		for (uint k = 0; k < 3; k++)
-		{
-			if (o[k] < mn[k]) mn[k] = o[k];
-			if (o[k] > mx[k]) mx[k] = o[k];
-		}
 	}
-	(void)sb;
-	const size_t cap = 1400 + ((size_t)nbytes + 2) / 3 * 4;
-	char *t = MALLOC (cap);
-	size_t tl = snprintf (t, cap,
-		"{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],"
-		"\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":2},\"mode\":4}]}],"
-		"\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\",\"min\":[%.6g,%.6g,%.6g],\"max\":[%.6g,%.6g,%.6g]},"
-		"{\"bufferView\":0,\"byteOffset\":12,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\"},"
-		"{\"bufferView\":0,\"byteOffset\":24,\"componentType\":5126,\"count\":%u,\"type\":\"VEC2\"}],"
-		"\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":%u,\"byteStride\":32,\"target\":34962}],"
-		"\"buffers\":[{\"byteLength\":%u,\"uri\":\"data:application/octet-stream;base64,",
-		nvx, mn[0], mn[1], mn[2], mx[0], mx[1], mx[2], nvx, nvx, nbytes, nbytes);
-	const u8 *d = (const u8 *)fl;
-	for (uint i = 0; i < nbytes; i += 3)
-	{
-		const uint n = nbytes - i < 3 ? nbytes - i : 3;
-		const uint x = d[i] << 16 | (n > 1 ? d[i + 1] << 8 : 0) | (n > 2 ? d[i + 2] : 0);
-		t[tl++] = b64[x >> 18 & 63], t[tl++] = b64[x >> 12 & 63], t[tl++] = n > 1 ? b64[x >> 6 & 63] : '=', t[tl++] = n > 2 ? b64[x & 63] : '=';
-	}
-	tl += snprintf (t + tl, cap - tl, "\"}]}\n");
+	size_t tl;
+	char *t = shade_gltf_tris (fl, nvx, &tl);
 	char fn[96];
 	snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.gltf", nc, oi);
 	shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
@@ -291,7 +266,7 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 		char fn[96];
 		snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.obj", nc, oi);
 		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
-		wis_mesh_gltf (arg, dest, basedir, nc, oi, bl, va, sa, sb, nt, tri);
+		wis_mesh_gltf (arg, dest, basedir, nc, oi, bl, va, sa, nt, tri);
 	}
 	FREE (tri);
 	FREE (t);

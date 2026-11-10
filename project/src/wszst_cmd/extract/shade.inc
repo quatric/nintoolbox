@@ -138,6 +138,41 @@ bad:
 	return 0;
 }
 
+// static glTF 2.0 text (buffer embedded as base64) of a non indexed triangle list; fl holds 8 floats per corner {pos[3], normal[3], uv[2]}. Returns a MALLOC'd string (length in *len).
+static char *shade_gltf_tris (const float *fl, uint nvx, size_t *len)
+{
+	static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	const uint nbytes = nvx * 32;
+	float mn[3] = { 1e30f, 1e30f, 1e30f }, mx[3] = { -1e30f, -1e30f, -1e30f };
+	for (uint i = 0; i < nvx; i++)
+		for (uint k = 0; k < 3; k++)
+		{
+			if (fl[8 * i + k] < mn[k]) mn[k] = fl[8 * i + k];
+			if (fl[8 * i + k] > mx[k]) mx[k] = fl[8 * i + k];
+		}
+	const size_t cap = 1400 + ((size_t)nbytes + 2) / 3 * 4;
+	char *t = MALLOC (cap);
+	size_t tl = snprintf (t, cap,
+		"{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"mesh\":0}],"
+		"\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":2},\"mode\":4}]}],"
+		"\"accessors\":[{\"bufferView\":0,\"byteOffset\":0,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\",\"min\":[%.6g,%.6g,%.6g],\"max\":[%.6g,%.6g,%.6g]},"
+		"{\"bufferView\":0,\"byteOffset\":12,\"componentType\":5126,\"count\":%u,\"type\":\"VEC3\"},"
+		"{\"bufferView\":0,\"byteOffset\":24,\"componentType\":5126,\"count\":%u,\"type\":\"VEC2\"}],"
+		"\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":%u,\"byteStride\":32,\"target\":34962}],"
+		"\"buffers\":[{\"byteLength\":%u,\"uri\":\"data:application/octet-stream;base64,",
+		nvx, mn[0], mn[1], mn[2], mx[0], mx[1], mx[2], nvx, nvx, nbytes, nbytes);
+	const u8 *d = (const u8 *)fl;
+	for (uint i = 0; i < nbytes; i += 3)
+	{
+		const uint n = nbytes - i < 3 ? nbytes - i : 3;
+		const uint x = d[i] << 16 | (n > 1 ? d[i + 1] << 8 : 0) | (n > 2 ? d[i + 2] : 0);
+		t[tl++] = b64[x >> 18 & 63], t[tl++] = b64[x >> 12 & 63], t[tl++] = n > 1 ? b64[x >> 6 & 63] : '=', t[tl++] = n > 2 ? b64[x & 63] : '=';
+	}
+	tl += snprintf (t + tl, cap - tl, "\"}]}\n");
+	*len = tl;
+	return t;
+}
+
 static enumError shade_write (ccp arg, ccp dest, ccp basedir, ccp name, const u8 *data, uint size)
 {
 	if (testmode)
