@@ -112,9 +112,9 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 	}
 }
 
-// mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE pos[3], s16 BE normal[3]},
+// mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE nx, px, py, pz, ny, nz},
 // 2 pad bytes, uv array {2 x s16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
-// Positions are skin/bone-local fixed point; scaled by 1/8192 here; normals /8192, UVs /4096.
+// Positions are model space fixed point /8192 (the min / max match the header bbox exactly); normals /8192, UVs /4096.
 static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb);
 // skin table of a mesh (arrays C, D, E and the palette F after the uv array, sizes in payload words 7..10): vertices 0 .. nrigid-1 are rigid and listed by C as groups of 6 bytes
 // {u16 BE count, u16 BE start, u8 palette slot, u8 0}; the remaining vertices are blended between two palette slots: D holds 8 byte entries {u16 count, u16 offset (= nrigid + start),
@@ -201,12 +201,12 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 	for (uint i = 0; i < nv; i++)
 	{
 		const u8 *v = bl + va + 12 * (size_t)i;
-		tl += snprintf (t + tl, cap - tl, "v %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0);
+		tl += snprintf (t + tl, cap - tl, "v %.5f %.5f %.5f\n", (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0, (s16)(v[6] << 8 | v[7]) / 8192.0);
 	}
 	for (uint i = 0; i < nv; i++)
 	{
-		const u8 *v = bl + va + 12 * (size_t)i + 6;
-		tl += snprintf (t + tl, cap - tl, "vn %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0);
+		const u8 *v = bl + va + 12 * (size_t)i;
+		tl += snprintf (t + tl, cap - tl, "vn %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[8] << 8 | v[9]) / 8192.0, (s16)(v[10] << 8 | v[11]) / 8192.0);
 	}
 	for (uint i = 0; i < nuv; i++)
 	{

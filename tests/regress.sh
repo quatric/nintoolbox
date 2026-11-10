@@ -11931,7 +11931,7 @@ PYE
 import struct, sys
 nm, mt = b'm\0', b'x.mtl\0'
 hdr = bytes(0x54)
-va = b''.join(struct.pack('>6h', x, y, 0, 0, 0, 8192) for x, y in ((0, 0), (8192, 0), (0, 8192), (8192, 8192)))
+va = b''.join(struct.pack('>6h', 0, x, y, 0, 0, 8192) for x, y in ((0, 0), (8192, 0), (0, 8192), (8192, 8192)))
 uv = struct.pack('>8h', 0, 0, 4096, 0, 0, 4096, 4096, 4096)
 strip = b'\x99' + struct.pack('>H', 4) + b''.join(struct.pack('>3H', i, i, i) for i in range(4))
 blob = hdr + nm + mt + va + b'\0\0' + uv + strip
