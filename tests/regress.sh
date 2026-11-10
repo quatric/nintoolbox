@@ -11852,6 +11852,25 @@ PYE
   && fok "WTXID -> string inventory" \
   || fno "WTXID" "failed on synthetic t.wtxg"
 
+  # WTXID animation (.wtxa) key tracks
+  python3 - "$d/wtxid_test/t.wtxa" <<'PYE' >/dev/null 2>&1
+import struct, sys
+b = bytearray(b'WTXIDa\x00\x02\x01').ljust(0xfc, b'\0')
+b += struct.pack('>3I', 3, 30, 1)
+b += struct.pack('>I', 3) + b'Hip'
+b += struct.pack('>I', 1) + struct.pack('>f', 0.5) + struct.pack('>I', 1)
+b += struct.pack('>I', 2)                       # bone track: 2 keys of 8 words (frames 0 and 2)
+for fr in (0, 2):
+    b += struct.pack('>I4f3f', fr, 0, 0, 0, 1, 0, 0.5, 0)
+b += struct.pack('>I', 1) + struct.pack('>I4f3f', 0, 0, 0, 0, 1, 1, 2, 3)   # extra node
+open(sys.argv[1], 'wb').write(bytes(b))
+PYE
+  "$B/wszst" x "$d/wtxid_test/t.wtxa" --overwrite >/dev/null 2>&1 \
+  && grep -q '^track 0 Hip keys 2' "$d/wtxid_test/t.txt" && grep -q '^2 quat 0.00000 0.00000 0.00000 1.00000 pos 0.00000 0.50000 0.00000' "$d/wtxid_test/t.txt" \
+  && grep -q '^track 1 (extra) keys 1' "$d/wtxid_test/t.txt" \
+  && fok "WTXID animation -> key tracks" \
+  || fno "WTXID animation" "failed on synthetic t.wtxa"
+
   # WIS skinned mesh -> skin.txt
   mkdir -p "$d/wisskin_test"
   python3 - "$d/wisskin_test/t.wis" <<'PYE' >/dev/null 2>&1

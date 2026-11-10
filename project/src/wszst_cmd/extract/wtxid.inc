@@ -215,6 +215,86 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 	}
 }
 
+// .wtxa key data (layout derived from the data; every clip of the Cook Wars sample that parses tiles the file exactly): after the name list comes {u32 bone count, f32 per bone (the
+// bone's rest translation component), u32 bone count} and then bone count (+ 1 extra node) blocks of {u32 N keys, N records}; a record is 8 words {u32 frame, f32 quat x y z w,
+// f32 pos x y z} or 11 words with a trailing f32 scale x y z (chosen per block by backtracking so that the chain of blocks ends exactly at the end of the file; frames strictly increase
+// inside a block). Block i belongs to name i (the extra last block is a node without name) -- inferred from the header floats / positions, not proven.
+static bool wtxid_anim_chain (const u8 *r, size_t sz, size_t k, uint b, uint nb, uint *rwv)
+{
+	if (b >= nb)
+		return k == sz || (b == nb && k + 8 > sz);
+	if (k + 4 > sz)
+		return false;
+	const u32 n = rd_be32 (r + k);
+	if (!n || n > 4096)
+		return false;
+	for (uint rw = 11; rw >= 8; rw -= 3)
+	{
+		if (k + 4 + (size_t)n * rw * 4 > sz)
+			continue;
+		bool inc = true;
+		for (u32 j = 1; j < n && inc; j++)
+			inc = rd_be32 (r + k + 4 + 4 * rw * j) > rd_be32 (r + k + 4 + 4 * rw * (j - 1));
+		if (!inc)
+			continue;
+		rwv[b] = rw;
+		if (wtxid_anim_chain (r, sz, k + 4 + (size_t)n * rw * 4, b + 1, nb, rwv))
+			return true;
+	}
+	return false;
+}
+
+static size_t wtxid_anim_keys (const u8 *r, size_t sz, char *t, size_t cap)
+{
+	const uint nb = rd_be32 (r + 0x104);
+	if (!nb || nb > 400)
+		return 0;
+	size_t offs[400], q0 = 0x108;
+	for (uint i = 0; i < nb; i++)
+	{
+		const u32 l = q0 + 4 <= sz ? rd_be32 (r + q0) : 0;
+		if (!l || l > 64 || q0 + 4 + l > sz)
+			return 0;
+		offs[i] = q0, q0 += 4 + l;
+	}
+	const size_t p = q0 + 4 + 4 * (size_t)nb + 4;	// count, header floats, count
+	if (p >= sz)
+		return 0;
+	uint rwv[402];
+	uint nbl = nb + 1;
+	if (!wtxid_anim_chain (r, sz, p, 0, nbl, rwv))
+	{
+		nbl = nb;
+		if (!wtxid_anim_chain (r, sz, p, 0, nbl, rwv))
+			return 0;
+	}
+	size_t tl = 0, k = p;
+	for (uint b = 0; b < nbl; b++)
+	{
+		const u32 n = rd_be32 (r + k);
+		const uint rw = rwv[b];
+		char nm[48] = "(extra)";
+		if (b < nb)
+			snprintf (nm, sizeof (nm), "%.*s", (int)(rd_be32 (r + offs[b]) < 47 ? rd_be32 (r + offs[b]) : 47), (ccp)r + offs[b] + 4);
+		tl += snprintf (t + tl, cap - tl, "track %u %s keys %u\n", b, nm, n);
+		k += 4;
+		for (u32 j = 0; j < n && tl + 400 < cap; j++, k += rw * 4)
+		{
+			float f[10];
+			for (uint q = 0; q < rw - 1; q++)
+			{
+				const u32 v = rd_be32 (r + k + 4 + 4 * q);
+				memcpy (&f[q], &v, 4);
+			}
+			tl += snprintf (t + tl, cap - tl, "%u quat %.5f %.5f %.5f %.5f pos %.5f %.5f %.5f", rd_be32 (r + k), f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
+			if (rw == 11)
+				tl += snprintf (t + tl, cap - tl, " scale %.5f %.5f %.5f", f[7], f[8], f[9]);
+			t[tl++] = '\n';
+		}
+	}
+	return tl;
+}
+
 static enumError extract_wtxid_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -254,6 +334,8 @@ static enumError extract_wtxid_file (ccp arg, ccp basedir, uint depth)
 		else
 			i = j > i ? j : i + 1;
 	}
+	if (raw[5] == 'a' && sz > 0x108)
+		tl += wtxid_anim_keys (raw, sz, t + tl, cap - tl);
 	if (raw[5] == 'g')
 		wtxid_meshes (arg, raw, sz);
 	FREE (raw);
