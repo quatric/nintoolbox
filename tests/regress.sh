@@ -11653,6 +11653,26 @@ PYE
   && fok "BGC frame table -> PNG" \
   || fno "BGC frame table" "failed on synthetic t.bgc"
 
+  # ZAP archive (.zap, Thrillville: Off the Rails): directories, "..", 0x800-aligned members
+  mkdir -p "$d/zap_test"
+  python3 - "$d/zap_test/t.zap" <<'PYE' >/dev/null 2>&1
+import struct, sys
+al = 0x800
+files = [(b'sub/', b''), (b'a.bin', b'hello'), (b'..', b''), (b'b.bin', b'world!')]
+dirb = b''
+for nm, data in files:
+    dirb += b'\r\n' + struct.pack('<IH', len(data), len(nm) + 1) + nm + b'\0'
+out = (b'ZAP\0' + struct.pack('<III', al, len(files), len(dirb)) + dirb).ljust(al, b'\0')
+for nm, data in files:
+    out += data.ljust((len(data) + al - 1) // al * al, b'\0')
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/zap_test/t.zap" --overwrite >/dev/null 2>&1 \
+  && [ "$(cat "$d/zap_test/t.zap.d/sub/a.bin")" = "hello" ] \
+  && [ "$(cat "$d/zap_test/t.zap.d/b.bin")" = "world!" ] \
+  && fok "ZAP archive -> members" \
+  || fno "ZAP archive" "failed on synthetic t.zap"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
