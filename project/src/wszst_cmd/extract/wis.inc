@@ -131,6 +131,18 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 	size_t cap = 64 + (size_t)nv * 96 + (size_t)nuv * 32 + (size_t)sg * 24;
 	char *t = MALLOC (cap);
 	size_t tl = snprintf (t, cap, "# %.*s\n", (int)nl > 0 ? (int)nl - 1 : 0, (ccp)bl + 0x54);
+	{
+		// matrix palette: the last small array before the strips lists indices of bone objects (in object order) used by this mesh (e.g. a hand mesh: hand + finger bones)
+		const u32 sc = rd_le32 (w + 28), sd = rd_le32 (w + 32), se = rd_le32 (w + 36), sf = rd_le32 (w + 40);
+		const u64 fp = va + sa + 2 + sb + sc + sd + se;
+		if (sf && sf < 256 && fp + sf <= bn)
+		{
+			tl += snprintf (t + tl, cap - tl, "# bone palette:");
+			for (uint i = 0; i < sf; i++)
+				tl += snprintf (t + tl, cap - tl, " %u", bl[fp + i]);
+			tl += snprintf (t + tl, cap - tl, "\n");
+		}
+	}
 	for (uint i = 0; i < nv; i++)
 	{
 		const u8 *v = bl + va + 12 * (size_t)i;
