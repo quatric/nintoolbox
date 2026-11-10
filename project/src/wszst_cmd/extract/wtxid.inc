@@ -3,6 +3,181 @@
 // serialised C++ object heap: class names (CClumpDef, CItemSkinMeshDef, CMtlStdDef, ...) and instance names (skeleton bones "CSBip Spine", materials, cameras)
 // stored as NUL terminated strings with a length prefix, interleaved with big endian pointers / floats whose layout is the game's own. The object data itself is not decoded;
 // the string inventory is written as "<file>.txt" ("offset<TAB>string").
+// geometry of the "CItemSkinMeshDef" objects: the body holds length prefixed arrays (u32 BE count first), found by validated scans in file order per mesh:
+// uv array (count x {f32 BE u, v}), display list (u32 vertex count, u32 byte size = 4 * count + padding, GX cmd 0x90 (triangles), u16 vertex count, count x {u16 vertex index,
+// u16 uv index}) and the vertex array (count x {f32 pos[3], f32 normal[3], u8 influence count n, n x {u16 bone index, f32 weight}}; weights sum to 1). The three arrays of a mesh
+// follow each other in that order. Written as "<file>.obj" ("<file>.N.obj" for more meshes) plus "<file>[.N].skin.txt" ("index bone:weight ...").
+static bool wtxid_vertices (const u8 *r, size_t sz, size_t p, uint *nv, size_t *end)
+{
+	if (p + 4 > sz)
+		return false;
+	const u32 n = rd_be32 (r + p);
+	if (n < 3 || n > 200000)
+		return false;
+	size_t q = p + 4;
+	for (u32 i = 0; i < n; i++)
+	{
+		if (q + 25 > sz)
+			return false;
+		const uint k = r[q + 24];
+		if (!k || k > 8 || q + 25 + 6 * (size_t)k > sz)
+			return false;
+		float f[6], ws = 0;
+		for (uint c = 0; c < 6; c++)
+		{
+			const u32 v = rd_be32 (r + q + 4 * c);
+			memcpy (&f[c], &v, 4);
+			if (!(f[c] > -1e4f && f[c] < 1e4f))
+				return false;
+		}
+		for (uint e = 0; e < k; e++)
+		{
+			const u32 v = rd_be32 (r + q + 27 + 6 * e);
+			float w;
+			memcpy (&w, &v, 4);
+			ws += w;
+		}
+		if (ws < 0.98f || ws > 1.02f)
+			return false;
+		q += 25 + 6 * (size_t)k;
+	}
+	*nv = n;
+	*end = q;
+	return true;
+}
+
+static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
+{
+	size_t uvp = 0, dlp = 0;
+	uint uvn = 0, dln = 0, nm = 0;
+	for (size_t p = 0x80; p + 16 < sz; p++)
+	{
+		// display list
+		{
+			const u32 n = rd_be32 (r + p), bs = rd_be32 (r + p + 4);
+			if (n >= 3 && n % 3 == 0 && n < 200000 && bs >= 4 * (u64)n && bs <= 4 * (u64)n + 64 && p + 11 + 4 * (size_t)n <= sz && r[p + 8] == 0x90 && rd_be16 (r + p + 9) == n)
+			{
+				if (n > dln)
+				{
+					dlp = p + 11;
+					dln = n;
+				}
+				p += 10;
+				continue;
+			}
+		}
+		// uv array
+		{
+			const u32 n = rd_be32 (r + p);
+			if (n >= 3 && n < 200000 && p + 4 + 8 * (size_t)n <= sz)
+			{
+				uint good = 0;
+				for (u32 i = 0; i < n && i < 64; i++)
+				{
+					const u32 a = rd_be32 (r + p + 4 + 8 * (size_t)i), b2 = rd_be32 (r + p + 8 + 8 * (size_t)i);
+					float u, v;
+					memcpy (&u, &a, 4);
+					memcpy (&v, &b2, 4);
+					if (u > -16.f && u < 16.f && v > -16.f && v < 16.f && (a == 0 || (a & 0x7f800000) != 0))
+						good++;
+				}
+				if (good >= (n < 64 ? n : 64) && n > uvn && (r[p + 4] == 0x3f || r[p + 4] == 0xbf || r[p + 4] == 0x3e || r[p + 4] == 0xbe || r[p + 4] == 0x3d || r[p + 4] == 0x00))
+				{
+					uvp = p + 4;
+					uvn = n;
+				}
+			}
+		}
+		uint nv;
+		size_t end;
+		if (dlp && uvp && wtxid_vertices (r, sz, p, &nv, &end))
+		{
+			char dest[PATH_MAX], ext[32];
+			snprintf (ext, sizeof (ext), nm ? ".%u.obj" : ".obj", nm);
+			beside_source_dest_ext (dest, sizeof (dest), arg, ext);
+			size_t cap = 64 + (size_t)nv * 200 + (size_t)uvn * 40 + (size_t)dln * 40;
+			char *t = MALLOC (cap), *sk = MALLOC ((size_t)nv * 160 + 64);
+			size_t tl = 0, sl = 0;
+			size_t q = p + 4;
+			for (uint i = 0; i < nv; i++)
+			{
+				float f[6];
+				for (uint c = 0; c < 6; c++)
+				{
+					const u32 v = rd_be32 (r + q + 4 * c);
+					memcpy (&f[c], &v, 4);
+				}
+				tl += snprintf (t + tl, cap - tl, "v %.6g %.6g %.6g\n", f[0], f[1], f[2]);
+				sl += snprintf (sk + sl, 160, "%u", i);
+				const uint k = r[q + 24];
+				for (uint e = 0; e < k; e++)
+				{
+					const u32 v = rd_be32 (r + q + 27 + 6 * e);
+					float w;
+					memcpy (&w, &v, 4);
+					sl += snprintf (sk + sl, 160 - (sl % 160 > 0 ? 0 : 0), " %u:%.4f", rd_be16 (r + q + 25 + 6 * e), w);
+				}
+				sk[sl++] = '\n';
+				q += 25 + 6 * (size_t)k;
+			}
+			q = p + 4;
+			for (uint i = 0; i < nv; i++)
+			{
+				float f[6];
+				for (uint c = 0; c < 6; c++)
+				{
+					const u32 v = rd_be32 (r + q + 4 * c);
+					memcpy (&f[c], &v, 4);
+				}
+				tl += snprintf (t + tl, cap - tl, "vn %.6g %.6g %.6g\n", f[3], f[4], f[5]);
+				q += 25 + 6 * (size_t)r[q + 24];
+			}
+			for (uint i = 0; i < uvn; i++)
+			{
+				const u32 a = rd_be32 (r + uvp + 8 * (size_t)i), b2 = rd_be32 (r + uvp + 4 + 8 * (size_t)i);
+				float u, v;
+				memcpy (&u, &a, 4);
+				memcpy (&v, &b2, 4);
+				tl += snprintf (t + tl, cap - tl, "vt %.6g %.6g\n", u, 1.0f - v);
+			}
+			for (uint i = 0; i + 2 < dln; i += 3)
+			{
+				uint vi[3], ti[3];
+				bool ok = true;
+				for (uint c = 0; c < 3; c++)
+				{
+					vi[c] = rd_be16 (r + dlp + 4 * (i + c)) + 1;
+					ti[c] = rd_be16 (r + dlp + 4 * (i + c) + 2) + 1;
+					if (vi[c] > nv || ti[c] > uvn)
+						ok = false;
+				}
+				if (ok && tl + 120 < cap)
+					tl += snprintf (t + tl, cap - tl, "f %u/%u/%u %u/%u/%u %u/%u/%u\n", vi[0], ti[0], vi[0], vi[1], ti[1], vi[1], vi[2], ti[2], vi[2]);
+			}
+			File_t F;
+			enumError err = CreateFileOpt (&F, true, dest, false, arg);
+			if (F.f && fwrite (t, 1, tl, F.f) != tl)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", tl, dest);
+			ResetFile (&F, opt_preserve);
+			if (!err)
+			{
+				snprintf (ext, sizeof (ext), nm ? ".%u.skin.txt" : ".skin.txt", nm);
+				beside_source_dest_ext (dest, sizeof (dest), arg, ext);
+				err = CreateFileOpt (&F, true, dest, false, arg);
+				if (F.f && fwrite (sk, 1, sl, F.f) != sl)
+					err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", sl, dest);
+				ResetFile (&F, opt_preserve);
+			}
+			FREE (t);
+			FREE (sk);
+			nm++;
+			p = end - 1;
+			dlp = uvp = 0;
+			dln = uvn = 0;
+		}
+	}
+}
+
 static enumError extract_wtxid_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -40,6 +215,8 @@ static enumError extract_wtxid_file (ccp arg, ccp basedir, uint depth)
 		else
 			i = j > i ? j : i + 1;
 	}
+	if (raw[5] == 'g')
+		wtxid_meshes (arg, raw, sz);
 	FREE (raw);
 	File_t F;
 	enumError err = CreateFileOpt (&F, true, dest, false, arg);

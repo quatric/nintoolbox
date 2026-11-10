@@ -11823,6 +11823,22 @@ PYE
   && fok "Thrillville PARK/TRAK/ATTR -> token text" \
   || fno "Thrillville serial stream" "failed on synthetic t.prk"
 
+  # WTXID skinned mesh -> OBJ + skin.txt
+  mkdir -p "$d/wtxidmesh_test"
+  python3 - "$d/wtxidmesh_test/t.wtxg" <<'PYE' >/dev/null 2>&1
+import struct, sys
+b = bytearray(b'WTXIDg\x00\x02\x01').ljust(0x80, b'\0')
+uv = struct.pack('>I', 3) + b''.join(struct.pack('>2f', u, v) for u, v in ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0)))
+dl = struct.pack('>II', 3, 44) + b'\x90' + struct.pack('>H', 3) + b''.join(struct.pack('>2H', i, i) for i in range(3)) + bytes(32)
+vt = struct.pack('>I', 3) + b''.join(struct.pack('>6f', x, 0.0, 0.0, 0.0, 0.0, 1.0) + b'\x01' + struct.pack('>H', 8) + struct.pack('>f', 1.0) for x in (0.0, 1.0, 2.0))
+open(sys.argv[1], 'wb').write(bytes(b) + uv + dl + vt)
+PYE
+  "$B/wszst" x "$d/wtxidmesh_test/t.wtxg" --overwrite >/dev/null 2>&1 \
+  && grep -q '^v 2 0 0' "$d/wtxidmesh_test/t.obj" && grep -q '^f 1/1/1 2/2/2 3/3/3' "$d/wtxidmesh_test/t.obj" \
+  && grep -q '^2 8:1.0000' "$d/wtxidmesh_test/t.skin.txt" \
+  && fok "WTXID mesh -> OBJ + skin" \
+  || fno "WTXID mesh" "failed on synthetic t.wtxg"
+
   # WTXID object image -> string inventory
   mkdir -p "$d/wtxid_test"
   python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1
