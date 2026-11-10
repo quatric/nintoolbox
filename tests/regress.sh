@@ -11772,6 +11772,19 @@ PYE
   && fok "WIS Cauldron chunk -> chunks/*" \
   || fno "WIS Cauldron chunk" "failed on synthetic t.wis"
 
+  # WTXID object image -> string inventory
+  mkdir -p "$d/wtxid_test"
+  python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1
+import struct, sys
+b = bytearray(b'WTXIDg\x00\x02\x01') .ljust(0x80, b'\0')
+b += b'\0\0\0\x0bCClumpDef\0\0\0\0\x0cCSBip Pelvis\0\xff\xff'
+open(sys.argv[1], 'wb').write(bytes(b))
+PYE
+  "$B/wszst" x "$d/wtxid_test/t.wtxg" --overwrite >/dev/null 2>&1 \
+  && grep -q "CClumpDef" "$d/wtxid_test/t.txt" && grep -q "CSBip Pelvis" "$d/wtxid_test/t.txt" \
+  && fok "WTXID -> string inventory" \
+  || fno "WTXID" "failed on synthetic t.wtxg"
+
   # WIS Cauldron chunk with the older footer (no version word)
   mkdir -p "$d/wischunk_old"
   python3 - "$d/wischunk_old/t.wis" <<'PYE' >/dev/null 2>&1

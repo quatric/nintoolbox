@@ -323,6 +323,7 @@
 #include "extract/bttrb.inc"
 #include "extract/asobo_sound.inc"
 #include "extract/waud.inc"
+#include "extract/wtxid.inc"
 #include "extract/aax.inc"
 #include "extract/kp0.inc"
 #include "extract/gvx.inc"
