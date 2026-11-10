@@ -1,6 +1,6 @@
 // ".wis" block-compressed stream (Cabela's Big Game Hunter 2010 / Dangerous Hunts, Cauldron engine; startup.wis, Maps/*/*.wis, actors, weapons):
 // no magic, little endian; a chain of blocks {u32 size (bit 31 = stored raw), payload}, each normally decoding to 0x7ffc bytes, ended by a
-// 0xffffffff word and 0xff padding to the sector. Compressed blocks are Okumura LZSS (4096 byte ring pre-zeroed per block, write position 0xfee, flag
+// 0xffffffff word and 0xff padding to the sector. Compressed blocks are Okumura LZSS (4096 byte ring pre-filled with spaces 0x20 per block (Okumura's initial state), write position 0xfee, flag
 // bytes LSB first with 1 = literal, match {b0, b1}: offset = b0 | (b1 & 0xf0) << 4 (ring position), length = (b1 & 15) + 3). The concatenated
 // payload is written as "<stem>.bin": maps / actors decode to "<Cauldron Chunk File>" containers, startup.wis to a GUI archive (BRLAN / TPL members
 // behind a big endian index); those inner containers are not split yet, except that the Lua 5.1 bytecode scripts embedded in Cauldron chunk files
@@ -17,7 +17,7 @@
 static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
 {
 	static u8 ring[4096];
-	memset (ring, 0, sizeof (ring));
+	memset (ring, 0x20, sizeof (ring));
 	uint r = 4096 - 18, sp = 0, dp = 0;
 	while (sp < n)
 	{
