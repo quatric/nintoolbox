@@ -112,6 +112,55 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 	}
 }
 
+// mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE pos[3], s16 BE normal[3]},
+// uv array {2 x u16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
+// Positions are skin/bone-local fixed point; scaled by 1/8192 here.
+static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w)
+{
+	if (bn < 0x60 || rd_le32 (w) != 0x54)
+		return;
+	const u32 nl = rd_le32 (w + 4), ml = rd_le32 (w + 8), sa = rd_le32 (w + 20), sg = rd_le32 (w + 44);
+	if (rd_le32 (w - 0x18 + 0x10) < 12)
+		return;
+	const u64 va = 0x54 + (u64)nl + ml;
+	if (sa % 12 || va + sa > bn || sg > bn || sg + va + sa > bn)
+		return;
+	const uint nv = sa / 12;
+	const u8 *sp = bl + bn - sg, *se = bl + bn;
+	size_t cap = 64 + (size_t)nv * 48 + (size_t)sg * 12;
+	char *t = MALLOC (cap);
+	size_t tl = snprintf (t, cap, "# %.*s\n", (int)nl > 0 ? (int)nl - 1 : 0, (ccp)bl + 0x54);
+	for (uint i = 0; i < nv; i++)
+	{
+		const u8 *v = bl + va + 12 * (size_t)i;
+		tl += snprintf (t + tl, cap - tl, "v %.5f %.5f %.5f\n", (s16)(v[0] << 8 | v[1]) / 8192.0, (s16)(v[2] << 8 | v[3]) / 8192.0, (s16)(v[4] << 8 | v[5]) / 8192.0);
+	}
+	uint nt = 0;
+	while (sp + 3 <= se && sp[0] == 0x99)
+	{
+		const uint n = sp[1] << 8 | sp[2];
+		sp += 3;
+		if ((u64)n * 6 > (u64)(se - sp))
+			break;
+		for (uint i = 0; i + 2 < n && tl + 64 < cap; i++)
+		{
+			uint a = sp[6 * i] << 8 | sp[6 * i + 1], b2 = sp[6 * (i + 1)] << 8 | sp[6 * (i + 1) + 1], c = sp[6 * (i + 2)] << 8 | sp[6 * (i + 2) + 1];
+			if (i & 1)
+				b2 ^= c, c ^= b2, b2 ^= c;
+			if (a < nv && b2 < nv && c < nv && a != b2 && b2 != c && a != c)
+				tl += snprintf (t + tl, cap - tl, "f %u %u %u\n", a + 1, b2 + 1, c + 1), nt++;
+		}
+		sp += 6 * n;
+	}
+	if (nt)
+	{
+		char fn[96];
+		snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.obj", nc, oi);
+		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
+	}
+	FREE (t);
+}
+
 static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 {
 	static const char magic[] = "<Cauldron Chunk File>";
@@ -136,7 +185,7 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 			continue;
 		// walk objects
 		const u32 maxo = no;
-		u32 *dof = MALLOC (4 * (maxo + 1)), *typ = MALLOC (4 * (maxo + 1));
+		u32 *dof = MALLOC (4 * (maxo + 1)), *typ = MALLOC (4 * (maxo + 1)), *p0 = MALLOC (4 * (maxo + 1));
 		u64 p = ot + 8;
 		uint n = 0;
 		for (; n < no && p + 0x18 <= bsz; n++)
@@ -144,11 +193,12 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 			const u32 kind = b[p + 11], cnt = rd_le32 (b + p + 16);
 			typ[n] = rd_le32 (b + p);
 			dof[n] = rd_le32 (b + p + 12);
+			p0[n] = (u32)(p + 0x18);
 			p += 0x18 + (kind == 0 ? 4 : kind == 1 ? 4 * (u64)cnt : 0);
 		}
 		if (n != no || p != ot + 8 + obytes)
 		{
-			FREE (dof), FREE (typ);
+			FREE (dof), FREE (typ), FREE (p0);
 			continue;
 		}
 		char names[64][48];
@@ -193,9 +243,11 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 			{
 				snprintf (fn, sizeof (fn), "chunks/%03u/%03u_%s.bin", nc, i, names[ty]);
 				shade_write (arg, dest, basedir, fn, b + dof[i], end - dof[i]);
+				if (!strcmp (names[ty], "mesh"))
+					wis_mesh_obj (arg, dest, basedir, nc, i, b + dof[i], end - dof[i], b + p0[i]);
 			}
 		}
-		FREE (dof), FREE (typ);
+		FREE (dof), FREE (typ), FREE (p0);
 		nc++;
 		m += bsz - 1;
 	}
