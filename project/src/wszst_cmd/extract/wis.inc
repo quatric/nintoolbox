@@ -115,7 +115,61 @@ static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 // mesh object -> OBJ: blob = 0x54 byte node header (bbox floats at +0x38..), name, material name, vertex array {s16 BE pos[3], s16 BE normal[3]},
 // 2 pad bytes, uv array {2 x s16 BE}, small arrays, then (last `sizeG` bytes) a list of {0x99, u16 count, count x {u16 vertex, u16 normal, u16 uv}} triangle strips.
 // Positions are skin/bone-local fixed point; scaled by 1/8192 here; normals /8192, UVs /4096.
-static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w)
+static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb);
+// skin table of a mesh (arrays C, D, E and the palette F after the uv array, sizes in payload words 7..10): vertices 0 .. nrigid-1 are rigid and listed by C as groups of 6 bytes
+// {u16 BE count, u16 BE start, u8 palette slot, u8 0}; the remaining vertices are blended between two palette slots: D holds 8 byte entries {u16 count, u16 offset (= nrigid + start),
+// u16 start (cumulative), u8 slot a, u8 slot b} and E one weight byte per blended vertex (E is nblend bytes long; D's offset word is that start + nrigid). Palette slots index the bone objects of the chunk in object order.
+// Verified on the structure (counts / offsets chain, slot pairs are neighbouring bones such as finger segments); that the weight byte belongs to slot a (w / 255) is assumed.
+// Written as "chunks/NNN/OOO_mesh.skin.txt": one line per vertex "index bone weight [bone weight]".
+static void wis_mesh_skin (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, u64 va, const u32 *bdof, uint nbone, const u8 *cb)
+{
+	const u32 sa = rd_le32 (w + 20), sb = rd_le32 (w + 24), sc = rd_le32 (w + 28), sd = rd_le32 (w + 32), se = rd_le32 (w + 36), sf = rd_le32 (w + 40);
+	const uint nv = sa / 12;
+	const u64 cp = va + sa + 2 + sb, dp = cp + sc, ep = dp + sd, fp = ep + se;
+	if (!sf || sf > 255 || sc % 6 || sd % 8 || fp + sf > bn || !nbone)
+		return;
+	uint nrigid = 0;
+	for (uint g = 0; g < sc / 6; g++)
+		nrigid += rd_be16 (bl + cp + 6 * g);
+	uint nblend = 0;
+	for (uint g = 0; g < sd / 8; g++)
+		nblend += rd_be16 (bl + dp + 8 * g);
+	if (nrigid + nblend != nv || se != nblend)
+		return;
+	size_t cap = 64 + (size_t)nv * 120;
+	char *t = MALLOC (cap);
+	size_t tl = 0;
+	for (uint g = 0; g < sc / 6; g++)
+	{
+		const u8 *r = bl + cp + 6 * g;
+		const uint n = rd_be16 (r), st = rd_be16 (r + 2), slot = r[4];
+		for (uint j = 0; j < n && slot < sf; j++)
+		{
+			const uint bi = bl[fp + slot];
+			const char *nm = bi < nbone ? (ccp)cb + bdof[bi] + 0x54 : "?";
+			tl += snprintf (t + tl, cap - tl, "%u %.40s 1\n", st + j, nm);
+		}
+	}
+	for (uint g = 0; g < sd / 8; g++)
+	{
+		const u8 *r = bl + dp + 8 * g;
+		const uint n = rd_be16 (r), st = rd_be16 (r + 4), sa2 = r[6], sb2 = r[7];
+		if (sa2 >= sf || sb2 >= sf)
+			continue;
+		const uint ba = bl[fp + sa2], bb = bl[fp + sb2];
+		for (uint j = 0; j < n && ep + st + j < bn && tl + 160 < cap; j++)
+		{
+			const double wt = bl[ep + st + j] / 255.0;
+			tl += snprintf (t + tl, cap - tl, "%u %.40s %.4f %.40s %.4f\n", nrigid + st + j, ba < nbone ? (ccp)cb + bdof[ba] + 0x54 : "?", wt, bb < nbone ? (ccp)cb + bdof[bb] + 0x54 : "?", 1.0 - wt);
+		}
+	}
+	char fn[96];
+	snprintf (fn, sizeof (fn), "chunks/%03u/%03u_mesh.skin.txt", nc, oi);
+	shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
+	FREE (t);
+}
+
+static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, const u8 *bl, u32 bn, const u8 *w, const u32 *bdof, uint nbone, const u8 *cb)
 {
 	if (bn < 0x60 || rd_le32 (w) != 0x54)
 		return;
@@ -143,6 +197,7 @@ static void wis_mesh_obj (ccp arg, ccp dest, ccp basedir, uint nc, uint oi, cons
 			tl += snprintf (t + tl, cap - tl, "\n");
 		}
 	}
+	wis_mesh_skin (arg, dest, basedir, nc, oi, bl, bn, w, va, bdof, nbone, cb);
 	for (uint i = 0; i < nv; i++)
 	{
 		const u8 *v = bl + va + 12 * (size_t)i;
@@ -386,6 +441,11 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 		snprintf (fn, sizeof (fn), "chunks/%03u/objects.txt", nc);
 		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
 		FREE (t);
+		u32 *bdof = MALLOC (4 * (no + 1));
+		uint nbone = 0;
+		for (uint i = 0; i < no; i++)
+			if (typ[i] < nt && !strcmp (names[typ[i]], "bone") && (u64)dof[i] + 0x54 < fo)
+				bdof[nbone++] = dof[i];
 		for (uint i = 0; i < no; i++)
 		{
 			u32 end = fo;
@@ -398,9 +458,10 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 				snprintf (fn, sizeof (fn), "chunks/%03u/%03u_%s.bin", nc, i, names[ty]);
 				shade_write (arg, dest, basedir, fn, b + dof[i], end - dof[i]);
 				if (!strcmp (names[ty], "mesh"))
-					wis_mesh_obj (arg, dest, basedir, nc, i, b + dof[i], end - dof[i], b + p0[i]);
+					wis_mesh_obj (arg, dest, basedir, nc, i, b + dof[i], end - dof[i], b + p0[i], bdof, nbone, b);
 			}
 		}
+		FREE (bdof);
 		wis_skeleton (arg, dest, basedir, nc, no, typ, dof, p0, b, fo, nt, names);
 		wis_keyframes (arg, dest, basedir, nc, no, typ, dof, p0, b, fo, nt, names);
 		FREE (dof), FREE (typ), FREE (p0);
