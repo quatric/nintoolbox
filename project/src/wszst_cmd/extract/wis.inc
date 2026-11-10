@@ -5,7 +5,8 @@
 // payload is written as "<stem>.bin": maps / actors decode to "<Cauldron Chunk File>" containers, startup.wis to a GUI archive (BRLAN / TPL members
 // behind a big endian index); those inner containers are not split yet, except that the Lua 5.1 bytecode scripts embedded in Cauldron chunk files
 // ({NUL-terminated name "[Actor - 11]" / "WorldScript", u32 size, 1b 4c 75 61 51 ... chunk}, sizes verified against a full undump) are also written as
-// "lua/NNN_<name>.luac". A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
+// "lua/NNN_<name>.luac"; GX textures embedded in the chunk stream ({u32 size = 16 + mip pyramid (+ up to 0x20 tail), w, h, GX format 6 RGBA8 / 14 CMPR, mip
+// count}, then the pyramid; found by a validated scan, level 0 only) are written as "tex/NNN_WxH_fmtF.png". A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
 // name offset, parent, end index}, files {name offset, offset (0x20 aligned), size}; names from the NUL strings behind the table; the member starts
 // 8 bytes after the offset, 0x20 more when the format magic (TPL / RLAN / RLYT / RFNT) only appears there) is split under "gui/"; BRLAN / BRLYT / BRFNT sizes come from their own headers when the table size is up to 0x40 short).
 static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
@@ -43,6 +44,38 @@ static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
 	}
 	*olen = dp;
 	return true;
+}
+
+static void wis_textures (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
+{
+	uint nt = 0;
+	for (size_t i = 8; i + 20 <= ol; i++)
+	{
+		const u32 sz1 = rd_le32 (o + i), w = rd_le32 (o + i + 4), h = rd_le32 (o + i + 8), f = rd_le32 (o + i + 12), m = rd_le32 (o + i + 16);
+		if (w < 16 || h < 16 || w > 2048 || h > 2048 || (w & (w - 1)) || (h & (h - 1)) || (f != 6 && f != 14) || !m || m > 10)
+			continue;
+		u64 pyr = 0, l0 = 0;
+		for (uint l = 0; l < m; l++)
+		{
+			const u64 lw = (w >> l) ? (w >> l) : 1, lh = (h >> l) ? (h >> l) : 1;
+			const u64 b = f == 6 ? ((lw + 3) & ~3ull) * ((lh + 3) & ~3ull) * 4 : ((lw + 7) & ~7ull) * ((lh + 7) & ~7ull) / 2;
+			if (!l)
+				l0 = b;
+			pyr += b;
+		}
+		if (sz1 < pyr + 16 || sz1 > pyr + 16 + 0x20 || i + 20 + pyr > ol)
+			continue;
+		u8 *rgba = 0;
+		if (DecodeGXTexture_RGBA (&rgba, w, h, f, o + i + 20, (uint)l0, 0, 0, 0) || !rgba)
+		{
+			FREE (rgba);
+			continue;
+		}
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%stex/%03u_%ux%u_fmt%u.png", dest, basedir ? basedir : "", nt++, w, h, f);
+		SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
+		i += 19 + pyr;
+	}
 }
 
 static void wis_gui (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
@@ -163,6 +196,8 @@ static enumError extract_wis_file (ccp arg, ccp basedir, uint depth)
 			err = shade_write (arg, dest, basedir, name, out, ol);
 			if (!err)
 				wis_gui (arg, dest, basedir, out, ol);
+			if (!err && ol > 0x40 && !memcmp (out + 0xc, "<Cauldron Chunk File>", 21))
+				wis_textures (arg, dest, basedir, out, ol);
 			static const u8 luahdr[12] = { 0x1b, 'L', 'u', 'a', 0x51, 0, 1, 4, 4, 4, 8, 0 };
 			uint nl = 0;
 			for (size_t i = 5; !err && i + 12 <= ol; i++)

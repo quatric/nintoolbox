@@ -11714,6 +11714,21 @@ PYE
   && fok "STPn stage object table -> stp.txt" \
   || fno "STPn stage object table" "failed on synthetic stg1_P2.bin"
 
+  # WIS payload with a Cauldron chunk header and an embedded GX CMPR texture
+  mkdir -p "$d/wistex_test"
+  python3 - "$d/wistex_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+pyr = 16 * 16 // 2 + 8 * 8 // 2
+tex = struct.pack('<5I', pyr + 16, 16, 16, 14, 2) + bytes(range(256)) [:pyr].ljust(pyr, b'\0') + b'\0' * 4
+pay = (b'\xff\xff\xff\xff\0\0\0\0OIE\0<Cauldron Chunk File>' + b'\0' * 16 + b'\xff\xff\xff\xff\0\0\0\1' + tex)
+out = struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/wistex_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -l 4 -p "$d/wistex_test/t.wis.d/tex/000_16x16_fmt14.png")" = "89504e47" ] \
+  && fok "WIS Cauldron payload -> tex/*.png" \
+  || fno "WIS Cauldron textures" "failed on synthetic t.wis"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
