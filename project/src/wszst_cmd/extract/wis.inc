@@ -235,6 +235,61 @@ static void wis_skeleton (ccp arg, ccp dest, ccp basedir, uint nc, uint no, cons
 	FREE (t);
 }
 
+// "keyframes" objects: payload words {4, posbytes, rotbytes, postimebytes, rottimebytes}; blob = u32 id (target bone id hash, see skeleton.txt of the skeleton's chunk) +
+// pos keys {f32 x, y, z LE} + rot keys {s16 LE x4, stored not unit length, normalised on export; component order / convention vs the bone rest quaternions not verified} + u16 LE frame numbers for the pos keys + u16 LE frame numbers for the rot keys.
+// Written as "chunks/NNN/keyframes.txt".
+static void wis_keyframes (ccp arg, ccp dest, ccp basedir, uint nc, uint no, const u32 *typ, const u32 *dof, const u32 *p0, const u8 *b, u32 fo, uint nt, char names[][48])
+{
+	size_t cap = 4096, tl = 0;
+	char *t = MALLOC (cap);
+	uint nk = 0;
+	for (uint i = 0; i < no; i++)
+	{
+		const u32 ty = typ[i] < nt ? typ[i] : 0;
+		if (!ty || strcmp (names[ty], "keyframes") || rd_le32 (b + p0[i]) != 4)
+			continue;
+		const u32 sp = rd_le32 (b + p0[i] + 4), sr = rd_le32 (b + p0[i] + 8), stp = rd_le32 (b + p0[i] + 12), str = rd_le32 (b + p0[i] + 16);
+		const uint np = sp / 12, nr = sr / 8;
+		if (sp % 12 || sr % 8 || stp != 2 * np || str != 2 * nr || (u64)dof[i] + 4 + sp + sr + stp + str > fo)
+			continue;
+		const size_t need = 128 + (size_t)np * 64 + (size_t)nr * 100;
+		if (tl + need > cap)
+		{
+			cap = (cap + need) * 2;
+			t = REALLOC (t, cap);
+		}
+		const u8 *k = b + dof[i];
+		tl += snprintf (t + tl, cap - tl, "track id=%08x pos %u rot %u\n", rd_le32 (k), np, nr);
+		const u8 *pk = k + 4, *rk = pk + sp, *pt = rk + sr, *rt = pt + stp;
+		for (uint j = 0; j < np; j++)
+		{
+			float f[3];
+			for (uint q = 0; q < 3; q++)
+			{
+				const u32 v = rd_le32 (pk + 12 * j + 4 * q);
+				memcpy (&f[q], &v, 4);
+			}
+			tl += snprintf (t + tl, cap - tl, "P %u %.6g %.6g %.6g\n", pt[2 * j] | pt[2 * j + 1] << 8, f[0], f[1], f[2]);
+		}
+		for (uint j = 0; j < nr; j++)
+		{
+			double q[4], n = 0;
+			for (uint c = 0; c < 4; c++)
+				q[c] = (s16)(rk[8 * j + 2 * c] | rk[8 * j + 2 * c + 1] << 8), n += q[c] * q[c];
+			n = n > 0 ? 1 / sqrt (n) : 1;
+			tl += snprintf (t + tl, cap - tl, "R %u %.6f %.6f %.6f %.6f\n", rt[2 * j] | rt[2 * j + 1] << 8, q[0] * n, q[1] * n, q[2] * n, q[3] * n);
+		}
+		nk++;
+	}
+	if (nk)
+	{
+		char fn[96];
+		snprintf (fn, sizeof (fn), "chunks/%03u/keyframes.txt", nc);
+		shade_write (arg, dest, basedir, fn, (const u8 *)t, (uint)tl);
+	}
+	FREE (t);
+}
+
 static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 {
 	static const char magic[] = "<Cauldron Chunk File>";
@@ -347,6 +402,7 @@ static void wis_chunks (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
 			}
 		}
 		wis_skeleton (arg, dest, basedir, nc, no, typ, dof, p0, b, fo, nt, names);
+		wis_keyframes (arg, dest, basedir, nc, no, typ, dof, p0, b, fo, nt, names);
 		FREE (dof), FREE (typ), FREE (p0);
 		nc++;
 		m += bsz - 1;

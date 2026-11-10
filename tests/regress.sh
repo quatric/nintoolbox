@@ -11836,6 +11836,32 @@ PYE
   && fok "WTXID -> string inventory" \
   || fno "WTXID" "failed on synthetic t.wtxg"
 
+  # WIS keyframes object -> keyframes.txt
+  mkdir -p "$d/wiskf_test"
+  python3 - "$d/wiskf_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+blob = struct.pack('<I', 0xdeadbeef) + struct.pack('<3f', 1.0, 2.0, 3.0) + struct.pack('<4h', 0, 0, 0, 100) + struct.pack('<H', 0) + struct.pack('<H', 5)
+words = [4, 12, 8, 2, 2]
+body = bytearray(b'<Cauldron Chunk File>' + b'\x01\x00\x01\x00').ljust(0x28, b'\0')
+dof = len(body)
+body += blob
+fo = len(body)
+names = b'header\0keyframes\0'
+foot = struct.pack('<4I', 0xcdd44ddc, len(names), 2, 0x10001) + names
+objs = struct.pack('<6I', 0, 0xffffffff, 0, 0x20, 1, 0) + struct.pack('<I', 7)
+objs += struct.pack('<6I', 1, 0xffffffff, 0x01000000, dof, len(words), 0) + struct.pack('<%dI' % len(words), *words)
+foot += struct.pack('<II', len(objs), 2) + objs
+body += foot + struct.pack('<I', fo)
+pay = b'\xff\xff\xff\xff' + struct.pack('<I', 1) + struct.pack('<I', len(body)) + bytes(body)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wiskf_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && grep -q '^track id=deadbeef pos 1 rot 1' "$d/wiskf_test/t.wis.d/chunks/000/keyframes.txt" \
+  && grep -q '^P 0 1 2 3' "$d/wiskf_test/t.wis.d/chunks/000/keyframes.txt" \
+  && grep -q '^R 5 0.000000 0.000000 0.000000 1.000000' "$d/wiskf_test/t.wis.d/chunks/000/keyframes.txt" \
+  && fok "WIS keyframes -> keyframes.txt" \
+  || fno "WIS keyframes" "failed on synthetic t.wis"
+
   # WIS Cauldron chunk with the older footer (no version word)
   mkdir -p "$d/wischunk_old"
   python3 - "$d/wischunk_old/t.wis" <<'PYE' >/dev/null 2>&1
