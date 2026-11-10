@@ -11846,6 +11846,16 @@ PYE
   && fok "Thrillville PARK field map" \
   || fno "Thrillville PARK field map" "failed on synthetic v.prk"
 
+  # Thrillville ATTR kind 8 field map
+  python3 - "$d/tvser_test/w.atr" <<'PYE' >/dev/null 2>&1
+import sys
+open(sys.argv[1], 'wb').write(b'ATTR' + bytes([0xc0, 0x07, 8]) + bytes(15) + bytes([1, 1]) + bytes(1 + 3 + 1 + 10 + 9 + 1 + 32 + 5) + bytes([0xff]))
+PYE
+  "$B/wszst" x "$d/tvser_test/w.atr" --overwrite >/dev/null 2>&1 \
+  && grep -q '^# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields, 17-18 grid size, 19-19 grid bytes, 20-22 3 floats, 23 byte count + 0 bytes, 24-33 bit fields, 34-42 9 floats, 43 byte count + 0 bytes, 44-75 name (32 x u16), 76-80 ' "$d/tvser_test/w.txt" \
+  && fok "Thrillville ATTR field map" \
+  || fno "Thrillville ATTR field map" "failed on synthetic w.atr"
+
   # WTXID skinned mesh -> OBJ + skin.txt
   mkdir -p "$d/wtxidmesh_test"
   python3 - "$d/wtxidmesh_test/t.wtxg" <<'PYE' >/dev/null 2>&1
