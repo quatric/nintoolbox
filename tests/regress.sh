@@ -11673,6 +11673,29 @@ PYE
   && fok "ZAP archive -> members" \
   || fno "ZAP archive" "failed on synthetic t.zap"
 
+  # WIS GUI archive payload (startup.wis style): dir + file with the 0x28 data offset variant
+  mkdir -p "$d/wisgui_test"
+  python3 - "$d/wisgui_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+names = b'\0arc\0anim\0a.brlan\0'            # 'arc' @1, 'anim' @5, 'a.brlan' @10
+ne = 3; base = 0x34 + 12 * ne; ds = 0x80
+tab = struct.pack('>3I', 0x1000001, 0, ne + 1) + struct.pack('>3I', 0x1000005, 1, ne + 1) + struct.pack('>3I', 10, 0x80, 0x20)
+rlan = b'RLAN\xfe\xff\0\x08' + struct.pack('>I', 0x20) + b'\0' * 20
+pay = struct.pack('<I', 0) + struct.pack('>I', 0) + b'\0' * 0
+hdr = bytearray(0x34)
+hdr[4:8] = b'\0\0\0\0'; hdr[0x0c:0x10] = struct.pack('>I', 0x20); hdr[0x14:0x18] = struct.pack('>I', ds)
+body = bytes(hdr) + tab + names
+body = body.ljust(ds, b'\0') + b'\0' * 8 + rlan
+blk = body
+out = struct.pack('<I', 0x80000000 | len(blk)) + blk + b'\xff' * 8
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/wisgui_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -l 4 -p "$d/wisgui_test/t.wis.d/gui/anim/a.brlan")" = "524c414e" ] \
+  && [ "$(wc -c < "$d/wisgui_test/t.wis.d/gui/anim/a.brlan" | tr -d ' ')" = "32" ] \
+  && fok "WIS GUI archive -> gui/ members" \
+  || fno "WIS GUI archive" "failed on synthetic GUI t.wis"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
