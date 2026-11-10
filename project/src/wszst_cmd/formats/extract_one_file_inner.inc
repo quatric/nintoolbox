@@ -410,6 +410,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_wiiresarc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_wiiarcimg_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_packv2_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

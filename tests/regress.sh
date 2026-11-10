@@ -11772,6 +11772,27 @@ PYE
   && fok "WIS Cauldron chunk -> chunks/*" \
   || fno "WIS Cauldron chunk" "failed on synthetic t.wis"
 
+  # Mere Mortals "wii" resource archive, Ski-Doo flavour (CMPR image resource)
+  mkdir -p "$d/wiiarcimg_test"
+  python3 - "$d/wiiarcimg_test/t.arc" <<'PYE' >/dev/null 2>&1
+import struct, sys
+hs = 0x220
+img = struct.pack('>4HIB', 8, 8, 8, 8, 0, 0x0e).ljust(0x60, b'\0') + bytes([0xf8, 0, 0xf8, 0, 0, 0, 0, 0]) * 4
+b = bytearray(hs)
+b[0:4] = b'wii\0'
+struct.pack_into('>IIIIIII', b, 4, hs, 1, 0, 0x140, hs, hs, 0x160)
+struct.pack_into('>IIIII', b, 0xe0, 2, hs, hs, 0, len(img))
+struct.pack_into('>8I', b, 0x104, 2, len(img), 0, 1, 0, 0x20, 0, 0)
+struct.pack_into('>I', b, 0x140, 0x148)
+b[0x148:0x14e] = b'image\0'
+open(sys.argv[1], 'wb').write(bytes(b) + img)
+PYE
+  "$B/wszst" x "$d/wiiarcimg_test/t.arc" --overwrite >/dev/null 2>&1 \
+  && [ -f "$d/wiiarcimg_test/t.arc.d/0000_image.t2.bin" ] \
+  && [ -f "$d/wiiarcimg_test/t.arc.d/0000_image.png" ] \
+  && fok "wii resource archive (Ski-Doo) -> resources + PNG" \
+  || fno "wii resource archive Ski-Doo" "failed on synthetic t.arc"
+
   # WTXID object image -> string inventory
   mkdir -p "$d/wtxid_test"
   python3 - "$d/wtxid_test/t.wtxg" <<'PYE' >/dev/null 2>&1
