@@ -11578,6 +11578,18 @@ assert c["rotations"][1][1] == [0, 0, 0, 1]
     fno "KP0 package" "mk_kp0.py failed"
   fi
 
+  # GVX0 event script (.pvx): section dump + embedded cue string
+  mkdir -p "$d/gvx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gvx.py" "$d/gvx_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/gvx_test/t.pvx" --overwrite >/dev/null 2>&1 \
+    && grep -q "^GVX0 version 0x116 flag 0 nodes 2" "$d/gvx_test/t.pvx.d/gvx.txt" \
+    && grep -q "vc_chr_02/test_cue" "$d/gvx_test/t.pvx.d/strings.txt" \
+    && fok "GVX0 event script -> section dump" \
+    || fno "GVX0 event script" "failed on synthetic t.pvx"
+  else
+    fno "GVX0 event script" "mk_gvx.py failed"
+  fi
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
