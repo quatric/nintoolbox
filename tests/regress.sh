@@ -11590,6 +11590,15 @@ assert c["rotations"][1][1] == [0, 0, 0, 1]
     fno "GVX0 event script" "mk_gvx.py failed"
   fi
 
+  # RC\0\2 fighter record (.chr)
+  mkdir -p "$d/rcchr_test"
+  python3 -c "import struct,sys;open(sys.argv[1],'wb').write(b'RC\0\2'+struct.pack('<IhH5f',1,-1,0,175.5,89.0,89.0,170.0,89.5))" "$d/rcchr_test/t.chr" \
+  && "$B/wszst" x "$d/rcchr_test/t.chr" --overwrite >/dev/null 2>&1 \
+  && [ "$(sed -n 1p "$d/rcchr_test/t.chr.d/chr.txt")" = "f0 175.5" ] \
+  && [ "$(sed -n 5p "$d/rcchr_test/t.chr.d/chr.txt")" = "f4 89.5" ] \
+  && fok "RC chr fighter record -> chr.txt" \
+  || fno "RC chr fighter record" "failed on synthetic t.chr"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
