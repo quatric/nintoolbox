@@ -11623,12 +11623,15 @@ import struct, sys
 lit = b'ABCDEFGH'                                    # one flag byte (8 literals) ...
 blk1 = bytes([0xff]) + lit + bytes([0x01]) + b'Z' + bytes([0xee, 0xf0])   # ... then literal Z + a 3-byte match back to the ring start (ABC)
 blk2 = b'raw bytes'
-out = struct.pack('<I', len(blk1)) + blk1 + struct.pack('<I', 0x80000000 | len(blk2)) + blk2 + b'\xff' * 20
+lua = b'\x1bLuaQ\0\1\4\4\4\x08\0' + b'12345678'
+blk3 = b'\0[Actor - 1]\0' + struct.pack('<I', len(lua)) + lua
+out = struct.pack('<I', len(blk1)) + blk1 + struct.pack('<I', 0x80000000 | len(blk2)) + blk2 + struct.pack('<I', 0x80000000 | len(blk3)) + blk3 + b'\xff' * 20
 open(sys.argv[1], 'wb').write(out)
 PYE
   "$B/wszst" x "$d/wis_test/t.wis" --overwrite >/dev/null 2>&1 \
-  && [ "$(xxd -p "$d/wis_test/t.wis.d/t.bin" | tr -d '\n')" = "41424344454647485a414243726177206279746573" ] \
-  && fok "WIS block LZSS -> payload" \
+  && [ "$(xxd -p "$d/wis_test/t.wis.d/t.bin" | tr -d '\n' | cut -c1-42)" = "41424344454647485a414243726177206279746573" ] \
+  && [ "$(wc -c < "$d/wis_test/t.wis.d/lua/000_Actor_-_1.luac" | tr -d ' ')" = "20" ] \
+  && fok "WIS block LZSS -> payload + Lua scripts" \
   || fno "WIS block LZSS" "failed on synthetic t.wis"
 
   # CRI AAX (@UTF table of ADX segments)

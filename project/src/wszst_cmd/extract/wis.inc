@@ -3,7 +3,9 @@
 // 0xffffffff word and 0xff padding to the sector. Compressed blocks are Okumura LZSS (4096 byte ring pre-zeroed per block, write position 0xfee, flag
 // bytes LSB first with 1 = literal, match {b0, b1}: offset = b0 | (b1 & 0xf0) << 4 (ring position), length = (b1 & 15) + 3). The concatenated
 // payload is written as "<stem>.bin": maps / actors decode to "<Cauldron Chunk File>" containers, startup.wis to a GUI archive (BRLAN / TPL members
-// behind a big endian index); those inner containers are not split yet.
+// behind a big endian index); those inner containers are not split yet, except that the Lua 5.1 bytecode scripts embedded in Cauldron chunk files
+// ({NUL-terminated name "[Actor - 11]" / "WorldScript", u32 size, 1b 4c 75 61 51 ... chunk}, sizes verified against a full undump) are also written as
+// "lua/NNN_<name>.luac".
 static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
 {
 	static u8 ring[4096];
@@ -98,6 +100,28 @@ static enumError extract_wis_file (ccp arg, ccp basedir, uint depth)
 				*dot = 0;
 			strncat (name, ".bin", sizeof (name) - strlen (name) - 1);
 			err = shade_write (arg, dest, basedir, name, out, ol);
+			static const u8 luahdr[12] = { 0x1b, 'L', 'u', 'a', 0x51, 0, 1, 4, 4, 4, 8, 0 };
+			uint nl = 0;
+			for (size_t i = 5; !err && i + 12 <= ol; i++)
+			{
+				if (out[i] != 0x1b || memcmp (out + i, luahdr, 12) || out[i - 5])
+					continue;
+				const u32 ls = rd_le32 (out + i - 4);
+				if (ls < 12 || ls > ol - i)
+					continue;
+				size_t ns = i - 5;
+				while (ns > 0 && out[ns - 1] && i - 5 - ns < 40)
+					ns--;
+				char ln[64], fn[128];
+				uint k = 0;
+				for (size_t q = ns; q < i - 5 && k < sizeof (ln) - 1; q++)
+					if (out[q] != '[' && out[q] != ']')
+						ln[k++] = isalnum (out[q]) || out[q] == '.' || out[q] == '-' ? out[q] : '_';
+				ln[k] = 0;
+				snprintf (fn, sizeof (fn), "lua/%03u_%s.luac", nl++, ln);
+				err = shade_write (arg, dest, basedir, fn, out + i, ls);
+				i += ls - 1;
+			}
 		}
 	}
 done:
