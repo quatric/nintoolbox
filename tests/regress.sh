@@ -11729,6 +11729,24 @@ PYE
   && fok "WIS Cauldron payload -> tex/*.png" \
   || fno "WIS Cauldron textures" "failed on synthetic t.wis"
 
+  # WIS Cauldron payload with an embedded Havok packfile
+  mkdir -p "$d/wishkx_test"
+  python3 - "$d/wishkx_test/t.wis" <<'PYE' >/dev/null 2>&1
+import struct, sys
+mg = bytes([0x57, 0xe0, 0xe0, 0x57, 0x10, 0xc0, 0xc0, 0x10])
+hdr = bytearray(0x40); hdr[0:8] = mg; hdr[0x10:0x14] = bytes([4, 0, 1, 1]); hdr[0x14:0x18] = struct.pack('>I', 1)
+sec = bytearray(48); sec[:12] = b'__data__\0\0\0\0'; sec[20:24] = struct.pack('>I', 0x70)
+sec[24:48] = struct.pack('>6I', 8, 8, 8, 8, 8, 8)
+hk = bytes(hdr) + bytes(sec) + b'\0' * 8
+pay = (b'\xff\xff\xff\xff\0\0\0\0OIE\0<Cauldron Chunk File>' + b'\0' * 16 + b'\xff\xff\xff\xff\0\0\0\1' + struct.pack('<I', len(hk)) + hk)
+open(sys.argv[1], 'wb').write(struct.pack('<I', 0x80000000 | len(pay)) + pay + b'\xff' * 8)
+PYE
+  "$B/wszst" x "$d/wishkx_test/t.wis" --overwrite >/dev/null 2>&1 \
+  && [ "$(xxd -l 8 -p "$d/wishkx_test/t.wis.d/hkx/000.hkx")" = "57e0e05710c0c010" ] \
+  && [ "$(wc -c < "$d/wishkx_test/t.wis.d/hkx/000.hkx" | tr -d ' ')" = "$((0x70 + 8))" ] \
+  && fok "WIS Cauldron payload -> hkx/*.hkx" \
+  || fno "WIS Cauldron Havok" "failed on synthetic t.wis"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then

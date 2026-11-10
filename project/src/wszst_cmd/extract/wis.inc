@@ -6,7 +6,8 @@
 // behind a big endian index); those inner containers are not split yet, except that the Lua 5.1 bytecode scripts embedded in Cauldron chunk files
 // ({NUL-terminated name "[Actor - 11]" / "WorldScript", u32 size, 1b 4c 75 61 51 ... chunk}, sizes verified against a full undump) are also written as
 // "lua/NNN_<name>.luac"; GX textures embedded in the chunk stream ({u32 size = 16 + mip pyramid (+ up to 0x20 tail), w, h, GX format 6 RGBA8 / 14 CMPR, mip
-// count}, then the pyramid; found by a validated scan, level 0 only) are written as "tex/NNN_WxH_fmtF.png". A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
+// count}, then the pyramid; found by a validated scan, level 0 only) are written as "tex/NNN_WxH_fmtF.png". Havok classic packfiles (magic 57 e0 e0 57 10 c0 c0 10, big endian, Havok 6.1.0; the item size word in front equals the packfile's own end, taken from the
+// section table) are carved to "hkx/NNN.hkx". A "startup.wis"-style GUI archive payload (zero u32, BE u32 0x20, data start @0x14, 12-byte records from 0x34: dirs {0x01000000 |
 // name offset, parent, end index}, files {name offset, offset (0x20 aligned), size}; names from the NUL strings behind the table; the member starts
 // 8 bytes after the offset, 0x20 more when the format magic (TPL / RLAN / RLYT / RFNT) only appears there) is split under "gui/"; BRLAN / BRLYT / BRFNT sizes come from their own headers when the table size is up to 0x40 short).
 static bool wis_lzss (u8 *out, uint *olen, const u8 *s, uint n)
@@ -75,6 +76,35 @@ static void wis_textures (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol
 		snprintf (path, sizeof (path), "%s/%stex/%03u_%ux%u_fmt%u.png", dest, basedir ? basedir : "", nt++, w, h, f);
 		SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true);
 		i += 19 + pyr;
+	}
+}
+
+static void wis_hkx (ccp arg, ccp dest, ccp basedir, const u8 *o, size_t ol)
+{
+	static const u8 mg[8] = { 0x57, 0xe0, 0xe0, 0x57, 0x10, 0xc0, 0xc0, 0x10 };
+	uint nh = 0;
+	for (size_t i = 12; i + 0x70 <= ol; i++)
+	{
+		if (o[i] != 0x57 || memcmp (o + i, mg, 8))
+			continue;
+		const u32 ns = rd_be32 (o + i + 0x14);
+		if (!ns || ns > 16 || i + 0x40 + 48 * (u64)ns > ol)
+			continue;
+		u64 end = 0;
+		for (uint k = 0; k < ns; k++)
+		{
+			const u8 *h = o + i + 0x40 + 48 * (size_t)k;
+			const u64 e = (u64)rd_be32 (h + 20) + rd_be32 (h + 20 + 24);
+			if (e > end)
+				end = e;
+		}
+		if (end < 0x40 + 48 * (u64)ns || i + end > ol)
+			continue;
+		char fn[64];
+		snprintf (fn, sizeof (fn), "hkx/%03u.hkx", nh++);
+		if (shade_write (arg, dest, basedir, fn, o + i, (uint)end))
+			return;
+		i += end - 1;
 	}
 }
 
@@ -198,6 +228,8 @@ static enumError extract_wis_file (ccp arg, ccp basedir, uint depth)
 				wis_gui (arg, dest, basedir, out, ol);
 			if (!err && ol > 0x40 && !memcmp (out + 0xc, "<Cauldron Chunk File>", 21))
 				wis_textures (arg, dest, basedir, out, ol);
+			if (!err && ol > 0x40 && !memcmp (out + 0xc, "<Cauldron Chunk File>", 21))
+				wis_hkx (arg, dest, basedir, out, ol);
 			static const u8 luahdr[12] = { 0x1b, 'L', 'u', 'a', 0x51, 0, 1, 4, 4, 4, 8, 0 };
 			uint nl = 0;
 			for (size_t i = 5; !err && i + 12 <= ol; i++)
