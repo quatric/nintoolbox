@@ -331,6 +331,7 @@
 #include "extract/wis.inc"
 #include "extract/bgc.inc"
 #include "extract/zap.inc"
+#include "extract/stp.inc"
 #include "extract/rmhg.inc"
 #include "extract/gmf2.inc"
 #include "extract/gan2.inc"

@@ -11696,6 +11696,24 @@ PYE
   && fok "WIS GUI archive -> gui/ members" \
   || fno "WIS GUI archive" "failed on synthetic GUI t.wis"
 
+  # Sonic STPn stage object table (.bin)
+  mkdir -p "$d/stp_test"
+  python3 - "$d/stp_test/stg1_P2.bin" <<'PYE' >/dev/null 2>&1
+import struct, sys
+recs = b''
+for i in range(2):
+    recs += struct.pack('<4f', 1.5 * (i + 1), -2.0, 3.0, 0.0) + struct.pack('<8I', 0xffffee00, 0, 9, 0x530af0, 0x58, 0, 0, i)
+ph = struct.pack('<HHI', 1, 8, 0) + struct.pack('<HHI', 1, 4, 0)
+pd = bytes(range(8)) + bytes([0xaa, 0xbb, 0xcc, 0xdd])
+out = b'STP2' + struct.pack('<3I', 2, 2, len(pd)) + recs + ph + pd + b'\0' * 8
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" x "$d/stp_test/stg1_P2.bin" --overwrite >/dev/null 2>&1 \
+  && grep -q "^0 pos 1.5 -2 3 0 w ffffee00 0 9 530af0 58 0 0 0" "$d/stp_test/stg1_P2.bin.d/stp.txt" \
+  && grep -q "^1 kind 1 size 4: aa bb cc dd" "$d/stp_test/stg1_P2.bin.d/stp.txt" \
+  && fok "STPn stage object table -> stp.txt" \
+  || fno "STPn stage object table" "failed on synthetic stg1_P2.bin"
+
   # CRI AAX (@UTF table of ADX segments)
   mkdir -p "$d/aax_test"
   if python3 "$PWD_PROJECT/../tests/mk_aax.py" "$d/aax_test" >/dev/null 2>&1; then
