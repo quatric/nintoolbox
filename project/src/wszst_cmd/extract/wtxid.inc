@@ -46,8 +46,41 @@ static bool wtxid_vertices (const u8 *r, size_t sz, size_t p, uint *nv, size_t *
 	return true;
 }
 
+// bone name table: the length prefixed ({u32 BE len, chars}) names between the "CClumpDef" and the first "CItemSkinMeshDef" class strings (one per bone, interleaved with the
+// bone objects); bone indices of the skin entries index this list (.wtxa files carry the same list right after the header words {frames, fps, bone count}).
+static uint wtxid_bone_names (const u8 *r, size_t sz, size_t *offs, uint max)
+{
+	size_t c0 = 0, e0 = 0;
+	for (size_t p = 0x80; p + 16 < sz; p++)
+		if (!memcmp (r + p, "CClumpDef", 9) && !c0)
+			c0 = p + 9;
+		else if (c0 && !memcmp (r + p, "CItemSkinMeshDef", 16))
+		{
+			e0 = p;
+			break;
+		}
+	uint n = 0;
+	for (size_t i = c0; c0 && e0 && i + 8 < e0 && n < max;)
+	{
+		const u32 l = rd_be32 (r + i);
+		bool ok = l >= 3 && l <= 40 && i + 4 + l <= e0 && ((r[i + 4] | 0x20) >= 'a' && (r[i + 4] | 0x20) <= 'z');
+		for (u32 k = 0; ok && k < l; k++)
+			ok = r[i + 4 + k] == ' ' || r[i + 4 + k] == '_' || (r[i + 4 + k] >= '0' && r[i + 4 + k] <= '9') || ((r[i + 4 + k] | 0x20) >= 'a' && (r[i + 4 + k] | 0x20) <= 'z');
+		if (ok)
+		{
+			offs[n++] = i;
+			i += 4 + l;
+		}
+		else
+			i++;
+	}
+	return n;
+}
+
 static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 {
+	size_t boff[256];
+	const uint nbn = wtxid_bone_names (r, sz, boff, 256);
 	size_t uvp = 0, dlp = 0;
 	uint uvn = 0, dln = 0, nm = 0;
 	for (size_t p = 0x80; p + 16 < sz; p++)
@@ -96,7 +129,7 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 			snprintf (ext, sizeof (ext), nm ? ".%u.obj" : ".obj", nm);
 			beside_source_dest_ext (dest, sizeof (dest), arg, ext);
 			size_t cap = 64 + (size_t)nv * 200 + (size_t)uvn * 40 + (size_t)dln * 40;
-			char *t = MALLOC (cap), *sk = MALLOC ((size_t)nv * 160 + 64);
+			char *t = MALLOC (cap), *sk = MALLOC ((size_t)nv * 520 + 64);
 			size_t tl = 0, sl = 0;
 			size_t q = p + 4;
 			for (uint i = 0; i < nv; i++)
@@ -115,7 +148,11 @@ static void wtxid_meshes (ccp arg, const u8 *r, size_t sz)
 					const u32 v = rd_be32 (r + q + 27 + 6 * e);
 					float w;
 					memcpy (&w, &v, 4);
-					sl += snprintf (sk + sl, 160 - (sl % 160 > 0 ? 0 : 0), " %u:%.4f", rd_be16 (r + q + 25 + 6 * e), w);
+					const uint bi = rd_be16 (r + q + 25 + 6 * e);
+					if (bi < nbn)
+						sl += snprintf (sk + sl, 200, " %u(%.*s):%.4f", bi, (int)rd_be32 (r + boff[bi]), (ccp)r + boff[bi] + 4, w);
+					else
+						sl += snprintf (sk + sl, 200, " %u:%.4f", bi, w);
 				}
 				sk[sl++] = '\n';
 				q += 25 + 6 * (size_t)k;
@@ -202,6 +239,8 @@ static enumError extract_wtxid_file (ccp arg, ccp basedir, uint depth)
 	const size_t cap = 256 + sz * 3;
 	char *t = MALLOC (cap);
 	size_t tl = snprintf (t, cap, "WTXID kind %c size %zu\n", raw[5] >= 0x20 && raw[5] < 0x7f ? raw[5] : '?', sz);
+	if (raw[5] == 'a' && sz > 0x108)
+		tl += snprintf (t + tl, cap - tl, "animation frames %u fps %u bones %u (name list follows, in bone index order)\n", rd_be32 (raw + 0xfc), rd_be32 (raw + 0x100), rd_be32 (raw + 0x104));
 	for (size_t i = 0x80; i + 4 < sz && tl + 300 < cap;)
 	{
 		size_t j = i;
