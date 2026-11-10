@@ -11823,6 +11823,19 @@ PYE
   && fok "Thrillville PARK/TRAK/ATTR -> token text" \
   || fno "Thrillville serial stream" "failed on synthetic t.prk"
 
+  # Thrillville text stored as arrays of character codes
+  python3 - "$d/tvser_test/u.prk" <<'PYE' >/dev/null 2>&1
+import sys
+def tok(v):
+    return bytes([v & 0x7f]) if v < 64 else bytes([0xc0 | (v & 15), v >> 4])   # 7 bit signed, else 12 bit
+b = bytes([0xc1, 0x07, 0x00]) + b''.join(tok(c) for c in b'%PreBuiltTESTRIDE') + bytes([0, 0, 0xff])
+open(sys.argv[1], 'wb').write(b'PARK' + b)
+PYE
+  "$B/wszst" x "$d/tvser_test/u.prk" --overwrite >/dev/null 2>&1 \
+  && grep -q '^# token 2: "%PreBuiltTESTRIDE"$' "$d/tvser_test/u.txt" \
+  && fok "Thrillville character array text" \
+  || fno "Thrillville char array" "failed on synthetic u.prk"
+
   # WTXID skinned mesh -> OBJ + skin.txt
   mkdir -p "$d/wtxidmesh_test"
   python3 - "$d/wtxidmesh_test/t.wtxg" <<'PYE' >/dev/null 2>&1

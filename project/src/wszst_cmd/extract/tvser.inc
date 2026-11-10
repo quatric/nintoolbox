@@ -4,7 +4,7 @@
 // LE; f2 / f3 false / true; f4-f7 signed 10 bit milli fixed point (/1000); f8 raw LE float32; fa u8; fb u16 LE; fc string (chars until one with bit 7 set, which carries the last char);
 // ff end marker. The first token is a version (109 for ATTR / TRAK, 113 for PARK). The fields' meaning follows the game's own order (PARK: LevelNumber, GameTime, Money,
 // Marketing, Research, Attractions, Groups, Guests, ...) and is not annotated; the stream is written as "<file>.txt" one token per space, 24 per line (`f=` floats, `m=` milli floats,
-// `"..."` strings, `;` end marker).
+// `"..."` strings, `;` end marker); text stored as arrays of character codes (6+ printable integer tokens, mostly letters) is also listed behind the stream as `# token N: "text"` lines.
 static enumError extract_tvser_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
@@ -30,6 +30,7 @@ static enumError extract_tvser_file (ccp arg, ccp basedir, uint depth)
 	char *t = MALLOC (cap);
 	size_t tl = snprintf (t, cap, "%.4s\n", raw);
 	uint nt = 0, bad = 0;
+	int *iv = MALLOC ((sz + 1) * sizeof (int));	// integer value of every token (INT_MIN for the other kinds), to find text stored as arrays of character codes
 	size_t i = 4;
 #define SX(v, b) ((int32_t)((u32)(v) << (32 - (b))) >> (32 - (b)))
 	while (i < sz && tl + 64 < cap)
@@ -88,10 +89,37 @@ static enumError extract_tvser_file (ccp arg, ccp basedir, uint depth)
 			snprintf (tok, sizeof (tok), c == 0xff ? ";" : "f8"), i++;
 		else
 			snprintf (tok, sizeof (tok), "?%02x", c), i++, bad++;
+		{
+			char *e;
+			const long v = strtol (tok, &e, 10);
+			iv[nt] = !*e && *tok && *tok != 'u' ? (int)v : INT_MIN;
+		}
 		tl += snprintf (t + tl, cap - tl, "%s%s", nt % 24 ? " " : (nt ? "\n" : ""), tok);
 		nt++;
 	}
 	tl += snprintf (t + tl, cap - tl, "\n");
+	// character arrays: runs of 6 or more integer tokens that are printable ASCII codes, mostly letters (e.g. "%PreBuiltOFFTHERAILS"); listed as "# token N: text"
+	for (uint a = 0, b; a < nt; a = b)
+	{
+		for (b = a; b < nt && iv[b] >= 32 && iv[b] < 127; b++)
+			;
+		if (b - a >= 6)
+		{
+			uint al = 0;
+			for (uint k = a; k < b; k++)
+				al += (iv[k] | 0x20) >= 'a' && (iv[k] | 0x20) <= 'z';
+			if (al * 10 >= (b - a) * 7 && tl + (b - a) + 64 < cap)
+			{
+				tl += snprintf (t + tl, cap - tl, "# token %u: \"", a);
+				for (uint k = a; k < b; k++)
+					t[tl++] = iv[k];
+				tl += snprintf (t + tl, cap - tl, "\"\n");
+			}
+		}
+		if (b == a)
+			b++;
+	}
+	FREE (iv);
 	FREE (raw);
 	File_t F;
 	enumError err = CreateFileOpt (&F, true, dest, false, arg);
