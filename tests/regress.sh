@@ -12179,6 +12179,26 @@ PYE
     && fok "JSystem BCSV to csv" \
     || fno "JSystem BCSV to csv" "t.csv missing or wrong"
 
+  # J3D BCK joint animation -> csv
+  python3 - "$d/neko_test/t.bck" <<'PYE' >/dev/null 2>&1
+import struct, sys
+tab_s = struct.pack('>ff', 1.0, 2.0)
+tab_r = struct.pack('>hhh', 0, 0x4000, 0x2000)
+tab_t = struct.pack('>ffffff', 0, 5.0, 0, 10, 7.0, 0)
+tracks = [(2, 0, 0) if c == 2 else ((1, 1, 0) if c % 3 < 2 else (1, 0, 0)) for c in range(9)]
+joint = b''.join(struct.pack('>HHH', *t) for t in tracks)
+off_j = 0x24; off_s = off_j + 0x36; off_r = off_s + len(tab_s); off_t = off_r + 8
+body = struct.pack('>BBHHHHHIIII', 0, 1, 10, 1, 2, 3, 6, off_j, off_s, off_r, off_t)
+chunk = b'ANK1' + struct.pack('>I', 0) + body
+chunk += b'\0' * (off_j - len(chunk)) + joint + tab_s + tab_r + b'\0\0' + tab_t
+chunk = chunk[:4] + struct.pack('>I', len(chunk)) + chunk[8:]
+open(sys.argv[1], 'wb').write(b'J3D1bck1' + struct.pack('>II', 0x20 + len(chunk), 1) + b'\xff' * 16 + chunk)
+PYE
+  "$B/wszst" xx "$d/neko_test/t.bck" --overwrite >/dev/null 2>&1
+  grep -q '^0,trans_x,10,7$' "$d/neko_test/t.bck.d/t.csv" 2>/dev/null && grep -q '^0,rot_x,0,180$' "$d/neko_test/t.bck.d/t.csv" \
+    && fok "J3D BCK to csv" \
+    || fno "J3D BCK to csv" "t.csv missing or wrong"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
