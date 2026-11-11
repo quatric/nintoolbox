@@ -237,8 +237,48 @@ static int cmd_unpack (int argc, char *argv[])
 	return 0;
 }
 
+// wbrsar sf2 <bank.brbnk> <waves.brwar> [out.sf2]: SoundFont of one standalone RBNK + RWAR pair
+static int cmd_sf2 (int argc, char *argv[])
+{
+	if (argc < 4)
+	{
+		fprintf (stderr, "Usage: %s sf2 <bank.rbnk|brbnk> <waves.rwar|brwar> [out.sf2]\n", argv[0]);
+		return 1;
+	}
+	u8 *bank = 0, *wave = 0, *sf2 = 0;
+	size_t bank_n = 0, wave_n = 0, sf2_n = 0;
+	int rc = 1;
+	if (!LoadFileAlloc (argv[2], 0, 0, &bank, &bank_n, 0, 0, 0, false) && !LoadFileAlloc (argv[3], 0, 0, &wave, &wave_n, 0, 0, 0, false))
+	{
+		char out[1024];
+		if (argc > 4)
+			snprintf (out, sizeof (out), "%s", argv[4]);
+		else
+			snprintf (out, sizeof (out), "%s.sf2", argv[2]);
+		if (ConvertRBNKToSF2 (bank, bank_n, wave, wave_n, "bank", &sf2, &sf2_n) == ERR_OK)
+		{
+			FILE *fp = fopen (out, "wb");
+			if (fp && fwrite (sf2, 1, sf2_n, fp) == sf2_n)
+			{
+				printf ("wbrsar: wrote %s\n", out);
+				rc = 0;
+			}
+			if (fp)
+				fclose (fp);
+		}
+		else
+			fprintf (stderr, "wbrsar: cannot build a SoundFont from %s + %s\n", argv[2], argv[3]);
+	}
+	FREE (bank);
+	FREE (wave);
+	FREE (sf2);
+	return rc;
+}
+
 int main (int argc, char *argv[])
 {
+	if (argc > 1 && !strcmp (argv[1], "sf2"))
+		return cmd_sf2 (argc, argv);
 	if (argc > 1 && (!strcmp (argv[1], "pack") || !strcmp (argv[1], "p")))
 		return cmd_pack (argc, argv);
 	if (argc > 1 && (!strcmp (argv[1], "unpack") || !strcmp (argv[1], "u")))
