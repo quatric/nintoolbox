@@ -1,4 +1,4 @@
-// Plain raster images that the image loader does not read: X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
+// Plain raster images that the image loader does not read: TIFF (baseline strips), X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
 // cursors (".ico", ".cur": every entry as "<name>_N.png"; PNG entries are copied, DIB entries of 32, 24 and 8 bit depth are converted, AND mask applied).
 // Output goes to "<file>.d/".
 static u8 *rimg_qoi (const u8 *d, size_t n, uint *ow, uint *oh)
@@ -425,10 +425,219 @@ static u8 *rimg_xpm (const u8 *d, size_t n, uint *ow, uint *oh)
 	return out;
 }
 
+// TIFF (".tif", ".tiff"): first IFD, little / big endian, 1 / 8 / 16 bit samples, gray / RGB / RGBA / palette, strips or planar, compression none, LZW, Deflate and PackBits,
+// horizontal predictor
+static uint tif_u16 (const u8 *p, bool le) { return le ? p[0] | p[1] << 8 : p[0] << 8 | p[1]; }
+static u32 tif_u32 (const u8 *p, bool le) { return le ? (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24 : rd_be32 (p); }
+
+static bool tif_lzw (const u8 *src, size_t n, u8 *out, size_t on)
+{
+	static u16 prefix[4096];
+	static u8 suffix[4096], stackbuf[4097];
+	size_t o = 0, pos = 0;
+	uint bits = 9, next = 258, bitbuf = 0, nb = 0;
+	int old = -1;
+	for (;;)
+	{
+		while (nb < bits)
+		{
+			if (pos >= n) return o == on;
+			bitbuf = bitbuf << 8 | src[pos++];
+			nb += 8;
+		}
+		const uint code = bitbuf >> (nb - bits) & ((1u << bits) - 1);
+		nb -= bits;
+		bitbuf &= (1u << nb) - 1;
+		if (code == 257)
+			break;
+		if (code == 256)
+		{
+			bits = 9; next = 258; old = -1;
+			continue;
+		}
+		uint cur = code;
+		size_t sp = 0;
+		if (code >= next)
+		{
+			if (old < 0 || code > next) return false;
+			stackbuf[sp++] = 0; // patched below with the first byte
+			cur = old;
+		}
+		while (cur >= 258)
+		{
+			if (sp >= 4096) return false;
+			stackbuf[sp++] = suffix[cur];
+			cur = prefix[cur];
+		}
+		stackbuf[sp++] = cur;
+		const u8 first = stackbuf[sp - 1];
+		if (code >= next)
+			stackbuf[0] = first;
+		while (sp)
+		{
+			if (o < on) out[o] = stackbuf[--sp]; else --sp;
+			o++;
+		}
+		if (old >= 0 && next < 4096)
+		{
+			prefix[next] = old;
+			suffix[next] = first;
+			next++;
+		}
+		old = code;
+		if (next + 1 >= (1u << bits) && bits < 12) bits++;
+	}
+	return o >= on;
+}
+
+static u8 *rimg_tiff (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 16 || !((d[0] == 'I' && d[1] == 'I' && d[2] == 42) || (d[0] == 'M' && d[1] == 'M' && d[3] == 42)))
+		return 0;
+	const bool le = d[0] == 'I';
+	size_t ifd = tif_u32 (d + 4, le);
+	if (ifd + 2 > n)
+		return 0;
+	uint w = 0, h = 0, bps = 1, comp = 1, photo = 1, spp = 1, rps = 0xffffffffu, planar = 1, pred = 1, extra = 0;
+	u32 *offs = 0, *cnts = 0;
+	uint noff = 0, ncnt = 0;
+	const u8 *cmap = 0;
+	size_t cmap_n = 0;
+	const uint ne = tif_u16 (d + ifd, le);
+	for (uint i = 0; i < ne && ifd + 2 + (size_t)(i + 1) * 12 <= n; i++)
+	{
+		const u8 *e = d + ifd + 2 + i * 12;
+		const uint tag = tif_u16 (e, le), type = tif_u16 (e + 2, le);
+		const u32 cnt = tif_u32 (e + 4, le);
+		const uint tsz = type == 3 ? 2 : type == 4 ? 4 : 1;
+		const u8 *val = (size_t)cnt * tsz <= 4 ? e + 8 : (tif_u32 (e + 8, le) + (size_t)cnt * tsz <= n ? d + tif_u32 (e + 8, le) : 0);
+		if (!val) continue;
+		const uint v = type == 3 ? tif_u16 (val, le) : type == 4 ? tif_u32 (val, le) : val[0];
+		switch (tag)
+		{
+			case 256: w = v; break;
+			case 257: h = v; break;
+			case 258: bps = v; break;
+			case 259: comp = v; break;
+			case 262: photo = v; break;
+			case 273: case 279:
+			{
+				u32 *arr = MALLOC ((size_t)cnt * 4 + 4);
+				if (!arr || cnt > 1000000) { FREE (arr); break; }
+				for (u32 k = 0; k < cnt; k++)
+					arr[k] = type == 3 ? tif_u16 (val + k * 2, le) : tif_u32 (val + k * 4, le);
+				if (tag == 273) { FREE (offs); offs = arr; noff = cnt; } else { FREE (cnts); cnts = arr; ncnt = cnt; }
+				break;
+			}
+			case 277: spp = v; break;
+			case 278: rps = v; break;
+			case 284: planar = v; break;
+			case 317: pred = v; break;
+			case 320: cmap = val; cmap_n = cnt; break;
+			case 338: extra = v; break;
+		}
+	}
+	u8 *out = 0;
+	if (w && h && w <= 16384 && h <= 16384 && offs && cnts && noff == ncnt && noff && spp && spp <= 4 && (bps == 1 || bps == 8 || bps == 16) && (comp == 1 || comp == 5 || comp == 8 || comp == 32946 || comp == 32773)
+		&& (planar == 1) && (pred == 1 || (pred == 2 && bps != 1)) && (photo <= 3) && (photo != 3 || (cmap && bps == 8 && cmap_n >= 768)))
+	{
+		if (rps == 0 || rps > h) rps = h;
+		const size_t rowbytes = ((size_t)w * spp * bps + 7) / 8;
+		u8 *img = CALLOC (1, rowbytes * h + 16);
+		bool ok = img != 0;
+		for (uint st = 0; ok && st < noff; st++)
+		{
+			const uint rows = (st * rps >= h) ? 0 : (h - st * rps < rps ? h - st * rps : rps);
+			if (!rows) break;
+			const size_t want = rowbytes * rows;
+			if ((size_t)offs[st] + cnts[st] > n) { ok = false; break; }
+			u8 *dst = img + (size_t)st * rps * rowbytes;
+			const u8 *sp = d + offs[st];
+			if (comp == 1)
+			{
+				if (cnts[st] < want) { ok = false; break; }
+				memcpy (dst, sp, want);
+			}
+			else if (comp == 32773)
+			{
+				size_t i = 0, o = 0;
+				while (o < want && i < cnts[st])
+				{
+					const int8_t c = (int8_t)sp[i++];
+					if (c >= 0)
+					{
+						size_t k = (size_t)c + 1;
+						if (i + k > cnts[st] || o + k > want) { ok = false; break; }
+						memcpy (dst + o, sp + i, k); i += k; o += k;
+					}
+					else if (c != -128)
+					{
+						size_t k = (size_t)(1 - c);
+						if (i >= cnts[st] || o + k > want) { ok = false; break; }
+						memset (dst + o, sp[i++], k); o += k;
+					}
+				}
+				if (o < want) ok = false;
+			}
+			else if (comp == 5)
+				ok = tif_lzw (sp, cnts[st], dst, want);
+			else
+			{
+				uLongf dl = want;
+				ok = uncompress (dst, &dl, sp, cnts[st]) == Z_OK && dl >= want;
+			}
+			if (ok && pred == 2)
+				for (uint r = 0; r < rows; r++)
+				{
+					u8 *row = dst + (size_t)r * rowbytes;
+					if (bps == 8)
+						for (size_t x = spp; x < rowbytes; x++) row[x] += row[x - spp];
+					else
+						for (size_t x = spp * 2; x + 1 < rowbytes; x += 2)
+						{
+							const uint a = tif_u16 (row + x - spp * 2, le), b = tif_u16 (row + x, le), r16 = (a + b) & 0xffff;
+							if (le) { row[x] = r16 & 255; row[x + 1] = r16 >> 8; } else { row[x] = r16 >> 8; row[x + 1] = r16 & 255; }
+						}
+				}
+		}
+		out = ok ? MALLOC ((size_t)w * h * 4) : 0;
+		for (uint y = 0; out && y < h; y++)
+			for (uint x = 0; x < w; x++)
+			{
+				const u8 *row = img + (size_t)y * rowbytes;
+				u8 *o = out + ((size_t)y * w + x) * 4;
+				int c[4] = {0, 0, 0, 255};
+				if (bps == 1)
+					c[0] = (row[x / 8] >> (7 - x % 8) & 1) ? 255 : 0;
+				else
+					for (uint k = 0; k < spp; k++)
+						c[k] = bps == 8 ? row[(size_t)x * spp + k] : (le ? row[((size_t)x * spp + k) * 2 + 1] : row[((size_t)x * spp + k) * 2]);
+				if (photo == 3)
+				{
+					const uint idx = c[0], nc = cmap_n / 3;
+					c[0] = tif_u16 (cmap + idx * 2, le) >> 8; c[1] = tif_u16 (cmap + (nc + idx) * 2, le) >> 8; c[2] = tif_u16 (cmap + (2 * nc + idx) * 2, le) >> 8;
+				}
+				else if (photo == 0)
+				{
+					c[0] = 255 - c[0];
+					if (spp == 1 || (spp == 2 && extra)) {}
+				}
+				if (spp <= 2 && photo != 2 && photo != 3) { c[3] = spp == 2 ? c[1] : 255; c[1] = c[2] = c[0]; }
+				else if (spp == 4) c[3] = c[3];
+				o[0] = c[0]; o[1] = c[1]; o[2] = c[2]; o[3] = c[3];
+			}
+		FREE (img);
+	}
+	FREE (offs);
+	FREE (cnts);
+	if (out) { *ow = w; *oh = h; }
+	return out;
+}
+
 static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
-	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm) || (export_count == 0 && !opt_decode))
+	const bool tif = is_ext (arg, ".tif") || is_ext (arg, ".tiff"), xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
+	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm && !tif) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -445,9 +654,9 @@ static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 		*dot = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint w = 0, h = 0;
-	if (qoi || pcx || pnm || sun || sgi || xbm || xpm)
+	if (qoi || pcx || pnm || sun || sgi || xbm || xpm || tif)
 	{
-		u8 *rgba = xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
+		u8 *rgba = tif ? rimg_tiff (raw, sz, &w, &h) : xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
 		if (rgba)
 		{
 			err = testmode ? ERR_OK : kyl_write_rgba_png (arg, basedir, stem, (uint)-1, w, h, rgba);
