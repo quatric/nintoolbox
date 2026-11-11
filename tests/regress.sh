@@ -12130,6 +12130,36 @@ PYE
     && fok "Kylotonn .vid (block video) to PNG frames" \
     || fno "Kylotonn .vid (block video) to PNG frames" "no v_0000.png"
 
+  # Neko LZSS (.pc / .GCN) -> .dec
+  mkdir -p "$d/neko_test"
+  python3 - "$d/neko_test/t.pc" <<'PYE' >/dev/null 2>&1
+import struct, sys
+stream = bytes([0xf7, 0x41, 0x42, 0x43, 0xe0, 0xf0]) + b'DEFG'  # 3 literals, 3 zero bytes from the initial window, 4 literals
+out_size = 3 + 3 + 4
+open(sys.argv[1], 'wb').write(struct.pack('>II', len(stream), out_size) + stream)
+PYE
+  "$B/wszst" xx "$d/neko_test/t.pc" --overwrite >/dev/null 2>&1
+  [ "$(head -c 10 "$d/neko_test/t.pc.d/t.dec" 2>/dev/null | od -An -tx1 -v | tr -d ' \n')" = "41424300000044454647" ] \
+    && fok "Neko LZSS .pc to .dec" \
+    || fno "Neko LZSS .pc to .dec" "t.dec missing or wrong"
+
+  # Neko MUSIC.GRP -> stereo wav (big-endian PCM)
+  python3 - "$d/neko_test/MUSIC.GRP" <<'PYE' >/dev/null 2>&1
+import struct, sys
+desc = struct.pack('>IIII', 1, 2, 48000, 0) + bytes(16)
+pcm = 1200
+base = 4 + 8 * 4
+offs = [base, base + 0x20, base + 0x40, base + 0x40 + pcm]
+hdr = struct.pack('<HH', 4, 0x20) + b''.join(struct.pack('<II', sz, o) for sz, o in ((0x20, offs[0]), (0x20, offs[1]), (pcm, offs[2]), (pcm, offs[3])))
+left = b''.join(struct.pack('>h', i) for i in range(pcm // 2))
+right = b''.join(struct.pack('>h', -i) for i in range(pcm // 2))
+open(sys.argv[1], 'wb').write(hdr + desc + desc + left + right)
+PYE
+  "$B/wszst" xx "$d/neko_test/MUSIC.GRP" --overwrite >/dev/null 2>&1
+  [ "$(tail -c +49 "$d/neko_test/MUSIC.GRP.d/music_00.wav" 2>/dev/null | head -c 4 | od -An -tx1 -v | tr -d ' \n')" = "0100ffff" ] \
+    && fok "Neko MUSIC.GRP to stereo wav" \
+    || fno "Neko MUSIC.GRP to stereo wav" "music_00.wav missing or wrong"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
