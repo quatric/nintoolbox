@@ -107,29 +107,31 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 		// If audio_offset is valid, extract the audio asset (BWAV / BFWAV / etc.)
 		if (audio_offset != 0xFFFFFFFF && audio_offset < raw_size)
 		{
-			// Determine audio asset size: BWAV / BFWAV header contains size at offset 8 or 12
-			u32 audio_sz = 0;
+			// The BWAV header holds a CRC32 at +8 (not a size) and the BFWAV/BFSTP
+			// size sits elsewhere, so bound the asset by the next offset in the
+			// archive (AMTA blocks and assets are stored back to back).
+			u32 audio_sz = (u32)(raw_size - audio_offset);
+			for (uint j = 0; j < asset_count; j++)
+			{
+				const uint pp = offset_pairs_table + j * 8;
+				const u32 o1 = big ? rd_be32 (raw + pp) : rd_le32 (raw + pp);
+				const u32 o2 = big ? rd_be32 (raw + pp + 4) : rd_le32 (raw + pp + 4);
+				if (o1 > audio_offset && o1 - audio_offset < audio_sz)
+					audio_sz = o1 - audio_offset;
+				if (o2 != 0xFFFFFFFF && o2 > audio_offset && o2 - audio_offset < audio_sz)
+					audio_sz = o2 - audio_offset;
+			}
 			ccp ext = ".bwav";
 			if ((u64)audio_offset + 16 <= raw_size)
 			{
 				if (!memcmp (raw + audio_offset, "BWAV", 4))
-				{
 					ext = ".bwav";
-					audio_sz
-						= big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
-				}
 				else if (!memcmp (raw + audio_offset, "FWAV", 4))
-				{
 					ext = ".bfwav";
-					audio_sz
-						= big ? rd_be32 (raw + audio_offset + 8) : rd_le32 (raw + audio_offset + 8);
-				}
-			}
-
-			if (audio_sz == 0 || (u64)audio_offset + audio_sz > raw_size)
-			{
-				// Bound by raw_size or next asset/offset
-				audio_sz = (u32)(raw_size - audio_offset);
+				else if (!memcmp (raw + audio_offset, "FSTP", 4))
+					ext = ".bfstp";
+				else if (!memcmp (raw + audio_offset, "FSTM", 4))
+					ext = ".bfstm";
 			}
 
 			char out_path[PATH_MAX];
