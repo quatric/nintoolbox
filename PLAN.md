@@ -2466,3 +2466,7 @@ leading count) but its layout was not worked out; the WGHT chunk (skin weights) 
 Addendum (§45): National Geographic Challenge! (USA): 709 `.ast` files (659 BE, 50 LE) walk with no warnings; 417 of 419 models and 1436 textures export;
 the only non-zero exits are three 16-byte header-only bundles (no chunks). New tags seen: NDAN, NDST, NDOU, AGPH (not decoded). Every Proteus game in the
 census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, Nat Geo Challenge) has now been run.
+
+### Addendum: Kylotonn (Cocoto Festival) `.snd` — open
+- `.snd` members are `{tag, u32 LE size incl. 8-byte header}` chunks: NAME, FREQ (16000/44100), STER, SIZE, CSZE (== SIZE, uncompressed), SAMP.
+- SAMP payload: LE16 words, rate echoed at +8, 16 LE s16 words at +0x1c..0x3c that look like DSP-ADPCM coefficients, 8-byte frames from +0x60, trailing `PACK` tag. A straight DSP-ADPCM decode with those coefficients clips about 10% of samples, so the codec/frame layout is not yet confirmed. No handler written.
