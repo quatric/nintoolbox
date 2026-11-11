@@ -2408,3 +2408,20 @@ Regress case `Bermuda PLANETG text manifest` (synthetic .MWG) covers the path.
 Not wired: HTTYD .mtd (no decoder), Mercury .TEX (plain text), RFF probes,
 HDVoice/T4Res beyond the ext above. Suite: PASS=575 FAIL=1 (NDS ndstool case,
 sample-dependent, unrelated).
+
+## 44. 2026-11-10 — Stale-handoff audit
+
+Checked the open-items list of the older Nintoolbox handoff against the tree:
+already implemented and verified, no work left — Capcom `.lmt` keyframe
+buffers (types 1, 2, 4-7; `bf15d3b5`, em14.lmt decodes 690 tracks), Mobiclip
+`.mo/.moflex/.mods` (`a3289b3e`), JAudio `.baa`, Alfa System `.sts`, Ubisoft BAO
+`.spk`, Krome `.mus`, Alchemy IGZ (Madagascar 2), Speed 2 `.dcw/.dcf`, Petz
+skinned meshes/MACT. Census `F` marks on `.brfnt`/`.brfna`/`.bffnt` are by design,
+not gaps: `decode_image_if_possible` keeps game fonts opaque in `xx` (no lossless
+sheet injector for CREATE); use `wimgt DECODE`. The `NDS pass-through (ndstool)`
+regress case picks the first plain `.nds` it finds; with
+`Nintendo Countdown - Calendar (USA) (En).nds` the external `wit XEXTRACT`
+exits 30 (external-tool failure, not ours), while `American Girl - Julie Finds a
+Way` stages arm9/arm7/data correctly. Truly open: Speed 2 multi-part `.dcm`,
+`.ast` payloads (Spooky Mansion/Spore Hero), `wii\0` non-texture records, vaps
+page sets, `.wiz/.wsp` inner formats (see `docs/wii-census/README.md`).
