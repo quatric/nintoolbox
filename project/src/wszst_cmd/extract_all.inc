@@ -463,5 +463,6 @@
 #include "extract/jpc.inc"
 #include "extract/wiidsp_misc.inc"
 #include "extract/rwar.inc"
+#include "extract/mp2k.inc"
 #include "extract/rbnk.inc"
 #include "extract/monstersong.inc"
