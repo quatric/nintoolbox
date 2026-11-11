@@ -1,4 +1,4 @@
-// Nintendo cartridge ROM images: NES (iNES ".nes"), Game Boy / Color (".gb", ".gbc"), Game Boy Advance (".gba"), Super Nintendo (".sfc", ".smc") and
+// Nintendo cartridge ROM images and sound rips (".nsf" NES music, ".gbs" Game Boy music: header report + "data.bin"): NES (iNES ".nes"), Game Boy / Color (".gb", ".gbc"), Game Boy Advance (".gba"), Super Nintendo (".sfc", ".smc") and
 // Nintendo 64 (".z64" / ".v64" / ".n64"). Every ROM gets "<file>.d/info.txt" (header fields and checksum verdicts). NES ROMs are also split into
 // "prg.bin" and "chr.bin" and the CHR tiles are drawn to "chr.png" (16 tiles per row, 2 bit planes as grey levels); SNES ROMs lose a 512 byte copier header
 // ("rom.sfc") and N64 ROMs are normalised to the big-endian ".z64" byte order ("rom.z64").
@@ -30,7 +30,8 @@ static enumError extract_retrorom_file (ccp arg, ccp basedir, uint depth)
 	const bool nes = is_ext (arg, ".nes"), gb = is_ext (arg, ".gb") || is_ext (arg, ".gbc"), gba = is_ext (arg, ".gba");
 	const bool snes = is_ext (arg, ".sfc") || is_ext (arg, ".smc");
 	const bool n64 = is_ext (arg, ".z64") || is_ext (arg, ".v64") || is_ext (arg, ".n64");
-	if ((!nes && !gb && !gba && !snes && !n64) || (export_count == 0 && !opt_decode))
+	const bool nsf = is_ext (arg, ".nsf"), gbs = is_ext (arg, ".gbs");
+	if ((!nes && !gb && !gba && !snes && !n64 && !nsf && !gbs) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -41,7 +42,7 @@ static enumError extract_retrorom_file (ccp arg, ccp basedir, uint depth)
 	}
 	enumError err = ERR_NOTHING_TO_DO;
 	retro_info_t info = {{0}, 0};
-	char title[64];
+	char title[96];
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	u8 *extra = 0;
@@ -84,6 +85,31 @@ static enumError extract_retrorom_file (ccp arg, ccp basedir, uint depth)
 						}
 			}
 		}
+	}
+	else if (nsf && sz >= 0x80 && !memcmp (raw, "NESM\x1a", 5))
+	{
+		ok = true;
+		char art[40], cop[40];
+		retro_text (title, raw + 0x0e, 32);
+		retro_text (art, raw + 0x2e, 32);
+		retro_text (cop, raw + 0x4e, 32);
+		const uint ext = raw[0x7b];
+		retro_info (&info, "format: NES Sound Format v%u\nsongs: %u (start %u)\ntitle: %s\nartist: %s\ncopyright: %s\nload: 0x%04x\ninit: 0x%04x\nplay: 0x%04x\n"
+			"ntsc speed: %u us\npal speed: %u us\nregion flags: 0x%02x\nexpansion chips: 0x%02x\n", raw[5], raw[6], raw[7], title, art, cop, raw[8] | raw[9] << 8,
+			raw[10] | raw[11] << 8, raw[12] | raw[13] << 8, raw[0x6e] | raw[0x6f] << 8, raw[0x78] | raw[0x79] << 8, raw[0x7a], ext);
+		extra = raw + 0x80; extra_n = sz - 0x80; extra_name = "data.bin";
+	}
+	else if (gbs && sz >= 0x70 && !memcmp (raw, "GBS", 3))
+	{
+		ok = true;
+		char art[40], cop[40];
+		retro_text (title, raw + 0x10, 32);
+		retro_text (art, raw + 0x30, 32);
+		retro_text (cop, raw + 0x50, 32);
+		retro_info (&info, "format: Game Boy Sound v%u\nsongs: %u (start %u)\ntitle: %s\nauthor: %s\ncopyright: %s\nload: 0x%04x\ninit: 0x%04x\nplay: 0x%04x\nstack: 0x%04x\n"
+			"timer modulo: 0x%02x\ntimer control: 0x%02x\n", raw[3], raw[4], raw[5], title, art, cop, raw[6] | raw[7] << 8, raw[8] | raw[9] << 8, raw[10] | raw[11] << 8,
+			raw[12] | raw[13] << 8, raw[14], raw[15]);
+		extra = raw + 0x70; extra_n = sz - 0x70; extra_name = "data.bin";
 	}
 	else if (gb && sz >= 0x150 && raw[0x104] == 0xce && raw[0x105] == 0xed)
 	{
