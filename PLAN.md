@@ -2488,3 +2488,12 @@ census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, 
 - Kylotonn `.mdl` materials linked: MATE/MTRD names -> `textures_wii/<name>.txc` (searched up to 5 directories above the model), written as `<name>.png` beside the GLB so the exporter embeds them; per-face material from FACE+44 (`triangle_materials`). Models whose textures are 8 bit only stay untextured (151 PNGs over 226 models).
 - Kylotonn `.mtd` (195 UI bitmaps, 24 bit RGB, PACK 5) -> PNG done (`extract_kylotonn_mtd_file`). `gx_bitmap_decrunch` shows crunch types 1-5 = plain unpack, 6 = GX texture compression (CMPR) behind `gx_crunch_unpack`, 7 = DCT, 8 = VQ, 9/10 other: the `.mdl` embedded MTRD textures (PACK 6, 32x32) are therefore CMPR blocks, not yet decoded. 8 bit `.txc` still unresolved (data repeats with a period of 8 bytes; may be a different 8 bit use such as a mask).
 - Wii `savebanner.raw` / `saveicon<N>.raw` (headerless RGB5A3) -> PNG done (`extract/wii_saveicon.inc`). Kylotonn `.vid` (640x528, 25 fps, PACK 10 = u32 BE size + pack3 LZ + `gx_crunch_unpack9`, ~6 KB of frame-decoder code at 0x80189298) is the remaining big Cocoto item together with `.wld/.fld/.bse/.scn` level data.
+
+### Addendum: Kylotonn `.vid` frame decoder (`gx_crunch_unpack9`) -- partial notes (2026-11-11)
+- `.vid` = `{u16,u16,len name}` + SIZX 640 / SIZY 528 / PACK 10 / NBFR (frames) / FSEC (fps) / SFRE / SAMP chunks; each frame is `u32 BE size` + pack3 LZ (`gx_crunch_unpack10` = `unpack3` then `unpack9`). The sibling `.snd` already decodes.
+- `unpack9(src**, prev_frame, cur_frame, width, height, ...)` works on 8x8 blocks of 16 bit (RGB565, big endian) pixels. Block modes come 4 per byte, most significant 2 bits first (state counter 44, a new mode byte every 4 blocks):
+  - mode 0: motion copy from the previous frame; one byte, high nibble = dy + 8, low nibble = dx + 8 (relative to the block);
+  - mode 1: fill: one BE u16 colour for the whole 8x8 block;
+  - mode 2: two BE u16 endpoint colours (RGB565 -> 8 bit per channel), a 4 entry palette c0, (2*c0+c1)/3, (c0+2*c1)/3, c1 and one byte of four 2 bit indices, one per 4x4 quadrant (bits 7-6, 5-4, 3-2, 1-0);
+  - mode 3: sub-modes (2 bit codes again) with 2x2 / 4x4 level palettes (interpolation by /3 and /7) and per-pixel 2 bit indices; not yet transcribed (about 1100 instructions of 1583).
+- Next step: finish mode 3 from `objdump -d --start-address=0x80189298 --stop-address=0x8018ab50 cocoto_release.elf`, then a C decoder emitting a frame sequence (PNG or WebP-less raw) plus the existing `.snd` audio.
