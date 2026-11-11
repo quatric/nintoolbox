@@ -2506,3 +2506,9 @@ census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, 
 - Native CWAV/FWAV (`BXWAV`) decode is more exact than mobipeg: the file's loop context (yn1/yn2 at the loop start) is reproduced exactly by the native decoder (-112/-29 on `retail_sample.bcwav`), mobipeg is off by 2-3 LSB from the first frame on.
 - BARS: asset sizes now come from the next archive offset (the old code read the BWAV CRC32 as a size); `FSTP`/`FSTM` assets keep their own extension. BFSTP itself is not decoded (no retail sample on this machine).
 - Pilotwings Resort `music.bcsar` is a 5.8 KB stream-info archive only (no sequences, banks or waves), nothing for `wbrsar` to convert.
+
+### Addendum: first real Wii U audio (amiibo Touch and Play, EUR eShop) (2026-11-11)
+- `Family_Title_BGM.my.32.dspadpcm.bfstm` (big-endian, looped, 829,088 samples) decodes natively sample-identical to mobipeg; the 26 `bfwav` of the SE wave archive differ from mobipeg, and on the one looped wave only the native decode reproduces the file's loop-context history (mobipeg does not).
+- `BgmData.bfsar` / `SeData.bfsar` are index-only archives (22 sounds, 2 banks, 1 wave archive, FILE pool empty): their `FSEQ`/`FBNK`/`FWAR` live in `SeResourceStdSystem.sarc` as one `bfgrp`. `wbrsar` therefore has nothing to convert from the .bfsar itself ("no assets extracted").
+- Extracting such a group now also writes a SoundFont per bank (`NNNN.sf2`, bank + the group's wave archive, rendered with fluidsynth: audible) and a `.bfseq/.bcseq/.rseq` with several labels exports one MIDI per named sound (`<file>.<label>.mid`, dummy `fin` sounds skipped).
+- Still open: map an index-only BFSAR's sounds (names, bank, wave ids, sequence offsets) onto the external group so `wbrsar` emits the same output without a manual unpack.
