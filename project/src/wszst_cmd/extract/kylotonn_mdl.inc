@@ -4,8 +4,8 @@
 // pack3 LZ stream (see kylotonn_txc.inc; the MODL's "PACK" 5 = Huffman coded, "PACK" 3 = plain LZ):
 //   VERT: count x 3 little-endian floats;
 //   FACE: count x 52 bytes, u16 vertex count of the polygon at +4, u32 first PFCS entry at +40, u32 material index at +44;
-//   PFCS: one 44 byte record per polygon corner, u32 vertex index at +0 (UV and flag fields follow, not used).
-// Each polygon is a fan; all MODLs (including the box helpers "..._Reference") become meshes of "<file>.d/<name>.glb". Materials and
+//   PFCS: one 44 byte record per polygon corner, u32 vertex index at +0, float u at +12 and v at +28 (in texels of a 256 pixel texture).
+// Each polygon is a fan; all MODLs (including the box helpers "..._Reference") become meshes of "<file>.d/<name>.glb". UVs are divided by 256. Materials and
 // transforms are not applied: the MTRD bitmaps use another codec and HIER/QUAT are not decoded yet.
 static u8 *kyl_mdl_block (const u8 *p, size_t n, size_t rec, u32 *count, uint pack)
 {
@@ -103,8 +103,18 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 				{
 					vec3_t *pos = MALLOC ((size_t)nv * sizeof (*pos));
 					vertex_t *vt = CALLOC (ntri * 3, sizeof (*vt));
-					if (pos && vt)
+					vec2_t *uv = MALLOC ((size_t)np * sizeof (*uv));
+					if (pos && vt && uv)
 					{
+						for (u32 k = 0; k < np; k++)
+						{
+							const u32 ub = kyl_le32 (P + k * 44 + 12), vb = kyl_le32 (P + k * 44 + 28);
+							float fu, fv;
+							memcpy (&fu, &ub, 4);
+							memcpy (&fv, &vb, 4);
+							uv[k].u = fu / 256.0f; // texel units of the 256 pixel textures
+							uv[k].v = fv / 256.0f;
+						}
 						for (u32 k = 0; k < nv; k++)
 						{
 							float xyz[3];
@@ -122,12 +132,14 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 							const u32 first = kyl_le32 (F + f * 52 + 40);
 							for (uint j = 1; j + 1 < cnt; j++)
 							{
-								const u32 idx[3] = { kyl_le32 (P + (first) * 44), kyl_le32 (P + (first + j) * 44), kyl_le32 (P + (first + j + 1) * 44) };
+								const u32 corner[3] = { first, first + j, first + j + 1 };
+								const u32 idx[3] = { kyl_le32 (P + corner[0] * 44), kyl_le32 (P + corner[1] * 44), kyl_le32 (P + corner[2] * 44) };
 								for (int a = 0; a < 3; a++)
 								{
 									vertex_t *v = vt + t * 3 + a;
 									v->position_idx = (int)idx[a];
-									v->normal_idx = v->tangent_idx = v->texcoord_idx = v->matrix_idx = -1;
+									v->normal_idx = v->tangent_idx = v->matrix_idx = -1;
+									v->texcoord_idx = (int)corner[a];
 									v->color_idx[0] = v->color_idx[1] = -1;
 									for (int x = 0; x < 7; x++)
 										v->extra_texcoord_idx[x] = -1;
@@ -139,6 +151,8 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 						snprintf (m->name, sizeof (m->name), "%s", name);
 						m->positions = pos;
 						m->num_positions = nv;
+						m->texcoords = uv;
+						m->num_texcoords = np;
 						m->vertices = vt;
 						m->num_vertices = ntri * 3;
 						m->material_idx = 0;
@@ -147,6 +161,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 					{
 						FREE (pos);
 						FREE (vt);
+						FREE (uv);
 					}
 				}
 				FREE (V);
@@ -185,6 +200,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 		for (uint i = 0; i < made; i++)
 		{
 			FREE (meshes[i].positions);
+			FREE (meshes[i].texcoords);
 			FREE (meshes[i].vertices);
 		}
 		FREE (meshes);
