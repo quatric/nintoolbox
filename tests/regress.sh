@@ -12199,6 +12199,23 @@ PYE
     && fok "J3D BCK to csv" \
     || fno "J3D BCK to csv" "t.csv missing or wrong"
 
+  # J3D BPK colour animation -> csv
+  python3 - "$d/neko_test/t.bpk" <<'PYE' >/dev/null 2>&1
+import struct, sys
+R = struct.pack('>hhhhhh', 0, 255, 0, 10, 128, 0)
+ent = b''.join(struct.pack('>HHH', *t) for t in [(2, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)])
+eo = 0x34; ro = eo + 24; go = ro + len(R); bo = go + 2; ao = bo + 2
+body = bytearray(0x34); body[0:4] = b'PAK1'; body[8] = 1; body[10:12] = struct.pack('>H', 20); body[12:14] = struct.pack('>H', 1)
+body[14:22] = struct.pack('>HHHH', 6, 1, 1, 1); body[0x18:0x1c] = struct.pack('>I', eo); body[0x24:0x34] = struct.pack('>IIII', ro, go, bo, ao)
+c = bytes(body) + ent + R + struct.pack('>hhh', 7, 8, 255)
+c = c[:4] + struct.pack('>I', len(c)) + c[8:]
+open(sys.argv[1], 'wb').write(b'J3D1bpk1' + struct.pack('>II', 0x20 + len(c), 1) + b'\xff' * 16 + c)
+PYE
+  "$B/wszst" xx "$d/neko_test/t.bpk" --overwrite >/dev/null 2>&1
+  grep -q '^0,r,10,128$' "$d/neko_test/t.bpk.d/t.csv" 2>/dev/null && grep -q '^0,b,0,8$' "$d/neko_test/t.bpk.d/t.csv" \
+    && fok "J3D BPK to csv" \
+    || fno "J3D BPK to csv" "t.csv missing or wrong"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
