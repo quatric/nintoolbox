@@ -2452,3 +2452,8 @@ Findings for `S10S`: each pool pairs with an `ABKC` bank of the same name (`*_st
 The ABKC header (BE) holds the bank file size at +0x14, sample rate 32000 at +0x18 / +0x20, a record count at +0x1c and a value at +0x2c that equals the
 `.ast`'s +4 field (the link between them); sound records are 0x40 bytes starting at +0x40 (ids such as 0xb43, 0xb44, ...). Not solved: the codec of the
 pool data and the offset/size fields of the records (no reference decoder available locally to check against).
+
+Addendum (§44, 2026-11-10): Speed 2 (Europe) re-checked with the current build -- 69 of 70 `.dcm` models export to GLB (the old "single-part only"
+limit no longer applies; the one failure, `Models/sky2.dcm`, is a 51-byte stub with only the `DC2\0` magic), `.dcs` shaders and `.dcMenu`
+layouts are plain XML, `.dct` already decodes. Nothing left open for Speed 2. The remaining `wii\0` ARC work (Rebellion Asura `.t3` materials /
+`.t4` meshes, raw memory images) and the vaps / `.wiz` / `.wsp` formats need their own sample discs and are untouched.
