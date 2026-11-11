@@ -11856,6 +11856,19 @@ PYE
   && fok "Thrillville ATTR field map" \
   || fno "Thrillville ATTR field map" "failed on synthetic w.atr"
 
+  # Bermuda Triangle PLANETG (.MWG) text manifest wired into wszst x
+  mkdir -p "$d/bermuda_test"
+  python3 - "$d/bermuda_test/T.MWG" <<'PYE' >/dev/null 2>&1
+import struct, sys
+t = b'PLANETG_SPRITECOLLECTION'
+open(sys.argv[1], 'wb').write(struct.pack('<I', len(t)) + t + struct.pack('<II', 2, 3) + struct.pack('<I', 5) + b'BTN_N' + struct.pack('<I', 7))
+PYE
+  "$B/wszst" xx "$d/bermuda_test/T.MWG" --overwrite >/dev/null 2>&1 \
+  && grep -q 'tag\[0x0\] len=24 "PLANETG_SPRITECOLLECTION"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q '"BTN_N"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && fok "Bermuda PLANETG text manifest" \
+  || fno "Bermuda PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

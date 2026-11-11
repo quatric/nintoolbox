@@ -231,6 +231,7 @@
 #include "extract/pbin.inc"
 #include "extract/ccfpk.inc"
 #include "extract/eatext.inc"
+#include "extract/wii_text_manifests.inc"
 #include "extract/okamit.inc"
 #include "extract/okamidat.inc"
 #include "extract/htex.inc"
