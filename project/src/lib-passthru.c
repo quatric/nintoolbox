@@ -3833,9 +3833,12 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	// stream-audio .bns always starts with the "BNS " magic.
 	bool is_stream_audio = !memcmp (head, "RSTM", 4) || !memcmp (head, "CSTM", 4)
 		|| !memcmp (head, "FSTM", 4) || !memcmp (head, "BNS ", 4)
+		// ".ast" is magic-only: only the Nintendo AST stream ("STRM") is demuxable; the many unrelated ".ast" files (Proteus "SDASSETF" bundles,
+		// the "S10S" audio banks of Spore Hero, EA streams) would otherwise be handed to mobipeg, which cannot open them and aborts the extraction.
+		|| !memcmp (head, "STRM", 4)
 		|| (!strong_only
 			&& (is_ext (src, ".brstm") || is_ext (src, ".bcstm") || is_ext (src, ".bfstm")
-				|| is_ext (src, ".btsnd") || is_ext (src, ".ast") || is_ext (src, ".dsp")));
+				|| is_ext (src, ".btsnd") || is_ext (src, ".dsp")));
 	// These extensions collide with unrelated data often enough that a
 	// name-only claim hands mobipeg a file it cannot open and aborts the
 	// whole extraction, so each is gated on the exact header signature

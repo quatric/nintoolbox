@@ -11949,6 +11949,24 @@ PYE
     fok "Proteus SDASSETF REF@ chunk alignment"
   else fno "Proteus SDASSETF REF@ chunk alignment" "walk lost sync after REF@"; fi
 
+  # Nintendo AST ("STRM") still goes to the media pass-through; an unrelated ".ast" ("S10S" audio bank) must not abort xx
+  mkdir -p "$d/ast_pt_test"
+  python3 - "$d/ast_pt_test/n.ast" "$d/ast_pt_test/s.ast" <<'PYE' >/dev/null 2>&1
+import struct, sys, math
+n = 4096
+pcm = b''.join(struct.pack('>h', int(8000 * math.sin(i / 10))) for i in range(n))
+hdr = b'STRM' + struct.pack('>I', len(pcm) + 0x20) + struct.pack('>HHHH', 1, 16, 1, 0) + struct.pack('>IIII', 32000, n, 0, 0) + struct.pack('>I', len(pcm)) + bytes(0x40 - 0x24)
+open(sys.argv[1], 'wb').write(hdr + b'BLCK' + struct.pack('>I', len(pcm)) + bytes(0x18) + pcm)
+open(sys.argv[2], 'wb').write(b'S10S' + bytes([4, 0x36, 0xdb, 0]) + bytes(0x38) + bytes(range(256)) * 8)
+PYE
+  if command -v mobipeg >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/ast_pt_test/n.ast" --overwrite >/dev/null 2>&1
+    [ -s "$d/ast_pt_test/n.d/n.wav" ] && fok "Nintendo AST (STRM) media pass-through" || fno "Nintendo AST (STRM) media pass-through" "no n.d/n.wav"
+  fi
+  "$B/wszst" xx "$d/ast_pt_test/s.ast" --overwrite >/dev/null 2>&1; rc=$?
+  { [ $rc = 0 ] || [ $rc = 4 ]; } && ! grep -q . <("$B/wszst" xx "$d/ast_pt_test/s.ast" 2>&1 | grep -i "mobipeg") \
+    && fok "Unrelated .ast (S10S) is not sent to mobipeg" || fno "Unrelated .ast (S10S) is not sent to mobipeg" "rc=$rc"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

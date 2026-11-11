@@ -2440,3 +2440,15 @@ Goosebumps HorrorLand (1598 files) and I Spy Spooky Mansion (190): the chunk tre
 Open: skinning, SKEL/ALST/ATRE contents, LOD/INFO, the 22 little-endian textures, tiled 640x480 screens, and other games' `.ast`
 (Spore Hero, Nat Geo, Ultimate I Spy, I Spy Game Pack -- same engine family, not yet run). The 3% of Goosebumps models that fail have a DATA block whose
 size disagrees with 32 + vertex count x stride.
+
+## 46. 2026-11-10 — `.ast` is not one format (Spore Hero `S10S`)
+
+`lib-passthru.c` claimed every `.ast` as a Nintendo stream-audio file by extension, so any other `.ast` was handed to mobipeg and `xx` aborted with
+"pass-through mobipeg failed" (Spore Hero). It is now magic-only (`STRM`); regress cases cover a real STRM stream and an unrelated `.ast`.
+
+`.ast` families seen so far: Nintendo `STRM`; EA `SCHl` / multi-segment (native); Proteus `SDASSETF` / `SADSFTES` (§45); and the Spore Hero
+`S10S` pools (`audio/rwac/aems/*_strm.ast`, 28 files, 0x40-byte header: magic, one value, zeros, then raw stream data in 0x40-byte units).
+Findings for `S10S`: each pool pairs with an `ABKC` bank of the same name (`*_strm.abk`, no embedded BNK, so the existing ABKC handler finds nothing).
+The ABKC header (BE) holds the bank file size at +0x14, sample rate 32000 at +0x18 / +0x20, a record count at +0x1c and a value at +0x2c that equals the
+`.ast`'s +4 field (the link between them); sound records are 0x40 bytes starting at +0x40 (ids such as 0xb43, 0xb44, ...). Not solved: the codec of the
+pool data and the offset/size fields of the records (no reference decoder available locally to check against).
