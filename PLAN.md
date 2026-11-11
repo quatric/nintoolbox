@@ -2469,4 +2469,5 @@ census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, 
 
 ### Addendum: Kylotonn (Cocoto Festival) `.snd` — done
 - `.snd`: zero u32, then LE chunks {tag, u32 size incl. 8-byte header}: NAME, FREQ, STER, SIZE, CSZE, SAMP. SAMP is a standard 0x60-byte DSP header + ADPCM with every 16-bit word byte-swapped (my earlier clipping decode was reading it unswapped). Handler `extract/kylotonn_snd.inc` swaps it back and emits `ch0.dsp` -> WAV; 181/181 members decode (the final frame can be cut short; zero-filled).
+- `.txc`: `PACK` is 5 in all 488 images (8/16/32 bpp). The ELF has `gx_crunch_unpack` / `gx_antiryad_unpackfile`, so `PICT` is a Kylotonn "crunch" stream (not zlib/Nintendo LZ; byte histogram looks entropy-coded). Decoding needs the unpacker disassembled from `cocoto_release.elf`.
 - Still open: `.txc` (BTCH/MTRD, 8/16/32 bpp, `PACK`=compression method, unknown LZ in `PICT`, palette in `PALE`) and `.mdl`.
