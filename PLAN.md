@@ -2457,3 +2457,8 @@ Addendum (§44, 2026-11-10): Speed 2 (Europe) re-checked with the current build 
 limit no longer applies; the one failure, `Models/sky2.dcm`, is a 51-byte stub with only the `DC2\0` magic), `.dcs` shaders and `.dcMenu`
 layouts are plain XML, `.dct` already decodes. Nothing left open for Speed 2. The remaining `wii\0` ARC work (Rebellion Asura `.t3` materials /
 `.t4` meshes, raw memory images) and the vaps / `.wiz` / `.wsp` formats need their own sample discs and are untouched.
+
+Addendum (§45): I Spy Game Pack (303 files) walks with no warnings; 4130 -> 4450 of 4634 models after reading MESH-tail indices for meshes
+without WDGE (baked models; bounds and triangle count of a sample match the MESH header exactly). Still failing (~4%): skinned meshes where WDGE's
+vertex count (e.g. 1419) exceeds the DATA vertex count (1193) -- a wedge to vertex table exists somewhere in the MESH tail (groups of u16 triples with a
+leading count) but its layout was not worked out; the WGHT chunk (skin weights) is also undecoded.

@@ -542,12 +542,9 @@ static uint ast_vertex_size (u32 flags)
 // Builds one mesh from its DATA / WDGE / MESH children; returns false when the chunks do not fit together.
 static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_child_t *dc, const ast_child_t *wc, const ast_child_t *mc, const ast_material_t *mats, uint nmat, mesh_t *mesh)
 {
-	if (dc->size < 32 || wc->size < 8 || mc->size < 4)
+	if (dc->size < 32 || mc->size < 4 || (wc && wc->size < 8))
 		return false;
 	const u32 stride = ast_u32 (data, (u32)dc->pay + 8, swapped), flags = ast_u32 (data, (u32)dc->pay + 16, swapped);
-	const u32 nv = ast_u32 (data, (u32)wc->pay, swapped), ni = ast_u32 (data, (u32)wc->pay + 4, swapped);
-	if (!nv || !ni || nv > 0x100000 || ni > 0x400000 || ast_vertex_size (flags) > stride || (u64)32 + (u64)nv * stride > dc->size || 8 + 4 * (u64)ni > wc->size)
-		return false;
 
 	// MESH: name padded to 4, bounds (6 floats), then {material field, index count, 1, 0, 0, triangle count}
 	const u8 *mp = data + mc->pay;
@@ -555,9 +552,65 @@ static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_
 	while (nl < mc->size && mp[nl])
 		nl++;
 	nl = (nl + 1 + 3) & ~3u;
-	if ((u64)nl + 24 + 24 > mc->size)
+	if ((u64)nl + 24 + 24 > mc->size || !stride)
 		return false;
 	const u32 mat_field = ast_u32 (mp, nl + 24, swapped), ntri_decl = ast_u32 (mp, nl + 24 + 20, swapped);
+
+	// Indices come from the paired WDGE chunk ({vertex count, index count, u32 indices}). Meshes without one (the baked-lighting models) keep them in the
+	// tail of the MESH chunk instead: the index count (from the MESH header) followed by one entry per index, each entry being the index repeated once per
+	// vertex component (position, normal, colour, UV), as bytes when the DATA chunk holds at most 256 vertices and as 16 bit values otherwise.
+	u32 nv, ni;
+	if (wc)
+	{
+		nv = ast_u32 (data, (u32)wc->pay, swapped);
+		ni = ast_u32 (data, (u32)wc->pay + 4, swapped);
+	}
+	else
+	{
+		nv = (dc->size - 32) / stride;
+		ni = ast_u32 (mp, nl + 28, swapped);
+	}
+	if (!nv || !ni || nv > 0x100000 || ni > 0x400000 || ast_vertex_size (flags) > stride || (u64)32 + (u64)nv * stride > dc->size || (wc && 8 + 4 * (u64)ni > wc->size))
+		return false;
+	u32 *ind = CALLOC (ni, sizeof (*ind));
+	if (!ind)
+		return false;
+	if (wc)
+	{
+		for (u32 t = 0; t < ni; t++)
+			ind[t] = ast_u32 (data, (u32)wc->pay + 8 + 4 * t, swapped);
+	}
+	else
+	{
+		uint kc = 0;
+		for (int i = 0; i < 4; i++)
+		{
+			const uint c = (flags >> (8 * i)) & 255;
+			kc += c >= 1 && c <= 4;
+		}
+		const uint w = nv > 256 ? 2 : 1;
+		const u64 need = 4 + (u64)kc * w * ni;
+		bool found = false;
+		for (u64 o = nl + 48; kc && !found && o + need <= mc->size; o++)
+		{
+			if (ast_u32 (mp, (u32)o, swapped) != ni)
+				continue;
+			bool good = true;
+			for (u32 j = 0; good && j < ni; j++)
+			{
+				const u8 *e = mp + o + 4 + (u64)j * kc * w;
+				const u32 v = w == 1 ? e[0] : swapped ? rd_le16 (e) : rd_be16 (e);
+				good = v < nv;
+				ind[j] = v;
+			}
+			found = good;
+		}
+		if (!found)
+		{
+			FREE (ind);
+			return false;
+		}
+	}
 
 	vec3_t *pos = CALLOC (nv, sizeof (*pos));
 	vec3_t *nrm = 0;
@@ -568,6 +621,7 @@ static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_
 	{
 		FREE (pos);
 		FREE (vt);
+		FREE (ind);
 		return false;
 	}
 	bool has_n = false, has_uv = false, has_c = false;
@@ -586,7 +640,7 @@ static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_
 		col = CALLOC (nv, sizeof (*col));
 	if ((has_n && !nrm) || (has_uv && !uv) || (has_c && !col))
 	{
-		FREE (pos); FREE (nrm); FREE (uv); FREE (col); FREE (vt);
+		FREE (pos); FREE (nrm); FREE (uv); FREE (col); FREE (vt); FREE (ind);
 		return false;
 	}
 	for (u32 i = 0; i < nv; i++)
@@ -618,12 +672,11 @@ static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_
 
 	// the declared triangle count tells a triangle list (3 * count == index count) from a strip
 	const bool list = ntri_decl * 3 == ni;
-	const u8 *ip = data + wc->pay + 8;
 	size_t num = 0;
 	bool ok = true;
 	for (u32 t = 0; ok && (list ? t + 3 <= ni : t + 3 <= ni); t += list ? 3 : 1)
 	{
-		u32 i3[3] = { ast_u32 (ip, 4 * t, swapped), ast_u32 (ip, 4 * (t + 1), swapped), ast_u32 (ip, 4 * (t + 2), swapped) };
+		u32 i3[3] = { ind[t], ind[t + 1], ind[t + 2] };
 		if (!list && (t & 1))
 		{
 			const u32 x = i3[0];
@@ -653,9 +706,10 @@ static bool ast_build_mesh (const u8 *data, size_t size, int swapped, const ast_
 	}
 	if (!ok || !num)
 	{
-		FREE (pos); FREE (nrm); FREE (uv); FREE (col); FREE (vt);
+		FREE (pos); FREE (nrm); FREE (uv); FREE (col); FREE (vt); FREE (ind);
 		return false;
 	}
+	FREE (ind);
 	snprintf (mesh->name, sizeof (mesh->name), "%s", (const char *)mp);
 	mesh->positions = pos;
 	mesh->num_positions = nv;
@@ -733,7 +787,7 @@ int SpookyAstForEachModel (const u8 *data, size_t size, int (*cb) (const char *n
 					if (strcmp (kid[i].tag, "MESH"))
 						continue;
 					const ast_child_t *d = ast_find (kid, nk, "DATA", kid[i].field), *w = ast_find (kid, nk, "WDGE", kid[i].field);
-					if (d && w && ast_build_mesh (data, size, swapped, d, w, kid + i, mats, nmat, meshes + made))
+					if (d && ast_build_mesh (data, size, swapped, d, w, kid + i, mats, nmat, meshes + made))
 						made++;
 				}
 				for (uint i = 0; i < nmat; i++)

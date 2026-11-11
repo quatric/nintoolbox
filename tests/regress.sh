@@ -11967,6 +11967,25 @@ PYE
   { [ $rc = 0 ] || [ $rc = 4 ]; } && ! grep -q . <("$B/wszst" xx "$d/ast_pt_test/s.ast" 2>&1 | grep -i "mobipeg") \
     && fok "Unrelated .ast (S10S) is not sent to mobipeg" || fno "Unrelated .ast (S10S) is not sent to mobipeg" "rc=$rc"
 
+  # Proteus MDL without a WDGE chunk: indices live in the MESH tail (count + one entry per index, repeated per vertex component, bytes for <= 256 vertices)
+  python3 - "$d/proteus_test/nowdge.ast" <<'PYE' >/dev/null 2>&1
+import struct, sys
+P = lambda *a: struct.pack('<' + 'I' * len(a), *a)
+pad4 = lambda b: b + bytes((-len(b)) % 4)
+def top(tag, ver, name, fixed, kids=b''): return tag[::-1] + P(ver, len(fixed), len(kids)) + pad4(name + b'\0') + fixed + kids
+def kid(tag, fld, pay): return tag[::-1] + P(1, fld, len(pay)) + pay
+def vert(x, y, z, u, v): return struct.pack('<3f4B2f', x, y, z, 255, 255, 255, 255, u, v)
+data = P(0, 0, 24, 4, 0x80040301, 0, 0, 0) + vert(0, 0, 0, 0, 0) + vert(1, 0, 0, 1, 0) + vert(1, 1, 0, 1, 1) + vert(0, 1, 0, 0, 1) + bytes(4)
+tail = P(4) + bytes([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3])
+mesh = pad4(b'quad\0') + struct.pack('<6f', 0, 0, 0, 1, 1, 0) + P(1, 4, 1, 0, 0, 2) + bytes(96) + tail
+mdl = top(b'MDL\0', 5, b'baked', bytes(20), kid(b'DATA', 1, data) + kid(b'MESH', 1, mesh))
+open(sys.argv[1], 'wb').write(b'SADSFTES' + P(1, 1) + mdl)
+PYE
+  "$B/wszst" xx "$d/proteus_test/nowdge.ast" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/proteus_test/nowdge.ast.d/baked.glb" 2>/dev/null)" = "glTF" ] \
+    && fok "Proteus MDL without WDGE (MESH tail indices) to GLB" \
+    || fno "Proteus MDL without WDGE (MESH tail indices) to GLB" "no baked.glb"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
