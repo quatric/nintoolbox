@@ -2462,3 +2462,7 @@ Addendum (§45): I Spy Game Pack (303 files) walks with no warnings; 4130 -> 445
 without WDGE (baked models; bounds and triangle count of a sample match the MESH header exactly). Still failing (~4%): skinned meshes where WDGE's
 vertex count (e.g. 1419) exceeds the DATA vertex count (1193) -- a wedge to vertex table exists somewhere in the MESH tail (groups of u16 triples with a
 leading count) but its layout was not worked out; the WGHT chunk (skin weights) is also undecoded.
+
+Addendum (§45): National Geographic Challenge! (USA): 709 `.ast` files (659 BE, 50 LE) walk with no warnings; 417 of 419 models and 1436 textures export;
+the only non-zero exits are three 16-byte header-only bundles (no chunks). New tags seen: NDAN, NDST, NDOU, AGPH (not decoded). Every Proteus game in the
+census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, Nat Geo Challenge) has now been run.
