@@ -12070,6 +12070,27 @@ PYE
     && fok "Kylotonn .txc (PACK 5 crunch) to PNG" \
     || fno "Kylotonn .txc (PACK 5 crunch) to PNG" "no kyltex_0.png"
 
+  # Kylotonn .mdl (LZ geometry blocks) -> GLB
+  mkdir -p "$d/kylmdl_test"
+  python3 - "$d/kylmdl_test/m.mdl" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def ck(t, p): return t + struct.pack('<I', len(p) + 8) + p
+def lit(b): return b''.join(bytes([len(b[i:i + 128]) - 1]) + b[i:i + 128] for i in range(0, len(b), 128))  # pack3 literal runs (<= 128 bytes each)
+def blk(n, raw): return struct.pack('<I', n) + lit(raw)
+vert = b''.join(struct.pack('<3f', *v) for v in ((0, 0, 0), (1, 0, 0), (0, 1, 0)))
+face = struct.pack('<IHHI', 0, 0, 3, 0) + bytes(32) + struct.pack('<III', 0, 0, 0)  # 52 bytes: count 3 at +4, first corner 0 at +40
+face = bytearray(52); struct.pack_into('<H', face, 4, 3)
+pf = b''.join(struct.pack('<I', i) + bytes(40) for i in range(3))
+modl = ck(b'NAME', struct.pack('<HHB', 5, 6, 3) + b'tri\0') + ck(b'PACK', struct.pack('<I', 3)) + ck(b'VERT', blk(3, vert)) + ck(b'FACE', blk(1, bytes(face))) + ck(b'PFCS', blk(3, pf))
+obje = ck(b'OBJE', struct.pack('<I', 1) + ck(b'MODL', modl))
+out = struct.pack('<HHB', 5, 6, 3) + b'm\0\0' + ck(b'FLAG', bytes(4)) + obje
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" xx "$d/kylmdl_test/m.mdl" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/kylmdl_test/m.mdl.d/m.glb" 2>/dev/null)" = "glTF" ] \
+    && fok "Kylotonn .mdl (LZ geometry) to GLB" \
+    || fno "Kylotonn .mdl (LZ geometry) to GLB" "no m.glb"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
