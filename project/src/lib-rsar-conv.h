@@ -22,6 +22,12 @@
 // back to another converter for BFSAR / BCSAR / SDAT.
 enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir);
 
+// Nintendo DS SDAT -> MIDI + SF2, same output layout (port of NDSScanner / NDSInstrSet).
+// SSEQ sequences become MIDI through the sequence library; every bank used by a sequence
+// becomes a SoundFont holding the eight synthesized PSG duty waves followed by the samples
+// of the bank's wave archives.
+enumError ConvertSDATNative (const u8 *data, size_t size, ccp out_dir);
+
 // Builds a SoundFont for one RBNK (instrument bank) plus the wave data it references;
 // exposed separately so that tools can convert a standalone bank + wave archive.
 //   rbnk  : RBNK file image; wave : RWAR file image (may be NULL for banks with an

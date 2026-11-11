@@ -349,8 +349,9 @@ int main (int argc, char *argv[])
 			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, raw_dir);
 			rc = 0;
 		}
-		// BRSAR (RSAR) is converted natively; other containers still go through vgmtrans
-		if (!memcmp (raw, "RSAR", 4) && ConvertRSARNative (raw, raw_size, out_dir) == ERR_OK)
+		// BRSAR (RSAR) and SDAT are converted natively; other containers still go through vgmtrans
+		if ((!memcmp (raw, "RSAR", 4) && ConvertRSARNative (raw, raw_size, out_dir) == ERR_OK)
+			|| (!memcmp (raw, "SDAT", 4) && ConvertSDATNative (raw, raw_size, out_dir) == ERR_OK))
 		{
 			printf ("wbrsar: converted %s -> %s/{midi,soundfonts} (native)\n", in_file, out_dir);
 			native_done = true;

@@ -668,7 +668,7 @@ static void rb_free_instrs (rb_instr_t *ins, uint n)
 ///////////////////////////////////////////////////////////////////////////////
 // SoundFont writer (SF2File.cpp + VGMColl::CreateSynthFile + ScaleConversion)
 
-static int rb_roundi (double x) { return x > 0 ? (int)(x + 0.5) : (int)(x - 0.5); }
+static int rb_roundi (double x) { return isnan (x) || fabs (x) > 2e9 ? 0 : x > 0 ? (int)(x + 0.5) : (int)(x - 0.5); }
 // std::min (a, 100.0) semantics of the original: a NaN stays NaN
 static double rb_min100 (double a) { return 100.0 < a ? 100.0 : a; }
 static double rb_log_to_atten (double p) { return p == 0 ? 100.0 : rb_min100 (-(20 * log10 (p))); }
@@ -858,7 +858,7 @@ static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_
 			sf_gen_range (&b, 43, r->klo, r->khi);
 			if (r->vhi)
 				sf_gen_range (&b, 44, r->vlo, r->vhi);
-			sf_gen (&b, 48, rb_i16 (rb_log_to_atten (r->volume) * 10)); // initialAttenuation
+			sf_gen (&b, 48, r->volume < 0 ? 0 : rb_i16 (rb_log_to_atten (r->volume) * 10)); // initialAttenuation
 			sf_gen (&b, 17, (int16_t)(rb_roundi (r->pan * 1000) - 500)); // pan
 			sf_gen (&b, 54, sp && sp->loop ? 1 : 0); // sampleModes
 			sf_gen (&b, 58, (u16)(int16_t)unity); // overridingRootKey
@@ -1127,5 +1127,504 @@ enumError ConvertRBNKToSF2 (const u8 *rbnk, size_t rbnk_size, const u8 *wave, si
 		rb_coll_free (&coll);
 	}
 	FREE (img);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Nintendo DS SDAT (NDSScanner.cpp / NDSInstrSet.cpp): SYMB/INFO/FAT tables, SBNK
+// instrument banks, SWAR wave archives (PCM8 / PCM16 / IMA-ADPCM) and the eight
+// PSG duty-cycle waves vgmtrans synthesizes for the DS square channels.
+
+static u32 nl16 (const rc_file_t *f, size_t o) { return rc_u8 (f, o) | rc_u8 (f, o + 1) << 8; }
+static u32 nl32 (const rc_file_t *f, size_t o) { return nl16 (f, o) | nl16 (f, o + 2) << 16; }
+
+static const unsigned nds_adpcm_table[89] = {
+	0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x0010, 0x0011, 0x0013, 0x0015, 0x0017, 0x0019, 0x001C, 0x001F,
+	0x0022, 0x0025, 0x0029, 0x002D, 0x0032, 0x0037, 0x003C, 0x0042, 0x0049, 0x0050, 0x0058, 0x0061, 0x006B, 0x0076, 0x0082, 0x008F,
+	0x009D, 0x00AD, 0x00BE, 0x00D1, 0x00E6, 0x00FD, 0x0117, 0x0133, 0x0151, 0x0173, 0x0198, 0x01C1, 0x01EE, 0x0220, 0x0256, 0x0292,
+	0x02D4, 0x031C, 0x036C, 0x03C3, 0x0424, 0x048E, 0x0502, 0x0583, 0x0610, 0x06AB, 0x0756, 0x0812, 0x08E0, 0x09C3, 0x0ABD, 0x0BD0,
+	0x0CFF, 0x0E4C, 0x0FBA, 0x114C, 0x1307, 0x14EE, 0x1706, 0x1954, 0x1BDC, 0x1EA5, 0x21B6, 0x2515, 0x28CA, 0x2CDF, 0x315B, 0x364B,
+	0x3BB9, 0x41B2, 0x4844, 0x4F7E, 0x5771, 0x602F, 0x69CE, 0x7462, 0x7FFF
+};
+static const int nds_ima_index[8] = { -1, -1, -1, -1, 2, 4, 6, 8 };
+
+static void nds_ima_nibble (uint nib, int *index, int *pcm)
+{
+	int diff = nds_adpcm_table[*index] / 8;
+	if (nib & 1) diff += nds_adpcm_table[*index] / 4;
+	if (nib & 2) diff += nds_adpcm_table[*index] / 2;
+	if (nib & 4) diff += nds_adpcm_table[*index];
+	if (!(nib & 8))
+		*pcm = *pcm + diff > 0x7fff ? 0x7fff : *pcm + diff;
+	else
+		*pcm = *pcm - diff < -0x7fff ? -0x7fff : *pcm - diff;
+	const int ni = *index + nds_ima_index[nib & 7];
+	*index = ni > 88 ? 88 : ni < 0 ? 0 : ni;
+}
+
+// samples of one SWAR (rb_coll_t from the wave archive at "base")
+static void nds_load_swar (const rc_file_t *f, rb_coll_t *c, size_t base)
+{
+	const u32 cnt = nl32 (f, base + 0x38);
+	if (cnt > 100000)
+		return;
+	c->s = CALLOC (cnt ? cnt : 1, sizeof (rb_samp_t));
+	if (!c->s)
+		return;
+	c->n = cnt;
+	for (uint i = 0; i < cnt; i++)
+	{
+		rb_samp_t *s = c->s + i;
+		const size_t ps = base + nl32 (f, base + 0x3c + 4 * (size_t)i);
+		const uint type = rc_u8 (f, ps);
+		if (type > 2)
+			continue;
+		const bool loops = rc_u8 (f, ps + 1) != 0;
+		s->rate = nl16 (f, ps + 2);
+		u32 loop_off = nl16 (f, ps + 6) * 4, non_loop = nl16 (f, ps + 8) * 4;
+		size_t data;
+		u32 len;
+		if (type == 2) // IMA-ADPCM
+		{
+			data = ps + 0x10;
+			len = loop_off + non_loop - 4;
+		}
+		else
+		{
+			data = ps + 0xc;
+			len = loop_off + non_loop;
+		}
+		if (len > 0x2000000 || data + len > f->n)
+			continue;
+		s->loop = loops;
+		if (type == 2)
+		{
+			const u32 hdr = nl32 (f, data - 4);
+			int pcm = hdr & 0xffff, idx = (hdr >> 16) & 0x7f;
+			if (idx > 88)
+				idx = 88;
+			s->pcm_count = (size_t)len * 2 + 1;
+			s->pcm = CALLOC (s->pcm_count, 2);
+			if (!s->pcm)
+				continue;
+			size_t d = 0;
+			s->pcm[d++] = (s16)pcm;
+			for (u32 k = 0; k < len; k++)
+			{
+				const u8 b = rc_u8 (f, data + k);
+				nds_ima_nibble (b & 15, &idx, &pcm);
+				s->pcm[d++] = (s16)pcm;
+				nds_ima_nibble (b >> 4, &idx, &pcm);
+				s->pcm[d++] = (s16)pcm;
+			}
+			u32 lo = loop_off * 2;
+			lo = lo - 8 + 1;
+			non_loop = (len * 2 + 1) - lo;
+			s->loop_start_s = lo;
+			s->loop_len_s = non_loop;
+		}
+		else if (type == 1) // PCM16
+		{
+			s->pcm_count = len / 2;
+			s->pcm = CALLOC (s->pcm_count ? s->pcm_count : 1, 2);
+			if (!s->pcm)
+				continue;
+			for (size_t k = 0; k < s->pcm_count; k++)
+				s->pcm[k] = (s16)nl16 (f, data + 2 * k);
+			u32 ll = non_loop;
+			if (loops && !ll)
+				ll = len - loop_off;
+			s->loop_start_s = loop_off / 2;
+			s->loop_len_s = ll / 2;
+		}
+		else // PCM8
+		{
+			s->pcm_count = len;
+			s->pcm = CALLOC (len ? len : 1, 2);
+			if (!s->pcm)
+				continue;
+			for (u32 k = 0; k < len; k++)
+				s->pcm[k] = (s16)((int8_t)rc_u8 (f, data + k) << 8);
+			u32 ll = non_loop;
+			if (loops && !ll)
+				ll = len - loop_off;
+			s->loop_start_s = loop_off;
+			s->loop_len_s = ll;
+		}
+		if (!loops)
+			s->loop_start_s = s->loop_len_s = 0;
+		s->valid = true;
+	}
+}
+
+// the eight synthesized duty cycle waves ("PSG Samples"), one second at 44.1 kHz each
+static void nds_psg_coll (rb_coll_t *c)
+{
+	c->s = CALLOC (8, sizeof (rb_samp_t));
+	if (!c->s)
+		return;
+	c->n = 8;
+	for (uint duty = 0; duty < 8; duty++)
+	{
+		rb_samp_t *s = c->s + duty;
+		const int rate = 44100;
+		s->rate = rate;
+		s->loop = true;
+		s->pcm_count = rate;
+		s->loop_start_s = 0;
+		s->loop_len_s = rate;
+		s->pcm = CALLOC (rate, 2);
+		if (!s->pcm)
+			continue;
+		const uint num_high = (duty + 1) % 8, num_low = 8 - num_high;
+		(void)num_high;
+		const double dt = 1.0 / rate, width = 1.0 / 440.0;
+		uint pos = 0;
+		s16 sample = 0;
+		double t = 0;
+		bool gen = true;
+		for (int i = 0; i < rate; i++)
+		{
+			t += dt;
+			if (t >= width)
+			{
+				gen = true;
+				t -= width;
+			}
+			if (gen)
+			{
+				sample = pos < num_low ? -0x7fff : 0x7fff;
+				pos = (pos + 1) % 8;
+				gen = false;
+			}
+			s->pcm[i] = sample;
+		}
+		s->valid = true;
+	}
+}
+
+static u16 nds_falling_rate (u8 t)
+{
+	u32 r;
+	if (t == 0x7f)
+		r = 0xffff;
+	else if (t == 0x7e)
+		r = 0x3c00;
+	else if (t < 0x32)
+		r = (t * 2 + 1) & 0xffff;
+	else
+		r = (0x1e00 / (u8)(0x7e - t)) & 0xffff;
+	return (u16)r;
+}
+
+static void nds_artic (const rc_file_t *f, size_t o, rb_rgn_t *r)
+{
+	static const u8 attack_table[19] = { 0x00, 0x01, 0x05, 0x0E, 0x1A, 0x26, 0x33, 0x3F, 0x49, 0x54, 0x5C, 0x64, 0x6D, 0x74, 0x7B, 0x7F, 0x84, 0x89, 0x8F };
+	static const u16 sustain_table[128] = {
+		0xFD2D, 0xFD2E, 0xFD2F, 0xFD75, 0xFDA7, 0xFDCE, 0xFDEE, 0xFE09, 0xFE20, 0xFE34, 0xFE46, 0xFE57, 0xFE66, 0xFE74, 0xFE81, 0xFE8D,
+		0xFE98, 0xFEA3, 0xFEAD, 0xFEB6, 0xFEBF, 0xFEC7, 0xFECF, 0xFED7, 0xFEDF, 0xFEE6, 0xFEEC, 0xFEF3, 0xFEF9, 0xFEFF, 0xFF05, 0xFF0B,
+		0xFF11, 0xFF16, 0xFF1B, 0xFF20, 0xFF25, 0xFF2A, 0xFF2E, 0xFF33, 0xFF37, 0xFF3C, 0xFF40, 0xFF44, 0xFF48, 0xFF4C, 0xFF50, 0xFF53,
+		0xFF57, 0xFF5B, 0xFF5E, 0xFF62, 0xFF65, 0xFF68, 0xFF6B, 0xFF6F, 0xFF72, 0xFF75, 0xFF78, 0xFF7B, 0xFF7E, 0xFF81, 0xFF83, 0xFF86,
+		0xFF89, 0xFF8C, 0xFF8E, 0xFF91, 0xFF93, 0xFF96, 0xFF99, 0xFF9B, 0xFF9D, 0xFFA0, 0xFFA2, 0xFFA5, 0xFFA7, 0xFFA9, 0xFFAB, 0xFFAE,
+		0xFFB0, 0xFFB2, 0xFFB4, 0xFFB6, 0xFFB8, 0xFFBA, 0xFFBC, 0xFFBE, 0xFFC0, 0xFFC2, 0xFFC4, 0xFFC6, 0xFFC8, 0xFFCA, 0xFFCC, 0xFFCE,
+		0xFFCF, 0xFFD1, 0xFFD3, 0xFFD5, 0xFFD6, 0xFFD8, 0xFFDA, 0xFFDC, 0xFFDD, 0xFFDF, 0xFFE1, 0xFFE2, 0xFFE4, 0xFFE5, 0xFFE7, 0xFFE9,
+		0xFFEA, 0xFFEC, 0xFFED, 0xFFEF, 0xFFF0, 0xFFF2, 0xFFF3, 0xFFF5, 0xFFF6, 0xFFF8, 0xFFF9, 0xFFFA, 0xFFFC, 0xFFFD, 0xFFFF, 0x0000
+	};
+	const double intr = 1.0 / 192.0;
+	r->unity = (int8_t)rc_u8 (f, o);
+	const u8 at = rc_u8 (f, o + 1), dt = rc_u8 (f, o + 2), st = rc_u8 (f, o + 3) & 127, rt = rc_u8 (f, o + 4), pan = rc_u8 (f, o + 5);
+	const u8 real_attack = at >= 0x6d ? attack_table[(0x7f - at) % 19] : (u8)(0xff - at);
+	const s16 real_decay = (s16)nds_falling_rate (dt), real_release = (s16)nds_falling_rate (rt);
+	int count = 0;
+	for (long i = 0x16980; i != 0; i = (i * real_attack) >> 8)
+		count++;
+	r->attack = count * intr;
+	long sus = st == 0x7f ? 0 : (long)(0x10000 - sustain_table[st]) << 7;
+	if (dt == 0x7f)
+		r->decay = 0.001;
+	else
+		r->decay = (real_decay ? 0x16980 / real_decay : 0) * intr;
+	r->sustain_level = sus == 0 ? 1.0 : (double)(0x16980 - sus) / (double)0x16980;
+	r->release = (real_release ? 0x16980 / real_release : 0) * intr;
+	r->pan = pan == 0 ? 0 : pan == 127 ? 1.0 : pan == 64 ? 0.5 : (double)pan / 127.0;
+	r->volume = -1;
+}
+
+typedef struct nds_wa_t { bool have; rb_coll_t c; } nds_wa_t;
+
+// instruments of one SBNK; "wa_slot" maps the four wave archive slots to absolute sample offsets
+static bool nds_load_bank (const rc_file_t *f, size_t base, const int *slot_off, const int *slot_cnt, rb_instr_t **out, uint *n_out)
+{
+	const u32 cnt = nl32 (f, base + 0x38);
+	if (cnt > 100000)
+		return false;
+	rb_instr_t *ins = CALLOC (cnt ? cnt : 1, sizeof (*ins));
+	if (!ins)
+		return false;
+	uint ni = 0;
+	for (uint i = 0; i < cnt; i++)
+	{
+		const u32 temp = nl32 (f, base + 0x3c + 4 * (size_t)i);
+		if (!temp)
+			continue;
+		const uint type = temp & 0xff;
+		const size_t o = (temp >> 8) + base;
+		rb_instr_t *in = ins + ni;
+		in->num = i;
+		uint cap = 0;
+#define ADDRGN(rg) do { if (in->n == cap) { cap = cap ? cap * 2 : 4; in->r = REALLOC (in->r, cap * sizeof (rb_rgn_t)); if (!in->r) { in->n = 0; goto next; } } \
+		rb_rgn_t *rg = in->r + in->n++; memset (rg, 0, sizeof (*rg)); rg->vhi = 0x7f; rg->khi = 0x7f;
+#define ENDRGN } while (0)
+		// sample index for a (sampNum, waSlot) pair; slot < 0 = PSG
+		#define SAMPIDX(sn, wa) ((wa) >= 0 && (wa) < 4 && slot_off[(wa)] >= 0 ? (u32)(slot_off[(wa)] + (int)(sn)) : (u32)(sn))
+		if (type == 1)
+		{
+			ADDRGN (r);
+			const uint sn = nl16 (f, o);
+			const int wa = (int)nl16 (f, o + 2);
+			r->samp = SAMPIDX (sn, wa);
+			nds_artic (f, o + 4, r);
+			ENDRGN;
+		}
+		else if (type == 2)
+		{
+			ADDRGN (r);
+			const uint duty = rc_u8 (f, o) & 7;
+			r->samp = duty; // PSG collection comes first
+			nds_artic (f, o + 4, r);
+			r->unity = 45;
+			ENDRGN;
+		}
+		else if (type == 0x10)
+		{
+			const uint lo = rc_u8 (f, o), hi = rc_u8 (f, o + 1);
+			const uint nr = hi - lo + 1;
+			for (uint k = 0; k < nr && k < 128; k++)
+			{
+				ADDRGN (r);
+				const size_t ro = o + 2 + (size_t)k * 12;
+				r->klo = r->khi = (u8)(lo + k);
+				const uint sn = nl16 (f, ro + 2);
+				const int wa = (int)nl16 (f, ro + 4);
+				r->samp = SAMPIDX (sn, wa);
+				nds_artic (f, ro + 6, r);
+				ENDRGN;
+			}
+		}
+		else if (type == 0x11)
+		{
+			u8 kr[8];
+			uint nr = 0;
+			for (int k = 0; k < 8; k++)
+			{
+				kr[k] = rc_u8 (f, o + k);
+				if (!kr[k])
+					break;
+				nr++;
+			}
+			for (uint k = 0; k < nr; k++)
+			{
+				ADDRGN (r);
+				const size_t ro = o + 8 + (size_t)k * 12;
+				r->klo = k ? kr[k - 1] + 1 : 0;
+				r->khi = kr[k];
+				const uint sn = nl16 (f, ro + 2);
+				const int wa = (int)nl16 (f, ro + 4);
+				r->samp = SAMPIDX (sn, wa);
+				nds_artic (f, ro + 6, r);
+				ENDRGN;
+			}
+		}
+	next:
+		ni++;
+	}
+	(void)slot_cnt;
+	*out = ins;
+	*n_out = ni;
+	return true;
+}
+
+enumError ConvertSDATNative (const u8 *data, size_t size, ccp out_dir)
+{
+	static const u8 magic[8] = { 'S', 'D', 'A', 'T', 0xff, 0xfe, 0x00, 0x01 };
+	rc_file_t f = { data, size };
+	if (size < 0x40 || !rc_match (&f, 0, magic, 8))
+		return ERR_NOTHING_TO_DO;
+	const size_t symb = nl32 (&f, 0x10), info = nl32 (&f, 0x18), fat = nl32 (&f, 0x20);
+	const bool has_symb = symb != 0;
+	const u32 n_seq = nl32 (&f, nl32 (&f, info + 8) + info), n_bnk = nl32 (&f, nl32 (&f, info + 0x10) + info), n_wa = nl32 (&f, nl32 (&f, info + 0x14) + info);
+	if (n_seq > 65536 || n_bnk > 65536 || n_wa > 65536)
+		return ERR_NOTHING_TO_DO;
+
+	char (*seq_names)[96] = CALLOC (n_seq ? n_seq : 1, 96);
+	char (*bnk_names)[96] = CALLOC (n_bnk ? n_bnk : 1, 96);
+	for (int kind = 0; kind < 2 && seq_names && bnk_names; kind++)
+	{
+		const u32 n = kind ? n_bnk : n_seq;
+		char (*names)[96] = kind ? bnk_names : seq_names;
+		const size_t list = has_symb ? symb + nl32 (&f, symb + (kind ? 0x10 : 0x08)) : 0;
+		for (uint i = 0; i < n; i++)
+		{
+			if (has_symb)
+			{
+				const size_t so = symb + nl32 (&f, list + 4 + 4 * (size_t)i);
+				if (so < size)
+					snprintf (names[i], 96, "%.31s", (const char *)data + so);
+			}
+			else
+				snprintf (names[i], 96, "%s_%04u", kind ? "SBNK" : "SSEQ", i);
+		}
+	}
+
+	// INFO tables
+	const size_t p_seq = nl32 (&f, info + 8) + info, p_bnk = nl32 (&f, info + 0x10) + info, p_wa = nl32 (&f, info + 0x14) + info;
+	const u32 ns = nl32 (&f, p_seq), nb = nl32 (&f, p_bnk), nw = nl32 (&f, p_wa);
+	u16 *seq_fid = CALLOC (ns ? ns : 1, 2), *seq_bnk = CALLOC (ns ? ns : 1, 2), *bnk_fid = CALLOC (nb ? nb : 1, 2), *wa_fid = CALLOC (nw ? nw : 1, 2);
+	u16 (*bnk_wa)[4] = CALLOC (nb ? nb : 1, 8);
+	if (!seq_names || !bnk_names || !seq_fid || !seq_bnk || !bnk_fid || !wa_fid || !bnk_wa || ns > 65536 || nb > 65536 || nw > 65536)
+	{
+		FREE (seq_names); FREE (bnk_names); FREE (seq_fid); FREE (seq_bnk); FREE (bnk_fid); FREE (wa_fid); FREE (bnk_wa);
+		return ERR_NOTHING_TO_DO;
+	}
+	for (uint i = 0; i < ns; i++)
+	{
+		const u32 u = nl32 (&f, p_seq + 4 + 4 * (size_t)i);
+		seq_fid[i] = u ? nl16 (&f, info + u) : 0xffff;
+		seq_bnk[i] = nl16 (&f, info + u + 4);
+	}
+	for (uint i = 0; i < nb; i++)
+	{
+		const u32 u = nl32 (&f, p_bnk + 4 + 4 * (size_t)i);
+		bnk_fid[i] = u ? nl16 (&f, info + u) : 0xffff;
+		for (int j = 0; j < 4; j++)
+		{
+			const u32 w = nl16 (&f, info + u + 4 + 2 * (size_t)j);
+			bnk_wa[i][j] = w >= n_wa ? 0xffff : (u16)w;
+		}
+	}
+	for (uint i = 0; i < nw; i++)
+	{
+		const u32 u = nl32 (&f, p_wa + 4 + 4 * (size_t)i);
+		wa_fid[i] = u ? nl16 (&f, info + u) : 0xffff;
+	}
+
+	enumError err = ERR_NOTHING_TO_DO;
+	char midi_dir[PATH_MAX], sf_dir[PATH_MAX], path[PATH_MAX];
+	snprintf (midi_dir, sizeof (midi_dir), "%s/midi", out_dir);
+	snprintf (sf_dir, sizeof (sf_dir), "%s/soundfonts", out_dir);
+	CreatePath (midi_dir, true);
+	CreatePath (sf_dir, true);
+	rc_buf_t manifest = { 0 };
+	rc_put (&manifest, "midi\tsoundfont\n", 15);
+	char (*used_names)[128] = CALLOC (4096, 128);
+	char (*used_sf)[128] = CALLOC (4096, 128);
+	bool *bank_used = CALLOC (nb ? nb : 1, sizeof (bool));
+	char *bank_sf = CALLOC (nb ? nb : 1, 160);
+	uint n_un = 0, n_us = 0, n_mid = 0, n_sf = 0;
+	if (!used_names || !used_sf || !bank_used || !bank_sf)
+		goto done;
+
+	for (uint i = 0; i < ns; i++)
+	{
+		if (seq_fid[i] == 0xffff)
+			continue;
+		const size_t fo = fat + 12 + (size_t)seq_fid[i] * 0x10;
+		const size_t off = nl32 (&f, fo), len = nl32 (&f, fo + 4);
+		if (off >= size || !len)
+			continue;
+		const u32 bidx = seq_bnk[i];
+		u8 *mid = 0;
+		size_t mid_n = 0;
+		if (SequenceToMIDI (&mid, &mid_n, data + off, len < size - off ? len : size - off) != ERR_OK || !mid)
+		{
+			FREE (mid);
+			continue;
+		}
+		char uniq[160];
+		rb_name_unique (uniq, sizeof (uniq), seq_names[i], used_names, &n_un);
+		snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
+		rb_write_file (path, mid, mid_n);
+		FREE (mid);
+		n_mid++;
+		char line[400];
+		if (bidx < nb && bnk_fid[bidx] != 0xffff)
+		{
+			bank_used[bidx] = true;
+			if (!bank_sf[bidx * 160])
+				rb_name_unique (bank_sf + bidx * 160, 160, bnk_names[bidx], used_sf, &n_us);
+			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\n", uniq, bank_sf + bidx * 160);
+		}
+		else
+			snprintf (line, sizeof (line), "%s.mid\t\n", uniq);
+		rc_put (&manifest, line, strlen (line));
+	}
+
+	for (uint b = 0; b < nb; b++)
+	{
+		if (!bank_used[b])
+			continue;
+		// sample collections: PSG first, then the bank's wave archives in slot order
+		rb_coll_t all = { 0 }, psg = { 0 };
+		rb_coll_t wa[4] = { { 0 } };
+		int slot_off[4] = { -1, -1, -1, -1 }, slot_cnt[4] = { 0 };
+		nds_psg_coll (&psg);
+		uint total = psg.n;
+		for (int j = 0; j < 4; j++)
+		{
+			const u16 w = bnk_wa[b][j];
+			if (w == 0xffff || wa_fid[w] == 0xffff)
+				continue;
+			const size_t fo = fat + 12 + (size_t)wa_fid[w] * 0x10;
+			const size_t off = nl32 (&f, fo);
+			if (off >= size)
+				continue;
+			nds_load_swar (&f, wa + j, off);
+			slot_off[j] = (int)total;
+			slot_cnt[j] = (int)wa[j].n;
+			total += wa[j].n;
+		}
+		all.n = total;
+		all.s = CALLOC (total ? total : 1, sizeof (rb_samp_t));
+		if (all.s)
+		{
+			uint k = 0;
+			for (uint x = 0; x < psg.n; x++)
+				all.s[k++] = psg.s[x];
+			for (int j = 0; j < 4; j++)
+				for (uint x = 0; x < wa[j].n; x++)
+					all.s[k++] = wa[j].s[x];
+			const size_t fo = fat + 12 + (size_t)bnk_fid[b] * 0x10;
+			const size_t off = nl32 (&f, fo);
+			rb_instr_t *ins = 0;
+			uint n_ins = 0;
+			if (off < size && nds_load_bank (&f, off, slot_off, slot_cnt, &ins, &n_ins))
+			{
+				u8 *sf = 0;
+				size_t sf_n = 0;
+				if (sf_build (&all, ins, n_ins, bank_sf + b * 160, &sf, &sf_n) == ERR_OK)
+				{
+					snprintf (path, sizeof (path), "%s/%s.sf2", sf_dir, bank_sf + b * 160);
+					rb_write_file (path, sf, sf_n);
+					n_sf++;
+				}
+				FREE (sf);
+				rb_free_instrs (ins, n_ins);
+			}
+			FREE (all.s); // sample buffers are owned by psg / wa[]
+		}
+		rb_coll_free (&psg);
+		for (int j = 0; j < 4; j++)
+			rb_coll_free (wa + j);
+	}
+	snprintf (path, sizeof (path), "%s/sequences.tsv", midi_dir);
+	rb_write_file (path, manifest.d, manifest.n);
+	err = n_mid || n_sf ? ERR_OK : ERR_NOTHING_TO_DO;
+done:
+	FREE (manifest.d);
+	FREE (used_names);
+	FREE (used_sf);
+	FREE (bank_used);
+	FREE (bank_sf);
+	FREE (seq_names); FREE (bnk_names); FREE (seq_fid); FREE (seq_bnk); FREE (bnk_fid); FREE (wa_fid); FREE (bnk_wa);
 	return err;
 }
