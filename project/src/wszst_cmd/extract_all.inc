@@ -160,6 +160,7 @@
 #include "extract/eashpg.inc"
 #include "extract/ealoc.inc"
 #include "extract/dspwrap.inc"
+#include "extract/kylotonn_snd.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"

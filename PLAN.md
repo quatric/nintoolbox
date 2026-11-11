@@ -2467,6 +2467,6 @@ Addendum (§45): National Geographic Challenge! (USA): 709 `.ast` files (659 BE,
 the only non-zero exits are three 16-byte header-only bundles (no chunks). New tags seen: NDAN, NDST, NDOU, AGPH (not decoded). Every Proteus game in the
 census list (Goosebumps, I Spy Spooky Mansion, Ultimate I Spy, I Spy Game Pack, Nat Geo Challenge) has now been run.
 
-### Addendum: Kylotonn (Cocoto Festival) `.snd` — open
-- `.snd` members are `{tag, u32 LE size incl. 8-byte header}` chunks: NAME, FREQ (16000/44100), STER, SIZE, CSZE (== SIZE, uncompressed), SAMP.
-- SAMP payload: LE16 words, rate echoed at +8, 16 LE s16 words at +0x1c..0x3c that look like DSP-ADPCM coefficients, 8-byte frames from +0x60, trailing `PACK` tag. A straight DSP-ADPCM decode with those coefficients clips about 10% of samples, so the codec/frame layout is not yet confirmed. No handler written.
+### Addendum: Kylotonn (Cocoto Festival) `.snd` — done
+- `.snd`: zero u32, then LE chunks {tag, u32 size incl. 8-byte header}: NAME, FREQ, STER, SIZE, CSZE, SAMP. SAMP is a standard 0x60-byte DSP header + ADPCM with every 16-bit word byte-swapped (my earlier clipping decode was reading it unswapped). Handler `extract/kylotonn_snd.inc` swaps it back and emits `ch0.dsp` -> WAV; 181/181 members decode (the final frame can be cut short; zero-filled).
+- Still open: `.txc` (BTCH/MTRD, 8/16/32 bpp, `PACK`=compression method, unknown LZ in `PICT`, palette in `PALE`) and `.mdl`.

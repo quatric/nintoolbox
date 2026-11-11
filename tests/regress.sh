@@ -11986,6 +11986,29 @@ PYE
     && fok "Proteus MDL without WDGE (MESH tail indices) to GLB" \
     || fno "Proteus MDL without WDGE (MESH tail indices) to GLB" "no baked.glb"
 
+  # Kylotonn .snd (word-swapped DSP-ADPCM)
+  mkdir -p "$d/kyl_test"
+  python3 - "$d/kyl_test/k.snd" <<'PYE' >/dev/null 2>&1
+import struct, sys
+nib = 32
+hdr = bytearray(0x60)
+struct.pack_into('>III', hdr, 0, 28, nib, 16000)
+struct.pack_into('>H', hdr, 0x0e, 0)
+struct.pack_into('>I', hdr, 0x18, 2)
+for i in range(16):
+    struct.pack_into('>h', hdr, 0x1c + 2 * i, [1820, 0][i % 2])
+samp = bytearray(hdr) + bytes([0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77] * 2)
+for i in range(0, len(samp) - 1, 2):
+    samp[i], samp[i + 1] = samp[i + 1], samp[i]
+def ch(t, p): return t + struct.pack('<I', len(p) + 8) + p
+out = b'\0\0\0\0' + ch(b'NAME', b'k\0') + ch(b'FREQ', struct.pack('<I', 16000)) + ch(b'STER', struct.pack('<I', 1)) + ch(b'SIZE', struct.pack('<I', len(samp))) + ch(b'SAMP', bytes(samp))
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" xx "$d/kyl_test/k.snd" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/kyl_test/k.snd.d/ch0.wav" 2>/dev/null)" = "RIFF" ] \
+    && fok "Kylotonn .snd (word-swapped DSP-ADPCM) to WAV" \
+    || fno "Kylotonn .snd (word-swapped DSP-ADPCM) to WAV" "no ch0.wav"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
