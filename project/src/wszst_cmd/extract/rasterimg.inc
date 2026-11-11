@@ -1,4 +1,4 @@
-// Plain raster images that the image loader does not read: TIFF (baseline strips), X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
+// Plain raster images that the image loader does not read: PAM, DPX, FITS, TIFF (baseline strips), X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
 // cursors (".ico", ".cur": every entry as "<name>_N.png"; PNG entries are copied, DIB entries of 32, 24 and 8 bit depth are converted, AND mask applied).
 // Output goes to "<file>.d/".
 static u8 *rimg_qoi (const u8 *d, size_t n, uint *ow, uint *oh)
@@ -634,10 +634,196 @@ static u8 *rimg_tiff (const u8 *d, size_t n, uint *ow, uint *oh)
 	return out;
 }
 
+// Netpbm PAM "P7" (".pam"): WIDTH / HEIGHT / DEPTH / MAXVAL, 1-4 channels
+static u8 *rimg_pam (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 16 || memcmp (d, "P7\n", 3))
+		return 0;
+	uint w = 0, h = 0, depth = 0, mx = 255;
+	size_t p = 3;
+	bool end = false;
+	while (p < n && !end)
+	{
+		size_t e = p;
+		while (e < n && d[e] != '\n') e++;
+		if (e >= n) return 0;
+		char line[128];
+		snprintf (line, sizeof (line), "%.*s", (int)(e - p < 127 ? e - p : 127), d + p);
+		if (!strncmp (line, "WIDTH ", 6)) w = atoi (line + 6);
+		else if (!strncmp (line, "HEIGHT ", 7)) h = atoi (line + 7);
+		else if (!strncmp (line, "DEPTH ", 6)) depth = atoi (line + 6);
+		else if (!strncmp (line, "MAXVAL ", 7)) mx = atoi (line + 7);
+		else if (!strncmp (line, "ENDHDR", 6)) end = true;
+		p = e + 1;
+	}
+	if (!end || !w || !h || w > 16384 || h > 16384 || !depth || depth > 4 || !mx || mx > 65535)
+		return 0;
+	const uint wide = mx > 255 ? 2 : 1;
+	if (p + (size_t)w * h * depth * wide > n)
+		return 0;
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!out)
+		return 0;
+	for (size_t i = 0; i < (size_t)w * h; i++)
+	{
+		uint c[4] = {0, 0, 0, 255};
+		for (uint k = 0; k < depth; k++)
+		{
+			const u8 *q = d + p + (i * depth + k) * wide;
+			const uint v = wide == 2 ? q[0] << 8 | q[1] : q[0];
+			c[k] = v * 255 / mx;
+		}
+		u8 *o = out + i * 4;
+		if (depth <= 2) { o[0] = o[1] = o[2] = c[0]; o[3] = depth == 2 ? c[1] : 255; }
+		else { o[0] = c[0]; o[1] = c[1]; o[2] = c[2]; o[3] = depth == 4 ? c[3] : 255; }
+	}
+	*ow = w; *oh = h;
+	return out;
+}
+
+// DPX (".dpx"): first image element, RGB / RGBA / luma, 8 / 10 / 12 / 16 bit, packed or filled
+static u8 *rimg_dpx (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 1024)
+		return 0;
+	const bool be = !memcmp (d, "SDPX", 4);
+	if (!be && memcmp (d, "XPDS", 4))
+		return 0;
+	#define D32(o) (be ? rd_be32 (d + (o)) : (u32)d[(o)] | (u32)d[(o) + 1] << 8 | (u32)d[(o) + 2] << 16 | (u32)d[(o) + 3] << 24)
+	#define D16(o) (be ? (uint)(d[(o)] << 8 | d[(o) + 1]) : (uint)(d[(o)] | d[(o) + 1] << 8))
+	const size_t off = D32 (4);
+	const uint w = D32 (772), h = D32 (776), desc = d[800], bits = d[803], packing = D16 (804);
+	const uint nc = desc == 50 ? 3 : desc == 51 ? 4 : desc == 6 ? 1 : 0;
+	if (!w || !h || w > 16384 || h > 16384 || !nc || (bits != 8 && bits != 10 && bits != 12 && bits != 16) || off >= n)
+		return 0;
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!out)
+		return 0;
+	const u8 *data = d + off;
+	const size_t avail = n - off;
+	size_t pos = 0; // bit-less cursor in bytes for the non-10-bit cases
+	for (uint y = 0; y < h; y++)
+	{
+		size_t rowpos = pos;
+		uint word = 0, inword = 3;
+		for (uint x = 0; x < w; x++)
+		{
+			uint c[4] = {0, 0, 0, 255};
+			for (uint k = 0; k < nc; k++)
+			{
+				uint v;
+				if (bits == 8)
+				{
+					if (pos >= avail) { FREE (out); return 0; }
+					v = data[pos++];
+				}
+				else if (bits == 16)
+				{
+					if (pos + 2 > avail) { FREE (out); return 0; }
+					v = ((be ? data[pos] << 8 | data[pos + 1] : data[pos + 1] << 8 | data[pos]) * 255u + 32767) / 65535;
+					pos += 2;
+				}
+				else if (bits == 10 && packing)
+				{
+					if (inword == 3)
+					{
+						if (pos + 4 > avail) { FREE (out); return 0; }
+						word = be ? rd_be32 (data + pos) : (u32)data[pos] | (u32)data[pos + 1] << 8 | (u32)data[pos + 2] << 16 | (u32)data[pos + 3] << 24;
+						pos += 4;
+						inword = 0;
+					}
+					const uint sh = packing == 1 ? 22 - inword * 10 : 20 - inword * 10; // method A: 31..22, 21..12, 11..2; method B: 29..20, 19..10, 9..0
+					v = ((word >> sh & 1023) * 255u + 511) / 1023;
+					inword++;
+				}
+				else if (bits == 12 && packing)
+				{
+					if (pos + 2 > avail) { FREE (out); return 0; }
+					const uint u = be ? data[pos] << 8 | data[pos + 1] : data[pos + 1] << 8 | data[pos];
+					v = ((packing == 1 ? u >> 4 : u & 0xfff) * 255u + 2047) / 4095;
+					pos += 2;
+				}
+				else { FREE (out); return 0; }
+				c[k] = v;
+			}
+			u8 *o = out + ((size_t)y * w + x) * 4;
+			if (nc == 1) { o[0] = o[1] = o[2] = c[0]; o[3] = 255; }
+			else { o[0] = c[0]; o[1] = c[1]; o[2] = c[2]; o[3] = c[3]; }
+		}
+		// rows of 10 bit filled data end on a word boundary; other depths are byte aligned already
+		(void)rowpos;
+	}
+	#undef D32
+	#undef D16
+	*ow = w; *oh = h;
+	return out;
+}
+
+// FITS (".fits", ".fit", ".fts"): primary HDU image, BITPIX 8 / 16 / 32 / -32 / -64, linearly scaled to 8 bit gray (8 bit data is kept), bottom row first in the file
+static u8 *rimg_fits (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 2880 || memcmp (d, "SIMPLE  =", 9))
+		return 0;
+	int bitpix = 0, naxis = 0;
+	uint w = 0, h = 0;
+	double bzero = 0, bscale = 1;
+	size_t p = 0;
+	bool end = false;
+	for (; p + 80 <= n && !end; p += 80)
+	{
+		char card[81];
+		memcpy (card, d + p, 80);
+		card[80] = 0;
+		if (!strncmp (card, "END     ", 8)) { end = true; p += 80; break; }
+		if (card[8] != '=') continue;
+		if (!strncmp (card, "BITPIX  ", 8)) bitpix = atoi (card + 10);
+		else if (!strncmp (card, "NAXIS   ", 8)) naxis = atoi (card + 10);
+		else if (!strncmp (card, "NAXIS1  ", 8)) w = atoi (card + 10);
+		else if (!strncmp (card, "NAXIS2  ", 8)) h = atoi (card + 10);
+		else if (!strncmp (card, "BZERO   ", 8)) bzero = atof (card + 10);
+		else if (!strncmp (card, "BSCALE  ", 8)) bscale = atof (card + 10);
+	}
+	if (!end || naxis < 2 || !w || !h || w > 16384 || h > 16384)
+		return 0;
+	p = (p + 2879) / 2880 * 2880;
+	const uint bytes = bitpix < 0 ? -bitpix / 8 : bitpix / 8;
+	if (!(bitpix == 8 || bitpix == 16 || bitpix == 32 || bitpix == -32 || bitpix == -64) || p + (size_t)w * h * bytes > n)
+		return 0;
+	double *val = MALLOC ((size_t)w * h * sizeof (double));
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!val || !out) { FREE (val); FREE (out); return 0; }
+	double lo = 1e300, hi = -1e300;
+	for (size_t i = 0; i < (size_t)w * h; i++)
+	{
+		const u8 *q = d + p + i * bytes;
+		double v;
+		if (bitpix == 8) v = q[0];
+		else if (bitpix == 16) v = (int16_t)(q[0] << 8 | q[1]);
+		else if (bitpix == 32) v = (int32_t)rd_be32 (q);
+		else if (bitpix == -32) { u32 u = rd_be32 (q); float f; memcpy (&f, &u, 4); v = f; }
+		else { uint64_t u = (uint64_t)rd_be32 (q) << 32 | rd_be32 (q + 4); double f; memcpy (&f, &u, 8); v = f; }
+		v = v * bscale + bzero;
+		val[i] = v;
+		if (v < lo) lo = v;
+		if (v > hi) hi = v;
+	}
+	for (uint y = 0; y < h; y++)
+		for (uint x = 0; x < w; x++)
+		{
+			const double v = val[(size_t)(h - 1 - y) * w + x];
+			u8 g = bitpix == 8 ? (u8)v : (bitpix == 16 && bzero == 32768 && bscale == 1) ? (u8)((unsigned)v >> 8) : hi > lo ? (u8)((v - lo) * 255.0 / (hi - lo) + 0.5) : 0; // unsigned 16 bit data (BZERO 32768) keeps its high byte
+			u8 *o = out + ((size_t)y * w + x) * 4;
+			o[0] = o[1] = o[2] = g; o[3] = 255;
+		}
+	FREE (val);
+	*ow = w; *oh = h;
+	return out;
+}
+
 static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool tif = is_ext (arg, ".tif") || is_ext (arg, ".tiff"), xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
-	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm && !tif) || (export_count == 0 && !opt_decode))
+	const bool pam = is_ext (arg, ".pam"), dpx = is_ext (arg, ".dpx"), fits = is_ext (arg, ".fits") || is_ext (arg, ".fit") || is_ext (arg, ".fts"), tif = is_ext (arg, ".tif") || is_ext (arg, ".tiff"), xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
+	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm && !tif && !pam && !dpx && !fits) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -654,9 +840,9 @@ static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 		*dot = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint w = 0, h = 0;
-	if (qoi || pcx || pnm || sun || sgi || xbm || xpm || tif)
+	if (qoi || pcx || pnm || sun || sgi || xbm || xpm || tif || pam || dpx || fits)
 	{
-		u8 *rgba = tif ? rimg_tiff (raw, sz, &w, &h) : xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
+		u8 *rgba = pam ? rimg_pam (raw, sz, &w, &h) : dpx ? rimg_dpx (raw, sz, &w, &h) : fits ? rimg_fits (raw, sz, &w, &h) : tif ? rimg_tiff (raw, sz, &w, &h) : xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
 		if (rgba)
 		{
 			err = testmode ? ERR_OK : kyl_write_rgba_png (arg, basedir, stem, (uint)-1, w, h, rgba);
