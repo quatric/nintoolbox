@@ -239,11 +239,15 @@ static enumError kyl_write_rgba_png (ccp arg, ccp basedir, ccp name, uint index,
 	for (char *s = safe; *s; s++)
 		if (*s == '/' || *s == '\\' || *s == ':')
 			*s = '_';
-	snprintf (fn, sizeof (fn), "%s_%u.tmp.tpl", safe, index);
+	const bool plain = index == (uint)-1; // "<name>.png" without an image number
+	snprintf (fn, sizeof (fn), plain ? "%s.tmp.tpl" : "%s_%u.tmp.tpl", safe, index);
 	beside_source_dest (dest, sizeof (dest), arg);
 	snprintf (tmp, sizeof (tmp), "%s/%s%s", dest, basedir ? basedir : "", fn);
 	snprintf (tmp_png, sizeof (tmp_png), "%s.png", tmp);
-	snprintf (png, sizeof (png), "%s/%s%s_%u.png", dest, basedir ? basedir : "", safe, index);
+	if (plain)
+		snprintf (png, sizeof (png), "%s/%s%s.png", dest, basedir ? basedir : "", safe);
+	else
+		snprintf (png, sizeof (png), "%s/%s%s_%u.png", dest, basedir ? basedir : "", safe, index);
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sDECODE KYLOTONN TEXTURE:%s %s (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, safe, w, h, png);
 	enumError err = ERR_OK;
@@ -258,6 +262,77 @@ static enumError kyl_write_rgba_png (ccp arg, ccp basedir, ccp name, uint index,
 	}
 	FREE (tpl);
 	return err;
+}
+
+// Decodes the best (largest bits per pixel, 16 or 32) image of a ".txc" file into RGBA; returns CALLOC memory or 0.
+static u8 *kyl_txc_rgba (const u8 *raw, size_t sz, uint *ow, uint *oh)
+{
+	u8 *best = 0;
+	if (sz < 0x40 || memcmp (raw + 4, "BTCH", 4))
+		return 0;
+	uint best_bpp = 0;
+	for (size_t b0 = 4; b0 + 8 <= sz && !memcmp (raw + b0, "BTCH", 4);)
+	{
+		const u32 bsz = kyl_le32 (raw + b0 + 4);
+		if (bsz < 8)
+			break;
+		const size_t bend = b0 + bsz <= sz ? b0 + bsz : sz;
+		for (size_t m = b0 + 8; m + 8 <= bend;)
+		{
+			const u32 ms = kyl_le32 (raw + m + 4);
+			if (ms < 8 || m + ms > bend)
+				break;
+			if (!memcmp (raw + m, "MTRD", 4))
+			{
+				uint w = 0, h = 0, bpp = 0, pack = 0;
+				const u8 *pict = 0;
+				size_t pict_n = 0;
+				for (size_t c = m + 8; c + 8 <= m + ms;)
+				{
+					const u32 cs = kyl_le32 (raw + c + 4);
+					if (cs < 8 || c + cs > m + ms)
+						break;
+					const u8 *pl = raw + c + 8;
+					if (!memcmp (raw + c, "SIZX", 4) && cs >= 12) w = kyl_le32 (pl);
+					else if (!memcmp (raw + c, "SIZY", 4) && cs >= 12) h = kyl_le32 (pl);
+					else if (!memcmp (raw + c, "BITP", 4) && cs >= 12) bpp = kyl_le32 (pl);
+					else if (!memcmp (raw + c, "PACK", 4) && cs >= 12) pack = kyl_le32 (pl);
+					else if (!memcmp (raw + c, "PICT", 4)) { pict = pl; pict_n = cs - 8; }
+					c += cs;
+				}
+				const size_t px = (size_t)w * h * bpp / 8;
+				if (pict && w && h && px && px <= 0x10000000 && (bpp == 16 || bpp == 32) && bpp > best_bpp && pack == 5)
+				{
+					u8 *data = kyl_unpack5 (pict, pict_n, px);
+					u8 *rgba = data ? MALLOC ((size_t)w * h * 4) : 0;
+					if (rgba)
+					{
+						for (size_t i = 0; i < (size_t)w * h; i++)
+							if (bpp == 32)
+							{
+								rgba[i * 4] = data[i * 4 + 1]; rgba[i * 4 + 1] = data[i * 4 + 2];
+								rgba[i * 4 + 2] = data[i * 4 + 3]; rgba[i * 4 + 3] = data[i * 4];
+							}
+							else
+							{
+								const uint v = data[i * 2] | data[i * 2 + 1] << 8;
+								rgba[i * 4] = (v >> 8 & 15) * 17; rgba[i * 4 + 1] = (v >> 4 & 15) * 17;
+								rgba[i * 4 + 2] = (v & 15) * 17; rgba[i * 4 + 3] = (v >> 12 & 15) * 17;
+							}
+						FREE (best);
+						best = rgba;
+						best_bpp = bpp;
+						*ow = w;
+						*oh = h;
+					}
+					FREE (data);
+				}
+			}
+			m += ms;
+		}
+		b0 = bend;
+	}
+	return best;
 }
 
 static enumError extract_kylotonn_txc_file (ccp arg, ccp basedir, uint depth)

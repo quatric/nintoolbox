@@ -49,9 +49,39 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 			nmodl += !memcmp (raw + i, "MODL", 4);
 			i += cs;
 		}
+		// material names: the NAMEs of the MTRD blocks of "MATE" (they are the texture file names)
+		char matname[16][64];
+		uint nmat = 0;
+		for (size_t i = 5 + raw[4]; i + 12 < obje && nmat < 16; i++)
+			if (!memcmp (raw + i, "MATE", 4) && kyl_le32 (raw + i + 4) <= obje - i && kyl_le32 (raw + i + 4) > 12)
+			{
+				const size_t mend = i + kyl_le32 (raw + i + 4);
+				for (size_t m = i + 12; m + 8 <= mend && nmat < 16;)
+				{
+					const u32 ms = kyl_le32 (raw + m + 4);
+					if (ms < 8 || m + ms > mend)
+						break;
+					if (!memcmp (raw + m, "MTRD", 4))
+					{
+						matname[nmat][0] = 0;
+						for (size_t c = m + 8; c + 8 <= m + ms;)
+						{
+							const u32 cs = kyl_le32 (raw + c + 4);
+							if (cs < 8 || c + cs > m + ms)
+								break;
+							if (!memcmp (raw + c, "NAME", 4) && cs >= 14 && raw[c + 12] && raw[c + 12] + 5u <= cs - 8)
+								snprintf (matname[nmat], 64, "%.*s", (int)raw[c + 12], (const char *)raw + c + 13);
+							c += cs;
+						}
+						nmat++;
+					}
+					m += ms;
+				}
+				break;
+			}
 		model_t *model = CALLOC (1, sizeof (*model));
 		mesh_t *meshes = CALLOC (nmodl ? nmodl : 1, sizeof (*meshes));
-		material_t *mat = CALLOC (1, sizeof (*mat));
+		material_t *mat = CALLOC (nmat ? nmat : 1, sizeof (*mat));
 		uint made = 0;
 		for (size_t i = obje + 12; model && meshes && mat && i + 8 <= oend;)
 		{
@@ -103,6 +133,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 				{
 					vec3_t *pos = MALLOC ((size_t)nv * sizeof (*pos));
 					vertex_t *vt = CALLOC (ntri * 3, sizeof (*vt));
+					int *tmat = nmat > 1 ? CALLOC (ntri, sizeof (*tmat)) : 0;
 					vec2_t *uv = MALLOC ((size_t)np * sizeof (*uv));
 					if (pos && vt && uv)
 					{
@@ -144,6 +175,11 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 									for (int x = 0; x < 7; x++)
 										v->extra_texcoord_idx[x] = -1;
 								}
+								if (tmat)
+								{
+									const u32 mi = kyl_le32 (F + f * 52 + 44);
+									tmat[t] = mi < nmat ? (int)mi : 0;
+								}
 								t++;
 							}
 						}
@@ -154,6 +190,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 						m->texcoords = uv;
 						m->num_texcoords = np;
 						m->vertices = vt;
+						m->triangle_materials = tmat;
 						m->num_vertices = ntri * 3;
 						m->material_idx = 0;
 					}
@@ -162,6 +199,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 						FREE (pos);
 						FREE (vt);
 						FREE (uv);
+						FREE (tmat);
 					}
 				}
 				FREE (V);
@@ -173,10 +211,21 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 		if (model && meshes && mat && made)
 		{
 			snprintf (mat->name, sizeof (mat->name), "default");
+			for (uint i = 0; i < nmat; i++)
+			{
+				snprintf (mat[i].name, sizeof (mat[i].name), "%s", matname[i][0] ? matname[i] : "material");
+				if (matname[i][0])
+				{
+					snprintf (mat[i].textures[0], sizeof (mat[i].textures[0]), "%s", matname[i]);
+					mat[i].num_textures = 1;
+					mat[i].wrap_s[0] = mat[i].wrap_t[0] = 1;
+					mat[i].min_filter[0] = mat[i].mag_filter[0] = 1;
+				}
+			}
 			model->meshes = meshes;
 			model->num_meshes = made;
 			model->materials = mat;
-			model->num_materials = 1;
+			model->num_materials = nmat ? nmat : 1;
 			char dest[PATH_MAX], path[PATH_MAX], base[PATH_MAX];
 			beside_source_dest (dest, sizeof (dest), arg);
 			const char *sl = strrchr (arg, '/');
@@ -192,6 +241,37 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 				char dir[PATH_MAX];
 				snprintf (dir, sizeof (dir), "%s/%s", dest, basedir ? basedir : "");
 				CreatePath (dir, true);
+				// the textures live in "textures_wii/<name>.txc" next to the "models" directory: PNGs beside the GLB are embedded
+				for (uint i = 0; i < nmat; i++)
+				{
+					if (!matname[i][0])
+						continue;
+					char probe[PATH_MAX], tx[PATH_MAX];
+					snprintf (probe, sizeof (probe), "%s", arg);
+					for (int up = 0; up < 5; up++)
+					{
+						char *sl2 = strrchr (probe, '/');
+						if (!sl2)
+							break;
+						*sl2 = 0;
+						snprintf (tx, sizeof (tx), "%s/textures_wii/%s.txc", probe, matname[i]);
+						u8 *tr = 0;
+						size_t ts = 0;
+						if (!access (tx, R_OK) && !LoadFileAlloc (tx, 0, 0, &tr, &ts, 0, 0, 0, false) && tr)
+						{
+							uint tw = 0, th = 0;
+							u8 *rgba = kyl_txc_rgba (tr, ts, &tw, &th);
+							if (rgba)
+							{
+								kyl_write_rgba_png (arg, basedir, matname[i], (uint)-1, tw, th, rgba);
+								FREE (rgba);
+							}
+							FREE (tr);
+							break;
+						}
+						FREE (tr);
+					}
+				}
 				err = ExportModelToGLB (model, path) ? ERR_CANT_CREATE : ERR_OK;
 			}
 			else
@@ -201,6 +281,7 @@ static enumError extract_kylotonn_mdl_file (ccp arg, ccp basedir, uint depth)
 		{
 			FREE (meshes[i].positions);
 			FREE (meshes[i].texcoords);
+			FREE (meshes[i].triangle_materials);
 			FREE (meshes[i].vertices);
 		}
 		FREE (meshes);
