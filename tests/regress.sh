@@ -12009,6 +12009,67 @@ PYE
     && fok "Kylotonn .snd (word-swapped DSP-ADPCM) to WAV" \
     || fno "Kylotonn .snd (word-swapped DSP-ADPCM) to WAV" "no ch0.wav"
 
+  # Kylotonn .txc (PACK 5: Huffman coded LZ) -> PNG
+  mkdir -p "$d/kyltxc_test"
+  python3 - "$d/kyltxc_test/k.txc" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def build(w):
+    nd = [dict(v=i, w=w[i], l=None, r=None, p=i - 1 if i else None, n=i + 1 if i < 255 else None) for i in range(256)]
+    head = 0
+    while nd[head]['n'] is not None:
+        mn = head; c = head
+        while c is not None:
+            if nd[c]['w'] < nd[mn]['w']: mn = c
+            c = nd[c]['n']
+        sc = head if head != mn else nd[head]['n']
+        c = head
+        while c is not None:
+            if nd[c]['w'] < nd[sc]['w'] and c != mn: mn = c
+            c = nd[c]['n']
+        k = len(nd)
+        nd.append(dict(v=-1, w=nd[sc]['w'] + nd[mn]['w'], l=mn, r=sc, p=nd[mn]['p'], n=nd[mn]['n']))
+        if nd[k]['p'] is None: head = k
+        else: nd[nd[k]['p']]['n'] = k
+        if nd[k]['n'] is not None: nd[nd[k]['n']]['p'] = k
+        if nd[sc]['p'] is None:
+            head = nd[sc]['n']; nd[head]['p'] = None
+        else:
+            nd[nd[sc]['p']]['n'] = nd[sc]['n']
+            if nd[sc]['n'] is not None: nd[nd[sc]['n']]['p'] = nd[sc]['p']
+    codes = {}
+    def walk(i, pre):
+        if nd[i]['v'] != -1: codes[nd[i]['v']] = pre; return
+        walk(nd[i]['l'], pre + '0'); walk(nd[i]['r'], pre + '1')
+    walk(head, '')
+    return codes
+def crunch5(lz):
+    w = [0] * 256
+    for b in lz: w[b] += 1
+    bits = ''
+    for x in w:
+        if not x: bits += '0'; continue
+        bits += '1'
+        if x < 256: bits += '00' + format(x, '08b')
+        else: bits += '01' + format(x, '016b')
+    codes = build(w)
+    if len(codes) == 1: raise SystemExit(1)
+    for b in lz: bits += codes[b]
+    bits += '0' * (-len(bits) % 8)
+    return bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8))
+def ck(t, p): return t + struct.pack('<I', len(p) + 8) + p
+# 4x4 ARGB: literals then a back reference (distance 32, length 32) so both LZ forms are used
+px = bytes([255, 255, 0, 0] * 4 + [255, 0, 255, 0] * 4)
+lz = bytes([31]) + px + bytes([0xc0 | 31, 31])
+pict = crunch5(lz)
+mt = ck(b'VERS', struct.pack('<I', 6246)) + ck(b'NAME', struct.pack('<HHB', 8, 9, 6) + b'kyltex\0') + ck(b'SIZX', struct.pack('<I', 4)) + ck(b'SIZY', struct.pack('<I', 4)) + ck(b'BITP', struct.pack('<I', 32)) + ck(b'PACK', struct.pack('<I', 5)) + ck(b'SIZE', struct.pack('<I', len(pict))) + ck(b'PICT', pict)
+out = struct.pack('<I', 1) + ck(b'BTCH', ck(b'TYPE', struct.pack('<I', 1)) + ck(b'SIZE', struct.pack('<I', 256)) + ck(b'MTRD', mt))
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" xx "$d/kyltxc_test/k.txc" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/kyltxc_test/k.txc.d/kyltex_0.png" 2>/dev/null | tail -c 3)" = "PNG" ] \
+    && fok "Kylotonn .txc (PACK 5 crunch) to PNG" \
+    || fno "Kylotonn .txc (PACK 5 crunch) to PNG" "no kyltex_0.png"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
