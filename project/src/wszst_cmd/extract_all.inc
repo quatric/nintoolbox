@@ -183,6 +183,7 @@
 #include "extract/amigaiff.inc"
 #include "extract/modsamples.inc"
 #include "extract/trackersamples.inc"
+#include "extract/psf.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
