@@ -1,6 +1,8 @@
 #include "lib-brsar.h"
 #include "lib-sdat.h"
 #include "lib-rsar-conv.h"
+static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth);
+#define extract_midi_render_file_fwd extract_midi_render_file
 // Load every CHR0 in one extracted "AnmChr(NW4R)" directory into `model`.
 // Extracted BRRES members keep their raw resource name verbatim -- no
 // ".chr0" extension is added (unlike, say, texture PNGs) -- so a sidecar
@@ -271,6 +273,27 @@ static enumError convert_brsar_if_possible (ccp arg)
 			{
 				if (verbose >= 0)
 					fprintf (stdlog, "%sEXPORT %s:%s -> %s (native)\n", verbose > 0 ? "\n" : "", is_sdat ? "SDAT" : is_fsar ? "BFSAR/BCSAR" : "BRSAR", arg, ndest);
+				// with --decode (xx / xdecode) the converted MIDI files are rendered to WAV through their SoundFonts
+				if (opt_decode && cerr == ERR_OK)
+				{
+					char mdir[PATH_MAX];
+					snprintf (mdir, sizeof (mdir), "%s/midi", ndest);
+					DIR *dp = opendir (mdir);
+					uint rendered = 0;
+					for (struct dirent *de; dp && (de = readdir (dp));)
+					{
+						if (!is_ext (de->d_name, ".mid"))
+							continue;
+						char mpath[PATH_MAX];
+						snprintf (mpath, sizeof (mpath), "%s/%s", mdir, de->d_name);
+						if (extract_midi_render_file_fwd (mpath, 0, 0) == ERR_OK)
+							rendered++;
+					}
+					if (dp)
+						closedir (dp);
+					if (verbose >= 0 && rendered)
+						fprintf (stdlog, "RENDER %u MIDI -> WAV in %s\n", rendered, mdir);
+				}
 				return ERR_OK;
 			}
 		}
