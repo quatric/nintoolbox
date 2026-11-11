@@ -193,6 +193,7 @@
 #include "extract/sf2.inc"
 #include "extract/meshconv.inc"
 #include "extract/hps.inc"
+#include "extract/bfn.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
