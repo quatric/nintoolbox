@@ -2,10 +2,12 @@
 // u16 scale/rotation/translation table sizes, u32 offsets of {joints, scale floats, rotation s16, translation floats} (relative to the chunk).
 // Every joint has 9 tracks (scale, rotation, translation for x, y, z) of {u16 key count, u16 table index, u16 tangent type}; a single key is a constant,
 // otherwise keys are {time, value, tangent in[, tangent out]} (3 values, or 4 when the tangent type is 1) in the track's table type.
+// "BTK" (TTK1, texture SRT animation) uses the same tracks per texture matrix entry (x/y/z = s/t/w) with the tables at +0x28/0x2c/0x30.
 // Rotation values are s16 where 0x8000 = 180 degrees << angle multiplier. Written as "<name>.csv": joint,channel,time,value (rotations in degrees).
 static enumError extract_j3dbck_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".bck") || (export_count == 0 && !opt_decode))
+	const bool btk = is_ext (arg, ".btk");
+	if ((!is_ext (arg, ".bck") && !btk) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -15,13 +17,13 @@ static enumError extract_j3dbck_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
-	if (sz > 0x40 && !memcmp (raw, "J3D1bck1", 8) && !memcmp (raw + 0x20, "ANK1", 4))
+	if (sz > 0x60 && !memcmp (raw, btk ? "J3D1btk1" : "J3D1bck1", 8) && !memcmp (raw + 0x20, btk ? "TTK1" : "ANK1", 4))
 	{
 		const u8 *a = raw + 0x20;
 		const size_t asz = rd_be32 (a + 4);
-		const uint mult = a[9], dur = a[10] << 8 | a[11], nj = a[12] << 8 | a[13];
+		const uint mult = a[9], dur = a[10] << 8 | a[11], nj = (a[12] << 8 | a[13]) / (btk ? 3 : 1);
 		const uint ns = a[14] << 8 | a[15], nr = a[16] << 8 | a[17], nt = a[18] << 8 | a[19];
-		const u32 jo = rd_be32 (a + 20), so = rd_be32 (a + 24), ro = rd_be32 (a + 28), to = rd_be32 (a + 32);
+		const u32 jo = rd_be32 (a + 20), so = rd_be32 (a + (btk ? 0x28 : 24)), ro = rd_be32 (a + (btk ? 0x2c : 28)), to = rd_be32 (a + (btk ? 0x30 : 32));
 		if (asz >= 0x24 && 0x20 + asz <= sz && jo + (size_t)nj * 0x36 <= asz && so + (size_t)ns * 4 <= asz && ro + (size_t)nr * 2 <= asz
 			&& to + (size_t)nt * 4 <= asz && nj <= 4096)
 		{
