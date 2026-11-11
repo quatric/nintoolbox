@@ -1,3 +1,4 @@
+#include "lib-nxfont.h"
 // Export the structural half of a 3DS/Wii U bitmap font (BCFNT/BFFNT) as
 // XML. Wii's own font family (RFNT/RFNA, container magic "RFNT"/"RFNA") is
 // already fully decoded to PNG via the TGLP branch in AssignIMG() --
@@ -47,11 +48,11 @@ static enumError extract_cfnt_manifest (ccp arg)
 	}
 
 	const bool be = d[4] == 0xFE && d[5] == 0xFF; // BOM: FEFF=big, FFFE=little
-	if (!be && !(d[4] == 0xFF && d[5] == 0xFE))
+	if ((!be && !(d[4] == 0xFF && d[5] == 0xFE)) || (is_ffnt && !be && IsNXFont (d, size)))
 	{
 		FREE (d);
 		return ERR_NOTHING_TO_DO;
-	} // neither BOM reading is valid
+	} // neither BOM reading is valid, or a Switch font (sheets decoded by decode_cfnt_if_possible)
 
 #define CF16(p) (be ? be16 (p) : le16 (p))
 #define CF32(p) (be ? be32 (p) : le32 (p))

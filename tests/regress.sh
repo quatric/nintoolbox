@@ -2231,7 +2231,7 @@ t_dae_brres_injection
 
 t_dae_multiformat_injection(){
   # Test GLB -> BCH injection
-  local bch_sample="/Users/larsen/Downloads/aaaaa/live1/h3d/Mii_body.bch"
+  local bch_sample="${BCH_SAMPLE:-$HOME/Downloads/aaaaa/live1/h3d/Mii_body.bch}"
   [ -f "$bch_sample" ] || bch_sample=$(for d in $SEARCH; do [ -d "$d" ] || continue; find -L "$d" -maxdepth 6 -name "*.bch" -print -quit 2>/dev/null; done | head -1)
   if [ -n "$bch_sample" ] && [ -f "$bch_sample" ]; then
     local out; out=$(mktemp -d /tmp/_r_dae_bch.XXXXXX) || { no "GLB -> BCH injection" "mktemp failed"; return; }
@@ -18806,6 +18806,33 @@ t_mkw_tera(){
   rm -rf "$d"
 }
 t_mkw_tera
+
+t_nxfont(){
+  local d; d=$(mktemp -d /tmp/_r_nxfont.XXXXXX) || { fno "Switch fonts" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_nxfont.py" png "$d/s.png" >/dev/null 2>&1 \
+  && "$B/wimgt" ENCODE "$d/s.png" --dest "$d/s.bntx" --overwrite >/dev/null 2>&1 \
+  && python3 "$PWD_PROJECT/../tests/mk_nxfont.py" "$d" "$d/s.bntx" >/dev/null 2>&1 \
+  || { fno "Switch font fixtures" "build failed"; rm -rf "$d"; return; }
+  for f in t.bfttf t.bfotf t.bfcpx t.bffnt; do "$B/wszst" XX "$d/$f" --overwrite >/dev/null 2>&1; done
+  if [ "$(xxd -l 4 -p "$d/t.ttf" 2>/dev/null)" = "00010000" ] && [ "$(xxd -l 4 -p "$d/t.otf" 2>/dev/null)" = "4f54544f" ]; then
+    fok "BFTTF -> .ttf and BFOTF -> .otf beside the source"
+  else
+    fno "BFTTF/BFOTF" "missing or wrong $d/t.ttf / $d/t.otf"
+  fi
+  if grep -q 'file: "f.bfttf"' "$d/t.bfcpx.yml" 2>/dev/null && grep -q "code_ranges: \[\[0x0020, 0x007e\]\]" "$d/t.bfcpx.yml"; then
+    fok "FCPX complex font -> YAML"
+  else
+    fno "FCPX" "unexpected $d/t.bfcpx.yml"
+  fi
+  if python3 "$PNGTOOL" pixel "$d/t.bffnt.png" 0 0 0 0 255 255 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$d/t.bffnt.png" 7 7 255 0 0 255 2>/dev/null; then
+    fok "Switch 2 BFFNT (embedded BNTX sheet) -> upright PNG"
+  else
+    fno "Switch 2 BFFNT" "wrong or missing $d/t.bffnt.png"
+  fi
+  rm -rf "$d"
+}
+t_nxfont
 
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

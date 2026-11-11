@@ -1,7 +1,10 @@
-// Decode a Nintendo Binary Font TrueType Font (.bfttf) to a sibling .ttf.
+// Decode a Nintendo Binary Font TrueType/OpenType Font (.bfttf / .bfotf, same scrambling) to a ".ttf" or ".otf"
+// beside the source (or in --dest).
 static enumError extract_bfttf_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".bfttf"))
+	(void)basedir;
+	(void)depth;
+	if (!is_ext (arg, ".bfttf") && !is_ext (arg, ".bfotf"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
@@ -22,14 +25,26 @@ static enumError extract_bfttf_file (ccp arg, ccp basedir, uint depth)
 	if (err)
 		return err;
 
-	char dest[PATH_MAX];
-	beside_source_dest_ext (dest, sizeof (dest), arg, ".ttf");
+	// "OTTO" (CFF outlines) is an OpenType font, anything else TrueType.
+	const bool otf = ttf_size >= 4 && !memcmp (ttf, "OTTO", 4);
+	char dir[PATH_MAX], dest[PATH_MAX];
+	beside_source_dir (dir, sizeof (dir), arg);
+	ccp sl = strrchr (arg, '/');
+	char name[PATH_MAX];
+	snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	snprintf (dest, sizeof (dest), "%s/%s%s", dir, name, otf ? ".otf" : ".ttf");
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT BFTTF:%s -> TTF:%s (%u bytes)\n",
-			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest, ttf_size);
+		fprintf (stdlog, "%s%sEXTRACT BFTTF:%s -> %s:%s (%u bytes)\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, otf ? "OTF" : "TTF", dest, ttf_size);
 
 	if (!testmode)
+	{
+		CreatePath (dir, true);
 		err = SaveFile (dest, 0, 0, ttf, ttf_size, 0);
+	}
 
 	FREE (ttf);
 	return err;

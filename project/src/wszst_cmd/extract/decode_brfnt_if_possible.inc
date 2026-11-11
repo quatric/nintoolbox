@@ -1,3 +1,4 @@
+#include "lib-nxfont.h"
 // Decode a Wii bitmap font (BRFNT/BRFNA, container magic "RFNT"/"RFNA") to
 // PNG sheet(s) during "wszst XX". The pixel decode itself already exists --
 // AssignIMG()'s TGLP branch in lib-image-load.c fully understands it (see the
@@ -93,7 +94,7 @@ static enumError decode_cfnt_if_possible (ccp arg)
 		&& !is_ext (arg, ".cfnt"))
 		return ERR_NOTHING_TO_DO;
 
-	u8 magic[4];
+	u8 magic[12];
 	FILE *probe = fopen (arg, "rb");
 	if (!probe)
 		return ERR_NOT_EXISTS;
@@ -101,6 +102,45 @@ static enumError decode_cfnt_if_possible (ccp arg)
 	fclose (probe);
 	if (n_magic != sizeof (magic) || (memcmp (magic, "CFNT", 4) && memcmp (magic, "FFNT", 4)))
 		return ERR_NOTHING_TO_DO;
+
+	// Switch / Switch 2 BFFNT (little endian): GPU-tiled sheets, decoded by lib-nxfont.
+	if (!memcmp (magic, "FFNT", 4) && magic[4] == 0xff && magic[5] == 0xfe)
+	{
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !IsNXFont (raw, raw_size))
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
+		enumError err = ERR_NOTHING_TO_DO;
+		uint n_sheets = 1;
+		for (uint i = 0; i < n_sheets; i++)
+		{
+			u8 *rgba = 0;
+			uint w = 0, h = 0;
+			if (DecodeNXFontSheet (raw, raw_size, i, &rgba, &w, &h, &n_sheets) || !rgba)
+				break;
+			char dir[PATH_MAX], dest[PATH_MAX];
+			beside_source_dir (dir, sizeof (dir), arg);
+			ccp sl = strrchr (arg, '/');
+			if (n_sheets > 1)
+				snprintf (dest, sizeof (dest), "%s/%s.sheet%03u.png", dir, sl ? sl + 1 : arg, i);
+			else
+				snprintf (dest, sizeof (dest), "%s/%s.png", dir, sl ? sl + 1 : arg);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sDECODE BFFNT:%s[%u] (%ux%u) -> PNG:%s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, i, w, h, dest);
+			if (testmode)
+				FREE (rgba);
+			else
+				SaveDecodedRGBAToPNG (rgba, w, h, &le_func, dest, 0, opt_overwrite);
+			err = ERR_OK;
+		}
+		FREE (raw);
+		if (err == ERR_OK)
+			return err;
+	}
 
 	Image_t img;
 	enumError max_err = LoadIMG (&img, true, arg, 0, false, true, false);

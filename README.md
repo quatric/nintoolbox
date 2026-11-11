@@ -286,7 +286,9 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **AJPG / ODH** | `.ajpg` | GBA / Wii Message Board |
 | **ART / IMG** | `.art`, `.img` | Wii |
 | **ASTC** | `.astc` | Switch and mobile titles |
-| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | 3DS / Wii U / Wii |
+| **BCFNT / BFFNT / BRFNT** | `.bcfnt`, `.bffnt`, `.brfnt` | 3DS / Wii U / Wii / Switch / Switch 2 |
+| **BFTTF / BFOTF** | `.bfttf`, `.bfotf` | Wii U / Switch / Switch 2 |
+| **FCPX complex font** | `.bfcpx` | Switch / Switch 2 |
 | **BCLIM** | `.bclim` | 3DS |
 | **BFLIM** | `.bflim` | Wii U |
 | **BNR** | `.bnr` | GameCube / Wii titles |
