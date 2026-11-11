@@ -25,6 +25,13 @@ bool IsCingWpf (const u8 *head, size_t head_size, u64 file_size)
 	if (!memcmp (head, "DC2\0", 4))
 		return false;
 
+	// Other formats whose 4 byte magic is followed by zero padding look like a short member name: BNTX, BNSH, THP, ...
+	static const char *const other_magic[] = { "BNTX", "BNSH", "FRES", "BFRE", "SARC", "NSO0", "NRO0", "MOD0", "THP\0", "KIP1",
+		"Yaz0", "Yay0", "BARS", "FSAR", "CSAR", "RSAR", "U8\x2d\0", "ASTC", "PFS0", "HFS0", "NCA3", "NCA2", "RIFF", "OggS", "TPL\0" };
+	for (uint i = 0; i < sizeof (other_magic) / sizeof (*other_magic); i++)
+		if (!memcmp (head, other_magic[i], 4))
+			return false;
+
 	// First entry filename in bytes 0..23: null-terminated, printable ASCII
 	const u8 ch0 = head[0];
 	if (ch0 != 0x5c && ch0 != 0x2f && (ch0 < 0x20 || ch0 > 0x7e))
@@ -41,6 +48,8 @@ bool IsCingWpf (const u8 *head, size_t head_size, u64 file_size)
 
 	if (name_len == 0 || name_len >= 24)
 		return false;
+	if (head[0] != 0x5c && head[0] != 0x2f && !memchr (head, '.', name_len))
+		return false; // real member names have a path prefix or an extension
 
 	const u32 fsize = cingwpf_le32 (head + 24);
 	const u32 next_off = cingwpf_le32 (head + 28);
