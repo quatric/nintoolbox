@@ -461,3 +461,4 @@
 #include "extract/hps.inc"
 #include "extract/bfn.inc"
 #include "extract/jpc.inc"
+#include "extract/wiidsp_misc.inc"
