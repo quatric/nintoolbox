@@ -11869,6 +11869,33 @@ PYE
   && fok "Bermuda PLANETG text manifest" \
   || fno "Bermuda PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
 
+  # I Spy / Proteus SDASSETF full chunk walk (name, fixed payload, children), both byte orders
+  mkdir -p "$d/proteus_test"
+  python3 - "$d/proteus_test" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def build(be):
+    e = '>' if be else '<'
+    t = lambda s: s if be else s[::-1]
+    kid = lambda tag, ver, fld, pay: t(tag) + struct.pack(e + 'III', ver, fld, len(pay)) + pay
+    kids = kid(b'IMAG', 1, 0, b'Rev\0' + bytes(8)) + kid(b'CLUT', 1, 0, bytes(8))
+    name = b'amtx\0\0\0\0'
+    fixed = bytes(range(36))
+    top = t(b'BMAP') + struct.pack(e + 'III', 3, len(fixed), len(kids)) + name + fixed + kids
+    hdr = (b'SDASSETF' if be else b'SADSFTES') + struct.pack(e + 'II', 1, 1)
+    return hdr + top
+open(sys.argv[1] + '/be.ast', 'wb').write(build(True))
+open(sys.argv[1] + '/le.ast', 'wb').write(build(False))
+PYE
+  pr_ok=1
+  for n in be le; do
+    "$B/wszst" xx "$d/proteus_test/$n.ast" --overwrite >/dev/null 2>&1
+    grep -q 'chunk\[0\]: tag="BMAP" version=0x3 name="amtx" fixed_size=36 children_size=52' "$d/proteus_test/$n.ast.d/$n.ast.txt" \
+      && grep -q 'child\[0\]: tag="IMAG"' "$d/proteus_test/$n.ast.d/$n.ast.txt" \
+      && grep -q 'child\[1\]: tag="CLUT"' "$d/proteus_test/$n.ast.d/$n.ast.txt" \
+      && ! grep -q 'not understood\|stops at\|only [0-9]* of' "$d/proteus_test/$n.ast.d/$n.ast.txt" || pr_ok=0
+  done
+  [ $pr_ok = 1 ] && fok "Proteus SDASSETF chunk walk" || fno "Proteus SDASSETF chunk walk" "BE/LE walk missing name/children"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

@@ -256,6 +256,29 @@ int IsSpookyAst (const u8 *data, size_t size, size_t file_size)
 	return 1;
 }
 
+// Top-level chunk layout, verified on all 1598 .ast files of Goosebumps HorrorLand (832 big-endian, 766 little-endian; every file walks to EOF):
+//   +0  tag (4 chars, word-swapped in the little-endian files; 3 character tags such as "MDL" and "BND" are NUL padded)
+//   +4  version, +8 size of the fixed payload, +12 size of the child area
+//   +16 NUL terminated resource name padded to 4 bytes, then the fixed payload (size bytes), then the child area (children bytes).
+// Child chunks have a 16 byte header {tag, version, field (0 or 1), size} followed by size bytes of payload and no name.
+// The top-level chunks are BMAP (children IMAG, CLUT), MTRL (EFCT), MDL (BND, INFO, LOD with MESH/WDGE/DATA), SKEL, SPLM (SPCH), LGHT, PRSP, FRCE, PLNE.
+static int ast_walk_name (const u8 *data, size_t size, u32 o, u32 *name_len)
+{
+	u32 p = o + AST_CHUNK_HEADER_SIZE;
+	while (p < size && data[p])
+		p++;
+	if (p >= size)
+		return 0;
+	*name_len = ((p - (o + AST_CHUNK_HEADER_SIZE) + 1) + 3) & ~3u;
+	return 1;
+}
+
+static void ast_put_hex (FILE *f, const u8 *p, u32 n)
+{
+	for (u32 i = 0; i < n; i++)
+		fprintf (f, "%s%02x", i ? " " : "", p[i]);
+}
+
 enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
 	if (!f || !data || !IsSpookyAst (data, size, file_size))
@@ -273,47 +296,127 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 
 	u32 o = AST_HEADER_SIZE;
 	u32 n = 0;
-	while (o + AST_CHUNK_HEADER_SIZE <= size)
+	for (; n < count && o + AST_CHUNK_HEADER_SIZE <= size; n++)
 	{
 		char tag[5];
 		ast_tag (data, o, swapped, tag);
-		if (!is_ascii_tag (tag))
+		u32 name_len;
+		if (!is_ascii_tag (tag) || !ast_walk_name (data, size, o, &name_len))
 			break;
-		u32 cver = ast_u32 (data, o + 4, swapped);
-		u32 chunksize = ast_u32 (data, o + 8, swapped);
-		u32 field4 = ast_u32 (data, o + 12, swapped);
-		if ((u64)o + AST_CHUNK_HEADER_SIZE + chunksize > size)
+		const u32 cver = ast_u32 (data, o + 4, swapped);
+		const u32 fixed = ast_u32 (data, o + 8, swapped);
+		const u32 kids = ast_u32 (data, o + 12, swapped);
+		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len;
+		const u64 end = pay + fixed + kids;
+		if (end > size)
 		{
-			fprintf (f,
-				"\n# chunk table stops at offset 0x%x (out-of-bounds size field) --\n"
-				"# remainder not decoded, see lib-ispyspookymansion.h note (2)\n",
-				o);
+			fprintf (f, "\n# chunk table stops at offset 0x%x (out-of-bounds size fields)\n", o);
 			break;
 		}
 
-		fprintf (f, "\nchunk[%u]: tag=\"%s\" version=0x%x size=%u field4=0x%x offset=0x%x\n", n,
-			tag, cver, chunksize, field4, o);
-
-		u64 end = (u64)o + AST_CHUNK_HEADER_SIZE + chunksize;
-		u64 next = (end + 15) & ~(u64)15;
-		if (next <= o || next > size)
+		fprintf (f, "\nchunk[%u]: tag=\"%s\" version=0x%x name=\"%s\" fixed_size=%u children_size=%u offset=0x%x\n", n, tag, cver, (const char *)data + o + AST_CHUNK_HEADER_SIZE, fixed, kids, o);
+		if (fixed)
 		{
-			fprintf (f,
-				"# nested/sub-chunk payload not reverse-engineered -- see lib-ispyspookymansion.h "
-				"note (2)\n");
-			break;
+			fprintf (f, "  fixed: ");
+			ast_put_hex (f, data + pay, fixed > 64 ? 64 : fixed);
+			fprintf (f, "%s\n", fixed > 64 ? " ..." : "");
 		}
-		o = (u32)next;
-		n++;
+		u64 c = pay + fixed;
+		for (u32 j = 0; c < end; j++)
+		{
+			char ctag[5];
+			if (c + AST_CHUNK_HEADER_SIZE > end)
+			{
+				fprintf (f, "  # truncated child header at 0x%llx\n", (unsigned long long)c);
+				break;
+			}
+			ast_tag (data, (u32)c, swapped, ctag);
+			const u32 ccver = ast_u32 (data, (u32)c + 4, swapped);
+			const u32 cfield = ast_u32 (data, (u32)c + 8, swapped);
+			const u32 csize = ast_u32 (data, (u32)c + 12, swapped);
+			if (!is_ascii_tag (ctag) || c + AST_CHUNK_HEADER_SIZE + csize > end)
+			{
+				fprintf (f, "  # child chunk at 0x%llx not understood\n", (unsigned long long)c);
+				break;
+			}
+			fprintf (f, "  child[%u]: tag=\"%s\" version=0x%x field=%u size=%u offset=0x%llx\n", j, ctag, ccver, cfield, csize, (unsigned long long)c);
+			c += AST_CHUNK_HEADER_SIZE + csize;
+		}
+		o = (u32)end;
 	}
 
 	if (n < count)
-		fprintf (f,
-			"\n# only %u of %u declared top-level chunks could be walked; the rest\n"
-			"# (or this chunk's nested payload) was not reverse-engineered\n",
-			n, count);
+		fprintf (f, "\n# only %u of %u declared top-level chunks could be walked\n", n, count);
+	else if (o != size)
+		fprintf (f, "\n# %zu trailing bytes after the last chunk\n", size - o);
 
 	return ERR_OK;
+}
+
+int SpookyAstForEachTexture (const u8 *data, size_t size, int (*cb) (const SpookyAstTexture_t *tex, void *ctx), void *ctx)
+{
+	int swapped = 0;
+	if (!data || !check_ast_magic (data, size, &swapped))
+		return 0;
+	const u32 count = ast_u32 (data, 12, swapped);
+	u32 o = AST_HEADER_SIZE;
+	int found = 0;
+	for (u32 n = 0; n < count && o + AST_CHUNK_HEADER_SIZE <= size; n++)
+	{
+		char tag[5];
+		ast_tag (data, o, swapped, tag);
+		u32 name_len;
+		if (!is_ascii_tag (tag) || !ast_walk_name (data, size, o, &name_len))
+			break;
+		const u32 fixed = ast_u32 (data, o + 8, swapped), kids = ast_u32 (data, o + 12, swapped);
+		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids;
+		if (end > size)
+			break;
+		if (!strcmp (tag, "BMAP") && fixed >= 20)
+		{
+			const u8 *fx = data + pay;
+			SpookyAstTexture_t t = { (const char *)data + o + AST_CHUNK_HEADER_SIZE, swapped ? rd_le16 (fx) : rd_be16 (fx), swapped ? rd_le16 (fx + 2) : rd_be16 (fx + 2), 0, 0, 0, 0, 0 };
+			const uint bits = fx[16];
+			for (u64 c = pay + fixed; c + AST_CHUNK_HEADER_SIZE <= end;)
+			{
+				char ctag[5];
+				ast_tag (data, (u32)c, swapped, ctag);
+				const u32 csize = ast_u32 (data, (u32)c + 12, swapped);
+				if (!is_ascii_tag (ctag) || c + AST_CHUNK_HEADER_SIZE + csize > end)
+					break;
+				if (csize >= 4 && !strcmp (ctag, "IMAG"))
+				{
+					t.pixels = data + c + AST_CHUNK_HEADER_SIZE + 4; // skips the "Rev\0" tag
+					t.pixels_size = csize - 4;
+				}
+				else if (csize >= 4 && !strcmp (ctag, "CLUT"))
+				{
+					t.clut = data + c + AST_CHUNK_HEADER_SIZE + 4;
+					t.clut_size = csize - 4;
+				}
+				c += AST_CHUNK_HEADER_SIZE + csize;
+			}
+			if (fx[15] == 7 && bits == 32)
+				t.kind = 0x0e;
+			else if (!fx[15] && bits == 32)
+				t.kind = 0x06;
+			else if (!fx[15] && bits == 4 && t.clut)
+				t.kind = 0x08;
+			else if (!fx[15] && bits == 8 && t.clut)
+				t.kind = 0x09;
+			size_t need = (size_t)t.width * t.height;
+			need = t.kind == 0x0e || t.kind == 0x08 ? need / 2 : t.kind == 0x06 ? need * 4 : need;
+			if (t.kind && t.pixels && t.width && t.height && !(t.width & 7) && !(t.height & 7) && t.width <= 4096 && t.height <= 4096 && t.pixels_size >= need)
+			{
+				found++;
+				const int r = cb (&t, ctx);
+				if (r)
+					return -r;
+			}
+		}
+		o = (u32)end;
+	}
+	return found;
 }
 
 //-----------------------------------------------------------------------------
