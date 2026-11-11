@@ -1,3 +1,6 @@
+#include "lib-brsar.h"
+#include "lib-sdat.h"
+#include "lib-rsar-conv.h"
 // Load every CHR0 in one extracted "AnmChr(NW4R)" directory into `model`.
 // Extracted BRRES members keep their raw resource name verbatim -- no
 // ".chr0" extension is added (unlike, say, texture PNGs) -- so a sidecar
@@ -233,6 +236,42 @@ static enumError convert_brsar_if_possible (ccp arg)
 
 	if (!is_sound)
 		return ERR_NOTHING_TO_DO;
+
+	// In-process conversion first (native BRSAR/SDAT -> raw assets + MIDI + SF2);
+	// the external tools below are only a fallback if that fails.
+	if (!opt_with_vgmtrans || !*opt_with_vgmtrans)
+	{
+		char ndest[PATH_MAX];
+		if (opt_dest)
+			SubstDest (ndest, sizeof (ndest), arg, opt_dest, 0, ".d", false);
+		else
+			snprintf (ndest, sizeof (ndest), "%s.d", arg);
+		if (!opt_overwrite && !access (ndest, F_OK))
+			return ERR_OK;
+		u8 *raw = 0;
+		size_t raw_size = 0;
+		if (!LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) && raw)
+		{
+			if (testmode)
+			{
+				fprintf (stdlog, "WOULD EXPORT %s:%s -> %s\n", is_sdat ? "SDAT" : "BRSAR", arg, ndest);
+				FREE (raw);
+				return ERR_OK;
+			}
+			char raw_dir[PATH_MAX];
+			snprintf (raw_dir, sizeof (raw_dir), "%s/raw", ndest);
+			CreatePath (ndest, true);
+			const enumError uerr = is_sdat ? UnpackSDAT (raw, raw_size, raw_dir) : UnpackBRSAREx (raw, raw_size, raw_dir, false);
+			const enumError cerr = is_sdat ? ConvertSDATNative (raw, raw_size, ndest) : ConvertRSARNative (raw, raw_size, ndest);
+			FREE (raw);
+			if (cerr == ERR_OK || uerr == ERR_OK)
+			{
+				if (verbose >= 0)
+					fprintf (stdlog, "%sEXPORT %s:%s -> %s (native)\n", verbose > 0 ? "\n" : "", is_sdat ? "SDAT" : "BRSAR", arg, ndest);
+				return ERR_OK;
+			}
+		}
+	}
 
 	// Prefer the wbrsar built alongside this binary (same install/build dir)
 	// over whatever a bare PATH search might turn up first.
