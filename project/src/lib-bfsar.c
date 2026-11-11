@@ -173,6 +173,7 @@ static enumError scan_info (const u8 *data, uint size, const u8 *block, bool le,
 			s32 eoff = rd_s32e (er + 4, le);
 			bfsar_entry_t *e = t->entry + i;
 			e->present = eoff != NULL_PTR;
+			e->rec_off = e->present ? (u32)((table + eoff) - data) : 0;
 			e->id = t->type != BFSAR_TYPE_NONE ? ((u32)t->type << 24 | i) : 0;
 			e->name = t->type != BFSAR_TYPE_NONE
 				? lookup_name (leaves, n_leaves, strings, n_strings, e->id)

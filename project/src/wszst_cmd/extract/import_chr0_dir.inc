@@ -232,7 +232,8 @@ static enumError convert_brsar_if_possible (ccp arg)
 
 	bool is_rsar = (n_magic == sizeof (magic) && !memcmp (magic, "RSAR", 4));
 	bool is_sdat = (n_magic == sizeof (magic) && !memcmp (magic, "SDAT", 4));
-	bool is_sound = is_rsar || is_sdat;
+	bool is_fsar = (n_magic == sizeof (magic) && (!memcmp (magic, "FSAR", 4) || !memcmp (magic, "CSAR", 4)));
+	bool is_sound = is_rsar || is_sdat || is_fsar;
 
 	if (!is_sound)
 		return ERR_NOTHING_TO_DO;
@@ -254,7 +255,7 @@ static enumError convert_brsar_if_possible (ccp arg)
 		{
 			if (testmode)
 			{
-				fprintf (stdlog, "WOULD EXPORT %s:%s -> %s\n", is_sdat ? "SDAT" : "BRSAR", arg, ndest);
+				fprintf (stdlog, "WOULD EXPORT %s:%s -> %s\n", is_sdat ? "SDAT" : is_fsar ? "BFSAR/BCSAR" : "BRSAR", arg, ndest);
 				FREE (raw);
 				return ERR_OK;
 			}
@@ -262,12 +263,14 @@ static enumError convert_brsar_if_possible (ccp arg)
 			snprintf (raw_dir, sizeof (raw_dir), "%s/raw", ndest);
 			CreatePath (ndest, true);
 			const enumError uerr = is_sdat ? UnpackSDAT (raw, raw_size, raw_dir) : UnpackBRSAREx (raw, raw_size, raw_dir, false);
-			const enumError cerr = is_sdat ? ConvertSDATNative (raw, raw_size, ndest) : ConvertRSARNative (raw, raw_size, ndest);
+			const enumError cerr = is_sdat ? ConvertSDATNative (raw, raw_size, ndest)
+				: is_fsar ? ConvertFSARNative (raw, raw_size, ndest)
+				: ConvertRSARNative (raw, raw_size, ndest);
 			FREE (raw);
 			if (cerr == ERR_OK || uerr == ERR_OK)
 			{
 				if (verbose >= 0)
-					fprintf (stdlog, "%sEXPORT %s:%s -> %s (native)\n", verbose > 0 ? "\n" : "", is_sdat ? "SDAT" : "BRSAR", arg, ndest);
+					fprintf (stdlog, "%sEXPORT %s:%s -> %s (native)\n", verbose > 0 ? "\n" : "", is_sdat ? "SDAT" : is_fsar ? "BFSAR/BCSAR" : "BRSAR", arg, ndest);
 				return ERR_OK;
 			}
 		}

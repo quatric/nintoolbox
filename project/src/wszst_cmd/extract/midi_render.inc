@@ -1,3 +1,4 @@
+#include <dirent.h>
 // Standard MIDI files made by the sequence converters (BRSAR/SDAT/RBNK...): with --decode the MIDI is rendered to
 // "<name>.wav" through its SoundFont. The SoundFont is found from the "sequences.tsv" manifest next to the MIDI (column
 // "soundfont", resolved in ../soundfonts/), or a "<name>.sf2" beside it. A SoundFont only has to exist once per bank.
@@ -40,7 +41,19 @@ static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth)
 		char *dot = strrchr (sf2, '.');
 		if (dot) strcpy (dot, ".sf2");
 		if (stat (sf2, &st))
-			return ERR_NOTHING_TO_DO;
+		{
+			// otherwise the only SoundFont in the same folder
+			*sf2 = 0;
+			DIR *dp = opendir (dir);
+			uint found = 0;
+			for (struct dirent *de; dp && (de = readdir (dp));)
+				if (is_ext (de->d_name, ".sf2") && ++found == 1)
+					snprintf (sf2, sizeof (sf2), "%s/%s", dir, de->d_name);
+			if (dp)
+				closedir (dp);
+			if (found != 1)
+				return ERR_NOTHING_TO_DO;
+		}
 	}
 	snprintf (wav, sizeof (wav), "%s", arg);
 	char *dot = strrchr (wav, '.');

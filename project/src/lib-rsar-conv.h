@@ -28,6 +28,15 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir);
 // of the bank's wave archives.
 enumError ConvertSDATNative (const u8 *data, size_t size, ccp out_dir);
 
+// Wii U / Switch (FSAR) and 3DS (CSAR) sound archive -> MIDI + SF2, same output layout. Every FSEQ/CSEQ
+// sound becomes a MIDI; every bank (FBNK/CBNK + its FWAR/CWAR waves) used by one becomes a SoundFont.
+// Only assets embedded in the archive's FILE pool are converted (external group files are not read).
+enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir);
+
+// SoundFont for one standalone FBNK/CBNK bank plus a FWAR/CWAR wave archive holding its waves.
+enumError ConvertFBNKToSF2 (const u8 *bank, size_t bank_size, const u8 *war, size_t war_size, ccp bank_name,
+	u8 **out_sf2, size_t *out_size);
+
 // Builds a SoundFont for one RBNK (instrument bank) plus the wave data it references;
 // exposed separately so that tools can convert a standalone bank + wave archive.
 //   rbnk  : RBNK file image; wave : RWAR file image (may be NULL for banks with an
@@ -38,5 +47,8 @@ enumError ConvertRBNKToSF2 (const u8 *rbnk, size_t rbnk_size, const u8 *wave, si
 // NW4R wave data -> WAV: an RWAR archive (every RWAV in it) or a single RWAV. Writes <stem>_NNN.wav
 // (16 bit PCM, interleaved channels, loop points as a 'smpl' chunk) into out_dir.
 enumError ConvertRWARToWAV (const u8 *data, size_t size, ccp out_dir, ccp stem, uint *n_written);
+
+// Wavetable pair ".wt" + ".pcm" (HOME Button SE bank, Octomania games) -> SoundFont (melodic programs only).
+enumError ConvertWTToSF2 (const u8 *wt, size_t wsz, const u8 *pcm, size_t psz, ccp name, u8 **out_sf2, size_t *out_size);
 
 #endif

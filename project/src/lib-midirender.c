@@ -29,8 +29,6 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 		return 1;
 	}
 	tsf_set_output (sf, TSF_STEREO_INTERLEAVED, rate, 0.0f);
-	// MIDI channel 10 is percussion; leave the rest on bank 0
-	tsf_channel_set_bank_preset (sf, 9, 128, 0);
 
 	unsigned len_ms = 0;
 	tml_get_info (midi, 0, 0, 0, 0, &len_ms);
@@ -62,7 +60,7 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 			switch (m->type)
 			{
 			case TML_PROGRAM_CHANGE:
-				tsf_channel_set_presetnumber (sf, m->channel, m->program, m->channel == 9);
+				tsf_channel_set_presetnumber (sf, m->channel, m->program, 0);
 				break;
 			case TML_NOTE_ON:
 				tsf_channel_note_on (sf, m->channel, m->key, m->velocity / 127.0f);

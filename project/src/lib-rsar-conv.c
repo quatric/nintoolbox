@@ -7,6 +7,8 @@
 #include "lib-std.h"
 #include "lib-sequence.h"
 #include "lib-rsar-conv.h"
+#include "lib-bfsar.h"
+#include "lib-nintendo.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // big-endian readers with bounds checks (out of range reads yield 0)
@@ -1152,6 +1154,142 @@ enumError ConvertRBNKToSF2 (const u8 *rbnk, size_t rbnk_size, const u8 *wave, si
 	return err;
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+// Nintendo / Roland wavetable pair ".wt" + ".pcm" (HOME Button SE bank, Octomania games): see octowt.inc for the layout.
+// Section 1 = melodic key maps (rows of 128 u16 region ids), section 2 = 24 byte regions, last section = 16 byte sample
+// records {u32 rate | flags (bit 16 = plain s16 PCM), u32 start, u32 length, u32 coefficient record}.
+
+static u32 wt32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+static int wt16s (const u8 *p) { return (int16_t)(p[0] << 8 | p[1]); }
+
+enumError ConvertWTToSF2 (const u8 *wt, size_t wsz, const u8 *pcm, size_t psz, ccp name, u8 **out_sf2, size_t *out_size)
+{
+	if (!wt || !pcm || wsz < 0x18 || wsz > 0x4000000)
+		return ERR_NOTHING_TO_DO;
+	u32 o[6];
+	for (uint i = 0; i < 6; i++)
+		o[i] = wt32 (wt + 4 * i);
+	if (o[0] != 0x18 || o[1] < o[0] || o[2] < o[1] || o[3] < o[2] || o[4] < o[3] || o[5] <= o[4] || o[5] > wsz || (o[5] - o[4]) % 16)
+		return ERR_NOTHING_TO_DO;
+	const uint n = (o[5] - o[4]) / 16, nr = (o[3] - o[2]) / 24, rows = (o[2] - o[1]) / 256;
+	uint n_pcm = 0;
+	for (uint i = 0; i < n; i++)
+		n_pcm += (wt32 (wt + o[4] + 16 * i) >> 16) & 1;
+	const bool adpcm = wsz > o[5] && wsz - o[5] == 46 * (size_t)(n - n_pcm);
+	if (!n || !nr || !rows)
+		return ERR_NOTHING_TO_DO;
+	rb_coll_t coll = { CALLOC (n, sizeof (rb_samp_t)), n };
+	rb_instr_t *ins = CALLOC (rows > 128 ? 128 : rows, sizeof (*ins));
+	enumError err = ERR_OUT_OF_MEMORY;
+	uint n_ins = 0;
+	if (!coll.s || !ins)
+		goto done;
+	uint ci = 0;
+	for (uint i = 0; i < n; i++)
+	{
+		const u8 *r = wt + o[4] + 16 * i;
+		const u32 off = wt32 (r + 4), len = wt32 (r + 8), rate = wt32 (r) & 0xffff;
+		const bool is_pcm = ((wt32 (r) >> 16) & 1) || !adpcm;
+		rb_samp_t *sp = coll.s + i;
+		sp->valid = true;
+		sp->rate = rate ? rate : 32000;
+		sp->nsamples = len;
+		if (len > 0x1000000)
+		{
+			err = ERR_INVALID_DATA;
+			goto done;
+		}
+		sp->pcm = CALLOC (len ? len : 1, sizeof (s16));
+		if (!sp->pcm)
+			goto done;
+		sp->pcm_count = len;
+		s16 coef[16] = { 0 };
+		if (!is_pcm)
+		{
+			for (uint k = 0; k < 16 && o[5] + 46 * (size_t)ci + 2 * k + 1 < wsz; k++)
+				coef[k] = (s16)wt16s (wt + o[5] + 46 * (size_t)ci + 2 * k);
+			ci++;
+		}
+		int h1 = 0, h2 = 0;
+		for (u32 k = 0; k < len; k++)
+		{
+			int v = 0;
+			if (is_pcm)
+			{
+				const size_t bp = 2 * ((size_t)off + k);
+				v = bp + 1 < psz ? wt16s (pcm + bp) : 0;
+			}
+			else
+			{
+				const size_t fp = (size_t)off / 2 + (k / 14) * 8;
+				const uint hd = fp < psz ? pcm[fp] : 0, ix = k % 14;
+				const size_t bp = fp + 1 + ix / 2;
+				const uint x = bp < psz ? pcm[bp] : 0;
+				int q = ix & 1 ? x & 15 : x >> 4;
+				if (q >= 8)
+					q -= 16;
+				const uint pr = (hd >> 4) & 7;
+				v = (int)((((s64)q << (hd & 15)) << 11) + 0x400 + (s64)coef[2 * pr] * h1 + (s64)coef[2 * pr + 1] * h2) >> 11;
+				v = v < -32768 ? -32768 : v > 32767 ? 32767 : v;
+				h2 = h1;
+				h1 = v;
+			}
+			sp->pcm[k] = (s16)v;
+		}
+	}
+	for (uint p = 0; p < rows && p < 128; p++)
+	{
+		rb_instr_t *in = ins + n_ins;
+		in->num = p;
+		in->r = CALLOC (128, sizeof (rb_rgn_t));
+		if (!in->r)
+			goto done;
+		for (uint k = 0; k < 128;)
+		{
+			const uint id = (wt[o[1] + 256 * p + 2 * k] << 8) | wt[o[1] + 256 * p + 2 * k + 1];
+			uint e = k;
+			while (e + 1 < 128 && (uint)((wt[o[1] + 256 * p + 2 * (e + 1)] << 8) | wt[o[1] + 256 * p + 2 * (e + 1) + 1]) == id)
+				e++;
+			if (id < nr)
+			{
+				const u8 *rg = wt + o[2] + 24 * id;
+				const u32 si = wt32 (rg + 20);
+				rb_rgn_t *g = in->r + in->n++;
+				g->klo = k;
+				g->khi = e;
+				g->vlo = 0;
+				g->vhi = 0;
+				g->samp = si < n ? si : 0;
+				g->attack = 0;
+				g->decay = 0;
+				g->sustain_level = -1;
+				g->release = 0.08;
+				g->pan = 0.5;
+				g->volume = -1;
+				g->unity = rg[0] ? (int8_t)rg[0] : 0x3c;
+			}
+			k = e + 1;
+		}
+		if (in->n)
+			n_ins++;
+		else
+			FREE (in->r), in->r = 0;
+	}
+	if (!n_ins)
+	{
+		err = ERR_NOTHING_TO_DO;
+		goto done;
+	}
+	err = sf_build (&coll, ins, n_ins, name && *name ? name : "wavetable", out_sf2, out_size);
+done:
+	for (uint i = 0; ins && i < rows && i < 128; i++)
+		FREE (ins[i].r);
+	FREE (ins);
+	rb_coll_free (&coll);
+	return err;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Nintendo DS SDAT (NDSScanner.cpp / NDSInstrSet.cpp): SYMB/INFO/FAT tables, SBNK
 // instrument banks, SWAR wave archives (PCM8 / PCM16 / IMA-ADPCM) and the eight
@@ -1744,5 +1882,533 @@ enumError ConvertRWARToWAV (const u8 *data, size_t size, ccp out_dir, ccp stem, 
 	if (n_written)
 		*n_written = done;
 	rb_coll_free (&c);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Wii U / Switch (FSAR) and 3DS (CSAR) sound archives: FSEQ/CSEQ + FBNK/CBNK + FWAR/CWAR
+//
+// Layouts follow the NintendoWare for Cafe/CTR sound archive format as documented by the
+// Citric Composer project (Gota7, specs "bnk", "war", "common"), checked against the nw/snd
+// headers. Byte order follows the file (Wii U big endian, Switch/3DS little endian).
+// Only assets stored in the archive's own FILE pool are converted; groups kept in external
+// .bfgrp/.bcgrp files have to be unpacked and converted separately.
+
+typedef struct fx_t
+{
+	const u8 *d;
+	size_t n;
+	bool le;
+} fx_t;
+
+static u32 fx_u8 (const fx_t *f, size_t o) { return o < f->n ? f->d[o] : 0; }
+static u32 fx_u16 (const fx_t *f, size_t o)
+{
+	return f->le ? (fx_u8 (f, o) | fx_u8 (f, o + 1) << 8) : (fx_u8 (f, o) << 8 | fx_u8 (f, o + 1));
+}
+static u32 fx_u32 (const fx_t *f, size_t o)
+{
+	return f->le ? (fx_u16 (f, o) | fx_u16 (f, o + 2) << 16) : (fx_u16 (f, o) << 16 | fx_u16 (f, o + 2));
+}
+static int fx_s32 (const fx_t *f, size_t o) { return (int)fx_u32 (f, o); }
+
+// value of bit-flag "bit" for a flag word at pos (values follow the word in bit order); 0 + *have=false if clear
+static u32 fx_flag (const fx_t *f, size_t pos, uint bit, bool *have)
+{
+	const u32 fl = fx_u32 (f, pos);
+	if (!(fl >> bit & 1))
+	{
+		if (have)
+			*have = false;
+		return 0;
+	}
+	if (have)
+		*have = true;
+	return fx_u32 (f, pos + 4 + 4 * (size_t)__builtin_popcount (fl & ((1u << bit) - 1)));
+}
+
+// Reference at pos: returns false if null; *type and *target (pos + offset... target computed against base)
+static bool fx_ref (const fx_t *f, size_t pos, size_t base, uint *type, size_t *target)
+{
+	const int off = fx_s32 (f, pos + 4);
+	if (off == -1 || pos + 8 > f->n)
+		return false;
+	if (type)
+		*type = fx_u16 (f, pos);
+	*target = base + (size_t)(s64)off;
+	return *target < f->n;
+}
+
+// block with magic in a FSAR-family file header block table; returns block body (after the 8 byte header)
+static bool fx_block (const fx_t *f, const char *magic, size_t *body, size_t *body_size)
+{
+	const uint nb = fx_u16 (f, 0x10);
+	for (uint i = 0; i < nb && i < 8; i++)
+	{
+		const size_t off = fx_u32 (f, 0x14 + 12 * (size_t)i + 4);
+		if (off + 8 <= f->n && !memcmp (f->d + off, magic, 4))
+		{
+			*body = off + 8;
+			*body_size = fx_u32 (f, off + 4);
+			return true;
+		}
+	}
+	return false;
+}
+
+// -- waves ----------------------------------------------------------------------------------
+
+// image of wave "index" inside a FWAR/CWAR
+static bool fx_war_wave (const u8 *war, size_t war_n, u32 index, const u8 **img, size_t *img_n)
+{
+	fx_t f = { war, war_n, false };
+	if (war_n < 0x30 || (memcmp (war, "FWAR", 4) && memcmp (war, "CWAR", 4)))
+		return false;
+	f.le = war[4] == 0xff; // BOM FFFE (stored LE) vs FEFF
+	size_t ib, in, fb, fn;
+	if (!fx_block (&f, "INFO", &ib, &in) || !fx_block (&f, "FILE", &fb, &fn))
+		return false;
+	if (index >= fx_u32 (&f, ib) || index > 100000)
+		return false;
+	const size_t e = ib + 4 + 12 * (size_t)index;
+	const int off = fx_s32 (&f, e + 4);
+	const u32 sz = fx_u32 (&f, e + 8);
+	if (off == -1 || !sz || fb + (size_t)off + sz > war_n)
+		return false;
+	*img = war + fb + off;
+	*img_n = sz;
+	return true;
+}
+
+// FWAV/CWAV -> mono 16 bit sample (stereo/multichannel waves are mixed down; SF2 samples are mono)
+static void fx_samp_load (const u8 *wav, size_t n, rb_samp_t *s)
+{
+	memset (s, 0, sizeof (*s));
+	u8 *out = 0;
+	uint out_n = 0;
+	{ u8 *t=0; uint tn=0; enumError e = DecodeBXWAV(&t,&tn,wav,(uint)n); fprintf(stderr,"DBG decode err=%d tn=%u n=%zu\n",(int)e,tn,n); FREE(t);}
+	if (n < 0x40 || DecodeBXWAV (&out, &out_n, wav, (uint)n) != ERR_OK || !out || out_n < 44)
+	{
+		FREE (out);
+		return;
+	}
+	const bool le_src = wav[4] == 0xff;
+	const fx_t f = { wav, n, le_src };
+	const size_t info = fx_u32 (&f, 0x18);
+	const uint ch = out[22] | out[23] << 8, bits = out[34] | out[35] << 8;
+	const u32 rate = out[24] | out[25] << 8 | out[26] << 16 | (u32)out[27] << 24;
+	const size_t bytes = (size_t)(out_n - 44);
+	if (ch < 1 || ch > 16 || (bits != 8 && bits != 16))
+	{
+		FREE (out);
+		return;
+	}
+	const size_t frames = bytes / (ch * bits / 8);
+	s->pcm = CALLOC (frames ? frames : 1, 2);
+	if (!s->pcm)
+	{
+		FREE (out);
+		return;
+	}
+	for (size_t i = 0; i < frames; i++)
+	{
+		int sum = 0;
+		for (uint c = 0; c < ch; c++)
+		{
+			const u8 *p = out + 44 + (i * ch + c) * (bits / 8);
+			sum += bits == 16 ? (s16)(p[0] | p[1] << 8) : (((int)p[0] - 128) << 8);
+		}
+		s->pcm[i] = (s16)(sum / (int)ch);
+	}
+	s->pcm_count = frames;
+	s->channels = 1;
+	s->rate = rate;
+	s->nsamples = (u32)frames;
+	if (fx_u8 (&f, info + 9) && frames)
+	{
+		const u32 ls = fx_u32 (&f, info + 0x10), le = fx_u32 (&f, info + 0x14);
+		if (le > ls && le <= frames)
+		{
+			s->loop = true;
+			s->loop_start_s = ls;
+			s->loop_len_s = le - ls;
+		}
+	}
+	s->valid = true;
+	FREE (out);
+}
+
+// -- banks (FBNK / CBNK) ------------------------------------------------------------------------
+
+typedef struct fx_kr_t { u8 lo, hi; size_t ref, base; } fx_kr_t;
+
+// one level of the Direct / Range / Index trees; "ref" is the Reference to the detail struct, relative to "base"
+static uint fx_level (const fx_t *f, size_t ref, size_t base, fx_kr_t *out, uint max)
+{
+	uint type;
+	size_t t;
+	if (!fx_ref (f, ref, base, &type, &t))
+		return 0;
+	uint n = 0;
+	if (type == 0x6000)
+		out[n++] = (fx_kr_t){ 0, 127, t, t };
+	else if (type == 0x6001)
+	{
+		const uint cnt = fx_u32 (f, t);
+		if (cnt > 128)
+			return 0;
+		const size_t refs = t + 4 + ((cnt + 3) & ~3u);
+		uint prev = 0;
+		for (uint i = 0; i < cnt && n < max; i++)
+		{
+			const uint hi = fx_u8 (f, t + 4 + i);
+			out[n++] = (fx_kr_t){ i ? prev + 1 : 0, hi, refs + 8 * (size_t)i, t };
+			prev = hi;
+		}
+	}
+	else if (type == 0x6002)
+	{
+		const int st = (int8_t)fx_u8 (f, t), en = (int8_t)fx_u8 (f, t + 1);
+		for (int k = st; k <= en && n < max && k >= 0; k++)
+			out[n++] = (fx_kr_t){ (u8)k, (u8)k, t + 4 + 8 * (size_t)(k - st), t };
+	}
+	return n;
+}
+
+// bank image -> instruments (regions reference wave-id-table slots) and the wave id table
+static bool fx_load_bank (const fx_t *f, rb_instr_t **out, uint *n_out, u32 **wave_ids, uint *n_waves)
+{
+	*out = 0;
+	*n_out = 0;
+	*wave_ids = 0;
+	*n_waves = 0;
+	size_t body, bsz;
+	if (f->n < 0x30 || (memcmp (f->d, "FBNK", 4) && memcmp (f->d, "CBNK", 4)) || !fx_block (f, "INFO", &body, &bsz))
+		return false;
+	size_t wt, it;
+	if (!fx_ref (f, body, body, 0, &wt))
+		return false;
+	const uint nw = fx_u32 (f, wt);
+	if (nw > 100000)
+		return false;
+	u32 *ids = CALLOC (nw ? nw : 1, 8);
+	if (!ids)
+		return false;
+	for (uint i = 0; i < nw; i++)
+	{
+		ids[2 * i] = fx_u32 (f, wt + 4 + 8 * (size_t)i) & 0xffffff;
+		ids[2 * i + 1] = fx_u32 (f, wt + 8 + 8 * (size_t)i);
+	}
+	*wave_ids = ids;
+	*n_waves = nw;
+	if (!fx_ref (f, body + 8, body, 0, &it))
+		return true; // waves but no instruments
+	const uint cnt = fx_u32 (f, it);
+	if (cnt > 100000)
+		return false;
+	rb_instr_t *ins = CALLOC (cnt ? cnt : 1, sizeof (*ins));
+	if (!ins)
+		return false;
+	uint ni = 0;
+	for (uint i = 0; i < cnt; i++)
+	{
+		size_t inst;
+		if (!fx_ref (f, it + 4 + 8 * (size_t)i, it, 0, &inst))
+			continue;
+		fx_kr_t kr[256];
+		const uint nk = fx_level (f, inst, inst, kr, 256);
+		rb_instr_t *in = ins + ni++;
+		in->num = i;
+		uint cap = 0;
+		for (uint k = 0; k < nk; k++)
+		{
+			size_t keyr;
+			if (!fx_ref (f, kr[k].ref, kr[k].base, 0, &keyr))
+				continue;
+			fx_kr_t vr[256];
+			const uint nv = fx_level (f, keyr, keyr, vr, 256);
+			for (uint v = 0; v < nv; v++)
+			{
+				size_t rg;
+				if (!fx_ref (f, vr[v].ref, vr[v].base, 0, &rg))
+					continue;
+				if (in->n == cap)
+				{
+					cap = cap ? cap * 2 : 8;
+					in->r = REALLOC (in->r, cap * sizeof (rb_rgn_t));
+					if (!in->r)
+					{
+						in->n = 0;
+						break;
+					}
+				}
+				rb_rgn_t *r = in->r + in->n++;
+				memset (r, 0, sizeof (*r));
+				r->klo = kr[k].lo;
+				r->khi = kr[k].hi;
+				r->vlo = vr[v].lo;
+				r->vhi = vr[v].hi == 127 && vr[v].lo == 0 ? 0 : vr[v].hi; // full range = no velocity range generator
+				r->samp = fx_u32 (f, rg);
+				const size_t fl = rg + 4;
+				bool h;
+				const u32 key = fx_flag (f, fl, 0, &h);
+				r->unity = h ? (int8_t)key : -1;
+				const u32 vol = fx_flag (f, fl, 1, &h);
+				r->volume = h ? (vol & 0xff) / 127.0 : 1.0;
+				const u32 pan = fx_flag (f, fl, 2, &h);
+				const uint p = h ? pan & 0xff : 64;
+				r->pan = p == 127 ? 1.0 : p == 0 ? 0.0 : p == 64 ? 0.5 : (double)p / 127.0;
+				u8 adshr[5] = { 127, 127, 127, 127, 127 };
+				const u32 aoff = fx_flag (f, fl, 9, &h);
+				size_t at;
+				if (h && fx_ref (f, rg + aoff, rg + aoff, 0, &at))
+					for (int q = 0; q < 5; q++)
+						adshr[q] = fx_u8 (f, at + q);
+				rb_envelope (r, adshr[0], adshr[1], adshr[2], adshr[4]);
+			}
+		}
+	}
+	*out = ins;
+	*n_out = ni;
+	return true;
+}
+
+// collection for a bank: wave-id table slot k -> sample, using "resolve" to find the wave archive image
+typedef bool (*fx_war_fn) (void *ctx, u32 war_index, const u8 **img, size_t *n);
+
+static void fx_build_coll (rb_coll_t *c, const u32 *ids, uint nw, fx_war_fn war, void *ctx)
+{
+	c->s = CALLOC (nw ? nw : 1, sizeof (rb_samp_t));
+	if (!c->s)
+		return;
+	c->n = nw;
+	for (uint k = 0; k < nw; k++)
+	{
+		const u8 *wi, *w;
+		size_t wn, n;
+		fprintf (stderr, "DBG war %d wave %d\n", (int)war (ctx, ids[2 * k], &w, &wn), (int)fx_war_wave (w, wn, ids[2 * k + 1], &wi, &n));
+		if (war (ctx, ids[2 * k], &w, &wn) && fx_war_wave (w, wn, ids[2 * k + 1], &wi, &n))
+			fx_samp_load (wi, n, c->s + k);
+		(void)n;
+	}
+}
+
+typedef struct fx_single_war_t { const u8 *d; size_t n; } fx_single_war_t;
+static bool fx_single_war (void *ctx, u32 idx, const u8 **img, size_t *n)
+{
+	(void)idx;
+	const fx_single_war_t *w = ctx;
+	*img = w->d;
+	*n = w->n;
+	return w->d != 0;
+}
+
+enumError ConvertFBNKToSF2 (const u8 *bank, size_t bank_size, const u8 *war, size_t war_size, ccp bank_name, u8 **out_sf2, size_t *out_size)
+{
+	fx_t f = { bank, bank_size, bank_size > 5 && bank[4] == 0xff };
+	rb_instr_t *ins = 0;
+	uint ni = 0, nw = 0;
+	u32 *ids = 0;
+	enumError err = ERR_INVALID_DATA;
+	if (fx_load_bank (&f, &ins, &ni, &ids, &nw))
+	{
+		rb_coll_t c = { 0 };
+		fx_single_war_t sw = { war, war_size };
+		fx_build_coll (&c, ids, nw, fx_single_war, &sw);
+		err = c.n ? sf_build (&c, ins, ni, bank_name, out_sf2, out_size) : ERR_NOTHING_TO_DO;
+		rb_coll_free (&c);
+	}
+	if (ins)
+		rb_free_instrs (ins, ni);
+	FREE (ids);
+	return err;
+}
+
+// -- archive -----------------------------------------------------------------------------------
+
+typedef struct fa_t
+{
+	const u8 *d;
+	size_t n;
+	bfsar_t sar;
+	const bfsar_table_t *files, *sounds, *banks, *wars;
+} fa_t;
+
+static const bfsar_table_t *fa_table (const bfsar_t *s, bfsar_sound_type_t type, ccp name)
+{
+	for (uint i = 0; i < s->n_table; i++)
+		if (s->table[i].type == type && (!name || !strcmp (s->table[i].type_name, name)))
+			return s->table + i;
+	return 0;
+}
+
+// embedded image of a file id
+static bool fa_file (const fa_t *a, u32 file_id, const u8 **img, size_t *n)
+{
+	if (!a->files || file_id >= a->files->n_entry)
+		return false;
+	const bfsar_entry_t *e = a->files->entry + file_id;
+	if (!e->present || !e->file_size || (u64)a->sar.file_pool_off + e->file_off + e->file_size > a->n)
+		return false;
+	*img = a->d + a->sar.file_pool_off + e->file_off;
+	*n = e->file_size;
+	return true;
+}
+
+static bool fa_war (void *ctx, u32 war_index, const u8 **img, size_t *n)
+{
+	const fa_t *a = ctx;
+	if (!a->wars || war_index >= a->wars->n_entry || !a->wars->entry[war_index].present)
+		return false;
+	const fx_t f = { a->d, a->n, a->sar.little_endian };
+	return fa_file (a, fx_u32 (&f, a->wars->entry[war_index].rec_off), img, n);
+}
+
+enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
+{
+	if (size < 0x40 || (memcmp (data, "FSAR", 4) && memcmp (data, "CSAR", 4)))
+		return ERR_NOTHING_TO_DO;
+	fa_t a = { .d = data, .n = size };
+	if (ScanBFSAR (&a.sar, data, (uint)size) != ERR_OK)
+		return ERR_NOTHING_TO_DO;
+	a.files = fa_table (&a.sar, BFSAR_TYPE_NONE, "File");
+	a.sounds = fa_table (&a.sar, BFSAR_TYPE_SOUND, 0);
+	a.banks = fa_table (&a.sar, BFSAR_TYPE_BANK, 0);
+	a.wars = fa_table (&a.sar, BFSAR_TYPE_WAVEARCHIVE, 0);
+	const fx_t f = { data, size, a.sar.little_endian };
+	enumError err = ERR_NOTHING_TO_DO;
+	const uint nb = a.banks ? a.banks->n_entry : 0;
+
+	char midi_dir[PATH_MAX], sf_dir[PATH_MAX], path[PATH_MAX];
+	snprintf (midi_dir, sizeof (midi_dir), "%s/midi", out_dir);
+	snprintf (sf_dir, sizeof (sf_dir), "%s/soundfonts", out_dir);
+	char (*used_names)[128] = CALLOC (4096, 128);
+	char (*used_sf)[128] = CALLOC (4096, 128);
+	char *bank_sf = CALLOC (nb ? nb : 1, 160);
+	bool *used_bank = CALLOC (nb ? nb : 1, sizeof (bool));
+	rc_buf_t manifest = { 0 };
+	uint n_un = 0, n_us = 0, n_mid = 0, n_sf = 0;
+	if (!used_names || !used_sf || !bank_sf || !used_bank || !a.sounds)
+		goto done;
+	CreatePath (midi_dir, true);
+	CreatePath (sf_dir, true);
+	rc_put (&manifest, "midi\tsoundfont\n", 15);
+
+	for (uint s = 0; s < a.sounds->n_entry; s++)
+	{
+		const bfsar_entry_t *se = a.sounds->entry + s;
+		if (!se->present)
+			continue;
+		const size_t rec = se->rec_off;
+		const u8 *img;
+		size_t img_n;
+		if (!fa_file (&a, fx_u32 (&f, rec), &img, &img_n) || img_n < 0x20 || (memcmp (img, "FSEQ", 4) && memcmp (img, "CSEQ", 4)))
+			continue;
+		size_t det;
+		if (!fx_ref (&f, rec + 0x0c, rec, 0, &det))
+			continue;
+		// SequenceSoundInfo: bank id table ref @0, allocate-track flags @8, bit flags @0x0c (flag 0 = start offset)
+		u32 start = fx_flag (&f, det + 0x0c, 0, 0);
+		u8 *mid = 0;
+		size_t mid_n = 0;
+		if (SequenceToMIDIFrom (&mid, &mid_n, img, img_n, start) != ERR_OK || !mid)
+		{
+			FREE (mid);
+			continue;
+		}
+		char base[128];
+		snprintf (base, sizeof (base), "%s", se->name && *se->name ? se->name : "sequence");
+		for (char *p = base; *p; p++)
+			if (*p == '/' || *p == '\\' || *p == ':')
+				*p = '_';
+		char uniq[160];
+		rb_name_unique (uniq, sizeof (uniq), base, used_names, &n_un);
+		snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
+		rb_write_file (path, mid, mid_n);
+		FREE (mid);
+		n_mid++;
+
+		// first bank of the sequence's bank table that exists in the archive
+		int bank = -1;
+		size_t bt;
+		if (fx_ref (&f, det, det, 0, &bt))
+		{
+			const uint cnt = fx_u32 (&f, bt);
+			for (uint j = 0; j < cnt && j < 4 && bank < 0; j++)
+			{
+				const u32 id = fx_u32 (&f, bt + 4 + 4 * (size_t)j) & 0xffffff;
+				if (id < nb && a.banks->entry[id].present)
+					bank = (int)id;
+			}
+		}
+		char line[400];
+		if (bank >= 0)
+		{
+			used_bank[bank] = true;
+			if (!bank_sf[bank * 160])
+			{
+				ccp bn = a.banks->entry[bank].name;
+				char bname[128];
+				snprintf (bname, sizeof (bname), "%s", bn && *bn ? bn : "bank");
+				for (char *p = bname; *p; p++)
+					if (*p == '/' || *p == '\\' || *p == ':')
+						*p = '_';
+				rb_name_unique (bank_sf + bank * 160, 160, bname, used_sf, &n_us);
+			}
+			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\n", uniq, bank_sf + bank * 160);
+		}
+		else
+			snprintf (line, sizeof (line), "%s.mid\t\n", uniq);
+		rc_put (&manifest, line, strlen (line));
+	}
+
+	// one SoundFont per bank used by at least one sequence
+	for (uint i = 0; i < nb; i++)
+	{
+		if (!used_bank[i])
+			continue;
+		const u8 *bimg;
+		size_t bn;
+		const size_t brec = a.banks->entry[i].rec_off;
+		if (!fa_file (&a, fx_u32 (&f, brec), &bimg, &bn))
+			continue;
+		const fx_t bf = { bimg, bn, bimg[4] == 0xff };
+		rb_instr_t *ins = 0;
+		uint ni = 0, nw = 0;
+		u32 *ids = 0;
+		if (fx_load_bank (&bf, &ins, &ni, &ids, &nw))
+		{
+			// the bank's own wave archive table maps its wave ids to archives (ids already index the archive table)
+			rb_coll_t c = { 0 };
+			fx_build_coll (&c, ids, nw, fa_war, &a);
+			u8 *sf = 0;
+			size_t sf_n = 0;
+			if (c.n && sf_build (&c, ins, ni, bank_sf + i * 160, &sf, &sf_n) == ERR_OK)
+			{
+				snprintf (path, sizeof (path), "%s/%s.sf2", sf_dir, bank_sf + i * 160);
+				rb_write_file (path, sf, sf_n);
+				n_sf++;
+			}
+			FREE (sf);
+			rb_coll_free (&c);
+		}
+		if (ins)
+			rb_free_instrs (ins, ni);
+		FREE (ids);
+	}
+	if (manifest.d)
+	{
+		snprintf (path, sizeof (path), "%s/sequences.tsv", midi_dir);
+		rb_write_file (path, manifest.d, manifest.n);
+	}
+	err = n_mid || n_sf ? ERR_OK : ERR_NOTHING_TO_DO;
+
+done:
+	FREE (manifest.d);
+	FREE (used_names);
+	FREE (used_sf);
+	FREE (bank_sf);
+	FREE (used_bank);
+	ResetBFSAR (&a.sar);
 	return err;
 }

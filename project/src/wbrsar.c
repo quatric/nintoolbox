@@ -242,7 +242,7 @@ static int cmd_sf2 (int argc, char *argv[])
 {
 	if (argc < 4)
 	{
-		fprintf (stderr, "Usage: %s sf2 <bank.rbnk|brbnk> <waves.rwar|brwar> [out.sf2]\n", argv[0]);
+		fprintf (stderr, "Usage: %s sf2 <bank.rbnk|brbnk|bfbnk|bcbnk> <waves.rwar|brwar|bfwar|bcwar> [out.sf2]\n", argv[0]);
 		return 1;
 	}
 	u8 *bank = 0, *wave = 0, *sf2 = 0;
@@ -255,7 +255,9 @@ static int cmd_sf2 (int argc, char *argv[])
 			snprintf (out, sizeof (out), "%s", argv[4]);
 		else
 			snprintf (out, sizeof (out), "%s.sf2", argv[2]);
-		if (ConvertRBNKToSF2 (bank, bank_n, wave, wave_n, "bank", &sf2, &sf2_n) == ERR_OK)
+		const bool nw_new = bank_n > 4 && (!memcmp (bank, "FBNK", 4) || !memcmp (bank, "CBNK", 4));
+		if ((nw_new ? ConvertFBNKToSF2 (bank, bank_n, wave, wave_n, "bank", &sf2, &sf2_n)
+					: ConvertRBNKToSF2 (bank, bank_n, wave, wave_n, "bank", &sf2, &sf2_n)) == ERR_OK)
 		{
 			FILE *fp = fopen (out, "wb");
 			if (fp && fwrite (sf2, 1, sf2_n, fp) == sf2_n)
@@ -389,9 +391,10 @@ int main (int argc, char *argv[])
 			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, raw_dir);
 			rc = 0;
 		}
-		// BRSAR (RSAR) and SDAT are converted natively; other containers still go through vgmtrans
+		// BRSAR (RSAR), SDAT, BFSAR (FSAR) and BCSAR (CSAR) are converted natively; other containers still go through vgmtrans
 		if ((!memcmp (raw, "RSAR", 4) && ConvertRSARNative (raw, raw_size, out_dir) == ERR_OK)
-			|| (!memcmp (raw, "SDAT", 4) && ConvertSDATNative (raw, raw_size, out_dir) == ERR_OK))
+			|| (!memcmp (raw, "SDAT", 4) && ConvertSDATNative (raw, raw_size, out_dir) == ERR_OK)
+			|| ((!memcmp (raw, "FSAR", 4) || !memcmp (raw, "CSAR", 4)) && ConvertFSARNative (raw, raw_size, out_dir) == ERR_OK))
 		{
 			printf ("wbrsar: converted %s -> %s/{midi,soundfonts} (native)\n", in_file, out_dir);
 			native_done = true;

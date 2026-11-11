@@ -54,6 +54,8 @@ typedef struct bfsar_entry_t
 	// archive headers). Both 0 when the entry is empty.
 	u32 file_off;
 	u32 file_size;
+	// Absolute file offset of this entry's INFO record (valid when present).
+	u32 rec_off;
 } bfsar_entry_t;
 
 typedef struct bfsar_table_t

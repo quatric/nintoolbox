@@ -1,3 +1,4 @@
+#include "lib-rsar-conv.h"
 // Octomania-style wavetable pair ".wt" + ".pcm" (Kidz Sports / London Taxi / Battle Rage / ... : "sound/roland/gm16pcm.wt", the
 // console form of the Roland GM16.DLS bank). The .wt is big endian: six u32 section offsets {0x18, ..., end of file}; the
 // last section holds one 16 byte record per sample {u32 rate (low 16 bits, high bits flags), u32 start (in samples), u32
@@ -116,6 +117,24 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 			snprintf (name, sizeof (name), "wave_%04u.wav", i);
 			err = shade_write (arg, dest, basedir, name, w, 44 + bytes);
 			FREE (w);
+		}
+		// SoundFont of the melodic programs (rendering a MIDI of the same folder uses it, see midi_render.inc)
+		if (!err && !testmode)
+		{
+			u8 *sf = 0;
+			size_t sfn = 0;
+			const char *sl = strrchr (arg, '/');
+			char nm[PATH_MAX];
+			snprintf (nm, sizeof (nm), "%s", sl ? sl + 1 : arg);
+			char *dt = strrchr (nm, '.');
+			if (dt) *dt = 0;
+			if (ConvertWTToSF2 (wt, wsz, pcm, psz, nm, &sf, &sfn) == ERR_OK && sf)
+			{
+				char fn[PATH_MAX];
+				snprintf (fn, sizeof (fn), "%s.sf2", nm);
+				err = shade_write (arg, dest, basedir, fn, sf, (uint)sfn);
+			}
+			FREE (sf);
 		}
 		// instrument maps: section 0 = drum key maps (128 rows x 128 keys of u16 region ids, 0xffff = none; the non-empty rows are the kits,
 		// e.g. rows 0, 8, 16 ...), section 1 = melodic maps (128 programs x 128 keys of region ids), section 2 = 24 byte regions
