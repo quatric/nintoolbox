@@ -171,6 +171,7 @@
 #include "extract/j3dbck.inc"
 #include "extract/j3dbpk.inc"
 #include "extract/j3dbtp.inc"
+#include "extract/j3dbrk.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
