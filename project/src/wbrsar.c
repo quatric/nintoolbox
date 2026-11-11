@@ -8,10 +8,12 @@
 // The default mode writes two complementary outputs: raw BrawlCrate-style
 // assets under <out>/raw (repackable) and vgmtrans' MIDI + per-bank SF2 under
 // <out>/midi and <out>/soundfonts.
-// The MIDI/SF2 conversion path always delegates to an external vgmtrans CLI
-// binary (magcius/vgmtrans), found via --with-vgmtrans=PATH or a PATH/
-// argv0-relative lookup (find_vgmtrans_tool() below) -- no vgmtrans source
-// is vendored or linked into this binary.
+// BRSAR (RSAR) -> MIDI + SF2 is converted natively (lib-rsar-conv.c, a port of the
+// VGMTrans RSAR scanner / RBNK instrument set / SF2 writer; the soundfonts are
+// byte-identical to the vgmtrans CLI output apart from the INFO name and terminal
+// record names). BFSAR / BCSAR / SDAT are still handed to an external vgmtrans CLI
+// binary, found via --with-vgmtrans=PATH or a PATH/argv0-relative lookup
+// (find_vgmtrans_tool() below).
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +29,7 @@
 #include "lib-std.h"
 #include "lib-brsar.h"
 #include "lib-sdat.h"
+#include "lib-rsar-conv.h"
 
 static const char *find_vgmtrans_tool (const char *explicit_path, const char *argv0)
 {
@@ -332,6 +335,7 @@ int main (int argc, char *argv[])
 	snprintf (raw_dir, sizeof (raw_dir), "%s/raw", out_dir);
 
 	int rc = 1;
+	bool native_done = false;
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError lerr = LoadFileAlloc (in_file, 0, 0, &raw, &raw_size, 0, 0, 0, false);
@@ -340,15 +344,24 @@ int main (int argc, char *argv[])
 		enumError uerr = raw_size >= 4 && !memcmp (raw, "SDAT", 4)
 			? UnpackSDAT (raw, raw_size, raw_dir)
 			: UnpackBRSAREx (raw, raw_size, raw_dir, recursive);
-		FREE (raw);
 		if (!uerr)
 		{
 			printf ("wbrsar: unpacked raw sound assets %s -> %s\n", in_file, raw_dir);
 			rc = 0;
 		}
+		// BRSAR (RSAR) is converted natively; other containers still go through vgmtrans
+		if (!memcmp (raw, "RSAR", 4) && ConvertRSARNative (raw, raw_size, out_dir) == ERR_OK)
+		{
+			printf ("wbrsar: converted %s -> %s/{midi,soundfonts} (native)\n", in_file, out_dir);
+			native_done = true;
+			rc = 0;
+		}
+		FREE (raw);
 	}
 
-	const char *ext_tool = find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
+	const char *ext_tool = native_done ? NULL : find_vgmtrans_tool (opt_with_vgmtrans, argv[0]);
+	if (native_done)
+		return rc;
 	if (ext_tool && run_external_vgmtrans (ext_tool, in_file, out_dir) == 0)
 	{
 		printf ("wbrsar: converted %s -> %s/{midi,soundfonts} (external %s)\n", in_file, out_dir,

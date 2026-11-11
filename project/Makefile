@@ -284,7 +284,7 @@ endif
 # tools
 
 MAIN_TOOLS	:= wszst wbmgt wctct wimgt wkclt wkmpt wlect wpatt wstrt
-# wbrsar always delegates BRSAR/BFSAR/BCSAR conversion to an external
+# wbrsar converts BRSAR natively (lib-rsar-conv.c) and delegates BFSAR/BCSAR/SDAT to an external
 # vgmtrans CLI binary (magcius/vgmtrans) via --with-vgmtrans/PATH lookup --
 # see src/wbrsar.c. No vgmtrans source is vendored or linked in-process.
 TEST_TOOLS	:= wtest wlayt wbrsar wwc24crypt wbmsx wseqt wbrstm wrbnk wbfsar
@@ -397,7 +397,7 @@ TOBJ_wpatt	= lib-pat.o $(XOBJ_PARSER) $(XOBJ_OBJECT)
 TOBJ_wstrt	= lib-staticr.o db-dol.o db-ctcode.o $(XOBJ_OBJECT)
 TOBJ_wtest	= $(XOBJ_LIB) lib-nsbanim.o
 TOBJ_wlayt	= lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
-TOBJ_wbrsar	= lib-sequence.o lib-brsar.o lib-sdat.o $(XOBJ_OBJECT)
+TOBJ_wbrsar	= lib-sequence.o lib-brsar.o lib-sdat.o lib-rsar-conv.o $(XOBJ_OBJECT)
 TOBJ_wwc24crypt	= lib-wc24.o lib-aes.o lib-bignum.o lib-rsa.o $(XOBJ_OBJECT)
 TOBJ_wbmsx	= lib-bms.o lib-aes.o $(XOBJ_IMAGE) lib-excite.o lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nlg-lm.o lib-fedforce.o $(XOBJ_OBJECT)
 TOBJ_wseqt	= lib-sequence.o $(XOBJ_OBJECT)

@@ -2427,6 +2427,12 @@ static void seq_skip_time_tail (
 
 enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size)
 {
+	return SequenceToMIDIFrom (out_midi, out_size, seq_data, seq_size, 0);
+}
+
+// start_pos: offset of the master track inside the sequence code (an RSAR sound's "dataOffset"/label address)
+enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size, u32 start_pos)
+{
 	if (!seq_data || seq_size < 4 || !out_midi)
 		return ERR_INVALID_DATA;
 
@@ -2479,10 +2485,11 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 
 	// Track targets: up to 16 tracks
 	u32 track_offsets[16] = { 0 };
+	track_offsets[0] = start_pos;
 	uint active_tracks = 1;
 	u16 ppq = 48;
 
-	size_t pos = 0;
+	size_t pos = start_pos;
 	while (pos < code_size)
 	{
 		seq_prefix_t pre;

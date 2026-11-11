@@ -91,6 +91,7 @@ enumError AssembleSequence (
 
 // Convert a binary sequence (RSEQ/CSEQ/FSEQ/SSEQ) to a Standard MIDI File (.mid).
 enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size);
+enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size, u32 start_pos);
 
 // Convert a Standard MIDI File (.mid) to a binary sequence (RSEQ/CSEQ/FSEQ/SSEQ).
 enumError SequenceFromMIDI (
