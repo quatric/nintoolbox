@@ -11852,9 +11852,21 @@ import sys
 open(sys.argv[1], 'wb').write(b'ATTR' + bytes([0xc0, 0x07, 8]) + bytes(15) + bytes([1, 1]) + bytes(1 + 3 + 1 + 10 + 9 + 1 + 32 + 5) + bytes([0xff]))
 PYE
   "$B/wszst" x "$d/tvser_test/w.atr" --overwrite >/dev/null 2>&1 \
-  && grep -q '^# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields, 17-18 grid size, 19-19 grid bytes, 20-22 3 floats, 23 byte count + 0 bytes, 24-33 bit fields, 34-42 9 floats, 43 byte count + 0 bytes, 44-75 name (32 x u16), 76-80 ' "$d/tvser_test/w.txt" \
+  && grep -q '^# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields, 17-18 grid size, 19-19 grid bytes, 20-22 3 floats, 23 count + 0 bytes, 24-33 bit fields, 34-42 9 floats, 43 count + 0 signed bytes, 44-75 name (32 x u16), 76-80 3 x u16, flag word, flag$' "$d/tvser_test/w.txt" \
   && fok "Thrillville ATTR field map" \
   || fno "Thrillville ATTR field map" "failed on synthetic w.atr"
+
+  # Thrillville ATTR kind 6 (track) field map
+  python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
+import sys
+# version 110 (12 bit token), kind 6, 15 header tokens, track: id, 3 floats, bit field + flag, node count 2 + 2 nodes, 5 tail, 3 floats, 2, counted lists, 3x3 bytes, name, tail
+tk = [0] * 15 + [5, 1, 2, 3, 0, 1, 2, 7, 8] + [0] * 5 + [0] * 3 + [0, 0] + [0] + [0] * 10 + [0] * 9 + [0] + [0] * 9 + [0] * 32 + [0] * 5
+open(sys.argv[1], 'wb').write(b'ATTR' + bytes([0xce, 0x06, 6]) + bytes(tk) + bytes([0xff]))
+PYE
+  "$B/wszst" x "$d/tvser_test/x.atr" --overwrite >/dev/null 2>&1 \
+  && grep -q '^# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields, 17-17 track id, 18-20 track position (3 floats), 21-22 track bit field, flag, 23 node count + 2 node tokens, 26-30 2 floats, int, 2 bytes, 31-33 3 floats, 34-35 bit field, flag, 36 count + 0 bytes, 37-46 bit fields, 47-55 9 floats, 56 count + 0 signed bytes, 57-65 3 x 3 bytes, 66-97 name (32 x u16), 98-102 3 x u16, flag word, flag$' "$d/tvser_test/x.txt" \
+  && fok "Thrillville ATTR kind 6 field map" \
+  || fno "Thrillville ATTR kind 6 field map" "failed on synthetic x.atr"
 
   # WTXID skinned mesh -> OBJ + skin.txt
   mkdir -p "$d/wtxidmesh_test"

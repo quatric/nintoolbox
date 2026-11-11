@@ -105,27 +105,59 @@ static enumError extract_tvser_file (ccp arg, ccp basedir, uint depth)
 	// the last graphed value of Money ends exactly at token 146 ("... 15 2 1"), token 169 is the attraction count (80 in Explorerville) and uninitialised ints show as -842150451 (0xCDCDCDCD).
 	if (!memcmp (t, "PARK\n113 ", 9) && nt > 170)
 		tl += snprintf (t + tl, cap - tl, "# fields: token 0 version, 1 LevelNumber, 2-4 GameTime (3 floats), 5-146 Money, 147-155 Marketing, 156-168 Research, 169 Attractions count (then the entries)\n");
-	// ATTR kind 8 (version 112, e.g. the minigolf courses): the attraction entry writer FUN_8032a874 (the same entry is stored in PARK attraction lists) emits, one token per call: kind (4 bit),
-	// 8 small bit fields, a vector of 4 floats, 3 more bit fields, [kind 8: grid width, height, width * height bytes, 3 floats], a counted byte list, 10 bit fields, 9 floats, a counted signed byte
-	// list, the name as 32 x u16 character codes, 3 x u16, a 32 bit flag word and a flag. Checked on the two version 112 ATTR files (token counts match exactly); the version 108 files lack one token
-	// and kind 6 (rides with a track, FUN_80351fd8 = the TRAK writer) is not mapped.
-	if (!memcmp (t, "ATTR\n112 8 ", 11) && nt > 40)
+	// ATTR (versions 110 and up): the attraction entry writer FUN_8032a874 (the same entry is stored in PARK attraction lists) emits, one token per call: kind (4 bit), 8 small bit fields, a vector of
+	// 4 floats, 3 more bit fields, then by kind: 6 (ride on a track) the TRAK writer FUN_80214c00 {id, 3 floats, 4 bit field, flag, node count N, N node tokens} + 5 tokens (2 floats, int, 2 bytes,
+	// FUN_80351fd8) + 3 floats + 5 bit + flag; 8 (minigolf grid) width, height, width x height bytes, 3 floats; 7: 3 floats; then a counted byte list, 10 bit fields, 9 floats, a counted signed byte list,
+	// kind 6: 3 x 3 bytes, the name as 32 x u16 character codes, 3 x u16, a 32 bit flag word and a flag. Checked on the ATTR files of versions 110-112 (the token counts match exactly for 117 of 120
+	// kind 6 files and the two kind 8 files); older versions lack one token and a few kind 6 files differ (not understood).
+	if (!memcmp (t, "ATTR\n", 5) && nt > 40 && iv[0] >= 110 && (iv[1] == 6 || iv[1] == 7 || iv[1] == 8))
 	{
+		char fl[1400];
+		size_t fn = snprintf (fl, sizeof (fl), "# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields");
 		uint p = 17;
-		const int w = iv[p], h = iv[p + 1];
-		if (w >= 0 && h >= 0 && w < 64 && h < 64 && p + 2 + (uint)(w * h) + 3 < nt)
+		bool ok = true;
+#define SEG(n, txt) do { const uint n_ = (n); if (ok && n_ < 4096 && p + n_ <= nt && fn + 120 < sizeof (fl)) { fn += snprintf (fl + fn, sizeof (fl) - fn, ", %u-%u " txt, p, p + n_ - 1); p += n_; } else ok = false; } while (0)
+#define CNT(txt) do { if (ok && p < nt && iv[p] >= 0 && iv[p] < 256 && p + 1 + (uint)iv[p] <= nt) { const uint c_ = (uint)iv[p]; fn += snprintf (fl + fn, sizeof (fl) - fn, ", %u count + %u " txt, p, c_); p += 1 + c_; } else ok = false; } while (0)
+		const int kind = iv[1];
+		if (kind == 6)
 		{
-			const uint g0 = p + 2, g1 = g0 + (uint)(w * h), v0 = g1, c0 = v0 + 3, n1 = (uint)iv[c0];
-			if (iv[c0] >= 0 && iv[c0] < 16 && c0 + 1 + n1 + 10 + 9 < nt)
+			SEG (1, "track id");
+			SEG (3, "track position (3 floats)");
+			SEG (2, "track bit field, flag");
+			if (ok && p < nt && iv[p] >= 0 && iv[p] < 1000 && p + 1 + (uint)iv[p] <= nt)
 			{
-				const uint b0 = c0 + 1 + n1, f0 = b0 + 10, k0 = f0 + 9, n2 = (uint)iv[k0];
-				const uint nm0 = k0 + 1 + (iv[k0] >= 0 && iv[k0] < 256 ? n2 : 0);
-				if (iv[k0] >= 0 && iv[k0] < 256 && nm0 + 32 + 5 + 1 == nt)
-					tl += snprintf (t + tl, cap - tl, "# fields: 0 version, 1 kind, 2-9 bit fields, 10-13 vector (4 floats), 14-16 bit fields, 17-18 grid size, %u-%u grid bytes, %u-%u 3 floats, %u byte count + %u bytes, "
-								   "%u-%u bit fields, %u-%u 9 floats, %u byte count + %u bytes, %u-%u name (32 x u16), %u-%u 3 x u16 + flag word + flag\n",
-								   g0, g1 - 1, v0, c0 - 1, c0, n1, b0, f0 - 1, f0, k0 - 1, k0, n2, nm0, nm0 + 31, nm0 + 32, nm0 + 36);
+				fn += snprintf (fl + fn, sizeof (fl) - fn, ", %u node count + %u node tokens", p, (uint)iv[p]);
+				p += 1 + (uint)iv[p];
 			}
+			else
+				ok = false;
+			SEG (5, "2 floats, int, 2 bytes");
+			SEG (3, "3 floats");
+			SEG (2, "bit field, flag");
 		}
+		else if (kind == 8 && iv[17] >= 0 && iv[18] >= 0 && iv[17] < 64 && iv[18] < 64)
+		{
+			const uint gw = (uint)iv[17] * (uint)iv[18];
+			SEG (2, "grid size");
+			SEG (gw, "grid bytes");
+			SEG (3, "3 floats");
+		}
+		else if (kind == 7)
+			SEG (3, "3 floats");
+		else
+			ok = false;
+		CNT ("bytes");
+		SEG (10, "bit fields");
+		SEG (9, "9 floats");
+		CNT ("signed bytes");
+		if (kind == 6)
+			SEG (9, "3 x 3 bytes");
+		SEG (32, "name (32 x u16)");
+		SEG (5, "3 x u16, flag word, flag");
+		if (ok && p + 1 == nt)
+			tl += snprintf (t + tl, cap - tl, "%s\n", fl);
+#undef SEG
+#undef CNT
 	}
 	// character arrays: runs of 6 or more integer tokens that are printable ASCII codes, mostly letters (e.g. "%PreBuiltOFFTHERAILS"); listed as "# token N: text"
 	for (uint a = 0, b; a < nt; a = b)
