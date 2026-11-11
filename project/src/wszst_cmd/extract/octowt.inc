@@ -28,14 +28,23 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 		const uint n = (o[5] - o[4]) / 16;
 		u64 next = 0;
 		// ADPCM variant: 46 byte trailer record per sample {16 BE s16 DSP coefficients, 7 more shorts}; sample starts are in nibbles
-		const bool adpcm = wsz - o[5] == 46 * (size_t)n;
+		// (a record whose rate word has flag bit 16 set is a plain BE s16 PCM sample at start*2 and has no trailer record)
+		uint n_pcm = 0;
+		for (uint i = 0; i < n; i++)
+			n_pcm += (rd_be32 (wt + o[4] + 16 * i) >> 16) & 1;
+		const bool adpcm = wsz > o[5] && wsz - o[5] == 46 * (size_t)(n - n_pcm);
 		for (uint i = 0; i < n; i++)
 		{
 			const u8 *r = wt + o[4] + 16 * i;
 			const u32 off = rd_be32 (r + 4), len = rd_be32 (r + 8), rate = rd_be32 (r) & 0xffff;
 			if (!rate || len > 0x1000000)
 				goto bad;
-			if (adpcm)
+			if (adpcm && ((rd_be32 (r) >> 16) & 1))
+			{
+				if ((u64)(off + len) * 2 > psz)
+					goto bad;
+			}
+			else if (adpcm)
 			{
 				if ((u64)off / 2 >= psz)
 					goto bad;
@@ -56,9 +65,15 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 			const u32 off = rd_be32 (r + 4), len = rd_be32 (r + 8), rate = rd_be32 (r) & 0xffff;
 			const u32 bytes = len * 2;
 			s16 coef[16];
-			if (adpcm)
+			const bool is_pcm = adpcm && ((rd_be32 (r) >> 16) & 1);
+			if (adpcm && !is_pcm)
+			{
+				uint ci = 0; // index among the ADPCM records
+				for (uint j = 0; j < i; j++)
+					ci += !((rd_be32 (wt + o[4] + 16 * j) >> 16) & 1);
 				for (uint k = 0; k < 16; k++)
-					coef[k] = (s16)rd_be16 (wt + o[5] + 46 * (size_t)i + 2 * k);
+					coef[k] = (s16)rd_be16 (wt + o[5] + 46 * (size_t)ci + 2 * k);
+			}
 			u8 *w = MALLOC (44 + (size_t)bytes);
 			if (!w)
 			{
@@ -73,7 +88,7 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 				w[16 + 4 * k] = (u8)hdr[k], w[17 + 4 * k] = (u8)(hdr[k] >> 8), w[18 + 4 * k] = (u8)(hdr[k] >> 16), w[19 + 4 * k] = (u8)(hdr[k] >> 24);
 			memcpy (w + 36, "data", 4);
 			w[40] = (u8)bytes, w[41] = (u8)(bytes >> 8), w[42] = (u8)(bytes >> 16), w[43] = (u8)(bytes >> 24);
-			if (!adpcm)
+			if (!adpcm || is_pcm)
 				for (u32 k = 0; k < len; k++)
 					w[44 + 2 * k] = pcm[2 * ((size_t)off + k) + 1], w[45 + 2 * k] = pcm[2 * ((size_t)off + k)];
 			else
