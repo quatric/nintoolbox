@@ -1587,6 +1587,13 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 		return err;
 
 	err = ExtractBARSArchive (arg, basedir, depth);
+	if (err == ERR_OK && !testmode)
+	{
+		// Decode the members (BWAV -> WAV, AMTA -> YAML) like any other unpacked archive.
+		char bars_dest[PATH_MAX];
+		get_dest_dir (bars_dest, sizeof (bars_dest), arg, basedir);
+		return extract_tree_complete (bars_dest, depth + 1);
+	}
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 

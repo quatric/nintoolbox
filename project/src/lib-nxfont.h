@@ -18,10 +18,11 @@ bool IsFCPX (const u8 *data, size_t size);
 // YAML description (MALLOC'd, free with FREE).
 enumError ConvertFCPXToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 
-// Switch and Switch 2 bitmap fonts (".bffnt", "FFNT" little endian, version 4): the glyph sheets of the TGLP
-// section are stored GPU tiled (block linear; Tegra X1 or Orin GOBs, picked by which one gives the smoother
-// image since the file names no platform). Formats by TGLP code: 0/14 RGBA8, 5 LA8, 8 A8, 9/15 BC1,
-// 10/16 BC2, 11/17 BC3, 12 BC4, 13 BC5, 18/19 BC7.
+// Switch and Switch 2 bitmap fonts (".bffnt", "FFNT" little endian, version 4). Switch 2 fonts keep a whole
+// BNTX (one texture per sheet, stored bottom-up) at the TGLP sheet data offset; that is decoded through the
+// BNTX code and flipped. Otherwise the sheets are raw GPU tiled data (block linear; Tegra X1 or Orin GOBs,
+// picked by which one gives the smoother image since the file names no platform). Formats by TGLP code:
+// 0/14 RGBA8, 5 LA8, 8 A8, 9/15 BC1, 10/16 BC2, 11/17 BC3, 12 BC4, 13 BC5, 18/19 BC7.
 bool IsNXFont (const u8 *data, size_t size);
 
 // Decode sheet INDEX to a MALLOC'd RGBA8 image; *n_sheets gets the sheet count.

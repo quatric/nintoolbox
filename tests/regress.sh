@@ -18834,6 +18834,32 @@ t_nxfont(){
 }
 t_nxfont
 
+t_aal(){
+  local d; d=$(mktemp -d /tmp/_r_aal.XXXXXX) || { fno "AAL audio data" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_aal.py" "$d" >/dev/null 2>&1 || { fno "AAL fixtures" "build failed"; rm -rf "$d"; return; }
+  for f in t.bars t.baatn t.baroc t.baacl t.bagst t.dapg; do "$B/wszst" XX "$d/$f" --overwrite >/dev/null 2>&1; done
+  if [ -f "$d/t.bars.d/snd.wav" ] && grep -q "^peak: 0.5$" "$d/t.bars.d/snd.amta.yml" 2>/dev/null \
+     && grep -q '{id: 7, name: "Loop", start: 4, length: 0}' "$d/t.bars.d/snd.amta.yml" \
+     && grep -q '{name: "Grid:", value: 4}' "$d/t.bars.d/snd.amta.yml" && grep -q '^tags: \["Tag"\]' "$d/t.bars.d/snd.amta.yml"; then
+    fok "BARS members decoded in place (BWAV -> WAV, AMTA 5 -> YAML)"
+  else
+    fno "BARS / AMTA 5" "missing $d/t.bars.d/snd.wav or unexpected snd.amta.yml"
+  fi
+  if grep -q 'volume: {name: "v", type: RollOff}' "$d/t.baatn.yml" 2>/dev/null && grep -q "^occlusion: true" "$d/t.baatn.yml" \
+     && grep -q "^culling_start_distance: 5$" "$d/t.baroc.yml" && grep -q "^priority_down: true" "$d/t.baacl.yml"; then
+    fok "AAL attenuation (AATN/AROC/AACL) -> YAML"
+  else
+    fno "AAL attenuation" "unexpected $d/t.baatn.yml / t.baroc.yml / t.baacl.yml"
+  fi
+  if grep -q '    - group: "B"' "$d/t.bagst.yml" 2>/dev/null && grep -q "^1,0,0$" "$d/t.dapg.csv" && grep -q "^1,1,3,30," "$d/t.dapg.csv"; then
+    fok "AAL group settings tree and acoustic probe grid"
+  else
+    fno "AGST / DAPG" "unexpected $d/t.bagst.yml / t.dapg.csv"
+  fi
+  rm -rf "$d"
+}
+t_aal
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

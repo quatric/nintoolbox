@@ -1,4 +1,5 @@
 #include "lib-nxfont.h"
+#include "lib-aal.h"
 // Switch / Switch 2 data files that convert to a single text file (YAML or JSON) written beside the source as
 // "<file>.yml" / "<file>.json". One table row per format: extension, magic, label, output extension, converter.
 
@@ -16,6 +17,12 @@ typedef struct nxtext_format_t
 
 static const nxtext_format_t nxtext_formats[] = {
 	{ ".bfcpx", "FCPX", 4, "FCPX", ".yml", ConvertFCPXToYaml },
+	{ ".amta", "AMTA", 4, "AMTA", ".yml", ConvertAMTAToYaml },
+	{ ".baatn", "AATN", 4, "AATN", ".yml", ConvertAATNToYaml },
+	{ ".baroc", "AROC", 4, "AROC", ".yml", ConvertAROCToYaml },
+	{ ".baacl", "AACL", 4, "AACL", ".yml", ConvertAACLToYaml },
+	{ ".bagst", "AGST", 4, "AGST", ".yml", ConvertAGSTToYaml },
+	{ ".dapg", 0, 0, "DAPG", ".csv", ConvertDAPGToCsv },
 };
 
 static enumError extract_nxtext_file (ccp arg, ccp basedir, uint depth)

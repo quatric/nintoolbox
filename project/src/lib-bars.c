@@ -150,7 +150,7 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 			}
 
 			if (!testmode && audio_sz > 0)
-				SaveFile (out_path, 0, 0, raw + audio_offset, audio_sz, 0);
+				SaveFile (out_path, 0, opt_overwrite ? FM_OVERWRITE : 0, raw + audio_offset, audio_sz, 0);
 		}
 
 		// Also extract AMTA metadata chunk alongside if available
@@ -178,7 +178,7 @@ enumError ExtractBARSArchive (ccp arg, ccp basedir, uint depth)
 			}
 
 			if (!testmode && amta_sz > 0)
-				SaveFile (out_amta, 0, 0, raw + amta_offset, amta_sz, 0);
+				SaveFile (out_amta, 0, opt_overwrite ? FM_OVERWRITE : 0, raw + amta_offset, amta_sz, 0);
 		}
 	}
 

@@ -355,7 +355,9 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 
 | Format | Extensions | Games |
 | --- | --- | --- |
-| **BARS** | `.bars` | Wii U / Switch |
+| **AAL audio data (AMTA / AATN / AROC / AACL / AGST)** | `.amta`, `.baatn`, `.baroc`, `.baacl`, `.bagst` | Switch / Switch 2 |
+| **Acoustic probe grid (DAPG)** | `.dapg` | *Mario Kart World* |
+| **BARS** | `.bars` | Wii U / Switch / Switch 2 |
 | **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | 3DS |
 | **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | Wii U / Switch |
 | **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | Wii |
