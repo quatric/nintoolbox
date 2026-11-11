@@ -4760,6 +4760,26 @@ t_brsar(){
 }
 t_brsar
 
+t_fbnk_sf2(){
+  # Wii U / Switch / 3DS banks: a generated FBNK + FWAR (both byte orders) -> SF2 via wbrsar sf2, then the MIDI
+  # is rendered to WAV by the built-in SoundFont renderer; the result must not be silent.
+  command -v python3 >/dev/null || { sk "FBNK -> SF2 -> WAV"; return; }
+  local e d ok_all=1
+  for e in be le; do
+    d=/tmp/_r_fbnk_$e; rm -rf "$d"; mkdir -p "$d"
+    python3 "$PWD_PROJECT/../tests/gen_fbnk.py" $e "$d" || { no "FBNK generator ($e)" "failed"; return; }
+    $B/wbrsar sf2 "$d/bank.bfbnk" "$d/waves.bfwar" "$d/song.sf2" >"$d/log" 2>&1 || ok_all=0
+    $B/wszst extract --decode "$d/song.mid" >>"$d/log" 2>&1
+    python3 - "$d/song.wav" <<'PY' || ok_all=0
+import sys,wave,struct
+w=wave.open(sys.argv[1]); d=w.readframes(w.getnframes())
+s=struct.unpack('<%dh'%(len(d)//2),d); sys.exit(0 if max(s)>1000 else 1)
+PY
+  done
+  [ $ok_all = 1 ] && ok "FBNK + FWAR (BE/LE) -> SF2 -> built-in MIDI render to WAV" || no "FBNK -> SF2 -> WAV" "silent or failed"
+}
+t_fbnk_sf2
+
 # wbrsar pack/unpack: unpack a real archive, repack it, unpack again, and
 # require that every re-unpacked file matches some originally-unpacked file
 # byte-for-byte (same content hash). Names are allowed to change across the

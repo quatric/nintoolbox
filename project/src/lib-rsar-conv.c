@@ -718,7 +718,10 @@ static void sf_string (rc_buf_t *b, const char *id, ccp s)
 {
 	size_t m;
 	sf_chunk_begin (b, id, &m);
-	rc_put (b, s, strlen (s) + 1);
+	const size_t len = strlen (s) + 1;
+	rc_put (b, s, len);
+	if (len & 1)
+		rc_put (b, "\0", 1); // INFO strings must have an even size (fluidsynth rejects odd ones)
 	sf_chunk_end (b, m);
 }
 
@@ -1986,7 +1989,6 @@ static void fx_samp_load (const u8 *wav, size_t n, rb_samp_t *s)
 	memset (s, 0, sizeof (*s));
 	u8 *out = 0;
 	uint out_n = 0;
-	{ u8 *t=0; uint tn=0; enumError e = DecodeBXWAV(&t,&tn,wav,(uint)n); fprintf(stderr,"DBG decode err=%d tn=%u n=%zu\n",(int)e,tn,n); FREE(t);}
 	if (n < 0x40 || DecodeBXWAV (&out, &out_n, wav, (uint)n) != ERR_OK || !out || out_n < 44)
 	{
 		FREE (out);
@@ -2186,7 +2188,6 @@ static void fx_build_coll (rb_coll_t *c, const u32 *ids, uint nw, fx_war_fn war,
 	{
 		const u8 *wi, *w;
 		size_t wn, n;
-		fprintf (stderr, "DBG war %d wave %d\n", (int)war (ctx, ids[2 * k], &w, &wn), (int)fx_war_wave (w, wn, ids[2 * k + 1], &wi, &n));
 		if (war (ctx, ids[2 * k], &w, &wn) && fx_war_wave (w, wn, ids[2 * k + 1], &wi, &n))
 			fx_samp_load (wi, n, c->s + k);
 		(void)n;
