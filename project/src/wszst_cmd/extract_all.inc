@@ -181,6 +181,7 @@
 #include "extract/cab.inc"
 #include "extract/lha.inc"
 #include "extract/amigaiff.inc"
+#include "extract/modsamples.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
