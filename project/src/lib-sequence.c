@@ -2613,42 +2613,12 @@ done:
 	FREE (used);
 }
 
-static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *out_size)
+static enumError ss_emit_midi (ss_trk_t *tr, uint ntr, ss_trk_t *cond_p, u16 ppq, u8 **out_midi, size_t *out_size)
 {
-	if (n < 0x20 || memcmp (d, "SSEQ", 4) || memcmp (d + 0x10, "DATA", 4))
-		return ERR_INVALID_DATA;
-	const size_t base = read_le32 (d + 0x18);
-	if (base >= n || base < 0x1c)
-		return ERR_INVALID_DATA;
-	size_t pos = base;
-	size_t tstart[16] = { 0 };
-	uint ntr = 1;
-	if (d[pos] == 0xfe)
-	{
-		pos += 3;
-		if (pos < n && d[pos] == 0x80) // song delay (only the first is read)
-		{
-			pos++;
-			ss_rd_vlq (d, n, &pos);
-		}
-		while (pos + 5 <= n && d[pos] == 0x93)
-		{
-			const uint idx = d[pos + 1];
-			const size_t off = (size_t)(d[pos + 2] | d[pos + 3] << 8 | d[pos + 4] << 16) + base;
-			if (ntr < 16)
-				tstart[ntr++] = off;
-			(void)idx;
-			pos += 5;
-		}
-	}
-	tstart[0] = pos;
-	ss_trk_t tr[16] = { { 0 } }, cond = { 0 };
-	for (uint i = 0; i < ntr; i++)
-		if (tstart[i] < n)
-			ss_run_track (d, n, base, tstart[i], i < 9 ? i : i + 1, tr + i, &cond);
+	ss_trk_t cond = *cond_p;
 	ss_buf_t out = { 0 };
 	const uint nt = ntr + 1;
-	u8 hdr[14] = { 'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, nt >> 8, nt, 0, 0x30 };
+	u8 hdr[14] = { 'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, nt >> 8, nt, ppq >> 8, ppq & 255 };
 	ss_put (&out, hdr, 14);
 	for (uint k = 0; k < nt; k++)
 	{
@@ -2701,6 +2671,349 @@ static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *
 	*out_midi = out.d;
 	*out_size = out.n;
 	return ERR_OK;
+}
+
+static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *out_size)
+{
+	if (n < 0x20 || memcmp (d, "SSEQ", 4) || memcmp (d + 0x10, "DATA", 4))
+		return ERR_INVALID_DATA;
+	const size_t base = read_le32 (d + 0x18);
+	if (base >= n || base < 0x1c)
+		return ERR_INVALID_DATA;
+	size_t pos = base;
+	size_t tstart[16] = { 0 };
+	uint ntr = 1;
+	if (d[pos] == 0xfe)
+	{
+		pos += 3;
+		if (pos < n && d[pos] == 0x80) // song delay (only the first is read)
+		{
+			pos++;
+			ss_rd_vlq (d, n, &pos);
+		}
+		while (pos + 5 <= n && d[pos] == 0x93)
+		{
+			const uint idx = d[pos + 1];
+			const size_t off = (size_t)(d[pos + 2] | d[pos + 3] << 8 | d[pos + 4] << 16) + base;
+			if (ntr < 16)
+				tstart[ntr++] = off;
+			(void)idx;
+			pos += 5;
+		}
+	}
+	tstart[0] = pos;
+	ss_trk_t tr[16] = { { 0 } }, cond = { 0 };
+	for (uint i = 0; i < ntr; i++)
+		if (tstart[i] < n)
+			ss_run_track (d, n, base, tstart[i], i < 9 ? i : i + 1, tr + i, &cond);
+	return ss_emit_midi (tr, ntr, &cond, 0x30, out_midi, out_size);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// NW4R / NintendoWare RSEQ, CSEQ and FSEQ -> standard MIDI: port of VGMTrans RSARSeq.cpp, but the child tracks are opened by the
+// master track's own open_track commands (VGMTrans only finds them in a fixed 0xB0-0xDF prelude and so misses most sequences).
+// Note-wait mode, call/return, jump (= loop forever, stops when the target was already played) and counted loops are followed;
+// IF branches are always taken, RANDOM uses the midpoint of its bounds and VARIABLE reads as 0.
+
+typedef struct rs_open_t { uint trk; size_t pos; u32 time; } rs_open_t;
+
+static s16 rs_gvars[16]; // variables 16..31 (shared by all tracks)
+static s16 *rs_lv;      // variables 0..15 of the track being played
+
+static int rs_var (uint i) { return i < 16 ? (rs_lv ? rs_lv[i] : 0) : i < 32 ? rs_gvars[i - 16] : 0; }
+static void rs_setvar (uint i, int v) { if (i < 16 && rs_lv) rs_lv[i] = (s16)v; else if (i >= 16 && i < 32) rs_gvars[i - 16] = (s16)v; }
+
+static u32 rs_u16 (const u8 *p, bool le) { return le ? (u32)(p[0] | p[1] << 8) : (u32)(p[0] << 8 | p[1]); }
+static size_t rs_u24 (const u8 *p, bool le) { return le ? (size_t)(p[0] | p[1] << 8 | p[2] << 16) : (size_t)(p[0] << 16 | p[1] << 8 | p[2]); }
+
+// reads an argument of the given kind: 'v' variable length, 'b' byte, 'w' 16 bit; honours the RANDOM / VARIABLE prefix
+static int rs_arg (const u8 *d, size_t n, size_t *pos, bool le, const seq_prefix_t *pre, char kind)
+{
+	if (pre->has_random && *pos + 4 <= n)
+	{
+		const int lo = (int16_t)rs_u16 (d + *pos, le), hi = (int16_t)rs_u16 (d + *pos + 2, le);
+		*pos += 4;
+		return (lo + hi) / 2;
+	}
+	if (pre->has_variable)
+	{
+		const uint vi = *pos < n ? d[(*pos)++] : 0;
+		return rs_var (vi);
+	}
+	if (kind == 'v')
+		return (int)ss_rd_vlq (d, n, pos);
+	if (kind == 'w')
+	{
+		if (*pos + 2 > n)
+			return 0;
+		const int v = (int)rs_u16 (d + *pos, le);
+		*pos += 2;
+		return v;
+	}
+	return *pos < n ? d[(*pos)++] : 0;
+}
+
+static void rs_run_track (const u8 *d, size_t n, bool le, size_t start, u32 t0, uint ch, ss_trk_t *t, ss_trk_t *cond,
+	rs_open_t *opens, uint *n_opens, u16 *ppq)
+{
+	u8 *used = CALLOC (n ? n : 1, 1);
+	if (!used)
+		return;
+	s16 lvars[16] = { 0 };
+	rs_lv = lvars;
+	bool flag = true;
+	struct { size_t pos; int count; bool is_loop; } stack[32];
+	uint sp = 0;
+	size_t pos = start;
+	u32 time = t0;
+	bool notewait = true;
+	int transpose = 0;
+	const u8 c = ch & 15;
+	for (uint guard = 0; guard < 4000000 && pos < n; guard++)
+	{
+		const size_t begin = pos;
+		seq_prefix_t pre;
+		u8 op;
+		if (!seq_consume_prefix (d, n, &pos, &pre, &op))
+			break;
+		used[begin] = 1;
+		const bool skip = pre.has_if && !flag;
+		const size_t snap_t = t->n, snap_c = cond ? cond->n : 0;
+		const u32 snap_time = time;
+		const bool snap_nw = notewait;
+		const int snap_tr = transpose;
+		const u16 snap_ppq = *ppq;
+		const uint snap_open = *n_opens;
+		if (op < 0x80)
+		{
+			const u8 vel = pos < n ? d[pos++] : 0;
+			const int dur = rs_arg (d, n, &pos, le, &pre, 'v');
+			const u8 key = ss_clamp (op + transpose, 0, 127);
+			const u32 du = dur < 0 ? 0 : (u32)dur;
+			ss_add (t, time, 0x90 | c, key, vel & 127, 0);
+			ss_add (t, time + du, 0x80 | c, key, 0, 0);
+			if (notewait)
+				time += du;
+			if (skip)
+			{
+				t->n = snap_t;
+				time = snap_time;
+			}
+			continue;
+		}
+		switch (op)
+		{
+		case 0x80: { const int v = rs_arg (d, n, &pos, le, &pre, 'v'); time += v < 0 ? 0 : (u32)v; break; }
+		case 0x81: ss_add (t, time, 0xc0 | c, rs_arg (d, n, &pos, le, &pre, 'v') & 127, 0, 0); break;
+		case 0x88:
+			if (pos + 4 <= n)
+			{
+				if (*n_opens < 16)
+					opens[(*n_opens)++] = (rs_open_t){ d[pos], rs_u24 (d + pos + 1, le), time };
+				pos += 4;
+			}
+			break;
+		case 0x89:
+		{
+			if (pos + 3 > n) goto done;
+			const size_t dest = rs_u24 (d + pos, le);
+			pos += 3;
+			if (skip) break;
+			if (dest >= n || used[dest]) goto done;
+			pos = dest;
+			break;
+		}
+		case 0x8a:
+		{
+			if (pos + 3 > n || sp >= 32) goto done;
+			const size_t dest = rs_u24 (d + pos, le);
+			if (skip) { pos += 3; break; }
+			stack[sp].pos = pos + 3;
+			stack[sp].is_loop = false;
+			stack[sp++].count = 0;
+			if (dest >= n) goto done;
+			pos = dest;
+			break;
+		}
+		case 0xb0:
+			*ppq = (u16)rs_arg (d, n, &pos, le, &pre, 'b');
+			if (!*ppq)
+				*ppq = 48;
+			seq_skip_time_tail (d, n, &pos, &pre);
+			break;
+		case 0xc0: ss_add (t, time, 0xb0 | c, 10, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xc1: ss_add (t, time, 0xb0 | c, 7, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xc3: transpose = (int8_t)rs_arg (d, n, &pos, le, &pre, 'b'); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xc4:
+		{
+			const int bend = (int8_t)rs_arg (d, n, &pos, le, &pre, 'b');
+			int v = 0x2000 + (int)(bend / 127.0 * 0x1fff);
+			v = v < 0 ? 0 : v > 0x3fff ? 0x3fff : v;
+			ss_add (t, time, 0xe0 | c, v & 127, v >> 7, 0);
+			seq_skip_time_tail (d, n, &pos, &pre);
+			break;
+		}
+		case 0xc5:
+			ss_add (t, time, 0xb0 | c, 101, 0, 0);
+			ss_add (t, time, 0xb0 | c, 100, 0, 0);
+			ss_add (t, time, 0xb0 | c, 6, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0);
+			ss_add (t, time, 0xb0 | c, 38, 0, 0);
+			seq_skip_time_tail (d, n, &pos, &pre);
+			break;
+		case 0xc7: notewait = rs_arg (d, n, &pos, le, &pre, 'b') != 0; seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xca: ss_add (t, time, 0xb0 | c, 1, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xce: ss_add (t, time, 0xb0 | c, 65, rs_arg (d, n, &pos, le, &pre, 'b') ? 127 : 0, 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xcf: ss_add (t, time, 0xb0 | c, 5, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xd5: ss_add (t, time, 0xb0 | c, 11, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xd9: ss_add (t, time, 0xb0 | c, 91, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xdf: ss_add (t, time, 0xb0 | c, 64, ss_clamp (rs_arg (d, n, &pos, le, &pre, 'b'), 0, 127), 0); seq_skip_time_tail (d, n, &pos, &pre); break;
+		case 0xd4:
+		{
+			const int cnt = rs_arg (d, n, &pos, le, &pre, 'b');
+			seq_skip_time_tail (d, n, &pos, &pre);
+			if (sp >= 32) goto done;
+			stack[sp].pos = pos;
+			stack[sp].is_loop = true;
+			stack[sp++].count = cnt;
+			break;
+		}
+		case 0xe0: case 0xe3: case 0xe4: rs_arg (d, n, &pos, le, &pre, 'w'); break;
+		case 0xe1:
+		{
+			const int bpm = rs_arg (d, n, &pos, le, &pre, 'w');
+			if (cond && bpm > 0)
+				ss_add (cond, time, 0xff, 0x51, 0, 60000000u / (uint)bpm);
+			break;
+		}
+		case 0xf0:
+		{
+			if (pos >= n) goto done;
+			const uint ex = d[pos++];
+			if ((ex & 0xf0) == 0xe0) pos += 2;
+			else if ((ex & 0xf0) == 0x80 || (ex & 0xf0) == 0x90)
+			{
+				if (pos + 2 > n) goto done;
+				const uint vi = d[pos++];
+				const int cur = rs_var (vi);
+				int val = 0;
+				if (pre.has_variable)
+					val = rs_var (d[pos++]);
+				else if (pre.has_random && pos + 4 <= n)
+				{
+					val = ((int16_t)rs_u16 (d + pos, le) + (int16_t)rs_u16 (d + pos + 2, le)) / 2;
+					pos += 4;
+				}
+				else if (pos + 2 <= n)
+				{
+					val = (int16_t)rs_u16 (d + pos, le);
+					pos += 2;
+				}
+				if (!skip)
+				{
+					int r = cur;
+					if (ex < 0x90)
+					{
+						switch (ex & 15)
+						{
+						case 0: r = val; break;
+						case 1: r = cur + val; break;
+						case 2: r = cur - val; break;
+						case 3: r = cur * val; break;
+						case 4: r = val ? cur / val : cur; break;
+						case 5: r = val >= 0 ? cur << (val & 15) : cur >> ((-val) & 15); break;
+						case 6: r = val ? (int)((uint)(val < 0 ? -val : val) / 2) : 0; break; // random: midpoint
+						case 7: r = cur & val; break;
+						case 8: r = cur | val; break;
+						case 9: r = cur ^ val; break;
+						case 10: r = ~val; break;
+						case 11: r = val ? cur % val : cur; break;
+						}
+						rs_setvar (vi, r);
+					}
+					else
+						switch (ex & 15)
+						{
+						case 0: flag = cur == val; break;
+						case 1: flag = cur >= val; break;
+						case 2: flag = cur > val; break;
+						case 3: flag = cur <= val; break;
+						case 4: flag = cur < val; break;
+						case 5: flag = cur != val; break;
+						}
+				}
+			}
+			else if ((ex & 0xf0) == 0xa0 || (ex & 0xf0) == 0xb0) pos += 1;
+			else goto done;
+			break;
+		}
+		case 0xfb: break;
+		case 0xfc:
+			// counted loop: the body runs "count" times in all (0 = endless, played once here)
+			if (!sp || !stack[sp - 1].is_loop)
+				break;
+			if (--stack[sp - 1].count > 0)
+			{
+				pos = stack[sp - 1].pos;
+				// the body is replayed: allow its commands to run again
+				memset (used + pos, 0, begin >= pos ? begin - pos + 1 : 0);
+			}
+			else
+				sp--;
+			break;
+		case 0xfd:
+			if (!sp) goto done;
+			pos = stack[--sp].pos;
+			break;
+		case 0xfe: pos += 2; break;
+		case 0xff: goto done;
+		default:
+			if (op >= 0xb1 && op <= 0xdf) // other one-byte-argument commands (priority, tie, modulation, ADSR, sends ...)
+			{
+				rs_arg (d, n, &pos, le, &pre, 'b');
+				seq_skip_time_tail (d, n, &pos, &pre);
+				break;
+			}
+			goto done;
+		}
+		if (skip && op != 0x89 && op != 0x8a)
+		{
+			// the command's own effects are discarded when its IF condition is false
+			t->n = snap_t;
+			if (cond) cond->n = snap_c;
+			time = snap_time;
+			notewait = snap_nw;
+			transpose = snap_tr;
+			*ppq = snap_ppq;
+			*n_opens = snap_open;
+		}
+	}
+done:
+	FREE (used);
+	rs_lv = 0;
+}
+
+static enumError rs_seq_to_midi (const u8 *code, size_t n, size_t start, bool le, u8 **out_midi, size_t *out_size)
+{
+	ss_trk_t tr[16] = { { 0 } }, cond = { 0 };
+	rs_open_t opens[16];
+	uint n_opens = 0, ntr = 1;
+	u16 ppq = 48;
+	memset (rs_gvars, 0, sizeof (rs_gvars));
+	rs_run_track (code, n, le, start, 0, 0, tr + 0, &cond, opens, &n_opens, &ppq);
+	uint seen[16] = { 0 }, nseen = 0;
+	for (uint i = 0; i < n_opens && ntr < 16; i++)
+	{
+		bool dup = false;
+		for (uint k = 0; k < nseen; k++)
+			dup |= seen[k] == opens[i].trk;
+		if (dup || opens[i].pos >= n)
+			continue;
+		seen[nseen++] = opens[i].trk;
+		const uint ch = ntr < 9 ? ntr : ntr + 1;
+		rs_run_track (code, n, le, opens[i].pos, opens[i].time, ch, tr + ntr, &cond, opens, &n_opens, &ppq);
+		ntr++;
+	}
+	return ss_emit_midi (tr, ntr, &cond, ppq, out_midi, out_size);
 }
 
 // start_pos: offset of the master track inside the sequence code (an RSAR sound's "dataOffset"/label address)
@@ -2761,6 +3074,14 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 
 	if (code_size == 0)
 		return ERR_INVALID_DATA;
+
+	if ((fmt == SEQ_FMT_RSEQ || fmt == SEQ_FMT_CSEQ || fmt == SEQ_FMT_FSEQ_BE || fmt == SEQ_FMT_FSEQ_LE) && start_pos < code_size
+		&& !(start_pos == 0 && code[0] == 0xff)) // a standalone file whose first label is a dummy keeps the legacy whole-file scan
+	{
+		const enumError e = rs_seq_to_midi (code, code_size, start_pos, is_le, out_midi, out_size);
+		if (e == ERR_OK)
+			return e;
+	}
 
 	// Track targets: up to 16 tracks
 	u32 track_offsets[16] = { 0 };
