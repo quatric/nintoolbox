@@ -5,6 +5,7 @@
 // unpacks the container into a staging directory; the caller then recurses
 // into that directory like any other extracted archive.
 #include "lib-passthru.h"
+#include "lib-midirender.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -995,16 +996,19 @@ enumError PassthruDecodeAudio (ccp src_path, ccp wav_path)
 
 enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path)
 {
-	if (opt_no_passthrough)
-		return ERR_NOTHING_TO_DO;
-	ccp tool = find_program ("fluidsynth");
-	if (!tool || !*tool)
-		return ERR_NOTHING_TO_DO;
+	// Built-in renderer first (always available); external fluidsynth only as a fallback.
 	if (verbose > 0 || testmode)
-		fprintf (stdlog, "%sRENDER MIDI: %s + %s -> %s (%s)\n", testmode ? "WOULD " : "", mid_path,
-			sf2_path, wav_path, tool);
+		fprintf (stdlog, "%sRENDER MIDI: %s + %s -> %s (built-in)\n", testmode ? "WOULD " : "", mid_path,
+			sf2_path, wav_path);
 	if (testmode)
 		return ERR_OK;
+	if (RenderMIDIToWAV (mid_path, sf2_path, wav_path, 44100) == 0)
+		return ERR_OK;
+	if (opt_no_passthrough)
+		return ERROR0 (ERR_INVALID_DATA, "cannot render %s with %s", mid_path, sf2_path);
+	ccp tool = find_program ("fluidsynth");
+	if (!tool || !*tool)
+		return ERROR0 (ERR_INVALID_DATA, "cannot render %s with %s", mid_path, sf2_path);
 	char *argv[] = { (char *)tool, "-ni", "-q", "-r", "44100", "-F", (char *)wav_path, (char *)sf2_path,
 		(char *)mid_path, 0 };
 	const int rc = run_program (argv);
