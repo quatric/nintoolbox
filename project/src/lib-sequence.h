@@ -92,6 +92,8 @@ enumError AssembleSequence (
 // Convert a binary sequence (RSEQ/CSEQ/FSEQ/SSEQ) to a Standard MIDI File (.mid).
 enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size);
 enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size, u32 start_pos);
+// Named sounds of a sequence's LABL block (offset into the sequence code + name); returns the count written.
+uint SequenceLabelList (const u8 *data, size_t size, u32 *offsets, char (*names)[32], uint max);
 
 // Convert a Standard MIDI File (.mid) to a binary sequence (RSEQ/CSEQ/FSEQ/SSEQ).
 enumError SequenceFromMIDI (

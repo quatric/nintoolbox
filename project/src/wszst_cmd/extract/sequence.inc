@@ -88,6 +88,31 @@ static enumError extract_sequence_file (ccp arg, ccp basedir, uint depth)
 			ResetFile (&F, opt_preserve);
 			FREE (midi);
 		}
+
+		// a sequence file holding several named sounds (SE banks): one MIDI per label, "<file>.<label>.mid"
+		u32 lab_off[256];
+		char lab_name[256][32];
+		const uint nlab = SequenceLabelList (raw, raw_size, lab_off, lab_name, 256);
+		for (uint li = 0; nlab > 1 && li < nlab; li++)
+		{
+			u8 *lm = 0;
+			size_t lm_size = 0;
+			if (SequenceToMIDIFrom (&lm, &lm_size, raw, raw_size, lab_off[li]) != ERR_OK || !lm)
+				continue;
+			char clean[32], lpath[PATH_MAX];
+			snprintf (clean, sizeof (clean), "%s", lab_name[li]);
+			for (char *c = clean; *c; c++)
+				if (!((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9') || *c == '_' || *c == '-'))
+					*c = '_';
+			const size_t dl = strlen (dest_mid);
+			snprintf (lpath, sizeof (lpath), "%.*s.%s.mid", (int)(dl > 4 && !strcasecmp (dest_mid + dl - 4, ".mid") ? dl - 4 : dl), dest_mid, clean);
+			File_t LF;
+			CreateFileOpt (&LF, true, lpath, false, arg);
+			if (LF.f && fwrite (lm, 1, lm_size, LF.f) != lm_size)
+				err = FILEERROR1 (&LF, ERR_WRITE_FAILED, "Writing %zu bytes failed: %s\n", lm_size, lpath);
+			ResetFile (&LF, opt_preserve);
+			FREE (lm);
+		}
 	}
 
 	FREE (raw);

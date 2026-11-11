@@ -1,3 +1,4 @@
+#include "lib-rsar-conv.h"
 // Extract a Sound Archive file (.bcsar, .bfsar, .bcwar, .bfwar, .bcgrp, .bfgrp, .bin, .arc).
 static enumError extract_sar_file (ccp arg, ccp basedir, uint depth)
 {
@@ -82,6 +83,33 @@ static enumError extract_sar_file (ccp arg, ccp basedir, uint depth)
 			last_write_err = ferr;
 	}
 	err = last_write_err;
+
+	// A group (.bfgrp/.bcgrp) keeps its banks and waves together: build a SoundFont per bank from the group's wave archive.
+	if (!testmode && !err && (!memcmp (raw, "FGRP", 4) || !memcmp (raw, "CGRP", 4)))
+	{
+		const sar_file_entry_t *war = 0;
+		for (uint i = 0; i < sar.n_entries && !war; i++)
+			if (sar.entries[i].data && sar.entries[i].size
+				&& (!strcmp (sar.entries[i].ext, ".bfwar") || !strcmp (sar.entries[i].ext, ".bcwar")))
+				war = sar.entries + i;
+		for (uint i = 0; war && i < sar.n_entries; i++)
+		{
+			const sar_file_entry_t *e = sar.entries + i;
+			if (!e->data || !e->size || (strcmp (e->ext, ".bfbnk") && strcmp (e->ext, ".bcbnk")))
+				continue;
+			u8 *sf2 = 0;
+			size_t sf2_n = 0;
+			if (ConvertFBNKToSF2 (e->data, e->size, war->data, war->size, "group bank", &sf2, &sf2_n) != ERR_OK || !sf2)
+				continue;
+			char sf2_path[PATH_MAX];
+			snprintf (sf2_path, sizeof (sf2_path), "%s/%s%04u.sf2", dest, basedir ? basedir : "", e->file_id);
+			File_t SF;
+			if (!CreateFileOpt (&SF, true, sf2_path, false, arg) && SF.f)
+				fwrite (sf2, 1, sf2_n, SF.f);
+			ResetFile (&SF, opt_preserve);
+			FREE (sf2);
+		}
+	}
 
 	ResetSoundArchive (&sar);
 	FREE (raw);

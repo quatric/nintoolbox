@@ -3016,6 +3016,35 @@ static enumError rs_seq_to_midi (const u8 *code, size_t n, size_t start, bool le
 	return ss_emit_midi (tr, ntr, &cond, ppq, out_midi, out_size);
 }
 
+// Named sounds of an RSEQ/CSEQ/FSEQ LABL block: code offsets (usable as SequenceToMIDIFrom() start_pos) and names.
+uint SequenceLabelList (const u8 *data, size_t size, u32 *offsets, char (*names)[32], uint max)
+{
+	if (!data || size < 4 || !offsets || !names)
+		return 0;
+	const seq_format_t fmt = DetectSequenceFormat (data, size);
+	if (fmt != SEQ_FMT_RSEQ && fmt != SEQ_FMT_CSEQ && fmt != SEQ_FMT_FSEQ_BE && fmt != SEQ_FMT_FSEQ_LE)
+		return 0;
+	const bool is_le = fmt == SEQ_FMT_CSEQ || fmt == SEQ_FMT_FSEQ_LE;
+	const u8 *code = 0, *labl = 0;
+	size_t code_size = 0, labl_size = 0;
+	if (!seq_find_blocks (data, size, is_le, &code, &code_size, &labl, &labl_size) || !labl)
+		return 0;
+	label_map_t *labels = 0;
+	uint n = 0, alloc = 0;
+	seq_read_labels (labl, labl_size, is_le, &labels, &n, &alloc, fmt == SEQ_FMT_RSEQ);
+	uint out = 0;
+	for (uint i = 0; i < n && out < max; i++)
+	{
+		if (labels[i].offset >= code_size || code[labels[i].offset] == 0xff) // skip dummy sounds that just 'fin'
+			continue;
+		offsets[out] = labels[i].offset;
+		snprintf (names[out], 32, "%s", labels[i].name);
+		out++;
+	}
+	FREE (labels);
+	return out;
+}
+
 // start_pos: offset of the master track inside the sequence code (an RSAR sound's "dataOffset"/label address)
 enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size, u32 start_pos)
 {
