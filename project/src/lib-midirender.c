@@ -14,6 +14,7 @@
 
 // ---- options (set by wszst --midi-preset= / --midi-reverb=) ----
 const char *g_midi_preset_spec = 0; // "ch=program[:bank],..." channels 1..16, e.g. "4=7,10=0:128"
+const char *g_midi_mute_spec = 0; // "4,5,6" channels 1..16 to silence (alternate arrangements the game mutes at runtime)
 int g_midi_reverb = 0; // 0..100 wet level of the built-in reverb (0 = off)
 
 // ---- Freeverb (public domain design by Jezar), stereo ----
@@ -105,6 +106,17 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 	}
 	tsf_set_output (sf, TSF_STEREO_INTERLEAVED, rate, 0.0f);
 
+	bool muted[16] = { false };
+	for (const char *q = g_midi_mute_spec; q && *q;)
+	{
+		int ch = 0, n = 0;
+		if (sscanf (q, "%d%n", &ch, &n) < 1)
+			break;
+		if (ch >= 1 && ch <= 16)
+			muted[ch - 1] = true;
+		q += n;
+		while (*q == ',' || *q == ' ' || *q == ';') q++;
+	}
 	int ov[16];
 	parse_presets (g_midi_preset_spec, ov);
 	for (int c = 0; c < 16; c++)
@@ -142,6 +154,8 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 				tsf_channel_set_presetnumber (sf, m->channel, m->program, 0);
 				break;
 			case TML_NOTE_ON:
+				if (m->channel < 16 && muted[m->channel])
+					break;
 				tsf_channel_note_on (sf, m->channel, m->key, m->velocity / 127.0f);
 				break;
 			case TML_NOTE_OFF:

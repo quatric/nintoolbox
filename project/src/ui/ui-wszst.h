@@ -286,6 +286,7 @@ typedef enum enumOptions
 	OPT_WITH_BMS,
 	OPT_WITH_MOBIPEG,
 	OPT_MIDI_PRESET,
+	OPT_MIDI_MUTE,
 	OPT_MIDI_REVERB,
 	OPT_MIDI_FORMAT,
 	OPT_WITH_7Z,
@@ -325,7 +326,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 264
+	OPT__N_TOTAL // == 265
 
 } enumOptions;
 
@@ -1432,6 +1433,7 @@ typedef enum enumGetOpt
 	GO_WITH_BMS,
 	GO_WITH_MOBIPEG,
 	GO_MIDI_PRESET,
+	GO_MIDI_MUTE,
 	GO_MIDI_REVERB,
 	GO_MIDI_FORMAT,
 	GO_WITH_7Z,

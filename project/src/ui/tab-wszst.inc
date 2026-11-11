@@ -2140,6 +2140,13 @@
 		" (channels 1-16), e.g. @'4=7,10=0:128'@. Channels not listed keep the"
 		" program changes of the MIDI." },
 
+  { T_OPT_GP,	"MIDI_MUTE",	"midi-mute|midimute",
+		"list",
+		"Silence MIDI channels (1-16, comma separated, e.g. @'4,5,6'@) when a"
+		" converted MIDI is rendered to WAV. Games often keep alternate"
+		" arrangements of the same part on extra tracks and mute them at"
+		" runtime (weather, season); those are all played together otherwise." },
+
   { T_OPT_GP,	"MIDI_REVERB",	"midi-reverb|midireverb",
 		"0-100",
 		"Add a built-in reverb with the given wet level (0 = off, the default)"

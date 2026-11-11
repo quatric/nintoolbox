@@ -635,6 +635,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_MIDI_PRESET:
 				g_midi_preset_spec = optarg;
 				break;
+			case GO_MIDI_MUTE:
+				g_midi_mute_spec = optarg;
+				break;
 			case GO_MIDI_REVERB:
 				g_midi_reverb = optarg ? atoi (optarg) : 0;
 				if (g_midi_reverb < 0)
