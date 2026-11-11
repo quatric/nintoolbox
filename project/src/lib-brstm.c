@@ -715,7 +715,21 @@ static enumError DecodeFSTM (brstm_audio_t *audio, const u8 *data, size_t size, 
 			return ERROR0 (ERR_INVALID_DATA, "DecodeBRSTM: truncated coefficients\n");
 		for (int ch = 0; ch < channels; ch++)
 		{
+			// Real files: channel-info table {count, {type, offset} x count}; each channel
+			// info starts with a {0x0300, offset} reference (relative to that channel info)
+			// to its 46-byte ADPCM info. Files written by mobipeg/wbrstm keep the infos
+			// back to back at 4 + 16 * channels, which is the fallback.
 			const u8 *cp = data + ci_base + ai0 + 46 * ch;
+			if (stream_range (size, ci_base + 4 + 8 * ch, 8))
+			{
+				const u64 cinfo = (u64)ci_base + rd_u32e (data + ci_base + 4 + 8 * ch + 4, le);
+				if (stream_range (size, cinfo, 8) && rd_u16e (data + cinfo, le) == 0x0300)
+				{
+					const u64 adpcm = cinfo + rd_u32e (data + cinfo + 4, le);
+					if (stream_range (size, adpcm, 32))
+						cp = data + adpcm;
+				}
+			}
 			for (int i = 0; i < 16; i++)
 				coefs[ch][i] = (s16)rd_u16e (cp + i * 2, le);
 		}
