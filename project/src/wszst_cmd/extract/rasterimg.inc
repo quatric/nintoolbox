@@ -1,4 +1,4 @@
-// Plain raster images that the image loader does not read: QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
+// Plain raster images that the image loader does not read: Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
 // cursors (".ico", ".cur": every entry as "<name>_N.png"; PNG entries are copied, DIB entries of 32, 24 and 8 bit depth are converted, AND mask applied).
 // Output goes to "<file>.d/".
 static u8 *rimg_qoi (const u8 *d, size_t n, uint *ow, uint *oh)
@@ -99,10 +99,94 @@ static u8 *rimg_pcx (const u8 *d, size_t n, uint *ow, uint *oh)
 	return out;
 }
 
+static bool rimg_pnm_num (const u8 *d, size_t n, size_t *p, uint *v)
+{
+	for (;;)
+	{
+		while (*p < n && (d[*p] == ' ' || d[*p] == '\t' || d[*p] == '\r' || d[*p] == '\n'))
+			(*p)++;
+		if (*p < n && d[*p] == '#')
+			while (*p < n && d[*p] != '\n')
+				(*p)++;
+		else
+			break;
+	}
+	if (*p >= n || d[*p] < '0' || d[*p] > '9')
+		return false;
+	uint x = 0;
+	while (*p < n && d[*p] >= '0' && d[*p] <= '9')
+		x = x * 10 + d[(*p)++] - '0';
+	*v = x;
+	return true;
+}
+
+// Netpbm "P1".."P6" (".pbm", ".pgm", ".ppm", ".pnm")
+static u8 *rimg_pnm (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 8 || d[0] != 'P' || d[1] < '1' || d[1] > '6')
+		return 0;
+	const uint kind = d[1] - '0';
+	size_t p = 2;
+	uint w, h, mx = 1;
+	if (!rimg_pnm_num (d, n, &p, &w) || !rimg_pnm_num (d, n, &p, &h) || !w || !h || w > 16384 || h > 16384)
+		return 0;
+	if (kind != 1 && kind != 4 && (!rimg_pnm_num (d, n, &p, &mx) || !mx || mx > 65535))
+		return 0;
+	const bool ascii = kind <= 3, rgb = kind == 3 || kind == 6, bit = kind == 1 || kind == 4;
+	if (!ascii)
+		p++; // single whitespace byte after the header
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!out)
+		return 0;
+	const uint wide = mx > 255 ? 2 : 1;
+	for (size_t y = 0; y < h; y++)
+		for (size_t x = 0; x < w; x++)
+		{
+			uint c[3] = {0, 0, 0};
+			const uint nc = rgb ? 3 : 1;
+			for (uint k = 0; k < nc; k++)
+			{
+				uint v = 0;
+				if (bit && !ascii)
+				{
+					const size_t rb = p + y * ((w + 7) / 8) + x / 8;
+					if (rb >= n) { FREE (out); return 0; }
+					v = (d[rb] >> (7 - x % 8) & 1) ? 0 : 255;
+				}
+				else if (ascii)
+				{
+					if (!bit && false) {}
+					if (bit)
+					{
+						while (p < n && (d[p] == ' ' || d[p] == '\n' || d[p] == '\r' || d[p] == '\t')) p++;
+						if (p >= n) { FREE (out); return 0; }
+						v = d[p++] == '1' ? 0 : 255;
+					}
+					else
+					{
+						if (!rimg_pnm_num (d, n, &p, &v)) { FREE (out); return 0; }
+						v = v * 255 / mx;
+					}
+				}
+				else
+				{
+					const size_t rp = p + ((y * w + x) * nc + k) * wide;
+					if (rp + wide > n) { FREE (out); return 0; }
+					v = wide == 2 ? (d[rp] << 8 | d[rp + 1]) * 255 / mx : d[rp] * 255 / mx;
+				}
+				c[k] = v > 255 ? 255 : v;
+			}
+			u8 *o = out + (y * w + x) * 4;
+			o[0] = c[0]; o[1] = rgb ? c[1] : c[0]; o[2] = rgb ? c[2] : c[0]; o[3] = 255;
+		}
+	*ow = w; *oh = h;
+	return out;
+}
+
 static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
-	if ((!qoi && !pcx && !ico) || (export_count == 0 && !opt_decode))
+	const bool pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
+	if ((!qoi && !pcx && !ico && !pnm) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -119,9 +203,9 @@ static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 		*dot = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint w = 0, h = 0;
-	if (qoi || pcx)
+	if (qoi || pcx || pnm)
 	{
-		u8 *rgba = qoi ? rimg_qoi (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
+		u8 *rgba = qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
 		if (rgba)
 		{
 			err = testmode ? ERR_OK : kyl_write_rgba_png (arg, basedir, stem, (uint)-1, w, h, rgba);
