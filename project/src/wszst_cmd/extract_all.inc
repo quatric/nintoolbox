@@ -467,6 +467,7 @@
 #include "extract/nds_strm.inc"
 #include "extract/switch_opus.inc"
 #include "extract/bwav.inc"
+#include "extract/brstm_stream.inc"
 #include "extract/mp2k.inc"
 #include "extract/midi_render.inc"
 #include "extract/rbnk.inc"

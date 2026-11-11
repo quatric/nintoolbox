@@ -81,7 +81,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **BRLAN / BRLYT** | Wii / Layout | ✅ | ✅ | NW4R layout and animations |
 | **BRRES (MDL0, TEX0)** | Wii / Graphics | ✅ | ✅ | NW4R models, textures, animations; a textured MDL0 object with no UV set (an environment map on the Wii, e.g. the *Animal Crossing: City Folk* balloons) gets sphere-map UVs baked from its bind-pose normals so its texture shows in the GLB |
 | **BRSAR** | Wii / Audio Archive | ✅ | ✅ | NW4R sound archive |
-| **BRSTM / BFSTM / BCSTM** | Wii/Wii U/3DS / Audio Stream | ✅ | ✅ | Multichannel ADPCM/PCM streams |
+| **BRSTM / BFSTM / BCSTM** | Wii/Wii U/3DS / Audio Stream | ✅ | ✅ | Multichannel ADPCM/PCM streams; `xx` decodes them natively to `<name>.wav` (loop kept in a `smpl` chunk, sample-identical to mobipeg), mobipeg only remains as fallback |
 | **BYAML / BYML** | Wii U / Switch / Data | ✅ | ✅ | Binary YAML format (versions 1–7, big- and little-endian, string/path/hash tables incl. reloc maps); path tables ride any version, not just v1; Yaz0-wrapped BotW containers (`.sbyml`, `.smubin`, …) decode transparently and re-compress on CREATE; encoder honors `.be`/`.vN` dest markers and `# byml version=N endian=..` headers; `wszst BYMLFIND` searches keys/values |
 | **CA01 / SA01** | 3DS / Wii U / Archive | ✅ | ✅ | Mii Maker & amiibo settings flat archives |
 | **CCF** | Wii / Switch / Archive | ✅ | ✅ | Virtual Console container |
