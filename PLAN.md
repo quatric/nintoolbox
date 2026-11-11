@@ -2425,3 +2425,8 @@ exits 30 (external-tool failure, not ours), while `American Girl - Julie Finds a
 Way` stages arm9/arm7/data correctly. Truly open: Speed 2 multi-part `.dcm`,
 `.ast` payloads (Spooky Mansion/Spore Hero), `wii\0` non-texture records, vaps
 page sets, `.wiz/.wsp` inner formats (see `docs/wii-census/README.md`).
+
+Addendum (§44): the NDS regress failure was checked against a clean baseline —
+a worktree build of `8f27999b` (before the Thrillville/text-manifest commits)
+fails identically (`wit XEXTRACT` exit 30 on Nintendo Countdown Calendar), so it
+predates this work and is an external-tool failure on that one ROM.
