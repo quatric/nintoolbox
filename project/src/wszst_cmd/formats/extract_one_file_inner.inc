@@ -1958,7 +1958,7 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_bfres_switch_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-	err = convert_brsar_if_possible (arg);
+	err = convert_brsar_if_possible (arg, depth == 0);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	// A native archive's extracted BRSUB members (TEX0/PLT0/CHR0/etc., and

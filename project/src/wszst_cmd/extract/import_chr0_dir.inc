@@ -218,7 +218,7 @@ static enumError export_model_if_possible (ccp arg)
 // ndstool/sharpii/wit. Without this, "wszst XX" on a tree containing a
 // .brsar silently left it as a raw, unconverted member. Only runs when
 // export_count>0 (XX aliases to XEXPORT) so plain XDECODE/XALL are unaffected.
-static enumError convert_brsar_if_possible (ccp arg)
+static enumError convert_brsar_if_possible (ccp arg, bool render_midi)
 {
 	if (export_count <= 0)
 		return ERR_NOTHING_TO_DO;
@@ -273,8 +273,9 @@ static enumError convert_brsar_if_possible (ccp arg)
 			{
 				if (verbose >= 0)
 					fprintf (stdlog, "%sEXPORT %s:%s -> %s (native)\n", verbose > 0 ? "\n" : "", is_sdat ? "SDAT" : is_fsar ? "BFSAR/BCSAR" : "BRSAR", arg, ndest);
-				// with --decode (xx / xdecode) the converted MIDI files are rendered to WAV through their SoundFonts
-				if (opt_decode && cerr == ERR_OK)
+				// with --decode (xx / xdecode) on a single archive given directly, the converted MIDI files are rendered to WAV through
+				// their SoundFonts; not while walking a whole tree (thousands of MIDIs would fill the disk with WAV)
+				if (opt_decode && render_midi && cerr == ERR_OK)
 				{
 					char mdir[PATH_MAX];
 					snprintf (mdir, sizeof (mdir), "%s/midi", ndest);
@@ -516,7 +517,7 @@ static enumError export_models_tree (ccp root, uint depth)
 			const enumError model_err = export_model_if_possible (path);
 			if (model_err != ERR_NOTHING_TO_DO && err < model_err)
 				err = model_err;
-			const enumError brsar_err = convert_brsar_if_possible (path);
+			const enumError brsar_err = convert_brsar_if_possible (path, false);
 			if (brsar_err != ERR_NOTHING_TO_DO && err < brsar_err)
 				err = brsar_err;
 			// extract_hsf_file() deferred its own conversion here (see
