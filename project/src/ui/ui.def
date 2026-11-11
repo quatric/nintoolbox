@@ -1773,6 +1773,13 @@
 	" arrangements of the same part on extra tracks and mute them at" \
 	" runtime (weather, season); those are all played together otherwise." )
 
+#:def_opt( "MIDI_DECLICK", "midi-declick|midideclick", "GP", \
+	"ms", \
+	"Minimum release time in milliseconds (the attack gets a fifth of it)" \
+	" of the instruments when a converted MIDI is rendered to WAV. Very" \
+	" short envelopes cut the sound off abruptly, which is heard as" \
+	" clicks. Default is 12, 0 keeps the SoundFont values." )
+
 #:def_opt( "MIDI_REVERB", "midi-reverb|midireverb", "GP", \
 	"0-100", \
 	"Add a built-in reverb with the given wet level (0 = off, the default)" \

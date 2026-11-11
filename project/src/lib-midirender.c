@@ -15,6 +15,7 @@
 // ---- options (set by wszst --midi-preset= / --midi-reverb=) ----
 const char *g_midi_preset_spec = 0; // "ch=program[:bank],..." channels 1..16, e.g. "4=7,10=0:128"
 const char *g_midi_mute_spec = 0; // "4,5,6" channels 1..16 to silence (alternate arrangements the game mutes at runtime)
+int g_midi_declick_ms = 12; // minimum amp-envelope release in ms (attack gets a fifth of it); 0 = use the SoundFont values as they are
 int g_midi_reverb = 0; // 0..100 wet level of the built-in reverb (0 = off)
 
 // ---- Freeverb (public domain design by Jezar), stereo ----
@@ -105,6 +106,20 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 		return 1;
 	}
 	tsf_set_output (sf, TSF_STEREO_INTERLEAVED, rate, 0.0f);
+	if (g_midi_declick_ms > 0)
+	{
+		// very short attack/release times cut the waveform abruptly (audible as clicks/pops); keep a small floor
+		const float rel = g_midi_declick_ms / 1000.0f, att = rel / 5.0f;
+		for (int pi = 0; pi < sf->presetNum; pi++)
+			for (int ri = 0; ri < sf->presets[pi].regionNum; ri++)
+			{
+				struct tsf_region *rg = sf->presets[pi].regions + ri;
+				if (rg->ampenv.release < rel)
+					rg->ampenv.release = rel;
+				if (rg->ampenv.attack < att)
+					rg->ampenv.attack = att;
+			}
+	}
 
 	bool muted[16] = { false };
 	for (const char *q = g_midi_mute_spec; q && *q;)

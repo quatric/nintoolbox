@@ -2147,6 +2147,13 @@
 		" arrangements of the same part on extra tracks and mute them at"
 		" runtime (weather, season); those are all played together otherwise." },
 
+  { T_OPT_GP,	"MIDI_DECLICK",	"midi-declick|midideclick",
+		"ms",
+		"Minimum release time in milliseconds (the attack gets a fifth of it) of"
+		" the instruments when a converted MIDI is rendered to WAV. Very short"
+		" envelopes cut the sound off abruptly, which is heard as clicks."
+		" Default is 12, 0 keeps the SoundFont values." },
+
   { T_OPT_GP,	"MIDI_REVERB",	"midi-reverb|midireverb",
 		"0-100",
 		"Add a built-in reverb with the given wet level (0 = off, the default)"
