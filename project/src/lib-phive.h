@@ -20,4 +20,18 @@ bool IsPhiveFile (const u8 *data, size_t size);
 enumError ConvertPhiveToObj (
 	const u8 *data, size_t size, char **obj, size_t *obj_size, char **json, size_t *json_size);
 
+// Static compound bodies (".bphsc", Phive container version 2.2 as in Mario Kart World): every Havok tag file in
+// the container holds an hknpCompoundShape whose instances (rotation, translation, scale) place mesh, convex and
+// capsule shapes, possibly through nested compounds. IsPhiveCompound() checks the container version.
+bool IsPhiveCompound (const u8 *data, size_t size);
+
+// Write all instanced shapes as one Wavefront OBJ in world space ("g compound_N" per tag file, "o N_<type>" per
+// shape, "usemtl material_<tag>" for mesh triangles; capsules as 8-sided tubes). ERR_NOTHING_TO_DO for bodies
+// without shapes (empty bodies and water grids). The output is allocated with MALLOC; free it with FREE.
+enumError ConvertPhiveCompoundToObj (const u8 *data, size_t size, char **obj, size_t *obj_size);
+
+// Water grid of a static compound body: MALLOC'd w * h cells of 4 u16 {height, flow x, flow z, flags} (height
+// spans the box height; flow 0x7fff = still), box = {size x, y, z, center x, y, z}. ERR_NOTHING_TO_DO if none.
+enumError DecodePhiveWaterGrid (const u8 *data, size_t size, u16 **cells, uint *width, uint *height, float box[6]);
+
 #endif // SZS_LIB_PHIVE_H

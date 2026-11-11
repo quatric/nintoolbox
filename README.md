@@ -271,6 +271,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUSHDB** | `.nushdb` | *(text dump)* | *Super Smash Bros. Ultimate* |
 | **NUSKTB** | `.nusktb` | *(text dump)* | *Super Smash Bros. Ultimate* |
 | **PERS** | `.pers` | *(raw payload)* | N64 |
+| **Phive collision** | `.bphsh`, `.bphsc` | **OBJ** (+ material JSON; water grids as 16-bit PNG) | *Splatoon 3*, *Mario Kart World* |
 | **SANIM** | `.sanim` | *(text dump)* | *Super Mario Strikers* |
 | **TTMODEL** | `.model` | **GLB** | *LEGO Star Wars: The Skywalker Saga* |
 | **WMB** | `.wmb` | **GLB** | *Star Fox Zero* |

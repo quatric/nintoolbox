@@ -18874,6 +18874,25 @@ t_ainb(){
 }
 t_ainb
 
+t_bphsc(){
+  local d; d=$(mktemp -d /tmp/_r_bphsc.XXXXXX) || { fno "Phive compound" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_bphsc.py" "$d" >/dev/null 2>&1
+  "$B/wszst" XX "$d/c.bphsc" --overwrite >/dev/null 2>&1
+  "$B/wszst" XX "$d/w.bphsc" --overwrite >/dev/null 2>&1
+  if grep -q "^v 100.000000 31.000000 -50.000000$" "$d/c.bphsc.obj" 2>/dev/null && [ "$(grep -c '^f ' "$d/c.bphsc.obj")" = 32 ]; then
+    fok "Phive static compound (capsule instance) -> world-space OBJ"
+  else
+    fno "Phive static compound" "unexpected $d/c.bphsc.obj"
+  fi
+  if [ "$(xxd -s 24 -l 2 -p "$d/w.bphsc.png" 2>/dev/null)" = "1000" ] && grep -q "^max: \[100, 100, 100\]" "$d/w.bphsc.yml" 2>/dev/null; then
+    fok "Phive water grid -> 16-bit height PNG + YAML"
+  else
+    fno "Phive water grid" "unexpected $d/w.bphsc.png / .yml"
+  fi
+  rm -rf "$d"
+}
+t_bphsc
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
