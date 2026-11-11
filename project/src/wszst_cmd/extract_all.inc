@@ -167,6 +167,7 @@
 #include "extract/kylotonn_vid.inc"
 #include "extract/nekolzss.inc"
 #include "extract/nekogrp.inc"
+#include "extract/bcsv.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"

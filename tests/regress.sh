@@ -12160,6 +12160,25 @@ PYE
     && fok "Neko MUSIC.GRP to stereo wav" \
     || fno "Neko MUSIC.GRP to stereo wav" "music_00.wav missing or wrong"
 
+  # JSystem BCSV table -> csv
+  python3 - "$d/neko_test/t.bcsv" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def h(s):
+    x = 0
+    for c in s.encode(): x = (x * 31 + c) & 0xffffffff
+    return x
+fields = [(h('name'), 0xffffffff, 0, 0, 1), (h('Value'), 0xffffffff, 32, 0, 0), (h('Rate'), 0xffffffff, 36, 0, 2), (0xdeadbeef, 0xf0, 40, 4, 0), (h('Message'), 0xffffffff, 44, 0, 6)]
+ents = [('Mario,x', -5, 1.5, 0x30, 0), ('Luigi', 7, 2.25, 0x50, 3)]
+data = b''.join(n.encode().ljust(32, b'\0') + struct.pack('>ifII', v, r, m, o) for n, v, r, m, o in ents)
+out = struct.pack('>IIII', 2, 5, 16 + 60, 48)
+for f in fields: out += struct.pack('>IIHBB', *f)
+open(sys.argv[1], 'wb').write(out + data + b'hi\0there\0')
+PYE
+  "$B/wszst" xx "$d/neko_test/t.bcsv" --overwrite >/dev/null 2>&1
+  [ "$(tail -n +2 "$d/neko_test/t.bcsv.d/t.csv" 2>/dev/null | tr '\n' '|')" = '"Mario,x",-5,1.5,3,hi|Luigi,7,2.25,5,there|' ] \
+    && fok "JSystem BCSV to csv" \
+    || fno "JSystem BCSV to csv" "t.csv missing or wrong"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
