@@ -235,7 +235,14 @@ int RenderMIDIToWAV (const char *mid_path, const char *sf2_path, const char *wav
 	put32 (f, 36 + bytes);
 	fseek (f, 40, SEEK_SET);
 	put32 (f, bytes);
-	fclose (f);
+	// a full disk shows up only as a write error here: report it instead of leaving a truncated WAV
+	const int write_failed = ferror (f);
+	if (fclose (f) || write_failed)
+	{
+		remove (wav_path);
+		free (mix);
+		return 3;
+	}
 	free (mix);
 	return 0;
 }
