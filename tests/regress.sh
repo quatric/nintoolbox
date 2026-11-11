@@ -11933,6 +11933,22 @@ PYE
     fok "Proteus SDASSETF model to GLB"
   else fno "Proteus SDASSETF model to GLB" "no quad.glb from wszst xx"; fi
 
+  # Proteus SDASSETF "REF@" chunk (one uncounted trailing float) keeps the walk aligned
+  python3 - "$d/proteus_test/ref.ast" <<'PYE' >/dev/null 2>&1
+import struct, sys
+P = lambda *a: struct.pack('>' + 'I' * len(a), *a)
+pad4 = lambda b: b + bytes((-len(b)) % 4)
+def top(tag, ver, name, fixed, kids=b''): return tag + P(ver, len(fixed), len(kids)) + pad4(name + b'\0') + fixed + kids
+ref = top(b'REF@', 0xff000001, b'inst', bytes(8)) + struct.pack('>f', 1.0)
+lght = top(b'LGHT', 1, b'lamp', bytes(4))
+open(sys.argv[1], 'wb').write(b'SDASSETF' + P(1, 2) + ref + lght)
+PYE
+  "$B/wszst" xx "$d/proteus_test/ref.ast" --overwrite >/dev/null 2>&1
+  if grep -q 'chunk\[1\]: tag="LGHT"' "$d/proteus_test/ref.ast.d/ref.ast.txt" \
+     && ! grep -q 'only [0-9]* of\|trailing bytes\|stops at' "$d/proteus_test/ref.ast.d/ref.ast.txt"; then
+    fok "Proteus SDASSETF REF@ chunk alignment"
+  else fno "Proteus SDASSETF REF@ chunk alignment" "walk lost sync after REF@"; fi
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

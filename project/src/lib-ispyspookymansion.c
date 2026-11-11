@@ -256,6 +256,13 @@ int IsSpookyAst (const u8 *data, size_t size, size_t file_size)
 	return 1;
 }
 
+// "REF@" chunks (instances of a named model, I Spy Spooky Mansion: {"MDL" tag + model name, transform floats}) are followed by one more float (1.0) that their
+// size fields do not count; with it every .ast of that game walks to EOF.
+static u32 ast_tail (const char *tag)
+{
+	return !strcmp (tag, "REF@") ? 4 : 0;
+}
+
 // Top-level chunk layout, verified on all 1598 .ast files of Goosebumps HorrorLand (832 big-endian, 766 little-endian; every file walks to EOF):
 //   +0  tag (4 chars, word-swapped in the little-endian files; 3 character tags such as "MDL" and "BND" are NUL padded)
 //   +4  version, +8 size of the fixed payload, +12 size of the child area
@@ -307,8 +314,8 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 		const u32 fixed = ast_u32 (data, o + 8, swapped);
 		const u32 kids = ast_u32 (data, o + 12, swapped);
 		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len;
-		const u64 end = pay + fixed + kids;
-		if (end > size)
+		const u64 end = pay + fixed + kids, next = end + ast_tail (tag);
+		if (next > size)
 		{
 			fprintf (f, "\n# chunk table stops at offset 0x%x (out-of-bounds size fields)\n", o);
 			break;
@@ -342,7 +349,7 @@ enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t fil
 			fprintf (f, "  child[%u]: tag=\"%s\" version=0x%x field=%u size=%u offset=0x%llx\n", j, ctag, ccver, cfield, csize, (unsigned long long)c);
 			c += AST_CHUNK_HEADER_SIZE + csize;
 		}
-		o = (u32)end;
+		o = (u32)next;
 	}
 
 	if (n < count)
@@ -373,7 +380,7 @@ int SpookyAstForEachTexture (const u8 *data, size_t size, int (*cb) (const Spook
 		if (!is_ascii_tag (tag) || !ast_walk_name (data, size, o, &name_len))
 			break;
 		const u32 fixed = ast_u32 (data, o + 8, swapped), kids = ast_u32 (data, o + 12, swapped);
-		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids;
+		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids + ast_tail (tag);
 		if (end > size)
 			break;
 		if (!strcmp (tag, "BMAP") && fixed >= 20)
@@ -491,7 +498,7 @@ static uint ast_collect_materials (const u8 *data, size_t size, int swapped, ast
 		if (!is_ascii_tag (tag) || !ast_walk_name (data, size, o, &name_len))
 			break;
 		const u32 fixed = ast_u32 (data, o + 8, swapped), kids = ast_u32 (data, o + 12, swapped);
-		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids;
+		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids + ast_tail (tag);
 		if (end > size)
 			break;
 		if (!strcmp (tag, "MTRL") && nm < AST_MAX_MATERIALS)
@@ -706,7 +713,7 @@ int SpookyAstForEachModel (const u8 *data, size_t size, int (*cb) (const char *n
 		if (!is_ascii_tag (tag) || !ast_walk_name (data, size, o, &name_len))
 			break;
 		const u32 fixed = ast_u32 (data, o + 8, swapped), kids = ast_u32 (data, o + 12, swapped);
-		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids;
+		const u64 pay = (u64)o + AST_CHUNK_HEADER_SIZE + name_len, end = pay + fixed + kids + ast_tail (tag);
 		if (end > size)
 			break;
 		if (!strcmp (tag, "MDL"))

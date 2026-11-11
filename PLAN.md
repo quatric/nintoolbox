@@ -2430,3 +2430,13 @@ Addendum (§44): the NDS regress failure was checked against a clean baseline �
 a worktree build of `8f27999b` (before the Thrillville/text-manifest commits)
 fails identically (`wit XEXTRACT` exit 30 on Nintendo Countdown Calendar), so it
 predates this work and is an external-tool failure on that one ROM.
+
+## 45. 2026-11-10 — Proteus `.ast` (Goosebumps HorrorLand, I Spy Spooky Mansion)
+
+The `.ast` extension in the census mixes formats; the `SDASSETF` ones are the Proteus engine bundles. Verified on
+Goosebumps HorrorLand (1598 files) and I Spy Spooky Mansion (190): the chunk tree walks to EOF in both byte orders
+(`SDASSETF` big-endian, `SADSFTES` little-endian); BE BMAP textures (CMPR, RGBA8, C4/C8 + RGB5A3 CLUT) decode to PNG; MDL models export to GLB
+(5299 of 5470 on Goosebumps, 2062 on Spooky Mansion) with textures taken from sibling bundles. `REF@` chunks have one uncounted trailing float.
+Open: skinning, SKEL/ALST/ATRE contents, LOD/INFO, the 22 little-endian textures, tiled 640x480 screens, and other games' `.ast`
+(Spore Hero, Nat Geo, Ultimate I Spy, I Spy Game Pack -- same engine family, not yet run). The 3% of Goosebumps models that fail have a DATA block whose
+size disagrees with 32 + vertex count x stride.
