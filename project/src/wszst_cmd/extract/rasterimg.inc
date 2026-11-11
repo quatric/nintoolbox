@@ -1,4 +1,4 @@
-// Plain raster images that the image loader does not read: Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
+// Plain raster images that the image loader does not read: X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
 // cursors (".ico", ".cur": every entry as "<name>_N.png"; PNG entries are copied, DIB entries of 32, 24 and 8 bit depth are converted, AND mask applied).
 // Output goes to "<file>.d/".
 static u8 *rimg_qoi (const u8 *d, size_t n, uint *ow, uint *oh)
@@ -301,10 +301,134 @@ static u8 *rimg_sgi (const u8 *d, size_t n, uint *ow, uint *oh)
 	return out;
 }
 
+// X11 bitmap ".xbm" (C source: "#define n_width W", "#define n_height H", LSB-first hex bytes)
+static u8 *rimg_xbm (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	char *t = MALLOC (n + 1);
+	if (!t)
+		return 0;
+	memcpy (t, d, n);
+	t[n] = 0;
+	uint w = 0, h = 0;
+	const char *pw = strstr (t, "_width"), *ph = strstr (t, "_height");
+	if (pw) w = strtoul (pw + 6, 0, 10);
+	if (ph) h = strtoul (ph + 7, 0, 10);
+	const char *br = strchr (t, '{');
+	u8 *out = 0;
+	if (w && h && w <= 16384 && h <= 16384 && br && (out = MALLOC ((size_t)w * h * 4)))
+	{
+		const uint rb = (w + 7) / 8;
+		const char *q = br + 1;
+		bool ok = true;
+		for (size_t i = 0; i < (size_t)rb * h && ok; i++)
+		{
+			while (*q && !(q[0] == '0' && (q[1] == 'x' || q[1] == 'X')))
+				q++;
+			if (!*q) { ok = false; break; }
+			const uint v = strtoul (q, (char **)&q, 16);
+			const size_t y = i / rb, bx = i % rb;
+			for (uint k = 0; k < 8 && bx * 8 + k < w; k++)
+			{
+				u8 *o = out + (y * w + bx * 8 + k) * 4;
+				o[0] = o[1] = o[2] = (v >> k & 1) ? 0 : 255;
+				o[3] = 255;
+			}
+		}
+		if (!ok) { FREE (out); out = 0; }
+	}
+	FREE (t);
+	if (out) { *ow = w; *oh = h; }
+	return out;
+}
+
+// XPM version 3 ".xpm" (C source, characters per pixel 1-4, colours "c #RRGGBB" / "c None" / a few names)
+static u8 *rimg_xpm (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	char *t = MALLOC (n + 1);
+	if (!t)
+		return 0;
+	memcpy (t, d, n);
+	t[n] = 0;
+	// collect the quoted strings
+	const char *strs[70000];
+	size_t lens[70000], ns = 0;
+	for (char *q = t; *q && ns < 69999;)
+	{
+		if (*q == '/' && q[1] == '*')
+		{
+			char *e = strstr (q + 2, "*/");
+			if (!e) break;
+			q = e + 2;
+		}
+		else if (*q == '"')
+		{
+			char *e = ++q;
+			while (*e && *e != '"') e++;
+			strs[ns] = q; lens[ns] = e - q; ns++;
+			q = *e ? e + 1 : e;
+		}
+		else
+			q++;
+	}
+	u8 *out = 0;
+	uint w, h, nc, cpp;
+	if (ns > 1 && sscanf (strs[0], "%u %u %u %u", &w, &h, &nc, &cpp) == 4 && w && h && w <= 16384 && h <= 16384 && nc && cpp && cpp <= 4 && ns >= 1 + (size_t)nc + h)
+	{
+		struct { char key[4]; u8 c[4]; } *tab = CALLOC (nc, 12);
+		bool ok = tab != 0;
+		for (uint i = 0; ok && i < nc; i++)
+		{
+			const char *l = strs[1 + i];
+			if (lens[1 + i] < cpp + 3) { ok = false; break; }
+			memcpy (tab[i].key, l, cpp);
+			const char *cp = 0;
+			for (const char *k = l + cpp; k + 2 < l + lens[1 + i]; k++)
+				if ((k[0] == ' ' || k[0] == '\t') && k[1] == 'c' && (k[2] == ' ' || k[2] == '\t')) { cp = k + 3; break; }
+			if (!cp) cp = l + cpp + 1;
+			while (*cp == ' ' || *cp == '\t') cp++;
+			tab[i].c[3] = 255;
+			if (*cp == '#')
+			{
+				char hx[16] = {0};
+				size_t k = 0;
+				for (cp++; k < 12 && ((*cp >= '0' && *cp <= '9') || ((*cp | 32) >= 'a' && (*cp | 32) <= 'f')); cp++) hx[k++] = *cp;
+				const uint dg = k / 3;
+				if (dg == 2 || dg == 4 || dg == 1)
+					for (uint c = 0; c < 3; c++)
+					{
+						char b[3] = {hx[c * dg], dg > 1 ? hx[c * dg + 1] : hx[c * dg], 0};
+						tab[i].c[c] = strtoul (b, 0, 16);
+					}
+			}
+			else if (!strncasecmp (cp, "None", 4)) tab[i].c[3] = 0;
+			else if (!strncasecmp (cp, "white", 5)) tab[i].c[0] = tab[i].c[1] = tab[i].c[2] = 255;
+			else if (!strncasecmp (cp, "red", 3)) tab[i].c[0] = 255;
+			else if (!strncasecmp (cp, "green", 5)) tab[i].c[1] = 255;
+			else if (!strncasecmp (cp, "blue", 4)) tab[i].c[2] = 255;
+		}
+		out = ok ? MALLOC ((size_t)w * h * 4) : 0;
+		for (uint y = 0; out && y < h; y++)
+		{
+			if (lens[1 + nc + y] < (size_t)w * cpp) { FREE (out); out = 0; break; }
+			for (uint x = 0; x < w; x++)
+			{
+				uint i;
+				for (i = 0; i < nc; i++)
+					if (!memcmp (tab[i].key, strs[1 + nc + y] + x * cpp, cpp)) break;
+				memcpy (out + ((size_t)y * w + x) * 4, i < nc ? tab[i].c : (const u8[4]){0, 0, 0, 0}, 4);
+			}
+		}
+		FREE (tab);
+	}
+	FREE (t);
+	if (out) { *ow = w; *oh = h; }
+	return out;
+}
+
 static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
-	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi) || (export_count == 0 && !opt_decode))
+	const bool xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
+	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -321,9 +445,9 @@ static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 		*dot = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint w = 0, h = 0;
-	if (qoi || pcx || pnm || sun || sgi)
+	if (qoi || pcx || pnm || sun || sgi || xbm || xpm)
 	{
-		u8 *rgba = sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
+		u8 *rgba = xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
 		if (rgba)
 		{
 			err = testmode ? ERR_OK : kyl_write_rgba_png (arg, basedir, stem, (uint)-1, w, h, rgba);
