@@ -19,6 +19,7 @@ extern ccp opt_with_hactool; // --with-hactool=path|name
 extern ccp opt_with_hacbrewpack; // --with-hacbrewpack=path|name
 extern ccp opt_with_bms; // --with-bms=path|--bms=path
 extern ccp opt_with_mobipeg; // --with-mobipeg=path|name
+extern ccp opt_midi_format; // --midi-format=wav|flac
 extern ccp opt_with_7z; // --with-7z=path|name
 extern ccp opt_with_nsz; // --with-nsz=path|name
 extern ccp opt_with_vgmtrans; // --with-vgmtrans=path|name
@@ -68,6 +69,7 @@ enumError PassthruDecodeAudio (ccp src_path, ccp wav_path);
 // Render a MIDI file through a SoundFont to WAV_PATH with an external fluidsynth (on PATH).
 // Returns ERR_NOTHING_TO_DO when fluidsynth is not installed.
 enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path);
+enumError PassthruWavToFlac (ccp wav_path);
 
 // Re-encode an edited media preview back over SOURCE_PATH. The source is
 // probed and also supplied as the audio input, so the replacement keeps the

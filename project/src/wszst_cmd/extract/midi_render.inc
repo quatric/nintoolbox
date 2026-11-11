@@ -61,6 +61,8 @@ static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth)
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sRENDER MIDI:%s + %s -> WAV:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, sf2, wav);
 	const enumError err = PassthruRenderMIDI (arg, sf2, wav);
+	if (!err && !testmode)
+		PassthruWavToFlac (wav);
 	if (err == ERR_NOTHING_TO_DO)
 		return ERROR0 (ERR_WARNING, "no fluidsynth found to render %s", arg);
 	return err;

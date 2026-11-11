@@ -1,3 +1,4 @@
+#include "lib-midirender.h"
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -630,6 +631,19 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_WITH_MOBIPEG:
 				opt_with_mobipeg = optarg;
+				break;
+			case GO_MIDI_PRESET:
+				g_midi_preset_spec = optarg;
+				break;
+			case GO_MIDI_REVERB:
+				g_midi_reverb = optarg ? atoi (optarg) : 0;
+				if (g_midi_reverb < 0)
+					g_midi_reverb = 0;
+				if (g_midi_reverb > 100)
+					g_midi_reverb = 100;
+				break;
+			case GO_MIDI_FORMAT:
+				opt_midi_format = optarg;
 				break;
 			case GO_WITH_7Z:
 				opt_with_7z = optarg;

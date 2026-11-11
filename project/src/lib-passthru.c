@@ -52,6 +52,7 @@ ccp opt_with_hactool = 0; // --with-hactool=path|name
 ccp opt_with_hacbrewpack = 0; // --with-hacbrewpack=path|name
 ccp opt_with_bms = 0; // --with-bms=path|--bms=path
 ccp opt_with_mobipeg = 0; // --with-mobipeg=path|name
+ccp opt_midi_format = 0; // --midi-format=wav|flac
 ccp opt_with_7z = 0; // --with-7z=path|name
 ccp opt_with_nsz = 0; // --with-nsz=path|name
 ccp opt_with_vgmtrans = 0; // --with-vgmtrans=path|name
@@ -1014,6 +1015,29 @@ enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path)
 	const int rc = run_program (argv);
 	if (rc != 0)
 		return ERROR0 (ERR_SUBJOB_FAILED, "fluidsynth failed for %s (exit %d)", mid_path, rc);
+	return ERR_OK;
+}
+
+// --midi-format=flac: re-encode a rendered WAV losslessly with the external flac tool and drop the WAV.
+// Returns ERR_NOTHING_TO_DO (WAV kept) when flac is not installed or the format is not "flac".
+enumError PassthruWavToFlac (ccp wav_path)
+{
+	if (!opt_midi_format || strcasecmp (opt_midi_format, "flac"))
+		return ERR_NOTHING_TO_DO;
+	ccp tool = find_program ("flac");
+	if (!tool || !*tool)
+		return ERR_NOTHING_TO_DO;
+	char flac_path[PATH_MAX];
+	snprintf (flac_path, sizeof (flac_path), "%s", wav_path);
+	char *dot = strrchr (flac_path, '.');
+	if (dot)
+		strcpy (dot, ".flac");
+	else
+		strcat (flac_path, ".flac");
+	char *argv[] = { (char *)tool, "-8", "-s", "-f", "-o", flac_path, (char *)wav_path, 0 };
+	if (run_program (argv) != 0)
+		return ERR_NOTHING_TO_DO; // keep the WAV
+	unlink (wav_path);
 	return ERR_OK;
 }
 

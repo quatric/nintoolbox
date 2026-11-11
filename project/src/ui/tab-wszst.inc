@@ -2132,6 +2132,27 @@
 		" directories of the environment variable @'PATH'@."
 		" Default is the name @'mobipeg'@." },
 
+  { T_OPT_GP,	"MIDI_PRESET",	"midi-preset|midipreset",
+		"list",
+		"Force the instrument of single MIDI channels when a converted MIDI is"
+		" rendered to WAV with XDECODE/XEXPORT. The list is comma separated"
+		"  @'channel=program'@ or @'channel=program:bank'@ entries"
+		" (channels 1-16), e.g. @'4=7,10=0:128'@. Channels not listed keep the"
+		" program changes of the MIDI." },
+
+  { T_OPT_GP,	"MIDI_REVERB",	"midi-reverb|midireverb",
+		"0-100",
+		"Add a built-in reverb with the given wet level (0 = off, the default)"
+		" when a converted MIDI is rendered to WAV. The built-in renderer has"
+		" no reverb of its own, so the game's AUX reverb is not heard without"
+		" this." },
+
+  { T_OPT_GP,	"MIDI_FORMAT",	"midi-format|midiformat",
+		"wav|flac",
+		"File format of rendered MIDI audio. @'flac'@ is lossless and about 60%"
+		" smaller than @'wav'@ (needs the external {flac} tool, otherwise WAV is"
+		" kept); macOS Quick Look plays both. Default is @'wav'@." },
+
   { T_OPT_GP,	"WITH_7Z",	"with-7z|7z",
 		"path",
 		"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default: '7z'." },
