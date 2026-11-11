@@ -2393,3 +2393,18 @@ layout and was lost in the `extract/*.inc` split. Re-implement as one new
 collisions checked safe: `.mod` (MTMOD vs. RFF-FBTI) and `.mat` (Aqua MATF
 vs. Mercury fallback) both resolve via `Is*` order, `.ast`/`.bag`/`.wt`
 have no competing claimants.
+
+## 43. 2026-11-10 — Wii text-manifest wiring gap closed (§42)
+
+`project/src/wszst_cmd/extract/wii_text_manifests.inc` adds one table-driven
+handler (`wii_text_defs[]`: extension, `Is*` detector, `Decode*_Text`) for
+Bermuda Triangle (.MWG/.MSP/.MWT/.PKI/.pgf), Aqua Panic (.rck/.mb2/.vis/.lit/.mat),
+Mercury Meltdown (.zen/.col/.pst/.mat/.nav), Octomania (.sec/.wt), I Spy Spooky
+Mansion (.eid/.ast/.sdf/.ges), HTTYD (.RWS/.KRV), Tenchu (.b/.hd), Havok .hkx and
+BotB .bag. It writes `<file>.d/<basename>.txt` under `wszst xx` and runs last in
+`extract_one_file_inner.inc`, so magic-validated handlers (EA .ast, Capcom .col,
+Tenchu .hd) claim their files first; Aqua .mat precedes the Mercury fallback.
+Regress case `Bermuda PLANETG text manifest` (synthetic .MWG) covers the path.
+Not wired: HTTYD .mtd (no decoder), Mercury .TEX (plain text), RFF probes,
+HDVoice/T4Res beyond the ext above. Suite: PASS=575 FAIL=1 (NDS ndstool case,
+sample-dependent, unrelated).
