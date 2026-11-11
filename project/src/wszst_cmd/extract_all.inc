@@ -194,6 +194,7 @@
 #include "extract/meshconv.inc"
 #include "extract/hps.inc"
 #include "extract/bfn.inc"
+#include "extract/jpc.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
