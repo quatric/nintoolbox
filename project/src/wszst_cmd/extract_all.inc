@@ -174,6 +174,7 @@
 #include "extract/j3dbrk.inc"
 #include "extract/j3dbmt.inc"
 #include "extract/spc.inc"
+#include "extract/retrorom.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
