@@ -161,6 +161,7 @@
 #include "extract/ealoc.inc"
 #include "extract/dspwrap.inc"
 #include "extract/kylotonn_snd.inc"
+#include "extract/wii_saveicon.inc"
 #include "extract/kylotonn_txc.inc"
 #include "extract/kylotonn_mdl.inc"
 #include "extract/myspd.inc"

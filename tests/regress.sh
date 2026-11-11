@@ -12106,6 +12106,14 @@ PYE
     && fok "Kylotonn .mtd (24 bit bitmap) to PNG" \
     || fno "Kylotonn .mtd (24 bit bitmap) to PNG" "no mtd.png"
 
+  # Wii save icon (headerless RGB5A3 48x48) -> PNG
+  mkdir -p "$d/wsi_test"
+  python3 -c "import sys; open(sys.argv[1], 'wb').write(bytes([0xff, 0xe0]) * (48 * 48))" "$d/wsi_test/saveicon0.raw"
+  "$B/wszst" xx "$d/wsi_test/saveicon0.raw" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/wsi_test/saveicon0.raw.d/saveicon0.png" 2>/dev/null | tail -c 3)" = "PNG" ] \
+    && fok "Wii saveicon<N>.raw (RGB5A3) to PNG" \
+    || fno "Wii saveicon<N>.raw (RGB5A3) to PNG" "no saveicon0.png"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
