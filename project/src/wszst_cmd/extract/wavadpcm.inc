@@ -1,3 +1,4 @@
+static void pcm_put32 (u8 *p, u32 v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
 // RIFF WAVE files with compressed codecs, decoded to 16 bit PCM "<file>.d/<name>_pcm.wav": MS ADPCM (format 0x0002), IMA / DVI ADPCM (0x0011, the Microsoft block layout with
 // a 4 byte header per channel), A-law (0x0006) and mu-law (0x0007). Plain PCM files are left alone.
 static const int wad_ima_step[89] = {7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253,

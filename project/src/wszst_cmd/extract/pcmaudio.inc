@@ -1,6 +1,5 @@
 // Plain PCM audio containers converted to RIFF WAV ("<file>.d/<name>.wav"): AIFF / AIFF-C (".aif", ".aiff", ".aifc": big endian 8..32 bit PCM, "sowt" = little endian
 // AIFF-C), Sun / NeXT ".au" (".snd" magic: 8..32 bit PCM and mu-law) and Creative Voice ".voc" (8 bit PCM data blocks, concatenated), Berkeley / IRCAM ".sf" (16 bit, 32 bit and float samples, A-law, mu-law), SoX ".sox" (32 bit), Apple CAF ".caf" (linear PCM) and Sony Wave64 ".w64" (PCM).
-static void pcm_put32 (u8 *p, u32 v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
 
 static enumError pcm_write_wav (ccp arg, ccp basedir, uint ch, uint rate, uint bits, const u8 *pcm, size_t n)
 {
@@ -48,6 +47,7 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 	{
 		uint ch = 0, bits = 0, rate = 0;
 		bool le = false;
+		uint ctype = 0; // 1 mu-law, 2 A-law, 3 float32, 4 QuickTime IMA4
 		const u8 *ssnd = 0;
 		size_t ssnd_n = 0;
 		for (size_t p = 12; p + 8 <= sz;)
@@ -67,8 +67,12 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 				{
 					if (!memcmp (c + 18, "sowt", 4))
 						le = true;
+					else if (!memcmp (c + 18, "ulaw", 4) || !memcmp (c + 18, "ULAW", 4)) ctype = 1;
+					else if (!memcmp (c + 18, "alaw", 4) || !memcmp (c + 18, "ALAW", 4)) ctype = 2;
+					else if (!memcmp (c + 18, "fl32", 4) || !memcmp (c + 18, "FL32", 4)) ctype = 3;
+					else if (!memcmp (c + 18, "ima4", 4)) ctype = 4;
 					else if (memcmp (c + 18, "NONE", 4) && memcmp (c + 18, "twos", 4))
-						ch = 0; // compressed AIFF-C
+						ch = 0; // other compressed AIFF-C
 				}
 			}
 			else if (!memcmp (raw + p, "SSND", 4) && cs >= 8)
@@ -82,7 +86,75 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 			}
 			p += 8 + cs + (cs & 1);
 		}
-		if (ch && ch < 9 && rate && bits >= 8 && bits <= 32 && ssnd)
+		if (ctype && ch && ch < 9 && rate && ssnd)
+		{
+			static const int ima_idx[16] = {-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8};
+			int run[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+			size_t cap = ctype == 4 ? (ssnd_n / (34 * ch) + 1) * 64 * ch * 2 : ssnd_n * 2 + 4, on = 0;
+			u8 *out = MALLOC (cap);
+			if (out)
+			{
+				if (ctype == 1 || ctype == 2)
+					for (size_t i = 0; i < ssnd_n; i++)
+					{
+						int v;
+						if (ctype == 1)
+						{
+							const int u = ~ssnd[i] & 255, t = ((u & 15) << 3) + 132;
+							v = (t << ((u & 0x70) >> 4)) - 132;
+							if (u & 0x80) v = -v;
+						}
+						else
+						{
+							int a = ssnd[i] ^ 0x55, seg = (a & 0x70) >> 4;
+							v = (a & 15) << 4;
+							v = seg == 0 ? v + 8 : (v + 0x108) << (seg - 1);
+							if (!(a & 0x80)) v = -v;
+						}
+						out[on++] = v & 255; out[on++] = (v >> 8) & 255;
+					}
+				else if (ctype == 3)
+					for (size_t i = 0; i + 4 <= ssnd_n; i += 4)
+					{
+						const u32 u = rd_be32 (ssnd + i);
+						float f;
+						memcpy (&f, &u, 4);
+						const float c = f > 1.0f ? 1.0f : f < -1.0f ? -1.0f : f;
+						const int v = (int)(c * 32767.0f + (c < 0 ? -0.5f : 0.5f));
+						out[on++] = v & 255; out[on++] = (v >> 8) & 255;
+					}
+				else
+					for (size_t b = 0; b + 34 * ch <= ssnd_n; b += 34 * ch)
+						for (uint c = 0; c < ch; c++)
+						{
+							const u8 *blk = ssnd + b + c * 34;
+							const int hp = (int16_t)((blk[0] << 8 | blk[1]) & 0xff80);
+							int pred = (run[c] & ~127) == hp ? run[c] : hp, idx = blk[1] & 127; // a header that matches the running predictor keeps its low bits
+							if (idx > 88) idx = 88;
+							for (uint k = 0; k < 64; k++)
+							{
+								const uint byte = blk[2 + k / 2], nib = k & 1 ? byte >> 4 : byte & 15;
+								const int step = wad_ima_step[idx];
+								int diff = step >> 3;
+								if (nib & 1) diff += step >> 2;
+								if (nib & 2) diff += step >> 1;
+								if (nib & 4) diff += step;
+								if (nib & 8) diff = -diff;
+								pred = wad_clamp (pred + diff);
+								run[c] = pred;
+								idx += ima_idx[nib];
+								idx = idx < 0 ? 0 : idx > 88 ? 88 : idx;
+								const size_t at = b / 34 / ch * 64 * ch * 2 + ((size_t)k * ch + c) * 2;
+								out[at] = pred & 255; out[at + 1] = (pred >> 8) & 255;
+							}
+							on = b / 34 / ch * 64 * ch * 2 + 64 * ch * 2;
+						}
+				if (on)
+					err = pcm_write_wav (arg, basedir, ch, rate, 16, out, on);
+				FREE (out);
+			}
+		}
+		else if (ch && ch < 9 && rate && bits >= 8 && bits <= 32 && ssnd)
 		{
 			const uint bytes = (bits + 7) / 8;
 			const size_t n = ssnd_n / bytes * bytes;
