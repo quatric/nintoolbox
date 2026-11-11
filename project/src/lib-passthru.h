@@ -65,6 +65,10 @@ enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop
 // Returns ERR_NOTHING_TO_DO when neither tool is available.
 enumError PassthruDecodeAudio (ccp src_path, ccp wav_path);
 
+// Render a MIDI file through a SoundFont to WAV_PATH with an external fluidsynth (on PATH).
+// Returns ERR_NOTHING_TO_DO when fluidsynth is not installed.
+enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path);
+
 // Re-encode an edited media preview back over SOURCE_PATH. The source is
 // probed and also supplied as the audio input, so the replacement keeps the
 // original container/video family, frame rate, average video bitrate and

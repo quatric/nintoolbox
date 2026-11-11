@@ -993,6 +993,26 @@ enumError PassthruDecodeAudio (ccp src_path, ccp wav_path)
 	return ERR_OK;
 }
 
+enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path)
+{
+	if (opt_no_passthrough)
+		return ERR_NOTHING_TO_DO;
+	ccp tool = find_program ("fluidsynth");
+	if (!tool || !*tool)
+		return ERR_NOTHING_TO_DO;
+	if (verbose > 0 || testmode)
+		fprintf (stdlog, "%sRENDER MIDI: %s + %s -> %s (%s)\n", testmode ? "WOULD " : "", mid_path,
+			sf2_path, wav_path, tool);
+	if (testmode)
+		return ERR_OK;
+	char *argv[] = { (char *)tool, "-ni", "-q", "-r", "44100", "-F", (char *)wav_path, (char *)sf2_path,
+		(char *)mid_path, 0 };
+	const int rc = run_program (argv);
+	if (rc != 0)
+		return ERROR0 (ERR_SUBJOB_FAILED, "fluidsynth failed for %s (exit %d)", mid_path, rc);
+	return ERR_OK;
+}
+
 enumError PassthruEncodeAudio (ccp wav_path, ccp dest_path, ccp format, s64 loop_start)
 {
 	ccp tool = resolve_mobipeg ();
