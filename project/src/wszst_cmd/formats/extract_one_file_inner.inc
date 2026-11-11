@@ -85,63 +85,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_j3dbmt_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-	err = extract_spc_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_retrorom_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_rasterimg_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_pcmaudio_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_unixarch_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_cab_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_lha_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_amigaiff_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_modsamples_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_trackersamples_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_psf_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_wavadpcm_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_flac_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_gif_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_iso9660_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_xar_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_bdf_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_sf2_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_meshconv_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
 	err = extract_hps_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
