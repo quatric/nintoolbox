@@ -464,6 +464,7 @@
 #include "extract/wiidsp_misc.inc"
 #include "extract/rwar.inc"
 #include "extract/gnomz_ltex.inc"
+#include "extract/nds_strm.inc"
 #include "extract/mp2k.inc"
 #include "extract/midi_render.inc"
 #include "extract/rbnk.inc"
