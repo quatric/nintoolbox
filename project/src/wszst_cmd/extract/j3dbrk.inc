@@ -1,8 +1,8 @@
-// J3D colour register animation "BRK" ("J3D1brk1" + TRK1 chunk, big endian): u8 loop (+8), u16 duration (+0x0a), u16 register entry count (+0x0c),
-// u16 konst entry count (+0x0e), u16 R/G/B/A table sizes (+0x10..+0x16), u32 offsets: register entries +0x18, konst entries +0x1c, R/G/B/A s16 tables
-// +0x30/0x34/0x38/0x3c. A 0x1c byte entry is four tracks (R G B A) of {u16 key count, u16 table index, u16 tangent type} plus a u8 colour id; a single key
-// is a constant, otherwise keys are {time, value, tangent in[, out]}. Written as "<name>.csv": entry,channel,time,value (konst entries are numbered after
-// the register entries; colour components 0..255).
+// J3D colour register animation "BRK" ("J3D1brk1" + TRK1 chunk, big endian; layout checked against the JStudio sources): u8 loop (+8), u16 duration (+0x0a),
+// u16 register entry count (+0x0c), u16 konst entry count (+0x0e), u16 R/G/B/A table sizes of the registers (+0x10) and of the konst colours (+0x18),
+// u32 offsets: register entries +0x20, konst entries +0x24, register R/G/B/A s16 tables +0x38, konst R/G/B/A tables +0x48. A 0x1c byte entry is four tracks
+// (R G B A) of {u16 key count, u16 table index, u16 tangent type} plus a u8 colour id; a single key is a constant, otherwise keys are {time, value,
+// tangent in[, out]}. Written as "<name>.csv": entry,channel,time,value (konst entries are numbered after the register entries; components 0..255).
 static enumError extract_j3dbrk_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".brk") || (export_count == 0 && !opt_decode))
@@ -20,14 +20,14 @@ static enumError extract_j3dbrk_file (ccp arg, ccp basedir, uint depth)
 		const u8 *a = raw + 0x20;
 		const size_t asz = rd_be32 (a + 4);
 		const uint dur = a[10] << 8 | a[11], nreg = a[12] << 8 | a[13], nk = a[14] << 8 | a[15], ne = nreg + nk;
-		uint cntv[4];
-		u32 tabo[4];
-		bool ok = asz >= 0x40 && 0x20 + asz <= sz && ne <= 4096;
-		const u32 eo = rd_be32 (a + 0x18), ko = rd_be32 (a + 0x1c);
-		for (uint i = 0; i < 4; i++)
+		uint cntv[8];
+		u32 tabo[8];
+		bool ok = asz >= 0x58 && 0x20 + asz <= sz && ne <= 4096;
+		const u32 eo = rd_be32 (a + 0x20), ko = rd_be32 (a + 0x24);
+		for (uint i = 0; i < 8; i++)
 		{
 			cntv[i] = a[16 + i * 2] << 8 | a[17 + i * 2];
-			tabo[i] = rd_be32 (a + 0x30 + i * 4);
+			tabo[i] = rd_be32 (a + 0x38 + i * 4);
 			ok = ok && tabo[i] + (size_t)cntv[i] * 2 <= asz;
 		}
 		ok = ok && eo + (size_t)nreg * 0x1c <= asz && ko + (size_t)nk * 0x1c <= asz;
@@ -42,12 +42,13 @@ static enumError extract_j3dbrk_file (ccp arg, ccp basedir, uint depth)
 				const u8 *t = e < nreg ? a + eo + e * 0x1c + c * 6 : a + ko + (e - nreg) * 0x1c + c * 6;
 				const uint cnt = t[0] << 8 | t[1], idx = t[2] << 8 | t[3], tt = t[4] << 8 | t[5];
 				const uint stride = tt == 1 ? 4 : 3;
-				if (idx + (cnt == 1 ? 1 : cnt * stride) > cntv[c])
+				const uint ti = c + (e < nreg ? 0 : 4);
+				if (idx + (cnt == 1 ? 1 : cnt * stride) > cntv[ti])
 				{
 					ok = false;
 					break;
 				}
-				const u8 *tab = a + tabo[c];
+				const u8 *tab = a + tabo[ti];
 				for (uint k = 0; k < cnt; k++)
 				{
 					const uint at = cnt == 1 ? idx : idx + k * stride;
