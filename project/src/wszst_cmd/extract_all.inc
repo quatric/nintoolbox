@@ -191,6 +191,7 @@
 #include "extract/xar.inc"
 #include "extract/bdf.inc"
 #include "extract/sf2.inc"
+#include "extract/meshconv.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
