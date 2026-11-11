@@ -376,6 +376,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 
 | Format | Extensions | Games |
 | --- | --- | --- |
+| **AINB AI node graph** | `.ainb` | *Splatoon 3*, *Tears of the Kingdom*, *Mario Kart World* |
 | **AAMP** | `.aamp` | Wii U / Switch |
 | **AGL parameters (AAMP)** | `.baglenv`, `.baglsky`, `.bgsdw`, other `.bagl*` | Switch titles, *Mario Kart World* |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | 3DS |

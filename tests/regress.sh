@@ -18860,6 +18860,20 @@ t_aal(){
 }
 t_aal
 
+t_ainb(){
+  local d; d=$(mktemp -d /tmp/_r_ainb.XXXXXX) || { fno "AINB" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_ainb.py" "$d/t.ainb" >/dev/null 2>&1 && "$B/wszst" XX "$d/t.ainb" --overwrite >/dev/null 2>&1
+  if grep -q '{type: Int, name: "Count", flags: 0x0, value: 7}' "$d/t.ainb.yml" 2>/dev/null \
+     && grep -q '{type: Float, name: "Speed", source: {node: -1, output: 0, flags: 0x800000}, value: 1.5}' "$d/t.ainb.yml" \
+     && grep -q '{kind: child, node: 1, name: "Next"}' "$d/t.ainb.yml" && grep -q '{type: S32, name: "Var", value: 3}' "$d/t.ainb.yml"; then
+    fok "AINB 0x407 node graph -> YAML"
+  else
+    fno "AINB" "unexpected $d/t.ainb.yml"
+  fi
+  rm -rf "$d"
+}
+t_ainb
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
