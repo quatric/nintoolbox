@@ -179,6 +179,7 @@
 #include "extract/pcmaudio.inc"
 #include "extract/unixarch.inc"
 #include "extract/cab.inc"
+#include "extract/lha.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
