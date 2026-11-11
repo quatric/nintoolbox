@@ -3076,9 +3076,10 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 		return ERR_INVALID_DATA;
 
 	if ((fmt == SEQ_FMT_RSEQ || fmt == SEQ_FMT_CSEQ || fmt == SEQ_FMT_FSEQ_BE || fmt == SEQ_FMT_FSEQ_LE) && start_pos < code_size
-		&& !(start_pos == 0 && code[0] == 0xff)) // a standalone file whose first label is a dummy keeps the legacy whole-file scan
+		)
 	{
-		const enumError e = rs_seq_to_midi (code, code_size, start_pos, is_le, out_midi, out_size);
+		// a collection whose first label is a dummy "fin" (standalone SE banks): play the first real sound after it
+		const enumError e = rs_seq_to_midi (code, code_size, start_pos == 0 && code[0] == 0xff && code_size > 1 ? 1 : start_pos, is_le, out_midi, out_size);
 		if (e == ERR_OK)
 			return e;
 	}
