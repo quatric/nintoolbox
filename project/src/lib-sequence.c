@@ -832,7 +832,8 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 		{
 			u32 base_off = read_le32 (data + 0x10 + 8);
 			u32 sec_size = read_le32 (data + 0x10 + 4);
-			seq_code_region (data, size, 0x10, base_off, sec_size, false, &code, &code_size);
+			// SSEQ: the data pointer counts from the start of the file (not from the DATA chunk)
+			seq_code_region (data, size, 0, base_off, sec_size, false, &code, &code_size);
 		}
 	}
 	else if (size >= 12 && !memcmp (data, "DATA", 4))
@@ -2430,6 +2431,278 @@ enumError SequenceToMIDI (u8 **out_midi, size_t *out_size, const u8 *seq_data, s
 	return SequenceToMIDIFrom (out_midi, out_size, seq_data, seq_size, 0);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Nintendo DS SSEQ -> standard MIDI: port of VGMTrans NDSSeq.cpp (track pointers from the 0xFE/0x93 header commands,
+// note-wait mode, jump = loop forever, call/return with the "return address already used" guard). The DS command numbers
+// differ from the RSEQ ones (open track 0x93, jump 0x94, call 0x95, variables 0xB0-0xBD, tempo 0xE1 ...), so SSEQ has its own player.
+
+typedef struct ss_ev_t { u32 tick, seq; u8 st, d1, d2; u32 tempo; } ss_ev_t;
+typedef struct ss_trk_t { ss_ev_t *e; size_t n, cap; u32 seq; } ss_trk_t;
+
+static void ss_add (ss_trk_t *t, u32 tick, u8 st, u8 d1, u8 d2, u32 tempo)
+{
+	if (t->n == t->cap)
+	{
+		const size_t c = t->cap ? t->cap * 2 : 512;
+		ss_ev_t *p = REALLOC (t->e, c * sizeof (ss_ev_t));
+		if (!p)
+			return;
+		t->e = p;
+		t->cap = c;
+	}
+	t->e[t->n++] = (ss_ev_t){ tick, t->seq++, st, d1, d2, tempo };
+}
+
+static int ss_cmp (const void *a, const void *b)
+{
+	const ss_ev_t *x = a, *y = b;
+	if (x->tick != y->tick)
+		return x->tick < y->tick ? -1 : 1;
+	const int xo = (x->st & 0xf0) == 0x80, yo = (y->st & 0xf0) == 0x80;
+	if (xo != yo)
+		return xo ? -1 : 1;
+	return x->seq < y->seq ? -1 : x->seq > y->seq;
+}
+
+typedef struct ss_buf_t { u8 *d; size_t n, cap; } ss_buf_t;
+
+static void ss_put (ss_buf_t *b, const void *s, size_t len)
+{
+	if (b->n + len > b->cap)
+	{
+		size_t c = b->cap ? b->cap : 1024;
+		while (c < b->n + len)
+			c *= 2;
+		u8 *p = REALLOC (b->d, c);
+		if (!p)
+			return;
+		b->d = p;
+		b->cap = c;
+	}
+	memcpy (b->d + b->n, s, len);
+	b->n += len;
+}
+
+static void ss_vlq (ss_buf_t *b, u32 v)
+{
+	u8 t[5];
+	int n = 0;
+	t[n++] = v & 0x7f;
+	while (v >>= 7)
+		t[n++] = (v & 0x7f) | 0x80;
+	while (n--)
+		ss_put (b, &t[n], 1);
+}
+
+static u32 ss_rd_vlq (const u8 *d, size_t n, size_t *pos)
+{
+	u32 v = 0;
+	for (uint i = 0; i < 4 && *pos < n; i++)
+	{
+		const u8 c = d[(*pos)++];
+		v = (v << 7) | (c & 0x7f);
+		if (!(c & 0x80))
+			break;
+	}
+	return v;
+}
+
+static u8 ss_clamp (int v, int lo, int hi) { return (u8)(v < lo ? lo : v > hi ? hi : v); }
+
+// plays one track from "start"; "d" is the whole SSEQ image, "base" the file offset of the data (0x1C)
+static void ss_run_track (const u8 *d, size_t n, size_t base, size_t start, uint ch, ss_trk_t *t, ss_trk_t *cond)
+{
+	u8 *used = CALLOC (n ? n : 1, 1);
+	if (!used)
+		return;
+	size_t pos = start, ret = 0;
+	bool have_ret = false;
+	u32 time = 0;
+	bool notewait = true;
+	int transpose = 0;
+	const u8 c = ch & 15;
+	for (uint guard = 0; guard < 4000000 && pos < n; guard++)
+	{
+		const size_t begin = pos;
+		const u8 st = d[pos++];
+		used[begin] = 1;
+		if (st < 0x80)
+		{
+			const u8 vel = pos < n ? d[pos++] : 0;
+			const u32 dur = ss_rd_vlq (d, n, &pos);
+			const u8 key = ss_clamp (st + transpose, 0, 127);
+			ss_add (t, time, 0x90 | c, key, vel & 127, 0);
+			ss_add (t, time + dur, 0x80 | c, key, 0, 0);
+			if (notewait)
+				time += dur;
+			continue;
+		}
+		switch (st)
+		{
+		case 0x80: time += ss_rd_vlq (d, n, &pos); break;
+		case 0x81: ss_add (t, time, 0xc0 | c, ss_rd_vlq (d, n, &pos) & 127, 0, 0); break;
+		case 0x93: pos += 4; break;
+		case 0x94:
+		{
+			if (pos + 3 > n) goto done;
+			const size_t dest = (size_t)(d[pos] | d[pos + 1] << 8 | d[pos + 2] << 16) + base;
+			pos += 3;
+			if (dest >= n || used[dest]) goto done; // loops forever
+			pos = dest;
+			break;
+		}
+		case 0x95:
+		{
+			if (pos + 3 > n) goto done;
+			have_ret = true;
+			ret = pos + 3;
+			pos = (size_t)(d[pos] | d[pos + 1] << 8 | d[pos + 2] << 16) + base;
+			break;
+		}
+		case 0xa0: pos += 5; break;
+		case 0xa1: pos += 2; break;
+		case 0xa2: break;
+		case 0xb0: case 0xb1: case 0xb2: case 0xb3: case 0xb4: case 0xb5: case 0xb6:
+		case 0xb8: case 0xb9: case 0xba: case 0xbb: case 0xbc: case 0xbd: pos += 3; break;
+		case 0xc0: ss_add (t, time, 0xb0 | c, 10, pos < n ? d[pos] & 127 : 64, 0); pos++; break;
+		case 0xc1: ss_add (t, time, 0xb0 | c, 7, pos < n ? d[pos] & 127 : 127, 0); pos++; break;
+		case 0xc2: pos++; break;
+		case 0xc3: transpose = pos < n ? (int8_t)d[pos] : 0; pos++; break;
+		case 0xc4:
+		{
+			int v = 0x2000 + (pos < n ? (int8_t)d[pos] : 0) * 64;
+			v = v < 0 ? 0 : v > 0x3fff ? 0x3fff : v;
+			ss_add (t, time, 0xe0 | c, v & 127, v >> 7, 0);
+			pos++;
+			break;
+		}
+		case 0xc5:
+			ss_add (t, time, 0xb0 | c, 101, 0, 0);
+			ss_add (t, time, 0xb0 | c, 100, 0, 0);
+			ss_add (t, time, 0xb0 | c, 6, pos < n ? d[pos] & 127 : 2, 0);
+			ss_add (t, time, 0xb0 | c, 38, 0, 0);
+			pos++;
+			break;
+		case 0xc6: case 0xc8: case 0xc9: case 0xcb: case 0xcc: case 0xcd: case 0xd0: case 0xd1: case 0xd2: case 0xd3: case 0xd4: case 0xd6:
+			pos++;
+			break;
+		case 0xc7: notewait = pos < n && d[pos] != 0; pos++; break;
+		case 0xca: ss_add (t, time, 0xb0 | c, 1, pos < n ? d[pos] & 127 : 0, 0); pos++; break;
+		case 0xce: ss_add (t, time, 0xb0 | c, 65, pos < n && d[pos] ? 127 : 0, 0); pos++; break;
+		case 0xcf: ss_add (t, time, 0xb0 | c, 5, pos < n ? d[pos] & 127 : 0, 0); pos++; break;
+		case 0xd5: ss_add (t, time, 0xb0 | c, 11, pos < n ? d[pos] & 127 : 127, 0); pos++; break;
+		case 0xe0: case 0xe3: pos += 2; break;
+		case 0xe1:
+		{
+			const uint bpm = pos + 2 <= n ? d[pos] | d[pos + 1] << 8 : 0;
+			pos += 2;
+			if (cond && bpm)
+				ss_add (cond, time, 0xff, 0x51, 0, 60000000u / bpm);
+			break;
+		}
+		case 0xfc: break;
+		case 0xfd:
+			if (!have_ret || used[ret < n ? ret : 0]) goto done;
+			pos = ret;
+			break;
+		case 0xfe: pos += 2; break;
+		default: goto done; // 0xff (end of track) and anything unknown
+		}
+	}
+done:
+	FREE (used);
+}
+
+static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *out_size)
+{
+	if (n < 0x20 || memcmp (d, "SSEQ", 4) || memcmp (d + 0x10, "DATA", 4))
+		return ERR_INVALID_DATA;
+	const size_t base = read_le32 (d + 0x18);
+	if (base >= n || base < 0x1c)
+		return ERR_INVALID_DATA;
+	size_t pos = base;
+	size_t tstart[16] = { 0 };
+	uint ntr = 1;
+	if (d[pos] == 0xfe)
+	{
+		pos += 3;
+		if (pos < n && d[pos] == 0x80) // song delay (only the first is read)
+		{
+			pos++;
+			ss_rd_vlq (d, n, &pos);
+		}
+		while (pos + 5 <= n && d[pos] == 0x93)
+		{
+			const uint idx = d[pos + 1];
+			const size_t off = (size_t)(d[pos + 2] | d[pos + 3] << 8 | d[pos + 4] << 16) + base;
+			if (ntr < 16)
+				tstart[ntr++] = off;
+			(void)idx;
+			pos += 5;
+		}
+	}
+	tstart[0] = pos;
+	ss_trk_t tr[16] = { { 0 } }, cond = { 0 };
+	for (uint i = 0; i < ntr; i++)
+		if (tstart[i] < n)
+			ss_run_track (d, n, base, tstart[i], i < 9 ? i : i + 1, tr + i, &cond);
+	ss_buf_t out = { 0 };
+	const uint nt = ntr + 1;
+	u8 hdr[14] = { 'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, nt >> 8, nt, 0, 0x30 };
+	ss_put (&out, hdr, 14);
+	for (uint k = 0; k < nt; k++)
+	{
+		ss_trk_t *t = k ? tr + k - 1 : &cond;
+		if (t->n)
+			qsort (t->e, t->n, sizeof (ss_ev_t), ss_cmp);
+		ss_buf_t body = { 0 };
+		u32 last = 0;
+		if (k == 0)
+		{
+			static const u8 ts[] = { 0xff, 0x58, 4, 4, 2, 24, 8 };
+			ss_vlq (&body, 0);
+			ss_put (&body, ts, sizeof (ts));
+			if (!t->n || t->e[0].tick)
+			{
+				static const u8 t0[] = { 0xff, 0x51, 3, 0x07, 0xa1, 0x20 };
+				ss_vlq (&body, 0);
+				ss_put (&body, t0, sizeof (t0));
+			}
+		}
+		for (size_t i = 0; i < t->n; i++)
+		{
+			const ss_ev_t *e = t->e + i;
+			ss_vlq (&body, e->tick - last);
+			last = e->tick;
+			if (e->st == 0xff)
+			{
+				const u8 m[] = { 0xff, 0x51, 3, e->tempo >> 16, e->tempo >> 8, e->tempo };
+				ss_put (&body, m, sizeof (m));
+			}
+			else
+			{
+				const u8 m[3] = { e->st, e->d1, e->d2 };
+				ss_put (&body, m, (e->st & 0xf0) == 0xc0 ? 2 : 3);
+			}
+		}
+		ss_vlq (&body, 0);
+		static const u8 eot[] = { 0xff, 0x2f, 0 };
+		ss_put (&body, eot, 3);
+		u8 th[8] = { 'M', 'T', 'r', 'k', body.n >> 24, body.n >> 16, body.n >> 8, body.n };
+		ss_put (&out, th, 8);
+		ss_put (&out, body.d, body.n);
+		FREE (body.d);
+	}
+	for (uint i = 0; i < ntr; i++)
+		FREE (tr[i].e);
+	FREE (cond.e);
+	if (!out.d)
+		return ERR_OUT_OF_MEMORY;
+	*out_midi = out.d;
+	*out_size = out.n;
+	return ERR_OK;
+}
+
 // start_pos: offset of the master track inside the sequence code (an RSAR sound's "dataOffset"/label address)
 enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_data, size_t seq_size, u32 start_pos)
 {
@@ -2437,6 +2710,12 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 		return ERR_INVALID_DATA;
 
 	seq_format_t fmt = DetectSequenceFormat (seq_data, seq_size);
+	if (fmt == SEQ_FMT_SSEQ && start_pos == 0)
+	{
+		const enumError e = ss_sseq_to_midi (seq_data, seq_size, out_midi, out_size);
+		if (e == ERR_OK)
+			return e;
+	}
 	bool is_le = (fmt == SEQ_FMT_CSEQ || fmt == SEQ_FMT_FSEQ_LE || fmt == SEQ_FMT_SSEQ);
 
 	const u8 *code = seq_data;
@@ -2470,7 +2749,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 			u32 base_off = read_le32 (seq_data + 0x10 + 8);
 			u32 sec_size = read_le32 (seq_data + 0x10 + 4);
 			seq_code_region (
-				seq_data, seq_size, 0x10, base_off, sec_size, false, &code, &code_size);
+				seq_data, seq_size, 0, base_off, sec_size, false, &code, &code_size);
 		}
 	}
 	else if (seq_size >= 12 && !memcmp (seq_data, "DATA", 4))
@@ -3164,10 +3443,10 @@ enumError InvertSequence (
 		{
 			u32 base_off = read_le32 (buf + 0x10 + 8);
 			u32 sec_size = read_le32 (buf + 0x10 + 4);
-			code = buf + 0x10 + base_off;
-			code_size = (sec_size > base_off) ? (sec_size - base_off) : 0;
-			if (0x10 + base_off + code_size > seq_size)
-				code_size = seq_size - (0x10 + base_off);
+			code = buf + base_off;
+			code_size = (sec_size > base_off - 0x10 && sec_size + 0x10 > base_off) ? (sec_size + 0x10 - base_off) : 0;
+			if ((size_t)base_off + code_size > seq_size)
+				code_size = base_off < seq_size ? seq_size - base_off : 0;
 		}
 	}
 
