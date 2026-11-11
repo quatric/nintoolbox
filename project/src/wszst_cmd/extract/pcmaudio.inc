@@ -1,5 +1,5 @@
 // Plain PCM audio containers converted to RIFF WAV ("<file>.d/<name>.wav"): AIFF / AIFF-C (".aif", ".aiff", ".aifc": big endian 8..32 bit PCM, "sowt" = little endian
-// AIFF-C), Sun / NeXT ".au" (".snd" magic: 8..32 bit PCM and mu-law) and Creative Voice ".voc" (8 bit PCM data blocks, concatenated), Apple CAF ".caf" (linear PCM) and Sony Wave64 ".w64" (PCM).
+// AIFF-C), Sun / NeXT ".au" (".snd" magic: 8..32 bit PCM and mu-law) and Creative Voice ".voc" (8 bit PCM data blocks, concatenated), Berkeley / IRCAM ".sf" (16 bit, 32 bit and float samples, A-law, mu-law), SoX ".sox" (32 bit), Apple CAF ".caf" (linear PCM) and Sony Wave64 ".w64" (PCM).
 static void pcm_put32 (u8 *p, u32 v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
 
 static enumError pcm_write_wav (ccp arg, ccp basedir, uint ch, uint rate, uint bits, const u8 *pcm, size_t n)
@@ -33,8 +33,8 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 {
 	const bool aif = is_ext (arg, ".aif") || is_ext (arg, ".aiff") || is_ext (arg, ".aifc");
 	const bool au = is_ext (arg, ".au") || is_ext (arg, ".snd");
-	const bool voc = is_ext (arg, ".voc"), caf = is_ext (arg, ".caf"), w64 = is_ext (arg, ".w64");
-	if ((!aif && !au && !voc && !caf && !w64) || (export_count == 0 && !opt_decode))
+	const bool voc = is_ext (arg, ".voc"), sf = is_ext (arg, ".sf") || is_ext (arg, ".ircam"), sox = is_ext (arg, ".sox"), caf = is_ext (arg, ".caf"), w64 = is_ext (arg, ".w64");
+	if ((!aif && !au && !voc && !caf && !w64 && !sf && !sox) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -227,6 +227,95 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 		}
 		if (tag == 1 && data && ch && ch < 9 && rate && (bits == 8 || bits == 16 || bits == 24 || bits == 32))
 			err = pcm_write_wav (arg, basedir, ch, rate, bits, data, dn / (bits / 8) * (bits / 8));
+	}
+	else if (sf && sz > 1024 && (!memcmp (raw, "\x64\xa3\x01\x00", 4) || !memcmp (raw, "\x00\x01\xa3\x64", 4)))
+	{
+		const bool le = raw[0] == 0x64;
+		const u8 *h = raw;
+		const u32 mr = le ? (u32)h[4] | (u32)h[5] << 8 | (u32)h[6] << 16 | (u32)h[7] << 24 : rd_be32 (h + 4);
+		float rf;
+		memcpy (&rf, &mr, 4);
+		const uint rate = (uint)(rf + 0.5f);
+		const uint ch = le ? h[8] | h[9] << 8 : h[10] << 8 | h[11];
+		const u32 pack = le ? (u32)h[12] | (u32)h[13] << 8 | (u32)h[14] << 16 | (u32)h[15] << 24 : rd_be32 (h + 12);
+		const u8 *d = raw + 1024;
+		const size_t dn = sz - 1024;
+		if (ch && ch < 9 && rate)
+		{
+			u8 *out = 0;
+			size_t on = 0;
+			uint bits = 16;
+			if (pack == 2 || pack == 0x20002 || pack == 0x40004 || pack == 4)
+			{
+				const bool fl = pack == 4; // IRCAM packmode 4 = float, 0x40004 = 32 bit integer
+				const uint bytes = pack == 2 || pack == 0x20002 ? 2 : 4;
+				const size_t n = dn / bytes;
+				out = MALLOC (n * (fl || bytes == 4 ? 2 : bytes) + 2);
+				for (size_t i = 0; out && i < n; i++)
+				{
+					int v;
+					if (bytes == 2)
+						v = (int16_t)(le ? d[i * 2] | d[i * 2 + 1] << 8 : d[i * 2] << 8 | d[i * 2 + 1]);
+					else
+					{
+						const u32 u = le ? (u32)d[i * 4] | (u32)d[i * 4 + 1] << 8 | (u32)d[i * 4 + 2] << 16 | (u32)d[i * 4 + 3] << 24 : rd_be32 (d + i * 4);
+						if (fl) { float f; memcpy (&f, &u, 4); const float c = f > 1.0f ? 1.0f : f < -1.0f ? -1.0f : f; v = (int)(c * 32767.0f + (c < 0 ? -0.5f : 0.5f)); }
+						else v = (int32_t)u >> 16;
+					}
+					out[on++] = v & 255; out[on++] = (v >> 8) & 255;
+				}
+			}
+			else if (pack == 0x10001 || pack == 0x20001)
+			{
+				out = MALLOC (dn * 2 + 2);
+				for (size_t i = 0; out && i < dn; i++)
+				{
+					int v;
+					if (pack == 0x20001)
+					{
+						const int u = ~d[i] & 255, t = ((u & 15) << 3) + 132;
+						v = (t << ((u & 0x70) >> 4)) - 132;
+						if (u & 0x80) v = -v;
+					}
+					else
+					{
+						int a = d[i] ^ 0x55, seg = (a & 0x70) >> 4;
+						v = (a & 15) << 4;
+						v = seg == 0 ? v + 8 : (v + 0x108) << (seg - 1);
+						if (!(a & 0x80)) v = -v;
+					}
+					out[on++] = v & 255; out[on++] = (v >> 8) & 255;
+				}
+			}
+			if (out && on)
+				err = pcm_write_wav (arg, basedir, ch, rate, bits, out, on);
+			FREE (out);
+		}
+	}
+	else if (sox && sz > 32 && (!memcmp (raw, ".SoX", 4) || !memcmp (raw, "XoS.", 4)))
+	{
+		const bool le = raw[0] == '.';
+		size_t hs = le ? raw[4] | raw[5] << 8 | raw[6] << 16 | (size_t)raw[7] << 24 : rd_be32 (raw + 4);
+		const size_t clen = le ? raw[28] | raw[29] << 8 | raw[30] << 16 | (size_t)raw[31] << 24 : rd_be32 (raw + 28);
+		if (hs < 32 + clen && 32 + clen <= sz)
+			hs = 32 + clen; // some writers (ffmpeg) state 28 although the comment length word follows
+		uint64_t rb = 0;
+		for (uint i = 0; i < 8; i++)
+			rb |= (uint64_t)raw[16 + (le ? i : 7 - i)] << (8 * i);
+		double r;
+		memcpy (&r, &rb, 8);
+		const uint ch = le ? raw[24] | raw[25] << 8 | raw[26] << 16 | (uint)raw[27] << 24 : rd_be32 (raw + 24);
+		if (hs >= 32 && hs < sz && ch && ch < 9 && r >= 1)
+		{
+			const size_t n = (sz - hs) / 4 * 4;
+			u8 *out = MALLOC (n ? n : 1);
+			for (size_t i = 0; out && i < n; i += 4)
+				for (uint b = 0; b < 4; b++)
+					out[i + b] = raw[hs + i + (le ? b : 3 - b)];
+			if (out)
+				err = pcm_write_wav (arg, basedir, ch, (uint)(r + 0.5), 32, out, n);
+			FREE (out);
+		}
 	}
 	else if (voc && sz > 26 && !memcmp (raw, "Creative Voice File\x1a", 20))
 	{
