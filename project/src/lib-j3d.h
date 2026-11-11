@@ -31,6 +31,7 @@ model_t *ParseJ3D (const uint8_t *data, size_t size);
 // Stage every TEX1 texture as "<model-dir>/<name>.png" (+ "<name>_mipN.png"
 // for mip levels), like the BRRES path in wmdlt.c. Returns staged count.
 int ExportJ3DTexturesFromData (const uint8_t *data, size_t size, const char *dest_glb);
+int ExportJ3DBMTTextures (const uint8_t *data, size_t size, const char *dest_file); // J3D2bmt3 material table
 
 // SuperBMD-style sidecars, written next to the decoded GLB by wmdlt.
 // Simplified schemas (documented in docs/FORMATS.md); --mat/--texheader

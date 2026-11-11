@@ -2589,12 +2589,36 @@ static int j3d_save_png (const uint8_t *rgba, uint w, uint h, const char *path)
 	return err == ERR_OK;
 }
 
+static int j3d_stage_tex1 (const uint8_t *data, size_t size, size_t o_tex1, const char *dest_glb);
+
 int ExportJ3DTexturesFromData (const uint8_t *data, size_t size, const char *dest_glb)
 {
 	size_t o_inf1, o_vtx1, o_evp1, o_drw1, o_jnt1, o_shp1, o_mat3, o_mdl3, o_tex1;
 	if (!j3d_find_sections (data, size, &o_inf1, &o_vtx1, &o_evp1, &o_drw1, &o_jnt1, &o_shp1,
 			&o_mat3, &o_mdl3, &o_tex1, 0))
 		return 0;
+	return j3d_stage_tex1 (data, size, o_tex1, dest_glb);
+}
+
+// Material table "J3D2bmt3": the textures live in its TEX1 section just like in a model.
+int ExportJ3DBMTTextures (const uint8_t *data, size_t size, const char *dest_file)
+{
+	if (!j3d_ok (data, size, 0, 32) || memcmp (data, "J3D2bmt3", 8))
+		return 0;
+	for (size_t pos = 32; j3d_ok (data, size, pos, 8);)
+	{
+		uint32_t sect_size = j3d_rd32 (data + pos + 4);
+		if (sect_size < 8 || pos + sect_size > size || pos + sect_size < pos)
+			break;
+		if (!memcmp (data + pos, "TEX1", 4))
+			return j3d_stage_tex1 (data, size, pos, dest_file);
+		pos += sect_size;
+	}
+	return 0;
+}
+
+static int j3d_stage_tex1 (const uint8_t *data, size_t size, size_t o_tex1, const char *dest_glb)
+{
 	j3d_dec_t d;
 	memset (&d, 0, sizeof (d));
 	if (!j3d_parse_tex1 (data, size, o_tex1, &d))
