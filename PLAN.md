@@ -2453,6 +2453,8 @@ The ABKC header (BE) holds the bank file size at +0x14, sample rate 32000 at +0x
 `.ast`'s +4 field (the link between them); sound records are 0x40 bytes starting at +0x40 (ids such as 0xb43, 0xb44, ...). Not solved: the codec of the
 pool data and the offset/size fields of the records (no reference decoder available locally to check against).
 
+Addendum (§46, 2026-11-10, USA build re-fetched): the `S10S` pool data is NOT DSP-ADPCM at any 8/16/32/0x40 frame alignment (no run of valid frame headers), and it is not made of self-contained 0x40-byte blocks. It is one continuous stream in which small little-endian s16 values (e.g. `0b00 0000 0b00 e1ff fbff`, near 0, 0xb or 0xffe1) recur every ~0x40 bytes between nibble-heavy bytes (0x0f/0xf0/0x12/0x02 dominate), i.e. a transform codec with side info, not a simple 4-bit ADPCM. Needs the game's decoder (ELF) to identify.
+
 Addendum (§44, 2026-11-10): Speed 2 (Europe) re-checked with the current build -- 69 of 70 `.dcm` models export to GLB (the old "single-part only"
 limit no longer applies; the one failure, `Models/sky2.dcm`, is a 51-byte stub with only the `DC2\0` magic), `.dcs` shaders and `.dcMenu`
 layouts are plain XML, `.dct` already decodes. Nothing left open for Speed 2. The remaining `wii\0` ARC work (Rebellion Asura `.t3` materials /
