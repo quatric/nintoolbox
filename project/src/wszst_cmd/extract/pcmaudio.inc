@@ -1,5 +1,5 @@
 // Plain PCM audio containers converted to RIFF WAV ("<file>.d/<name>.wav"): AIFF / AIFF-C (".aif", ".aiff", ".aifc": big endian 8..32 bit PCM, "sowt" = little endian
-// AIFF-C), Sun / NeXT ".au" (".snd" magic: 8..32 bit PCM and mu-law) and Creative Voice ".voc" (8 bit PCM data blocks, concatenated).
+// AIFF-C), Sun / NeXT ".au" (".snd" magic: 8..32 bit PCM and mu-law) and Creative Voice ".voc" (8 bit PCM data blocks, concatenated), Apple CAF ".caf" (linear PCM) and Sony Wave64 ".w64" (PCM).
 static void pcm_put32 (u8 *p, u32 v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
 
 static enumError pcm_write_wav (ccp arg, ccp basedir, uint ch, uint rate, uint bits, const u8 *pcm, size_t n)
@@ -33,8 +33,8 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 {
 	const bool aif = is_ext (arg, ".aif") || is_ext (arg, ".aiff") || is_ext (arg, ".aifc");
 	const bool au = is_ext (arg, ".au") || is_ext (arg, ".snd");
-	const bool voc = is_ext (arg, ".voc");
-	if ((!aif && !au && !voc) || (export_count == 0 && !opt_decode))
+	const bool voc = is_ext (arg, ".voc"), caf = is_ext (arg, ".caf"), w64 = is_ext (arg, ".w64");
+	if ((!aif && !au && !voc && !caf && !w64) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -146,6 +146,87 @@ static enumError extract_pcmaudio_file (ccp arg, ccp basedir, uint depth)
 				}
 			}
 		}
+	}
+	else if (caf && sz > 20 && !memcmp (raw, "caff", 4))
+	{
+		uint ch = 0, bits = 0, rate = 0, flags = 0;
+		const u8 *data = 0;
+		size_t dn = 0;
+		bool lpcm = false;
+		for (size_t p = 8; p + 12 <= sz;)
+		{
+			const uint64_t cs = (uint64_t)rd_be32 (raw + p + 4) << 32 | rd_be32 (raw + p + 8);
+			const u8 *c = raw + p + 12;
+			if (!memcmp (raw + p, "desc", 4) && cs >= 32 && p + 12 + 32 <= sz)
+			{
+				uint64_t rb = (uint64_t)rd_be32 (c) << 32 | rd_be32 (c + 4);
+				double r;
+				memcpy (&r, &rb, 8);
+				rate = (uint)(r + 0.5);
+				lpcm = !memcmp (c + 8, "lpcm", 4);
+				flags = rd_be32 (c + 12);
+				ch = rd_be32 (c + 24);
+				bits = rd_be32 (c + 28);
+			}
+			else if (!memcmp (raw + p, "data", 4) && cs >= 4)
+			{
+				data = c + 4;
+				dn = cs == 0xffffffffffffffffull || p + 12 + cs > sz ? sz - p - 16 : cs - 4;
+			}
+			if (cs == 0xffffffffffffffffull || p + 12 + cs > sz)
+				break;
+			p += 12 + cs;
+		}
+		if (lpcm && data && ch && ch < 9 && rate && !(flags & 1) && (bits == 8 || bits == 16 || bits == 24 || bits == 32))
+		{
+			const uint bytes = bits / 8;
+			const size_t n = dn / bytes * bytes;
+			u8 *out = MALLOC (n ? n : 1);
+			if (out)
+			{
+				const bool le = (flags & 2) != 0;
+				for (size_t i = 0; i < n; i += bytes)
+					for (uint b = 0; b < bytes; b++)
+					{
+						u8 v = data[i + (le ? b : bytes - 1 - b)];
+						if (bytes == 1)
+							v ^= 0x80;
+						out[i + b] = v;
+					}
+				err = pcm_write_wav (arg, basedir, ch, rate, bits, out, n);
+				FREE (out);
+			}
+		}
+	}
+	else if (w64 && sz > 40 && !memcmp (raw, "riff\x2e\x91\xcf\x11\xa5\xd6\x28\xdb\x04\xc1\x00\x00", 16))
+	{
+		static const u8 fmt_g[16] = {0x66, 0x6d, 0x74, 0x20, 0xf3, 0xac, 0xd3, 0x11, 0x8c, 0xd1, 0x00, 0xc0, 0x4f, 0x8e, 0xdb, 0x8a};
+		static const u8 data_g[16] = {0x64, 0x61, 0x74, 0x61, 0xf3, 0xac, 0xd3, 0x11, 0x8c, 0xd1, 0x00, 0xc0, 0x4f, 0x8e, 0xdb, 0x8a};
+		uint tag = 0, ch = 0, rate = 0, bits = 0;
+		const u8 *data = 0;
+		size_t dn = 0;
+		for (size_t p = 40; p + 24 <= sz;)
+		{
+			const size_t cs = raw[p + 16] | raw[p + 17] << 8 | raw[p + 18] << 16 | (size_t)raw[p + 19] << 24;
+			if (cs < 24 || (cs > 0x7fffffff))
+				break;
+			const u8 *c = raw + p + 24;
+			const size_t body = cs - 24;
+			if (!memcmp (raw + p, fmt_g, 16) && body >= 16 && p + cs <= sz)
+			{
+				tag = c[0] | c[1] << 8; ch = c[2] | c[3] << 8; rate = c[4] | c[5] << 8 | c[6] << 16 | (uint)c[7] << 24; bits = c[14] | c[15] << 8;
+				if (tag == 0xfffe && body >= 40)
+					tag = c[24] | c[25] << 8; // WAVE_FORMAT_EXTENSIBLE: the sub format GUID starts with the real tag
+			}
+			else if (!memcmp (raw + p, data_g, 16))
+			{
+				data = c;
+				dn = p + cs <= sz ? body : sz - p - 24;
+			}
+			p += (cs + 7) & ~(size_t)7;
+		}
+		if (tag == 1 && data && ch && ch < 9 && rate && (bits == 8 || bits == 16 || bits == 24 || bits == 32))
+			err = pcm_write_wav (arg, basedir, ch, rate, bits, data, dn / (bits / 8) * (bits / 8));
 	}
 	else if (voc && sz > 26 && !memcmp (raw, "Creative Voice File\x1a", 20))
 	{
