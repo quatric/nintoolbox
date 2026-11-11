@@ -1,4 +1,4 @@
-// Plain raster images that the image loader does not read: XWD, PAM, DPX, FITS, TIFF (baseline strips), X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
+// Plain raster images that the image loader does not read: Alias PIX, WBMP, XWD, PAM, DPX, FITS, TIFF (baseline strips), X11 XBM / XPM text bitmaps, Sun raster (".ras", ".sun"), SGI (".sgi", ".rgb", ".bw"), Netpbm P1-P6 (".pbm", ".pgm", ".ppm", ".pnm"), QOI (".qoi"), ZSoft PCX (".pcx": RLE, 8 bit paletted or 24 bit planar) and Windows icons /
 // cursors (".ico", ".cur": every entry as "<name>_N.png"; PNG entries are copied, DIB entries of 32, 24 and 8 bit depth are converted, AND mask applied).
 // Output goes to "<file>.d/".
 static u8 *rimg_qoi (const u8 *d, size_t n, uint *ow, uint *oh)
@@ -875,10 +875,76 @@ static u8 *rimg_xwd (const u8 *d, size_t n, uint *ow, uint *oh)
 	return out;
 }
 
+// Alias / Wavefront PIX (".pix": u16 BE width, height, x, y, depth 8 or 24, then {count, pixel (gray or BGR)} runs) and WBMP (".wbmp": type 0, 1 bit)
+static u8 *rimg_alias (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 12)
+		return 0;
+	const uint w = d[0] << 8 | d[1], h = d[2] << 8 | d[3], depth = d[8] << 8 | d[9];
+	if (!w || !h || w > 16384 || h > 16384 || (depth != 24 && depth != 8))
+		return 0;
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!out)
+		return 0;
+	const uint pb = depth / 8;
+	size_t p = 10, o = 0;
+	const size_t total = (size_t)w * h;
+	while (o < total)
+	{
+		if (p + 1 + pb > n) { FREE (out); return 0; }
+		const uint cnt = d[p];
+		const u8 *px = d + p + 1;
+		p += 1 + pb;
+		if (!cnt || o + cnt > total) { FREE (out); return 0; }
+		for (uint k = 0; k < cnt; k++, o++)
+		{
+			u8 *q = out + o * 4;
+			if (pb == 3) { q[0] = px[2]; q[1] = px[1]; q[2] = px[0]; }
+			else q[0] = q[1] = q[2] = px[0];
+			q[3] = 255;
+		}
+	}
+	*ow = w; *oh = h;
+	return out;
+}
+
+static u8 *rimg_wbmp (const u8 *d, size_t n, uint *ow, uint *oh)
+{
+	if (n < 5 || d[0] != 0 || (d[1] & 0x9f))
+		return 0;
+	size_t p = 2;
+	uint v[2] = {0, 0};
+	for (uint k = 0; k < 2; k++)
+	{
+		uint c;
+		do
+		{
+			if (p >= n || v[k] > 0xffffff) return 0;
+			c = d[p++];
+			v[k] = v[k] << 7 | (c & 127);
+		} while (c & 128);
+	}
+	const uint w = v[0], h = v[1];
+	if (!w || !h || w > 16384 || h > 16384 || p + (size_t)((w + 7) / 8) * h > n)
+		return 0;
+	u8 *out = MALLOC ((size_t)w * h * 4);
+	if (!out)
+		return 0;
+	for (uint y = 0; y < h; y++)
+		for (uint x = 0; x < w; x++)
+		{
+			u8 *o = out + ((size_t)y * w + x) * 4;
+			o[0] = o[1] = o[2] = (d[p + (size_t)y * ((w + 7) / 8) + x / 8] >> (7 - x % 8) & 1) ? 255 : 0;
+			o[3] = 255;
+		}
+	*ow = w; *oh = h;
+	return out;
+}
+
 static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 {
-	const bool xwd = is_ext (arg, ".xwd"), pam = is_ext (arg, ".pam"), dpx = is_ext (arg, ".dpx"), fits = is_ext (arg, ".fits") || is_ext (arg, ".fit") || is_ext (arg, ".fts"), tif = is_ext (arg, ".tif") || is_ext (arg, ".tiff"), xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
-	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm && !tif && !pam && !dpx && !fits && !xwd) || (export_count == 0 && !opt_decode))
+	const bool pix = is_ext (arg, ".pix"), wbmp = is_ext (arg, ".wbmp"), xwd = is_ext (arg, ".xwd"), pam = is_ext (arg, ".pam"), dpx = is_ext (arg, ".dpx"), fits = is_ext (arg, ".fits") || is_ext (arg, ".fit") || is_ext (arg, ".fts"), tif = is_ext (arg, ".tif") || is_ext (arg, ".tiff"), xbm = is_ext (arg, ".xbm"), xpm = is_ext (arg, ".xpm"), sun = is_ext (arg, ".ras") || is_ext (arg, ".sun"), sgi = is_ext (arg, ".sgi") || is_ext (arg, ".rgb") || is_ext (arg, ".bw"), pnm = is_ext (arg, ".pbm") || is_ext (arg, ".pgm") || is_ext (arg, ".ppm") || is_ext (arg, ".pnm"), qoi = is_ext (arg, ".qoi"), pcx = is_ext (arg, ".pcx"), ico = is_ext (arg, ".ico") || is_ext (arg, ".cur");
+	if ((!qoi && !pcx && !ico && !pnm && !sun && !sgi && !xbm && !xpm && !tif && !pam && !dpx && !fits && !xwd && !pix && !wbmp) || (export_count == 0 && !opt_decode))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -895,9 +961,9 @@ static enumError extract_rasterimg_file (ccp arg, ccp basedir, uint depth)
 		*dot = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint w = 0, h = 0;
-	if (qoi || pcx || pnm || sun || sgi || xbm || xpm || tif || pam || dpx || fits || xwd)
+	if (qoi || pcx || pnm || sun || sgi || xbm || xpm || tif || pam || dpx || fits || xwd || pix || wbmp)
 	{
-		u8 *rgba = xwd ? rimg_xwd (raw, sz, &w, &h) : pam ? rimg_pam (raw, sz, &w, &h) : dpx ? rimg_dpx (raw, sz, &w, &h) : fits ? rimg_fits (raw, sz, &w, &h) : tif ? rimg_tiff (raw, sz, &w, &h) : xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
+		u8 *rgba = pix ? rimg_alias (raw, sz, &w, &h) : wbmp ? rimg_wbmp (raw, sz, &w, &h) : xwd ? rimg_xwd (raw, sz, &w, &h) : pam ? rimg_pam (raw, sz, &w, &h) : dpx ? rimg_dpx (raw, sz, &w, &h) : fits ? rimg_fits (raw, sz, &w, &h) : tif ? rimg_tiff (raw, sz, &w, &h) : xbm ? rimg_xbm (raw, sz, &w, &h) : xpm ? rimg_xpm (raw, sz, &w, &h) : sun ? rimg_sun (raw, sz, &w, &h) : sgi ? rimg_sgi (raw, sz, &w, &h) : qoi ? rimg_qoi (raw, sz, &w, &h) : pnm ? rimg_pnm (raw, sz, &w, &h) : rimg_pcx (raw, sz, &w, &h);
 		if (rgba)
 		{
 			err = testmode ? ERR_OK : kyl_write_rgba_png (arg, basedir, stem, (uint)-1, w, h, rgba);
