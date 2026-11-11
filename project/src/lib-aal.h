@@ -32,4 +32,10 @@ enumError ConvertAGSTToYaml (const u8 *data, size_t size, char **text, size_t *t
 // CSV, one line per cell.
 enumError ConvertDAPGToCsv (const u8 *data, size_t size, char **text, size_t *text_size);
 
+// Light probe grid (".dlpg", Mario Kart World Env/<world>_X<x>_Z<z>_<level>.dlpg, 28,125 files): "DLPG", u32 version
+// 6, then columns of four probes, each column 4 x 160 bytes + {f32 base y, f32 spacing x3}. A probe is 24 floats
+// (lighting coefficients, 8 x RGB), 4 + 4 floats, f32 x/y/z position, u32, 16 bytes of packed data. Written as CSV,
+// one line per probe.
+enumError ConvertDLPGToCsv (const u8 *data, size_t size, char **text, size_t *text_size);
+
 #endif // SZS_LIB_AAL_H

@@ -9,6 +9,7 @@ OUTDIR/t.baroc  roll-off curve v2: model 2, ref 1, max 60, factor 1, start 0, in
 OUTDIR/t.baacl  culling v2: distance 22, margin 12, priority down on
 OUTDIR/t.bagst  group settings: tree Root -> {A, B}, three groups, string table
 OUTDIR/t.dapg   2x2 probe grid; cell (1, 0) has no probe, the others records 1..3 with f0 = 10 * record
+OUTDIR/t.dlpg   light probe grid, one column of four probes at (10, 20 + 5k, 30), coefficient c0 = k
 """
 import os, struct, sys, zlib
 
@@ -111,6 +112,14 @@ def dapg():
     return struct.pack('<I', n) + struct.pack('<4H', *idx) + recs
 
 
+def dlpg():
+    col = b''
+    for k in range(4):
+        rec = struct.pack('<32f', *([float(k)] + [0.0] * 31)) + struct.pack('<3fI', 10, 20 + 5 * k, 30, 0) + bytes(range(16))
+        col += rec
+    return b'DLPG' + struct.pack('<I', 6) + col + struct.pack('<4f', 20, 5, 5, 5)
+
+
 def main(outdir):
     os.makedirs(outdir, exist_ok=True)
     files = {
@@ -120,6 +129,7 @@ def main(outdir):
         't.baacl': b'AACL\xff\xfe\x02\x00' + struct.pack('<2fB3x', 22.0, 12.0, 1),
         't.bagst': agst(),
         't.dapg': dapg(),
+        't.dlpg': dlpg(),
     }
     for name, data in files.items():
         with open(os.path.join(outdir, name), 'wb') as f:

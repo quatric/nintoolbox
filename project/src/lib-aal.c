@@ -515,3 +515,36 @@ enumError ConvertDAPGToCsv (const u8 *d, size_t size, char **text, size_t *text_
 	}
 	return sb_finish (&b, text, text_size);
 }
+
+//-----------------------------------------------------------------------------
+// DLPG
+
+enumError ConvertDLPGToCsv (const u8 *d, size_t size, char **text, size_t *text_size)
+{
+	*text = 0;
+	*text_size = 0;
+	if (!d || size < 8 + 656 || memcmp (d, "DLPG", 4) || (size - 8) % 656)
+		return ERR_INVALID_DATA;
+	const size_t n_col = (size - 8) / 656;
+	sbuf_t b = { 0 };
+	sb_puts (&b, "column,probe,x,y,z");
+	for (uint i = 0; i < 24; i++)
+		sb_printf (&b, ",c%u", i);
+	sb_puts (&b, ",a0,a1,a2,a3,b0,b1,b2,b3,u,packed,column_base_y,column_spacing\n");
+	for (size_t c = 0; c < n_col && !b.fail; c++)
+	{
+		const u8 *col = d + 8 + 656 * c, *info = col + 640;
+		for (uint k = 0; k < 4; k++)
+		{
+			const u8 *r = col + 160 * k;
+			sb_printf (&b, "%zu,%u,%.9g,%.9g,%.9g", c, k, a_lef32 (r + 128), a_lef32 (r + 132), a_lef32 (r + 136));
+			for (uint i = 0; i < 32; i++)
+				sb_printf (&b, ",%.9g", a_lef32 (r + 4 * i));
+			sb_printf (&b, ",%u,", a_le32 (r + 140));
+			for (uint i = 0; i < 16; i++)
+				sb_printf (&b, "%02x", r[144 + i]);
+			sb_printf (&b, ",%.9g,%.9g\n", a_lef32 (info), a_lef32 (info + 4));
+		}
+	}
+	return sb_finish (&b, text, text_size);
+}

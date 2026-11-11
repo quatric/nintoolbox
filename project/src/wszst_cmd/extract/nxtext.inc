@@ -24,6 +24,7 @@ static const nxtext_format_t nxtext_formats[] = {
 	{ ".baacl", "AACL", 4, "AACL", ".yml", ConvertAACLToYaml },
 	{ ".bagst", "AGST", 4, "AGST", ".yml", ConvertAGSTToYaml },
 	{ ".dapg", 0, 0, "DAPG", ".csv", ConvertDAPGToCsv },
+	{ ".dlpg", "DLPG", 4, "DLPG", ".csv", ConvertDLPGToCsv },
 	{ ".ainb", "AIB ", 4, "AINB", ".yml", ConvertAINBToYaml },
 };
 

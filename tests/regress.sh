@@ -18837,7 +18837,7 @@ t_nxfont
 t_aal(){
   local d; d=$(mktemp -d /tmp/_r_aal.XXXXXX) || { fno "AAL audio data" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_aal.py" "$d" >/dev/null 2>&1 || { fno "AAL fixtures" "build failed"; rm -rf "$d"; return; }
-  for f in t.bars t.baatn t.baroc t.baacl t.bagst t.dapg; do "$B/wszst" XX "$d/$f" --overwrite >/dev/null 2>&1; done
+  for f in t.bars t.baatn t.baroc t.baacl t.bagst t.dapg t.dlpg; do "$B/wszst" XX "$d/$f" --overwrite >/dev/null 2>&1; done
   if [ -f "$d/t.bars.d/snd.wav" ] && grep -q "^peak: 0.5$" "$d/t.bars.d/snd.amta.yml" 2>/dev/null \
      && grep -q '{id: 7, name: "Loop", start: 4, length: 0}' "$d/t.bars.d/snd.amta.yml" \
      && grep -q '{name: "Grid:", value: 4}' "$d/t.bars.d/snd.amta.yml" && grep -q '^tags: \["Tag"\]' "$d/t.bars.d/snd.amta.yml"; then
@@ -18855,6 +18855,11 @@ t_aal(){
     fok "AAL group settings tree and acoustic probe grid"
   else
     fno "AGST / DAPG" "unexpected $d/t.bagst.yml / t.dapg.csv"
+  fi
+  if grep -q "^0,3,10,35,30,3," "$d/t.dlpg.csv" 2>/dev/null && grep -q ",0,000102030405060708090a0b0c0d0e0f,20,5$" "$d/t.dlpg.csv"; then
+    fok "DLPG light probe grid -> CSV"
+  else
+    fno "DLPG" "unexpected $d/t.dlpg.csv"
   fi
   rm -rf "$d"
 }
