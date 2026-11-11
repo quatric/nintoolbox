@@ -325,9 +325,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_eatext_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-	err = extract_wii_text_manifest_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
 	err = extract_ccfpk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -1843,6 +1840,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// all, so it only gets a look after every signature-bearing format has
 	// declined the file.
 	err = extract_metroidsr_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_wii_text_manifest_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = decode_image_if_possible (arg);
