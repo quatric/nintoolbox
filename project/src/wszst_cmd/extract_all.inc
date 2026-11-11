@@ -177,6 +177,7 @@
 #include "extract/retrorom.inc"
 #include "extract/rasterimg.inc"
 #include "extract/pcmaudio.inc"
+#include "extract/unixarch.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
