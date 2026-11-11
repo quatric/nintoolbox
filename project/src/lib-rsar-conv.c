@@ -380,8 +380,30 @@ static void rb_samp_load (const rc_file_t *f, rb_samp_t *s, size_t info, size_t 
 	if (s->nsamples > 0x4000000)
 		return;
 
+	if (s->fmt == RS_PCM8)
+	{
+		// signed 8 bit per channel, interleaved into 16 bit output
+		s->pcm_count = (size_t)s->nsamples * s->channels;
+		s->pcm = CALLOC (s->pcm_count ? s->pcm_count : 1, 2);
+		if (!s->pcm)
+			return;
+		for (int c = 0; c < s->channels; c++)
+		{
+			const size_t src = (size_t)s->dataOff + s->chData[c];
+			for (u32 i = 0; i < s->nsamples; i++)
+				s->pcm[(size_t)i * s->channels + c] = (s16)((int8_t)rc_u8 (f, src + i) << 8);
+		}
+		s->valid = true;
+		if (s->loop)
+		{
+			s->loop_start_s = rb_dsp_samples (s->fmt, s->loopStart) - 2;
+			s->loop_len_s = rb_dsp_samples (s->fmt, s->loopEnd) - rb_dsp_samples (s->fmt, s->loopStart) + 2;
+		}
+		return;
+	}
+
 	// uncompressed buffer exactly as the original lays it out
-	const int bps = s->fmt == RS_PCM8 ? 8 : 16;
+	const int bps = 16;
 	const size_t bytes = (size_t)s->nsamples * (bps / 8) * s->channels;
 	u8 *buf = CALLOC (1, bytes ? bytes + 2 : 2);
 	if (!buf)
@@ -1626,5 +1648,101 @@ done:
 	FREE (bank_used);
 	FREE (bank_sf);
 	FREE (seq_names); FREE (bnk_names); FREE (seq_fid); FREE (seq_bnk); FREE (bnk_fid); FREE (wa_fid); FREE (bnk_wa);
+	return err;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// NW4R wave files -> WAV (RWAR archive of RWAVs, or a single RWAV)
+
+static void wav_put (rc_buf_t *b, const rb_samp_t *s)
+{
+	const u32 data = (u32)(s->pcm_count * 2);
+	const bool loop = s->loop && s->loop_len_s;
+	const u32 smpl = loop ? 8 + 36 + 24 : 0;
+	rc_put (b, "RIFF", 4);
+	rc_put32 (b, 36 + data + smpl);
+	rc_put (b, "WAVEfmt ", 8);
+	rc_put32 (b, 16);
+	rc_put16 (b, 1);
+	rc_put16 (b, s->channels);
+	rc_put32 (b, s->rate);
+	rc_put32 (b, s->rate * s->channels * 2);
+	rc_put16 (b, s->channels * 2);
+	rc_put16 (b, 16);
+	rc_put (b, "data", 4);
+	rc_put32 (b, data);
+	for (size_t i = 0; i < s->pcm_count; i++)
+		rc_put16 (b, (u16)s->pcm[i]);
+	if (loop)
+	{
+		rc_put (b, "smpl", 4);
+		rc_put32 (b, 36 + 24);
+		rc_put32 (b, 0); // manufacturer
+		rc_put32 (b, 0); // product
+		rc_put32 (b, s->rate ? 1000000000u / s->rate : 0); // sample period (ns)
+		rc_put32 (b, 60); // unity note
+		rc_put32 (b, 0); // pitch fraction
+		rc_put32 (b, 0); // SMPTE format
+		rc_put32 (b, 0); // SMPTE offset
+		rc_put32 (b, 1); // loops
+		rc_put32 (b, 0); // sampler data
+		rc_put32 (b, 0); // cue id
+		rc_put32 (b, 0); // forward loop
+		rc_put32 (b, s->loop_start_s);
+		rc_put32 (b, s->loop_start_s + s->loop_len_s - 1);
+		rc_put32 (b, 0); // fraction
+		rc_put32 (b, 0); // play count (infinite)
+	}
+}
+
+static enumError wav_write_all (const rb_coll_t *c, ccp out_dir, ccp stem, uint *done_out)
+{
+	uint done = 0;
+	CreatePath (out_dir, true);
+	for (uint i = 0; i < c->n; i++)
+	{
+		const rb_samp_t *s = c->s + i;
+		if (!s->valid || !s->pcm_count)
+			continue;
+		rc_buf_t b = { 0 };
+		wav_put (&b, s);
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s_%03u.wav", out_dir, stem, i);
+		rb_write_file (path, b.d, b.n);
+		FREE (b.d);
+		done++;
+	}
+	*done_out = done;
+	return done ? ERR_OK : ERR_NOTHING_TO_DO;
+}
+
+enumError ConvertRWARToWAV (const u8 *data, size_t size, ccp out_dir, ccp stem, uint *n_written)
+{
+	rc_file_t f = { data, size };
+	rb_coll_t c = { 0 };
+	enumError err = ERR_NOTHING_TO_DO;
+	uint done = 0;
+	static const u8 rwar[7] = { 'R', 'W', 'A', 'R', 0xfe, 0xff, 0x01 };
+	static const u8 rwav[7] = { 'R', 'W', 'A', 'V', 0xfe, 0xff, 0x01 };
+	if (rc_match (&f, 0, rwar, 7))
+		rb_coll_rwar (&f, &c, 0);
+	else if (rc_match (&f, 0, rwav, 7))
+	{
+		size_t ic, isz, dc, dsz;
+		if (rc_block (&f, rc_u32 (&f, 0x10), "INFO", &ic, &isz) && rc_block (&f, rc_u32 (&f, 0x18), "DATA", &dc, &dsz))
+		{
+			c.s = CALLOC (1, sizeof (rb_samp_t));
+			if (c.s)
+			{
+				c.n = 1;
+				rb_samp_load (&f, c.s, ic, ic + 8, 0);
+			}
+		}
+	}
+	if (c.n)
+		err = wav_write_all (&c, out_dir, stem, &done);
+	if (n_written)
+		*n_written = done;
+	rb_coll_free (&c);
 	return err;
 }

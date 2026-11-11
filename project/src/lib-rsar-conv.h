@@ -35,4 +35,8 @@ enumError ConvertSDATNative (const u8 *data, size_t size, ccp out_dir);
 enumError ConvertRBNKToSF2 (const u8 *rbnk, size_t rbnk_size, const u8 *wave, size_t wave_size,
 	ccp bank_name, u8 **out_sf2, size_t *out_size);
 
+// NW4R wave data -> WAV: an RWAR archive (every RWAV in it) or a single RWAV. Writes <stem>_NNN.wav
+// (16 bit PCM, interleaved channels, loop points as a 'smpl' chunk) into out_dir.
+enumError ConvertRWARToWAV (const u8 *data, size_t size, ccp out_dir, ccp stem, uint *n_written);
+
 #endif
