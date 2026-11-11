@@ -164,6 +164,7 @@
 #include "extract/wii_saveicon.inc"
 #include "extract/kylotonn_txc.inc"
 #include "extract/kylotonn_mdl.inc"
+#include "extract/kylotonn_vid.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"

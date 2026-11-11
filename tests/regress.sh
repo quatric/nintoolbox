@@ -12114,6 +12114,22 @@ PYE
     && fok "Wii saveicon<N>.raw (RGB5A3) to PNG" \
     || fno "Wii saveicon<N>.raw (RGB5A3) to PNG" "no saveicon0.png"
 
+  # Kylotonn .vid (block video, LZ framed) -> PNG frames
+  mkdir -p "$d/kylvid_test"
+  python3 - "$d/kylvid_test/v.vid" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def ck(t, p): return t + struct.pack('<I', len(p) + 8) + p
+stream = bytes([0x40, 0xf8, 0x00])  # one 8x8 block, mode 1 (solid), red
+lz = bytes([len(stream) - 1]) + stream
+frame = ck(b'VIDE', struct.pack('<I', len(stream)) + lz)
+hdr = b''.join(ck(t, struct.pack('<I', v)) for t, v in ((b'SIZX', 8), (b'SIZY', 8), (b'PACK', 10), (b'NBFR', 1), (b'FSEC', 25)))
+open(sys.argv[1], 'wb').write(struct.pack('<HHB', 2, 3, 1) + b'v\0' + hdr + frame)
+PYE
+  "$B/wszst" xx "$d/kylvid_test/v.vid" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/kylvid_test/v.vid.d/v_0000.png" 2>/dev/null | tail -c 3)" = "PNG" ] \
+    && fok "Kylotonn .vid (block video) to PNG frames" \
+    || fno "Kylotonn .vid (block video) to PNG frames" "no v_0000.png"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
