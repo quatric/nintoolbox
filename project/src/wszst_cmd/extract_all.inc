@@ -187,6 +187,7 @@
 #include "extract/psf.inc"
 #include "extract/flac.inc"
 #include "extract/gif.inc"
+#include "extract/iso9660.inc"
 #include "extract/myspd.inc"
 #include "extract/bgib.inc"
 #include "extract/jpack.inc"
