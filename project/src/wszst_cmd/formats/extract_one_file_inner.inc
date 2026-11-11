@@ -112,6 +112,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_switch_opus_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_bwav_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_rbnk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
