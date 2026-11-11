@@ -475,3 +475,83 @@ static enumError extract_kylotonn_txc_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Kylotonn ".mtd" bitmaps (Cocoto Festival UI images): {u16, u16, u8 length, name} then the same SIZX / SIZY / BITP / PACK / SIZE / PICT
+// chunks as an MTRD block of a ".txc"; typically 24 bit pixels (three bytes per pixel, red first).
+static enumError extract_kylotonn_mtd_file (ccp arg, ccp basedir, uint depth)
+{
+	if (!is_ext (arg, ".mtd") || (export_count == 0 && !opt_decode))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	if (sz > 0x20 && raw[4] && raw[4] + 5u < sz)
+	{
+		char name[256];
+		snprintf (name, sizeof (name), "%.*s", (int)raw[4], (const char *)raw + 5);
+		for (char *s = name; *s; s++)
+			if ((u8)*s < 0x20)
+				*s = 0;
+		uint w = 0, h = 0, bpp = 0, pack = 0;
+		const u8 *pict = 0;
+		size_t pict_n = 0;
+		size_t first = 6 + raw[4]; // some names carry stray bytes after the stated length: start at the first "SIZX"
+		for (size_t i = 5; i + 8 < sz && i < 5 + 300u; i++)
+			if (!memcmp (raw + i, "SIZX", 4))
+			{
+				first = i;
+				break;
+			}
+		for (size_t c = first; c + 8 <= sz;)
+		{
+			const u32 cs = kyl_le32 (raw + c + 4);
+			if (cs < 8 || c + cs > sz)
+				break;
+			const u8 *pl = raw + c + 8;
+			if (!memcmp (raw + c, "SIZX", 4) && cs >= 12) w = kyl_le32 (pl);
+			else if (!memcmp (raw + c, "SIZY", 4) && cs >= 12) h = kyl_le32 (pl);
+			else if (!memcmp (raw + c, "BITP", 4) && cs >= 12) bpp = kyl_le32 (pl);
+			else if (!memcmp (raw + c, "PACK", 4) && cs >= 12) pack = kyl_le32 (pl);
+			else if (!memcmp (raw + c, "PICT", 4)) { pict = pl; pict_n = cs - 8; }
+			c += cs;
+		}
+		const size_t px = (size_t)w * h * bpp / 8;
+		if (pict && w && h && px && px <= 0x10000000 && (bpp == 24 || bpp == 32 || bpp == 16) && (pack == 5 || pack == 3))
+		{
+			u8 *data = pack == 5 ? kyl_unpack5 (pict, pict_n, px) : kyl_unpack3 (pict, pict_n, px, false);
+			u8 *rgba = data ? MALLOC ((size_t)w * h * 4) : 0;
+			if (rgba)
+			{
+				for (size_t i = 0; i < (size_t)w * h; i++)
+					if (bpp == 24)
+					{
+						rgba[i * 4] = data[i * 3]; rgba[i * 4 + 1] = data[i * 3 + 1];
+						rgba[i * 4 + 2] = data[i * 3 + 2]; rgba[i * 4 + 3] = 255;
+					}
+					else if (bpp == 32)
+					{
+						rgba[i * 4] = data[i * 4 + 1]; rgba[i * 4 + 1] = data[i * 4 + 2];
+						rgba[i * 4 + 2] = data[i * 4 + 3]; rgba[i * 4 + 3] = data[i * 4];
+					}
+					else
+					{
+						const uint v = data[i * 2] | data[i * 2 + 1] << 8;
+						rgba[i * 4] = (v >> 8 & 15) * 17; rgba[i * 4 + 1] = (v >> 4 & 15) * 17;
+						rgba[i * 4 + 2] = (v & 15) * 17; rgba[i * 4 + 3] = (v >> 12 & 15) * 17;
+					}
+				err = kyl_write_rgba_png (arg, basedir, name[0] ? name : "bitmap", (uint)-1, w, h, rgba);
+				if (err == ERR_NOTHING_TO_DO)
+					err = ERR_OK;
+				FREE (rgba);
+			}
+			FREE (data);
+		}
+	}
+	FREE (raw);
+	return err;
+}

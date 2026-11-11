@@ -12091,6 +12091,21 @@ PYE
     && fok "Kylotonn .mdl (LZ geometry) to GLB" \
     || fno "Kylotonn .mdl (LZ geometry) to GLB" "no m.glb"
 
+  # Kylotonn .mtd (24 bit UI bitmap, LZ) -> PNG
+  mkdir -p "$d/kylmtd_test"
+  python3 - "$d/kylmtd_test/m.mtd" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def ck(t, p): return t + struct.pack('<I', len(p) + 8) + p
+px = bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 9, 9, 9])  # 2x2 RGB
+pict = bytes([len(px) - 1]) + px
+out = struct.pack('<HHB', 4, 5, 3) + b'mtd\0' + ck(b'SIZX', struct.pack('<I', 2)) + ck(b'SIZY', struct.pack('<I', 2)) + ck(b'BITP', struct.pack('<I', 24)) + ck(b'PACK', struct.pack('<I', 3)) + ck(b'SIZE', struct.pack('<I', len(pict))) + ck(b'PICT', pict)
+open(sys.argv[1], 'wb').write(out)
+PYE
+  "$B/wszst" xx "$d/kylmtd_test/m.mtd" --overwrite >/dev/null 2>&1
+  [ "$(head -c 4 "$d/kylmtd_test/m.mtd.d/mtd.png" 2>/dev/null | tail -c 3)" = "PNG" ] \
+    && fok "Kylotonn .mtd (24 bit bitmap) to PNG" \
+    || fno "Kylotonn .mtd (24 bit bitmap) to PNG" "no mtd.png"
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys
