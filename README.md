@@ -298,6 +298,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | *Mario Golf: Toadstool Tour*, *Mario Power Tennis*, *We Love Golf!* |
 | **CAN** | `.can` | *Excite Truck*, *ExciteBots* |
 | **CMAB** | `.cmab` | *Ocarina of Time 3D*, *Majora's Mask 3D* |
+| **TARB terrain tiles** | `.hght`, `.mate`, `.norm`, `.extm` | *Mario Kart World* |
 | **CMB** | `.cmb` | *Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis* |
 | **CTPK** | `.ctpk` | 3DS |
 | **CTXB** | `.ctxb` | *Ocarina of Time 3D*, *Majora's Mask 3D* |
@@ -372,6 +373,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | Format | Extensions | Games |
 | --- | --- | --- |
 | **AAMP** | `.aamp` | Wii U / Switch |
+| **AGL parameters (AAMP)** | `.baglenv`, `.baglsky`, `.bgsdw`, other `.bagl*` | Switch titles, *Mario Kart World* |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | 3DS |
 | **BFLYT / BFLAN** | `.bflyt`, `.bflan` | Wii U |
 | **BGLPBD** | `.bglpbd` | Wii U / Switch |
@@ -402,7 +404,9 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **MWG / MSP** | `.MWG`, `.MSP` | *Bermuda Triangle: Saving the Coral* |
 | **NAV** | `.nav` | *Mercury Meltdown Revolution* |
 | **PGF** | `.pgf` | *Bermuda Triangle: Saving the Coral* |
+| **RSTB / RESTBL** | `.rstb`, `.rsizetable` | *Breath of the Wild*, *Tears of the Kingdom*, *Mario Kart World* |
 | **SDF** | `.sdf` | *I Spy Spooky Mansion* |
+| **TSCB** | `.tscb` | *Mario Kart World* |
 | **VIS** | `.vis` | *Aqua Panic!* |
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |

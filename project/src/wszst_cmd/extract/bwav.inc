@@ -1,4 +1,4 @@
-// Nintendo Switch BWAV ("BWAV", ".bwav"): decoded natively to "<name>.wav" (PCM16 and DSP-ADPCM, any channel count, loop points
+// Nintendo Switch BWAV ("BWAV", ".bwav"): decoded natively to "<name>.wav" beside the source (PCM16 and DSP-ADPCM, any channel count, loop points
 // kept in a 'smpl' chunk). Layout after vgmstream's bwav.c: "BWAV" BOM(0xFEFF) version crc prefetch u16 channels u16 (0x0e), then
 // one 0x4c byte record per channel from 0x10: codec u16 (0 PCM16, 1 DSP; 2 = Opus is left alone), pan u16, rate u32, total samples
 // u32, samples u32 (0x0c), 16 s16 DSP coefficients (0x10), start offset u32 (0x34), loop end s32 (0x3c, -1 = none), loop start
@@ -102,13 +102,13 @@ static enumError extract_bwav_file (ccp arg, ccp basedir, uint depth)
 					}
 #undef W32
 					char dest[PATH_MAX], name[PATH_MAX];
-					beside_source_dest (dest, sizeof (dest), arg);
+					beside_source_dir (dest, sizeof (dest), arg);
 					const char *sl = strrchr (arg, '/');
 					snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
 					char *dot = strrchr (name, '.');
 					if (dot) strcpy (dot, ".wav");
 					if (verbose >= 0 || testmode)
-						fprintf (stdlog, "%s%sDECODE BWAV:%s (%u ch, %u Hz, %u samples, %s) -> WAV\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, ch, rate, ns, codec ? "DSP-ADPCM" : "PCM16");
+						fprintf (stdlog, "%s%sDECODE BWAV:%s (%u ch, %u Hz, %u samples, %s) -> WAV:%s/%s%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, ch, rate, ns, codec ? "DSP-ADPCM" : "PCM16", dest, basedir ? basedir : "", name);
 					err = testmode ? ERR_OK : shade_write (arg, dest, basedir, name, w, (uint)(44 + bytes + extra));
 					FREE (w);
 				}

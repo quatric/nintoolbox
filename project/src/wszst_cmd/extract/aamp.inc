@@ -1,7 +1,9 @@
 static enumError extract_aamp_manifest (ccp arg)
 {
+	// Named extensions, plus any other file that starts with "AAMP" (the AGL environment and post-effect
+	// parameter files of Switch titles: .baglenv, .baglsky, .bgsdw, ...).
 	if (!is_ext (arg, ".aamp") && !is_ext (arg, ".baamp") && !is_ext (arg, ".bparam")
-		&& !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd"))
+		&& !is_ext (arg, ".bgenv") && !is_ext (arg, ".bglpbd") && !file_has_magic (arg, "AAMP", 4))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

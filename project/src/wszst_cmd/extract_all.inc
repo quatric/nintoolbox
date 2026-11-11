@@ -469,6 +469,7 @@
 #include "extract/bwav.inc"
 #include "extract/brstm_stream.inc"
 #include "extract/phive.inc"
+#include "extract/tera.inc"
 #include "extract/mp2k.inc"
 #include "extract/midi_render.inc"
 #include "extract/rbnk.inc"

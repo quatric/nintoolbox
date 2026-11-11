@@ -29,11 +29,13 @@ static enumError extract_bntx_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	// Several textures: one PNG each in "<file>.d/" (SubstDest() with no dest
+	// pattern would just echo the source path and write into "<file>/").
 	char dest_dir[PATH_MAX];
 	if (opt_dest && *opt_dest)
 		snprintf (dest_dir, sizeof (dest_dir), "%s", opt_dest);
 	else
-		SubstDest (dest_dir, sizeof (dest_dir), arg, 0, "%P/%N.d", ".d", false);
+		beside_source_dest (dest_dir, sizeof (dest_dir), arg);
 
 	if (!testmode)
 		CreatePath (dest_dir, true);

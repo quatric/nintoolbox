@@ -16,7 +16,8 @@
 // would wrongly short-circuit that chain and silently drop every model.
 static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".bfres") && !is_ext (arg, ".fres"))
+	// Also BFRES under other names (Switch AGL ".genvres", ".bofx").
+	if (!is_ext (arg, ".bfres") && !is_ext (arg, ".fres") && !file_has_magic (arg, "FRES    ", 8))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

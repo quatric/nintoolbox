@@ -22,7 +22,7 @@ static enumError extract_phive_file (ccp arg, ccp basedir, uint depth)
 		if (!err)
 		{
 			char dest[PATH_MAX], name[PATH_MAX];
-			beside_source_dest (dest, sizeof (dest), arg);
+			beside_source_dir (dest, sizeof (dest), arg);
 			const char *sl = strrchr (arg, '/');
 			snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
 			char *dot = strrchr (name, '.');
@@ -32,8 +32,8 @@ static enumError extract_phive_file (ccp arg, ccp basedir, uint depth)
 			snprintf (obj_name, sizeof (obj_name), "%s.obj", name);
 			snprintf (json_name, sizeof (json_name), "%s.json", name);
 			if (verbose >= 0 || testmode)
-				fprintf (stdlog, "%s%sDECODE PHIVE:%s (%zu bytes of OBJ) -> %s + %s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
-					arg, obj_n, obj_name, json_name);
+				fprintf (stdlog, "%s%sDECODE PHIVE:%s (%zu bytes of OBJ) -> %s/%s + %s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
+					arg, obj_n, dest, obj_name, json_name);
 			if (!testmode)
 			{
 				err = shade_write (arg, dest, basedir, obj_name, (u8 *)obj, (uint)obj_n);

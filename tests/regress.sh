@@ -18775,6 +18775,38 @@ t_bully_agr(){
 t_bully_agr
 
 echo
+# Mario Kart World terrain tiles (TARB) and resource size table (RESTBL).
+t_mkw_tera(){
+  local d; d=$(mktemp -d /tmp/_r_tera.XXXXXX) || { fno "MKW TARB" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_mkw_tera.py" "$d/romfs/System/Resource" >/dev/null 2>&1
+  local r="$d/romfs/System/Resource"
+  mv "$r/t.slow.extm" "$r/t.mate" "$d/"
+  "$B/wszst" XX "$d/t.slow.extm" --overwrite >/dev/null 2>&1
+  "$B/wszst" XX "$d/t.mate" --overwrite >/dev/null 2>&1
+  if python3 "$PNGTOOL" pixel "$d/t.slow.extm.png" 0 0 0 0 0 255 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$d/t.slow.extm.png" 3 2 29 29 29 255 2>/dev/null; then
+    fok "MKW TARB delta-packed R8 -> PNG beside the source"
+  else
+    fno "MKW TARB R8" "wrong or missing $d/t.slow.extm.png"
+  fi
+  if python3 "$PNGTOOL" pixel "$d/t.mate.png" 2 3 32 48 100 255 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$d/t.mate.png" 3 0 48 0 100 255 2>/dev/null; then
+    fok "MKW TARB Orin-tiled RGBA8 -> PNG"
+  else
+    fno "MKW TARB RGBA8" "wrong or missing $d/t.mate.png"
+  fi
+  mkdir -p "$d/romfs/a" && : > "$d/romfs/a/b.txt" && : > "$d/romfs/c.bin.zs"
+  "$B/wszst" XX "$r/t.rsizetable" --overwrite >/dev/null 2>&1
+  if grep -q "= 111  # a/b.txt" "$r/t.rsizetable.txt" 2>/dev/null \
+     && grep -q "= 222  # c.bin" "$r/t.rsizetable.txt" && grep -q "^x/y.dat = 333" "$r/t.rsizetable.txt"; then
+    fok "MKW RESTBL -> text with romfs paths resolved"
+  else
+    fno "MKW RESTBL" "unexpected $r/t.rsizetable.txt"
+  fi
+  rm -rf "$d"
+}
+t_mkw_tera
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

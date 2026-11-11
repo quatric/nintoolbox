@@ -34,6 +34,37 @@ static void beside_source_dest (char *dest, uint dest_size, ccp arg)
 		snprintf (dest, dest_size, "%s.d", arg);
 }
 
+// True if the file starts with the LEN bytes of MAGIC (reads only the head of the file).
+static bool file_has_magic (ccp arg, const void *magic, uint len)
+{
+	u8 head[16];
+	if (len > sizeof (head))
+		return false;
+	FILE *f = fopen (arg, "rb");
+	const size_t got = f ? fread (head, 1, len, f) : 0;
+	if (f)
+		fclose (f);
+	return got == len && !memcmp (head, magic, len);
+}
+
+// Directory for conversions that produce one file (or a couple of sibling
+// files) per source, such as "foo.bwav" -> "foo.wav": the source's own
+// folder, so the result lands right beside it instead of in a "<source>.d/"
+// folder of its own. With --dest, the destination as usual.
+static void beside_source_dir (char *dest, uint dest_size, ccp arg)
+{
+	if (opt_dest)
+	{
+		SubstDest (dest, dest_size, arg, opt_dest, "\1P/\1N", 0, false);
+		return;
+	}
+	ccp slash = strrchr (arg, '/');
+	if (slash)
+		snprintf (dest, dest_size, "%.*s", (int)(slash - arg), arg);
+	else
+		snprintf (dest, dest_size, ".");
+}
+
 // Like beside_source_dest(), but for formats that decode to a single sibling
 // file (e.g. "foo.tex" -> "foo.png") rather than a member-extraction
 // directory: swaps the source's own extension for 'new_ext' instead of
