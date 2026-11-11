@@ -11911,6 +11911,28 @@ PYE
     fok "Proteus SDASSETF texture export"
   else fno "Proteus SDASSETF texture export" "no chk_000.png / tex.ast.txt from wszst xx"; fi
 
+  # Proteus SDASSETF MDL model (little-endian bundle: MTRL + MDL with DATA/WDGE/MESH) -> GLB
+  python3 - "$d/proteus_test/mdl.ast" <<'PYE' >/dev/null 2>&1
+import struct, sys
+P = lambda *a: struct.pack('<' + 'I' * len(a), *a)
+pad4 = lambda b: b + bytes((-len(b)) % 4)
+def top(tag, ver, name, fixed, kids): return tag[::-1] + P(ver, len(fixed), len(kids)) + pad4(name + b'\0') + fixed + kids
+def kid(tag, fld, pay): return tag[::-1] + P(1, fld, len(pay)) + pay
+def vert(x, y, z, u, v): return struct.pack('<3f4B2f', x, y, z, 255, 255, 255, 255, u, v)
+data = P(0, 0, 24, 4, 0x80040301, 0, 0, 0) + vert(0, 0, 0, 0, 0) + vert(1, 0, 0, 1, 0) + vert(1, 1, 0, 1, 1) + vert(0, 1, 0, 0, 1) + bytes(4)
+wdge = P(4, 4, 0, 1, 2, 3)
+mesh = pad4(b'quad\0') + struct.pack('<6f', 0, 0, 0, 1, 1, 0) + P(1, 4, 1, 0, 0, 2)
+efct = bytearray(256); efct[:8] = b'\\Proteus'
+mtrl = top(b'MTRL', 3, b'mat', bytes([0, 0, 0, 1, 150, 150, 150, 255, 229, 229, 229, 255]) + bytes(28), kid(b'EFCT', 1, bytes(efct)))
+mdl = top(b'MDL\0', 5, b'quad', bytes(20), kid(b'DATA', 1, data) + kid(b'WDGE', 1, wdge) + kid(b'MESH', 1, mesh))
+open(sys.argv[1], 'wb').write(b'SADSFTES' + P(1, 2) + mtrl + mdl)
+PYE
+  "$B/wszst" xx "$d/proteus_test/mdl.ast" --overwrite >/dev/null 2>&1
+  if [ -f "$d/proteus_test/mdl.ast.d/quad.glb" ] && [ "$(head -c 4 "$d/proteus_test/mdl.ast.d/quad.glb")" = "glTF" ] \
+     && [ -f "$d/proteus_test/mdl.ast.d/mdl.ast.txt" ]; then
+    fok "Proteus SDASSETF model to GLB"
+  else fno "Proteus SDASSETF model to GLB" "no quad.glb from wszst xx"; fi
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

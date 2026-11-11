@@ -172,6 +172,7 @@
 
 #include "types.h"
 #include <stdio.h>
+#include "lib-model-glb.h"
 
 //-----------------------------------------------------------------------------
 // (1) ".eid" sound-event/effect table
@@ -200,6 +201,12 @@ typedef struct SpookyAstTexture_t
 // Calls 'cb' for every BMAP of the bundle that has a decodable IMAG child (CMPR, RGBA8, or indexed with a CLUT); returns the number of textures.
 // Stops early if 'cb' returns non-zero (that value is then returned negated).
 int SpookyAstForEachTexture (const u8 *data, size_t size, int (*cb) (const SpookyAstTexture_t *tex, void *ctx), void *ctx);
+
+// Proteus "MDL" models of a bundle (the little-endian bundles hold all of them): one model_t per MDL chunk with one mesh per MESH child (vertices from the
+// paired DATA chunk, triangle list or strip from the paired WDGE chunk) and one material per MTRL chunk of the file (texture name from its EFCT child).
+// 'cb' borrows the model; it is freed after the call. Stops early if 'cb' returns non-zero. Returns the number of models passed to 'cb'.
+int SpookyAstForEachModel (const u8 *data, size_t size, int (*cb) (const char *name, model_t *model, void *ctx), void *ctx);
+
 
 
 //-----------------------------------------------------------------------------
