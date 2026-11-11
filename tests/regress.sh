@@ -11896,6 +11896,21 @@ PYE
   done
   [ $pr_ok = 1 ] && fok "Proteus SDASSETF chunk walk" || fno "Proteus SDASSETF chunk walk" "BE/LE walk missing name/children"
 
+  # Proteus SDASSETF texture export (BMAP + IMAG, RGBA8 8x8 -> PNG), big-endian bundle
+  python3 - "$d/proteus_test/tex.ast" <<'PYE' >/dev/null 2>&1
+import struct, sys
+pix = bytes((i * 7) & 255 for i in range(8 * 8 * 4))
+fixed = struct.pack('>4H', 8, 8, 8, 8) + bytes(4) + bytes([3, 3, 1, 0, 0x20, 0, 0, 0]) + bytes(12)
+imag = b'IMAG' + struct.pack('>III', 1, 0, 4 + len(pix)) + b'Rev\0' + pix
+bmap = b'BMAP' + struct.pack('>III', 3, len(fixed), len(imag)) + b'chk\0' + fixed + imag
+open(sys.argv[1], 'wb').write(b'SDASSETF' + struct.pack('>II', 1, 1) + bmap)
+PYE
+  "$B/wszst" xx "$d/proteus_test/tex.ast" --overwrite >/dev/null 2>&1
+  if [ -f "$d/proteus_test/tex.ast.d/chk_000.png" ] && [ -f "$d/proteus_test/tex.ast.d/tex.ast.txt" ] \
+     && [ "$(head -c 8 "$d/proteus_test/tex.ast.d/chk_000.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ]; then
+    fok "Proteus SDASSETF texture export"
+  else fno "Proteus SDASSETF texture export" "no chk_000.png / tex.ast.txt from wszst xx"; fi
+
   # Thrillville ATTR kind 6 (track) field map
   python3 - "$d/tvser_test/x.atr" <<'PYE' >/dev/null 2>&1
 import sys

@@ -34,6 +34,10 @@
 //           animations, textures -- ALST/BMAP/etc.), only that first
 //           chunk's header is decoded; its nested payload is NOT
 //           reverse-engineered. See note (2).
+//           UPDATE: superseded -- the whole chunk tree (names, fixed payloads
+//           and child chunks) is now walked on all 1598 Goosebumps HorrorLand
+//           .ast files, and big-endian BMAP textures decode to PNG; see the
+//           comment above DecodeSpookyAst_Text() in lib-ispyspookymansion.c.
 //   .sdf -- "SDF\0" asset-type registry table (1 real sample,
 //           DATA/files/Proteus/Wii.sdf). Outer header and the repeated
 //           "TYPE"+4-char-type-tag+length records are confirmed; the
@@ -180,6 +184,23 @@ enumError DecodeSpookyEid_Text (FILE *f, const u8 *data, size_t size, size_t fil
 
 int IsSpookyAst (const u8 *data, size_t size, size_t file_size);
 enumError DecodeSpookyAst_Text (FILE *f, const u8 *data, size_t size, size_t file_size);
+
+// One BMAP texture of an .ast bundle (Proteus engine). 'kind' is a GX texture format as used in a TPL: 0x0e CMPR, 0x06 RGBA8, 0x08 C4, 0x09 C8.
+// 'pixels' is the base level of the IMAG payload (mip levels follow it); 'clut' (C4/C8 only) is the CLUT payload, RGB5A3 entries.
+typedef struct SpookyAstTexture_t
+{
+	const char *name;
+	uint width, height, kind;
+	const u8 *pixels;
+	size_t pixels_size;
+	const u8 *clut;
+	size_t clut_size;
+} SpookyAstTexture_t;
+
+// Calls 'cb' for every BMAP of the bundle that has a decodable IMAG child (CMPR, RGBA8, or indexed with a CLUT); returns the number of textures.
+// Stops early if 'cb' returns non-zero (that value is then returned negated).
+int SpookyAstForEachTexture (const u8 *data, size_t size, int (*cb) (const SpookyAstTexture_t *tex, void *ctx), void *ctx);
+
 
 //-----------------------------------------------------------------------------
 // (3) ".sdf" asset-type registry table

@@ -358,6 +358,10 @@ int SpookyAstForEachTexture (const u8 *data, size_t size, int (*cb) (const Spook
 	int swapped = 0;
 	if (!data || !check_ast_magic (data, size, &swapped))
 		return 0;
+	// The little-endian ("SADSFTES", 766 of 1598 files) bundles keep the same chunk tree but store the BMAP header fields (the format byte is not at +15 / +16) and
+	// pixel data differently; decoding them as GX produces noise, so only the big-endian bundles are exported (all verified visually: CMPR, RGBA8, C4, C8).
+	if (swapped)
+		return 0;
 	const u32 count = ast_u32 (data, 12, swapped);
 	u32 o = AST_HEADER_SIZE;
 	int found = 0;
