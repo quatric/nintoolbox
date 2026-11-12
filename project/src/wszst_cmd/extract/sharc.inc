@@ -1,6 +1,7 @@
 static enumError extract_sharc_manifest (ccp arg)
 {
-	const bool is_fb = is_ext (arg, ".sharcfb");
+	// ".sharcb" in Mario Kart World (Lib/Visualizer, gsys_resource), ".sharcfb" elsewhere.
+	const bool is_fb = is_ext (arg, ".sharcfb") || is_ext (arg, ".sharcb");
 	if (!is_fb && !is_ext (arg, ".sharc"))
 		return ERR_NOTHING_TO_DO;
 

@@ -1650,6 +1650,22 @@ t_xtx(){
   local n; n=$(find /tmp/_r_xtx.d -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
   [ "$n" = 2 ] && ok "XTX (Switch) EXTRACT -> 2 raw members" \
     || no "XTX (Switch) EXTRACT" "members=$n"
+  # Switch 2 (NVN2) XTX as Mario Kart World ships for sead's nvn2_font: the HBvN size field holds only the
+  # 0x24-byte header (the next block follows the payload) and TextureLayout2 0xC9 selects the Orin GOB layout.
+  # XX writes <file>.png beside the source; RGBA8 32x16 with pixel (x, y) = (8x, 16y, 0, 255).
+  local d2; d2=$(mktemp -d /tmp/_r_xtx2.XXXXXX) || { no "XTX (Switch 2)" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_xtx.py" --switch2 "$d2/s2.xtx" >/dev/null 2>&1
+  "$B/wszst" XX "$d2/s2.xtx" --overwrite >/dev/null 2>&1
+  if [ -s "$d2/s2.xtx.png" ] && [ ! -d "$d2/s2.xtx.d" ] \
+    && python3 "$PNGTOOL" pixel "$d2/s2.xtx.png" 5 3 40 48 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d2/s2.xtx.png" 17 6 136 96 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d2/s2.xtx.png" 12 9 96 144 0 255 2>/dev/null \
+    && python3 "$PNGTOOL" pixel "$d2/s2.xtx.png" 31 15 248 240 0 255 2>/dev/null; then
+    ok "XTX (Switch 2, Orin GOBs) -> PNG beside the source"
+  else
+    no "XTX (Switch 2) -> PNG" "$d2/s2.xtx.png"
+  fi
+  rm -rf "$d2"
 }
 t_xtx
 

@@ -678,10 +678,10 @@ enumError DecodeSHARCFB_Text (FILE *out, const u8 *data, size_t size)
 
 	// SHARCFB is big-endian on the Wii U variant; verified header fields against
 	// Switch-Toolbox Shader/SHARC/SHARCFB.cs Header.Read() up to the byte-order-mark switch.
-	const u32 version = rd_be32 (data + 4);
-	const u32 file_size = rd_be32 (data + 8);
 	const u32 bom = rd_be32 (data + 12);
 	const bool is_le = bom != 1;
+	const u32 version = is_le ? rd_le32 (data + 4) : rd_be32 (data + 4);
+	const u32 file_size = is_le ? rd_le32 (data + 8) : rd_be32 (data + 8);
 	const u32 name_length = is_le ? rd_le32 (data + 20) : rd_be32 (data + 20);
 
 	fprintf (out,

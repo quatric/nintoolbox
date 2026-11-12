@@ -466,7 +466,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **NUANMB** | Switch / Animation | ✅ | ❌ | Bandai Namco SSBH skeletal/material animation (Smash Ultimate): group/node/track structure plus decoded Direct/Constant/Compressed keyframe payloads |
 | **NUMSHB** | Switch / Model | ✅ | ❌ | Bandai Namco SSBH 3D mesh model (Smash Ultimate) |
 | **TTMODEL** | Multi / Model | ✅ | ❌ | TT Games NTT engine model (*LEGO Star Wars: The Skywalker Saga*, `.model` → GLB) |
-| **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ✅ | NintendoWare shader source and binary archive (SHARC v10-12 round-trips; Wii U SHARCFB is compiled from GSH) |
+| **SHARC / SHARCFB** | Wii U / Switch / Shader Archive | ✅ | ✅ | NintendoWare shader source and binary archive (SHARC v10-12 round-trips; Wii U SHARCFB is compiled from GSH). Mario Kart World's little-endian SHARCFB v11 (`.sharcb`) is listed as text: variations, programs, symbol tables |
 | **VFXB** | Wii U / Switch / Effect Archive | ✅ | ❌ | NintendoWare particle effect binary archive |
 | **NUT** | Wii U / 3DS / Texture | ✅ | ❌ | Bandai Namco texture package (Smash 4) |
 | **NUTEXB** | Switch / Texture | ✅ | ✅ | Super Smash Bros. Ultimate texture container |
@@ -488,7 +488,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **TMPK** | Wii U / Archive | ✅ | ✅ | *The Legend of Zelda: Twilight Princess HD* flat archive. Verified against the retail `content/Shaders.pack.gz`: a plain gzip stream wraps a 10,402,512-byte TMPK archive that extracts to exactly 1568 non-empty members |
 | **WARC** | Wii U / Archive | ✅ | ✅ | Game & Wario flat archive |
 | **WUD / WUX** | Wii U / Disc Image | ✅ | ✅ | Wii U disc extraction & compression |
-| **XTX** | Switch / Texture | ✅ | ❌ | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC; synthetic fixture, no retail sample) |
+| **XTX** | Switch / Texture | ✅ | ❌ | Nintendo Switch intermediate texture container (`DFvN`/`HBvN`, Tegra block-linear RGBA8/BC1-BC7/ASTC). Switch 2 files (Mario Kart World `Lib/sead/nvn2_font/*.xtx`) mark TextureLayout2 with 0xC9 and use the Orin GOB layout; their block size field covers only the 0x24-byte header, so the next block follows the payload. `xx` writes `<file>.png` beside the source |
 | **XMB** | Switch / Metadata | ✅ | ❌ | Smash XMB material/LOD metadata: node/property tables to XMBDec-mapping XML |
 | **BMG / CBMG** | GameCube / Wii / DS / Message Binary | ✅ | ✅ | Nintendo Binary Message format (`MESGbmg1` big-endian on GC/Wii, `GSEM1gmb` little-endian on DS such as *Custom Robo Arena* `.cbmg` / `.mlz`). Decodes text messages, Shift-JIS / UTF-8 / UTF-16 strings, and attributes cleanly via `wbmgt decode` / `wszst extract --decode`, with 100% byte-for-byte round-trip re-encoding via `wbmgt encode`. |
 | **PROCYON-SWD** | DS / Sound Wave Data | ✅ | ❌ | Procyon Studio Sound Wave Data (`swdl` / `.swd`, *Professor Layton and the Diabolical Box*, *Inazuma Eleven*, *Pokémon Mystery Dungeon: Explorers of Sky*); contains `wavi`, `prgi`, `kgrp`, `pcmd` chunks with Procyon ADPCM and PCM sample banks. Detected and classified natively via `wszst filetype`. |

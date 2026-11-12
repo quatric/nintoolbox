@@ -1661,6 +1661,22 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 
+	// XX decodes an XTX to <file>.png beside it; plain EXTRACT (or a texture format the decoder lacks)
+	// falls back to dumping the raw texture_*.bin payloads.
+	if (is_ext_match (arg, ".xtx") || is_ext_match (arg, ".bin"))
+	{
+		char xtx_magic[4] = { 0 };
+		FILE *xtx_f = fopen (arg, "rb");
+		const bool is_xtx = xtx_f && fread (xtx_magic, 1, 4, xtx_f) == 4 && !memcmp (xtx_magic, "DFvN", 4);
+		if (xtx_f)
+			fclose (xtx_f);
+		if (is_xtx)
+		{
+			err = decode_image_if_possible (arg);
+			if (err != ERR_NOTHING_TO_DO)
+				return err;
+		}
+	}
 	err = ExtractXTXArchive (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

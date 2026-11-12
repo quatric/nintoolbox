@@ -183,7 +183,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **SEC** | `.sec` | *Octomania* |
 | **SEDB** | `.rps`, `.txb` | *Dragon Quest X* (Wii) |
 | **SFZDAT** | `.dat` | *Star Fox Zero* |
-| **SHARC / SHARCFB** | `.sharc`, `.sharcfb` | Wii U / Switch |
+| **SHARC / SHARCFB** | `.sharc`, `.sharcfb`, `.sharcb` | Wii U / Switch / Switch 2 |
 | **SIR0** | `.sir0` | DS / 3DS |
 | **SMASH-ARC** | `.arc` | *Super Smash Bros. Ultimate* |
 | **Storybook ONE** | `.one` | *Sonic and the Secret Rings*, *Black Knight* |
@@ -345,7 +345,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Wii banner** | `opening.bnr`, `IMET`, `IMD5` | Wii |
 | **WTB** | `.wta`, `.wtb` | PlatinumGames Switch / Wii U titles |
 | **XIMG** | `.xi` | Level-5 3DS / Switch titles (e.g. *Yo-kai Watch*) |
-| **XTX** | `.xtx` | Tegra block-linear RGBA8 / BCn / ASTC |
+| **XTX** | `.xtx` | Tegra block-linear RGBA8 / BCn / ASTC; Switch 2 (Orin GOB) textures, e.g. sead's nvn2_font |
 
 `Byte-Exact Roundtrip` = encode → decode → re-encode to the same destination name
 reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`

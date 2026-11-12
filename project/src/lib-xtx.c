@@ -16,6 +16,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Position of the block after the "HBvN" block at POS. Retail files (sead's nvn2_font textures in Mario Kart
+// World) store only the 0x24-byte header size in the size field and put the payload right behind it, so the
+// next block follows the payload (Switch-Toolbox XTX.cs: pos + DataOffset + DataSize). Writers that store the
+// whole block size there are covered by taking the larger end. Returns 0 if the next block can't be addressed.
+static uint xtx_next_block (uint pos, u32 block_size, s64 data_offset, u64 data_size)
+{
+	u64 next = (u64)pos + block_size;
+	if (data_offset >= 0 && (u64)data_offset <= UINT32_MAX && data_size <= UINT32_MAX)
+	{
+		const u64 end = (u64)pos + (u64)data_offset + data_size;
+		if (end > next)
+			next = end;
+	}
+	return next > pos && next <= UINT32_MAX ? (uint)next : 0;
+}
+
 // Extract Nintendo Switch XTX Texture Container (.xtx / DFvN)
 enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth)
 {
@@ -84,7 +100,9 @@ enumError ExtractXTXArchive (ccp arg, ccp basedir, uint depth)
 
 		if (block_size == 0)
 			break;
-		block_pos += block_size;
+		block_pos = xtx_next_block (block_pos, block_size, data_offset, data_size);
+		if (!block_pos)
+			break;
 	}
 
 	FREE (raw);
@@ -298,7 +316,9 @@ enumError ScanXTX (xtx_t *xtx, const u8 *data, uint size)
 			FREE (images);
 			return EINVAL;
 		}
-		block_pos += block_size;
+		block_pos = xtx_next_block (block_pos, block_size, data_offset, data_size);
+		if (!block_pos)
+			break;
 	}
 
 	// Headers pair with payloads strictly in order (XTX.cs: curTex++).
@@ -338,6 +358,7 @@ enumError ScanXTX (xtx_t *xtx, const u8 *data, uint size)
 		for (uint m = 0; m < 17; m++)
 			t->mip_offsets[m] = rd_le32 (h + 40 + 4 * m);
 		t->block_height_log2 = rd_le32 (h + 108) & 7;
+		t->is_orin = (rd_le32 (h + 112) & 0xff) == 0xc9;
 		t->data = images[i].payload;
 		t->data_size = images[i].payload_size;
 		uint map_fmt = 0, map_type = 1;
@@ -400,6 +421,7 @@ enumError DecodeXTX_Mip_RGBA (
 	syn.comp_sel = 0; // identity (R,G,B,A)
 	syn.tile_mode = 0; // block-linear, like every Tegra surface
 	syn.block_height_log2 = t->block_height_log2;
+	syn.is_orin = t->is_orin;
 	syn.n_mips = t->mip_count;
 	syn.data = t->data;
 	syn.data_size = t->slice_size <= t->data_size ? t->slice_size : t->data_size;

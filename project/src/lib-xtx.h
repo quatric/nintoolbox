@@ -27,6 +27,9 @@ typedef struct xtx_texture_t
 	uint slice_size;
 	uint mip_offsets[17];
 	uint block_height_log2; // TextureLayout1 & 7
+	// TextureLayout2 low byte 0xC9: Switch 2 (NVN2, sead's nvn2_font textures) with the Orin GOB layout. The
+	// same word is 0x10007 on Switch 1 and 0x100C9 in Switch 2 ("Ounc") BNTX textures.
+	bool is_orin;
 	const u8 *data; // swizzled level-0..n payload of array slice 0
 	uint data_size;
 } xtx_texture_t;

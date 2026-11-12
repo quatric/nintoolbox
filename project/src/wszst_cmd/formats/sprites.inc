@@ -399,6 +399,8 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (!memcmp (head, "BNTX", 4) || is_ext (arg, ".bntx"))
 		is_image = true;
+	else if (!memcmp (head, "DFvN", 4))
+		is_image = true; // XTX (Switch texture container), e.g. sead's nvn2_font textures
 	// GSH shares the Gfx2 container with GTX but has no pixels. Let the
 	// normal archive/analyse path handle it instead of reporting a generic
 	// failed-image-decode error.
