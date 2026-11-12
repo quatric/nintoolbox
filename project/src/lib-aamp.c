@@ -2368,6 +2368,17 @@ enumError decode_aamp_if_possible (ccp arg)
 	else
 		snprintf (dest, sizeof (dest), "%s.yml", arg);
 
+	// The deferred whole-tree pass of `xx` reaches archive members that extract_aamp_manifest()
+	// already decoded during extraction (e.g. ".bgenv" in an AGL ".genvb"): an output at least as
+	// new as its source was written in this run, so it is left alone instead of failing with
+	// ERR_FILE_ALREADY_EXISTS.
+	struct stat st_src, st_dest;
+	if (!stat (arg, &st_src) && !stat (dest, &st_dest) && st_dest.st_mtime >= st_src.st_mtime)
+	{
+		FREE (data);
+		return ERR_NOTHING_TO_DO;
+	}
+
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sDECODE AAMP:%s -> YML:%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);

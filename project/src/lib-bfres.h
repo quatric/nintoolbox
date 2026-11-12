@@ -14,6 +14,11 @@ model_t *ParseBFRES (const uint8_t *data, size_t size);
 // (magic "EXTF"). See the comment above ParseBFRESSwitch() in lib-bfres.c.
 model_t *ParseBFRESSwitch (const uint8_t *data, size_t size);
 
+// Adds the FSKA skeletal animations of the Switch BFRES `data` (e.g. an animation-only archive such as
+// Tomodachi Life "AnimationProduct.bfres") to `model`, binding bone animations to joints by name.
+// Returns the number of animations added. A skeleton-only FMDL parses into a model without meshes.
+int ImportBFRESSwitchAnims (model_t *model, const uint8_t *data, size_t size);
+
 // Wii U BFRES 3.x archive resource census. The header carries a fixed table
 // of 12 dictionary slots (offset at 0x20 + 4*slot, count at 0x50 + 2*slot)
 // that register, per real Yoshi's Woolly World (v3.5.0.3) samples: slot 0

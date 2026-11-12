@@ -121,6 +121,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_xlnk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_baev_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_asb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_bphcl_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_vtdb2_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_brstm_stream_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

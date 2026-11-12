@@ -291,6 +291,28 @@ enumError ConvertAACLToYaml (const u8 *d, size_t size, char **text, size_t *text
 }
 
 //-----------------------------------------------------------------------------
+// AADR
+
+enumError ConvertAADRToYaml (const u8 *d, size_t size, char **text, size_t *text_size)
+{
+	*text = 0;
+	*text_size = 0;
+	if (!aal_header (d, size, "AADR", 0x18))
+		return ERR_INVALID_DATA;
+	sbuf_t b = { 0 };
+	sb_printf (&b, "# AAL attenuation directivity (AADR %u)\ninner_angle: ", a_le16 (d + 6));
+	aal_float (&b, a_lef32 (d + 8));
+	sb_puts (&b, "\nouter_angle: ");
+	aal_float (&b, a_lef32 (d + 0x0c));
+	sb_puts (&b, "\nouter_volume: ");
+	aal_float (&b, a_lef32 (d + 0x10));
+	sb_puts (&b, "\nunknown_14: ");
+	aal_float (&b, a_lef32 (d + 0x14));
+	sb_puts (&b, "\n");
+	return sb_finish (&b, text, text_size);
+}
+
+//-----------------------------------------------------------------------------
 // AGST
 
 typedef struct agst_t

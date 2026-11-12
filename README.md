@@ -358,7 +358,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 
 | Format | Extensions | Games |
 | --- | --- | --- |
-| **AAL audio data (AMTA / AATN / AROC / AACL / AGST)** | `.amta`, `.baatn`, `.baroc`, `.baacl`, `.bagst` | Switch / Switch 2 |
+| **AAL audio data (AMTA / AATN / AROC / AACL / AGST / AADR)** | `.amta`, `.baatn`, `.baroc`, `.baacl`, `.bagst`, `.baadr` | Switch / Switch 2 |
 | **Acoustic / light probe grids (DAPG / DLPG)** | `.dapg`, `.dlpg` | *Mario Kart World* |
 | **BARS** | `.bars` | Wii U / Switch / Switch 2 |
 | **BCSAR / BCWAR / BCWAV** | `.bcsar`, `.bcwar`, `.bcwav` | 3DS |
@@ -418,6 +418,10 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **TSCB** | `.tscb` | *Mario Kart World* |
 | **VISLIST** | `.vis` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
 | **XLNK (XLink2 effect / sound links)** | `.belnk`, `.bslnk` | Switch (*Tears of the Kingdom*-era layout checked on *Tomodachi Life: Living the Dream*) |
+| **BAEV (animation events)** | `.baev` | *Tomodachi Life: Living the Dream* |
+| **ASB (animation sequence binary)** | `.asb` | *Tomodachi Life: Living the Dream* |
+| **Phive cloth / Havok tag files** | `.bphcl` | *Tomodachi Life: Living the Dream* |
+| **VoiceText database** | `.vtdb2` | *Tomodachi Life: Living the Dream* |
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **ZEN** | `.zen` | *Mercury Meltdown Revolution* |

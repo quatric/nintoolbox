@@ -18,12 +18,15 @@
 // AATN 1 (".baatn"): attenuator, five {curve name, curve type} pairs (volume, env fx, filter, spread,
 //   priority), directivity and culling names, listener and occlusion flags, string table at 0x08.
 // AROC 1/2 (".baroc"): roll-off curve. AACL 1/2 (".baacl"): attenuation culling.
+// AADR 1 (".baadr", 0x18 bytes): directivity cone, f32 inner and outer angle (degrees), f32 volume
+//   outside the cone, then one more f32 (0.2 / 0.0 in Tomodachi Life: Living the Dream).
 // AGST (".bagst"): group settings; the group tree with names, each group's parameter words and the
 //   BYML documents of the other sections (MAND, PASE, GCCD, BFIL, ...) decoded inline.
 enumError ConvertAMTAToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAATNToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAROCToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAACLToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
+enumError ConvertAADRToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAGSTToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 
 // Acoustic probe grid (".dapg", Mario Kart World Sound/Acoustic/Probe/<scene>/<x>_<z>.dapg): u32 grid

@@ -2203,6 +2203,9 @@ static int parse_fska_into_model_switch (
 	const uint16_t num_bone_anim = le16 (d + fs + (vmajor >= 9 ? 0x4C : 0x58));
 	if (num_bone_anim == 0 || frame_count <= 0 || frame_count > 100000)
 		return 0;
+	// Rotation mode: flag 0x1000 = Euler XYZ in radians (curves 0x20/0x24/0x28, base {x, y, z, 1}),
+	// otherwise quaternion (curves 0x20..0x2C).
+	const int euler_rot = (le32 (d + fs + 4) & 0x1000) != 0;
 
 	const size_t bone_stride = vmajor >= 9 ? 0x38 : 0x28;
 	const int64_t bone_anims = les64 (d + fs + (vmajor >= 9 ? 0x28 : 0x30));
@@ -2227,7 +2230,7 @@ static int parse_fska_into_model_switch (
 		const size_t bflags_off = ba + (vmajor >= 9 ? 0x28 : 0x18);
 		const uint32_t bflags = le32 (d + bflags_off);
 		const uint8_t num_curve = d[bflags_off + 6];
-		if (num_curve == 0 || !bname || !*bname)
+		if (!bname || !*bname)
 			continue;
 		const int joint_idx = bfres_find_joint (model, bname);
 		if (joint_idx < 0)
@@ -2235,7 +2238,7 @@ static int parse_fska_into_model_switch (
 		const joint_t *joint = &model->joints[joint_idx];
 
 		const int64_t curve_off = les64 (d + ba + 8);
-		if (curve_off <= 0 || (size_t)curve_off + (size_t)num_curve * 0x30 > size)
+		if (num_curve && (curve_off <= 0 || (size_t)curve_off + (size_t)num_curve * 0x30 > size))
 			continue;
 
 		bfres_curve_t curves[10];
@@ -2246,9 +2249,6 @@ static int parse_fska_into_model_switch (
 			if (bfres_curve_read_switch (d, size, (size_t)curve_off + (size_t)k * 0x30, &curves[k]))
 				nread++;
 		}
-		if (!nread)
-			continue;
-
 		const uint32_t base_flags = bflags & 0x38; // 0x8=scale 0x10=rotate 0x20=translate
 		float base[3][4] = { { 1, 1, 1, 1 }, { 0, 0, 0, 1 }, { 0, 0, 0, 1 } };
 		const int base_present[3]
@@ -2269,6 +2269,10 @@ static int parse_fska_into_model_switch (
 				for (int e = 0; e < 3; e++)
 					base[2][e] = read_le32f (d + p + (size_t)e * 4);
 		}
+
+		// A bone without curves holds its base values (static poses have only those).
+		if (!nread && !base_flags)
+			continue;
 
 		int curve_of[3][4] = { { -1, -1, -1, -1 }, { -1, -1, -1, -1 }, { -1, -1, -1, -1 } };
 		for (int k = 0; k < nread; k++)
@@ -2293,18 +2297,20 @@ static int parse_fska_into_model_switch (
 
 		for (int set = 0; set < 3; set += 2)
 		{
-			if (curve_of[set][0] < 0 && curve_of[set][1] < 0 && curve_of[set][2] < 0)
+			const int animated = curve_of[set][0] >= 0 || curve_of[set][1] >= 0 || curve_of[set][2] >= 0;
+			if (!animated && !base_present[set])
 				continue;
+			const int keys = animated ? frame_count : 1;
 			const int comps = 3;
-			float *times = malloc (sizeof (float) * frame_count);
-			float *values = malloc (sizeof (float) * frame_count * comps);
+			float *times = malloc (sizeof (float) * keys);
+			float *values = malloc (sizeof (float) * keys * comps);
 			if (!times || !values)
 			{
 				free (times);
 				free (values);
 				continue;
 			}
-			for (int f = 0; f < frame_count; f++)
+			for (int f = 0; f < keys; f++)
 			{
 				const float t = (float)f;
 				times[f] = t / fps;
@@ -2324,19 +2330,21 @@ static int parse_fska_into_model_switch (
 				}
 			}
 			bfres_anim_add_channel (
-				&anim, joint_idx, paths[set], times, values, frame_count, comps);
+				&anim, joint_idx, paths[set], times, values, keys, comps);
 			any = 1;
 		}
 
-		if (curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0
-			|| curve_of[1][3] >= 0)
+		const int rot_animated = curve_of[1][0] >= 0 || curve_of[1][1] >= 0 || curve_of[1][2] >= 0
+			|| (!euler_rot && curve_of[1][3] >= 0);
+		if (rot_animated || base_present[1])
 		{
+			const int keys = rot_animated ? frame_count : 1;
 			const int comps = 4;
-			float *times = malloc (sizeof (float) * frame_count);
-			float *values = malloc (sizeof (float) * frame_count * comps);
+			float *times = malloc (sizeof (float) * keys);
+			float *values = malloc (sizeof (float) * keys * comps);
 			if (times && values)
 			{
-				for (int f = 0; f < frame_count; f++)
+				for (int f = 0; f < keys; f++)
 				{
 					const float t = (float)f;
 					times[f] = t / fps;
@@ -2350,10 +2358,12 @@ static int parse_fska_into_model_switch (
 						else
 							v[e2] = e2 == 3 ? 1.0f : 0.0f;
 					}
+					if (euler_rot)
+						bfres_euler_rad_to_quat (v[0], v[1], v[2], v);
 					memcpy (values + f * comps, v, sizeof (v));
 				}
 				bfres_anim_add_channel (
-					&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, frame_count, comps);
+					&anim, joint_idx, MODEL_ANIM_ROTATION, times, values, keys, comps);
 				any = 1;
 			}
 			else
@@ -2632,6 +2642,16 @@ static int read_fvtx_switch (
 	return out->pos != NULL;
 }
 
+int ImportBFRESSwitchAnims (model_t *model, const uint8_t *data, size_t size)
+{
+	if (!model || !model->num_joints || !data || size < 0x100 || memcmp (data, "FRES", 4)
+		|| le16 (data + 0x0C) != 0xFEFF)
+		return 0;
+	const size_t before = model->num_animations;
+	bfres_switch_parse_anims (model, data, size, (le32 (data + 8) >> 16) & 0xFFFF);
+	return (int)(model->num_animations - before);
+}
+
 model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 {
 	if (!data || size < 0x100 || memcmp (data, "FRES", 4))
@@ -2676,8 +2696,8 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			pool_base = pb;
 		}
 	}
-	if (pool_base <= 0 || (size_t)pool_base >= size)
-		return NULL;
+	// A skeleton-only FMDL (no shapes, e.g. Tomodachi Life "BodySkeleton.bfres") has no buffer pool.
+	const int have_pool = pool_base > 0 && (size_t)pool_base < size;
 	(void)bufinfo;
 
 	const uint fhdr = bfres_switch_hdr_extra (vmajor);
@@ -2690,14 +2710,15 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	if ((size_t)shapes_val_field + 8 > size)
 		return NULL;
 	const int64_t shapes_val = les64 (d + shapes_val_field);
-	if (shapes_val <= 0 || (size_t)shapes_val + 0x60 > size || memcmp (d + shapes_val, "FSHP", 4))
-		return NULL;
+	const int have_shapes
+		= have_pool && shapes_val > 0 && (size_t)shapes_val + 0x60 <= size && !memcmp (d + shapes_val, "FSHP", 4);
 
 	// Count shapes by scanning for "FSHP" magics from the first one (same
 	// approach the already-verified name-resolution manifest code uses --
 	// FSHP entries aren't fixed-stride, so there's no clean array stride to
 	// step through instead).
 	uint n_fshp = 0;
+	if (have_shapes)
 	{
 		const uint8_t *s = d + shapes_val;
 		while (s && (size_t)(s - d) < size)
@@ -2706,9 +2727,6 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 			s = memmem (s + 4, size - (s + 4 - d), "FSHP", 4);
 		}
 	}
-	if (!n_fshp)
-		return NULL;
-
 	model_t *out = calloc (1, sizeof (model_t));
 	if (!out)
 		return NULL;
@@ -2858,6 +2876,15 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	// Import FSKA skeletal animations, if any, now that joints are named.
 	if (out->num_joints > 0)
 		bfres_switch_parse_anims (out, d, size, vmajor);
+
+	// Skeleton-only model: joints (and animations) without meshes.
+	if (!n_fshp)
+	{
+		if (out->num_joints)
+			return out;
+		FreeModel (out);
+		return NULL;
+	}
 
 	// Parse FMAT materials if present so DAE materials and texture bindings resolve
 	const int64_t mat_val_field = shapes_val_field + 16;

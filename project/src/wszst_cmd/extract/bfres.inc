@@ -14,6 +14,58 @@
 // doesn't "own" .bfres files -- export_model_if_possible() still needs to
 // run on the very same file right after this, so returning ERR_OK there
 // would wrongly short-circuit that chain and silently drop every model.
+// Switch BFRES external files that are AAMP parameter files (e.g. "Default.baglofx", the AGL
+// occluded-effect params inside an Env "_root.bofx") are decoded to "<name>.yml" beside the BFRES.
+// External file values: {u64 offset, u32 size, u32 pad} at the pointer in 0xB8 (v9+) / 0x98;
+// names come from the dictionary at 0xC0 / 0xA0 ({s32 ref, u16 left, u16 right, u64 name} per node
+// after the root; names are u16-length-prefixed).
+static void extract_bfres_switch_aamp_files (
+	ccp arg, const u8 *raw, size_t size, ccp dest, ccp basedir)
+{
+	if (size < 0xC8)
+		return;
+	const uint vmajor = raw[0x0A] | raw[0x0B] << 8;
+	const size_t val_field = vmajor >= 9 ? 0xB8 : 0x98, dict_field = val_field + 8;
+	const u64 vals = le64 (raw + val_field), dict = le64 (raw + dict_field);
+	if (!vals || !dict || dict + 8 > size)
+		return;
+	const u32 n = le32 (raw + dict + 4);
+	if (!n || n > 0x1000 || vals + 16ull * n > size || dict + 8 + 16ull * (n + 1) > size)
+		return;
+	for (u32 i = 0; i < n; i++)
+	{
+		const u64 off = le64 (raw + vals + 16ull * i);
+		const u32 len = le32 (raw + vals + 16ull * i + 8);
+		const u64 name_off = le64 (raw + dict + 8 + 16ull * (i + 1) + 8);
+		if (!len || off + len > size || name_off + 2 > size || !IsAAMP (raw + off, len))
+			continue;
+		const uint name_len = le16 (raw + name_off);
+		if (!name_len || name_off + 2 + name_len > size || name_len > 200)
+			continue;
+		char name[256], path[PATH_MAX];
+		memcpy (name, raw + name_off + 2, name_len);
+		name[name_len] = 0;
+		if (strchr (name, '/') || strstr (name, ".."))
+			continue;
+		snprintf (path, sizeof (path), "%s%s%s%s.yml", dest, *dest ? "/" : "", basedir ? basedir : "",
+			name);
+		if (!opt_overwrite && !access (path, F_OK))
+			continue;
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sDECODE AAMP:%s[%s] -> %s\n", verbose > 0 ? "\n" : "",
+				testmode ? "WOULD " : "", arg, name, path);
+		if (testmode)
+			continue;
+		File_t F;
+		CreateFileOpt (&F, true, path, false, arg);
+		if (F.f)
+		{
+			DecodeAAMP_YAML (F.f, raw + off, len);
+			ResetFile (&F, opt_preserve);
+		}
+	}
+}
+
 static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 {
 	// Also BFRES under other names (Switch AGL ".genvres", ".bofx").
@@ -84,6 +136,7 @@ static enumError extract_bfres_textures (ccp arg, ccp basedir, uint depth)
 			}
 			p = bntx_ptr + 4;
 		}
+		extract_bfres_switch_aamp_files (arg, raw, raw_size, dest, basedir);
 		(void)depth;
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;

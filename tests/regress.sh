@@ -18927,6 +18927,79 @@ t_xlnk(){
 }
 t_xlnk
 
+t_tomo_switch_misc(){
+  # Tomodachi Life: Living the Dream formats: animation events (BAEV), animation sequence binary
+  # (ASB 0x41B), Phive cloth (Havok TAG0 + AAMP), AAL directivity, VoiceText database, a
+  # skeleton-only BFRES and an animation-only BFRES bound to a sibling "*Skeleton*.bfres".
+  local d; d=$(mktemp -d /tmp/_r_tomo.XXXXXX) || { fno "Tomodachi formats" "mktemp failed"; return; }
+  local fx="$PWD_PROJECT/../tests/fixtures"
+  cp "$fx/baev_tomodachi_demo.baev" "$fx/asb_tomodachi_laptop.asb" "$fx/bphcl_tomodachi_tiger.bphcl" "$d/"
+  python3 "$PWD_PROJECT/../tests/mk_switch_misc.py" "$d" >/dev/null 2>&1
+  "$B/wszst" XX "$d/baev_tomodachi_demo.baev" "$d/asb_tomodachi_laptop.asb" "$d/bphcl_tomodachi_tiger.bphcl" \
+    "$d/t.baadr" "$d/t.vtdb2" --overwrite >/dev/null 2>&1
+  if grep -q '^animations: # 3' "$d/baev_tomodachi_demo.baev.yml" 2>/dev/null \
+     && grep -q 'name: "FloorContact"' "$d/baev_tomodachi_demo.baev.yml" \
+     && grep -q 'params: \["Toe_R", \[0.0, 0.0, 0.0\]\]' "$d/baev_tomodachi_demo.baev.yml"; then
+    fok "BAEV animation events -> YAML (nodes, events, hold params)"
+  else
+    fno "BAEV" "unexpected $d/baev_tomodachi_demo.baev.yml"
+  fi
+  if grep -q '^name: "ItemLaptop.root"' "$d/asb_tomodachi_laptop.asb.yml" 2>/dev/null \
+     && grep -q '^commands: # 9' "$d/asb_tomodachi_laptop.asb.yml" \
+     && grep -q 'guid: "44ee4d5e-2115-4cb8-bb2e-9a52799f783a"' "$d/asb_tomodachi_laptop.asb.yml"; then
+    fok "ASB 0x41B animation sequence -> YAML (commands, elements)"
+  else
+    fno "ASB" "unexpected $d/asb_tomodachi_laptop.asb.yml"
+  fi
+  if grep -q '^# Havok tag file (SDK 20230200)' "$d/bphcl_tomodachi_tiger.bphcl.yml" 2>/dev/null \
+     && grep -q 'type: "hclClothContainer"' "$d/bphcl_tomodachi_tiger.bphcl.yml" \
+     && grep -q 'className: "hkaAnimationContainer"' "$d/bphcl_tomodachi_tiger.bphcl.yml" \
+     && grep -q '^type: phcl' "$d/bphcl_tomodachi_tiger.bphcl.param.yml"; then
+    fok "Phive cloth -> Havok tag file YAML + AAMP parameters"
+  else
+    fno "Phive cloth" "unexpected $d/bphcl_tomodachi_tiger.bphcl.yml"
+  fi
+  if grep -q '^outer_volume: 0.25' "$d/t.baadr.yml" 2>/dev/null && grep -q '^inner_angle: 30' "$d/t.baadr.yml"; then
+    fok "AAL AADR directivity -> YAML"
+  else
+    fno "AADR" "unexpected $d/t.baadr.yml"
+  fi
+  if [ "$(cat "$d/t.vtdb2.d/wab.txt" 2>/dev/null)" = "$(printf 'alpha\nbeta')" ] \
+     && [ "$(wc -c < "$d/t.vtdb2.d/p.bin" 2>/dev/null | tr -d ' ')" = 4 ] && [ -f "$d/t.vtdb2.d/db_build.date" ]; then
+    fok "VoiceText vtdb2 -> members (shifted word list decoded)"
+  else
+    fno "VTDB2" "unexpected $d/t.vtdb2.d"
+  fi
+  "$B/wmdlt" DECODE "$fx/bfres_switch_tomodachi_bodyskeleton.bfres" -d "$d/s.glb" --overwrite >/dev/null 2>&1
+  python3 - "$d/pg" "$fx/bfres_switch_tomodachi_penguin.bfres" <<'PY' >/dev/null 2>&1
+import os, sys
+os.makedirs(sys.argv[1], exist_ok=True)
+d = bytearray(open(sys.argv[2], "rb").read())
+a = bytearray(d); a[0x28:0x30] = bytes(8)  # no FMDL: animation-only
+k = bytearray(d); k[0x58:0x60] = bytes(8)  # no FSKA: skeleton model
+open(os.path.join(sys.argv[1], "anim.bfres"), "wb").write(a)
+open(os.path.join(sys.argv[1], "PenguinSkeleton.bfres"), "wb").write(k)
+PY
+  "$B/wmdlt" DECODE "$d/pg/anim.bfres" -d "$d/a.glb" --overwrite >/dev/null 2>&1
+  local r; r=$(python3 - "$d/s.glb" "$d/a.glb" <<'PY' 2>/dev/null
+import json, struct, sys
+out = []
+for f in sys.argv[1:]:
+    d = open(f, "rb").read()
+    j = json.loads(d[20:20 + struct.unpack_from("<I", d, 12)[0]])
+    out.append("%d/%d/%d" % (len(j["nodes"]), len(j.get("meshes", [])), len(j.get("animations", []))))
+print(" ".join(out))
+PY
+)
+  if [ "$r" = "61/0/0 9/1/6" ]; then
+    fok "BFRES Switch skeleton-only model + animation-only archive bound to sibling skeleton"
+  else
+    fno "BFRES Switch skeleton/animation-only" "got '$r', want '61/0/0 9/1/6'"
+  fi
+  rm -rf "$d"
+}
+t_tomo_switch_misc
+
 t_ainb(){
   local d; d=$(mktemp -d /tmp/_r_ainb.XXXXXX) || { fno "AINB" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_ainb.py" "$d/t.ainb" >/dev/null 2>&1 && "$B/wszst" XX "$d/t.ainb" --overwrite >/dev/null 2>&1
