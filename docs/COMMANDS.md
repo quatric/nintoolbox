@@ -426,7 +426,7 @@ pan curves and 3 ms update frames, mixed at the DSP rate of 32 kHz. The sequence
 (`fxsend_a/b/c`) feed the three AUX buses, each running a port of the AXFX effect the game attaches with NW4R's
 `Fx*` classes: ReverbHi (a ReverbHiExp preset on the Wii), ReverbHiExp, ReverbStdExp and DelayExp, plus ChorusExp
 modelled as an LFO-modulated delay. That setup lives in game code, not in the archive. Known archives use the
-values read from their code (Forecast Channel `rev_wtr.brsar`, Wii Speak Channel `MicChatSound.brsar`).
+values read from their code (Forecast Channel `rev_wtr.brsar`, News Channel `rev_news.brsar`, Everybody Votes Channel `rev_enquete.brsar`, Photo Channel `rev_photo.brsar`, Wii Speak Channel `MicChatSound.brsar`).
 Otherwise the SoundMaker effect tables some games ship next to the archive (`FxReverbHi.csv`, `FxReverbStd.csv`,
 `FxDelay.csv`, `FxChorus.csv`; rows marked in the `USE` column are skipped) set up the buses they list. Anything
 else gets the NintendoWare default `FxReverbHi` (pre-delay 0.02 s, 3 s, out gain 1).

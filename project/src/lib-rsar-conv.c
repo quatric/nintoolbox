@@ -1094,6 +1094,17 @@ static const rn_fx_game_t rn_fx_games[] = {
 	{ "rev_wtr.brsar",
 		{ { NWS_FX_NONE }, { NWS_FX_NONE },
 		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f } } },
+	// News Channel and Everybody Votes Channel share the Forecast Channel setup
+	{ "rev_news.brsar",
+		{ { NWS_FX_NONE }, { NWS_FX_NONE },
+		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f } } },
+	{ "rev_enquete.brsar",
+		{ { NWS_FX_NONE }, { NWS_FX_NONE },
+		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f } } },
+	// Photo Channel: same family, more crosstalk and full output
+	{ "rev_photo.brsar",
+		{ { NWS_FX_NONE }, { NWS_FX_NONE },
+		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.2f, 1.0f } } },
 	// Wii Speak Channel: FxChorus on A, FxDelay on B, FxReverbHi (default parameters) on C
 	{ "MicChatSound.brsar",
 		{ { NWS_FX_CHORUS_EXP, .out_gain = 1.0f, .delay = 20.0f, .depth = 0.6f, .rate = 0.1f },

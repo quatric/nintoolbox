@@ -1945,7 +1945,10 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 
 	const int loops = p->loops > 0 ? p->loops : 2;
 	const double fade_sec = p->fade_sec > 0 ? p->fade_sec : 10.0;
-	const double max_sec = p->max_sec > 0 ? p->max_sec : 900.0;
+	double max_sec = p->max_sec > 0 ? p->max_sec : 900.0;
+	const char *max_env = getenv ("NWSEQ_MAX_SEC"); // debugging aid: quick scans of whole archives
+	if (max_env && atof (max_env) > 0 && atof (max_env) < max_sec)
+		max_sec = atof (max_env);
 	const double tail_sec = p->tail_sec > 0 ? p->tail_sec : 15.0;
 	const size_t max_frames = (size_t)(max_sec * 1000 / FRAME_MS);
 	size_t cap = 0, n = 0; // samples (stereo frames)
