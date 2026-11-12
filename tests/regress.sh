@@ -19177,6 +19177,12 @@ PYE
   else
     fno "phx PMSH" "missing or wrong $a/pmsh/0a0b0c0d0e0f1011.glb"
   fi
+  if python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 13 2 60 120 180 255 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 2 3 120 180 0 255 2>/dev/null; then
+    fok "phx 3D PTEX (RGBA8 LUT, Orin block linear in z) -> slice strip PNG"
+  else
+    fno "phx 3D PTEX" "wrong texels in $a/ptex/2233445566778899.png"
+  fi
   "$B/wszst" XX "$d/plain.soundstream" "$d/enc.soundstream" "$d/sfx.psnd" --overwrite >/dev/null 2>&1
   if tail -c +45 "$d/plain.soundstream.d/plain.wav" 2>/dev/null | cmp -s - "$d/plain.pcm" \
      && tail -c +45 "$d/enc.soundstream.d/enc.wav" 2>/dev/null | cmp -s - "$d/plain.pcm" \

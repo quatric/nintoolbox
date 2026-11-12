@@ -11,6 +11,7 @@ Writes:
   Asset/assets.cat         PARC catalog for two assets:
   Asset/assets_a000.dat      PDAT pack 0: a PTEX BODY (4x4 BC1, solid red) + a zstd "PSND" record
   Asset/assets_b000.dat      PDAT pack 1: the PTEX HEAD flatbuffer + a PMSH quad mesh (zero HEAD, Main, GBuf)
+                             and a 4x4x4 RGBA8 3D texture (colour LUT)
   plain.soundstream        Sygnus stream: 2 ch, 600 samples of 4-bit ADPCM (one full + one short block)
   enc.soundstream          the same file AES-192-ECB encrypted as the game ships it
   sfx.psnd                 phx PSND record embedding a 1-channel ADPCM source (Sygnus ASRC bank)
@@ -178,14 +179,14 @@ def xbin_fdg():
 
 # ---------------------------------------------------------------- PARC / PDAT / PTEX
 
-def ptex_head(width, height, fmt):
+def ptex_head(width, height, fmt, depth=1, dim=1):
     h = bytearray(0x48)
     struct.pack_into("<I", h, 0, 0x18)
     h[4:8] = b"PTEX"
     struct.pack_into("<HHHHHH", h, 0x08, 12, 8, 0, 0, 0, 4)  # root vtable: field 3 at +4
     struct.pack_into("<iI", h, 0x18, 0x18 - 0x08, 0x34 - 0x1C)
     struct.pack_into("<HHHHHHHHH", h, 0x20, 18, 20, 0, 4, 8, 12, 14, 16, 17)
-    struct.pack_into("<iIIHHBB", h, 0x34, 0x34 - 0x20, width, height, 1, 1, 1, fmt)
+    struct.pack_into("<iIIHHBB", h, 0x34, 0x34 - 0x20, width, height, depth, 1, dim, fmt)
     return bytes(h)
 
 
@@ -262,6 +263,18 @@ def pmsh_quad():
     return flatbuffer([(3, ("table", geo))], b"PMSH"), bytes(gb)
 
 
+def ptex_lut_body():
+    """4x4x4 RGBA8 3D texture, Orin GOB layout, block height 1, block depth 4: texel = (60x, 60y, 60z)."""
+    body = bytearray(2048)
+    for z in range(4):
+        for y in range(4):
+            for x in range(4):
+                xb = 4 * x
+                o = z * 512 + ((xb % 64) // 32) * 256 + ((y % 8) // 4) * 128 + ((xb % 32) // 16) * 64 + (y % 4) * 16 + xb % 16
+                body[o:o + 4] = bytes([60 * x, 60 * y, 60 * z, 255])
+    return bytes(body)
+
+
 def build_parc(outdir):
     os.makedirs(outdir, exist_ok=True)
     tex_id, snd_id = 0x1122334455667788, 0x0102030405060708
@@ -286,6 +299,8 @@ def build_parc(outdir):
     l_head = add(1, head, False)
     l_body = add(0, bytes(body), False)
     l_snd = add(0, snd, True)
+    l_lhead = add(1, ptex_head(4, 4, 0x01, depth=4, dim=2), False)
+    l_lbody = add(0, ptex_lut_body(), False)
     msh_main, msh_gbuf = pmsh_quad()
     l_mhead = add(1, bytes(12), False)
     l_mmain = add(1, msh_main, False)
@@ -301,6 +316,7 @@ def build_parc(outdir):
     assets = [  # (id, blocks [(tag, sub, loc)])
         (tex_id, [("HEAD", 0, l_head), ("BODY", 0, l_body)]),
         (snd_id, [("Main", 0, l_snd)]),
+        (0x2233445566778899, [("HEAD", 0, l_lhead), ("BODY", 0, l_lbody)]),
         (0x0A0B0C0D0E0F1011, [("HEAD", 0, l_mhead), ("GBuf", 0, l_mgbuf), ("Main", 0, l_mmain)]),
     ]
     recs = []

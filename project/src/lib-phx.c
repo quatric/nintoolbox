@@ -440,6 +440,7 @@ typedef struct ptex_fmt_t
 // signed variants), ASTC UNORM 4x4..12x12 is 0x29..0x36 and ASTC sRGB 0x37..0x44.
 #define ASTC(code, w, h, fmt, type, nm) { code, (fmt) << 8 | (type), w, h, 16, nm }
 static const ptex_fmt_t ptex_formats[] = {
+	{ 0x01, 0x0b01, 1, 1, 4, "RGBA8" },
 	{ 0x02, 0x0b06, 1, 1, 4, "RGBA8_SRGB" },
 	{ 0x0b, 0x1505, 1, 1, 8, "RGBA16F" },
 	{ 0x15, 0x1905, 1, 1, 16, "RGBA32F" },
@@ -537,6 +538,55 @@ static uint ptex_block_height (const ptex_info_t *pi, const ptex_fmt_t *f, uint 
 	return std;
 }
 
+// 3D textures (colour-grading LUTs: 33x33x33 RGBA8) are block linear in x, y and z on the
+// Orin GOB layout. Block height and depth are not stored; take the smallest block height whose
+// layout fills the body exactly. Output: the depth slices side by side (width * depth x height).
+static uint ptex_gob_orin (uint xb, uint y)
+{
+	return ((xb % 64) / 32) * 256 + ((y % 8) / 4) * 128 + ((xb % 32) / 16) * 64 + (y % 4) * 16 + (xb % 16);
+}
+
+static enumError ptex_decode_3d (u8 **dest, uint *width, uint *height, const ptex_info_t *pi,
+	const ptex_fmt_t *f, const u8 *body, uint body_size)
+{
+	if (f->bw != 1 || f->bh != 1 || f->bpb != 4 || pi->depth > 512 || pi->width * pi->depth > 65536)
+		return ERROR0 (ERR_INVALID_IFORM, "PTEX: 3D %s textures are not supported (%ux%ux%u)\n", f->name,
+			pi->width, pi->height, pi->depth);
+	const uint W = pi->width, H = pi->height, D = pi->depth, gw = (W * 4 + 63) / 64;
+	uint bh = 0, bd = 0;
+	for (uint h = 1; h <= 16 && !bh; h <<= 1)
+		for (uint dz = 32; dz >= 1; dz >>= 1)
+		{
+			const u64 gh = (H + 8 * h - 1) / (8 * h), gd = (D + dz - 1) / dz;
+			if ((u64)gw * gh * gd * 512 * h * dz == body_size)
+			{
+				bh = h;
+				bd = dz;
+				break;
+			}
+		}
+	if (!bh)
+		return ERROR0 (ERR_INVALID_DATA, "PTEX: no 3D block layout fits %u bytes (%ux%ux%u)\n", body_size, W, H, D);
+	const uint gh = (H + 8 * bh - 1) / (8 * bh);
+	u8 *out = MALLOC ((size_t)W * D * H * 4);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	const size_t blk = (size_t)512 * bh * bd;
+	for (uint z = 0; z < D; z++)
+		for (uint y = 0; y < H; y++)
+			for (uint x = 0; x < W; x++)
+			{
+				const uint xb = x * 4;
+				const size_t bi = ((size_t)(z / bd) * gh + y / (8 * bh)) * gw + xb / 64;
+				const size_t o = bi * blk + ((size_t)(z % bd) * bh + (y % (8 * bh)) / 8) * 512 + ptex_gob_orin (xb, y);
+				memcpy (out + (((size_t)y * W * D) + (size_t)z * W + x) * 4, body + o, 4);
+			}
+	*dest = out;
+	*width = W * D;
+	*height = H;
+	return ERR_OK;
+}
+
 enumError DecodePTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *head, uint head_size,
 	const u8 *body, uint body_size, ccp *format_name)
 {
@@ -549,6 +599,9 @@ enumError DecodePTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *head,
 	if (!f)
 		return ERROR0 (ERR_INVALID_IFORM, "PTEX: unknown texture format 0x%02x (%ux%u)\n", pi.format,
 			pi.width, pi.height);
+
+	if (pi.depth > 1)
+		return ptex_decode_3d (dest, width, height, &pi, f, body, body_size);
 
 	const uint bhl = ptex_block_height (&pi, f, body_size);
 
