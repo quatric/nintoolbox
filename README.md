@@ -298,6 +298,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BREFT** | `.breft`, `.bt-img` | Wii |
 | **BTGA / LGA** | `.btga`, `.lga` | LEGO 3DS titles |
 | **BTI / TPL** | `.bti`, `.tpl` | GameCube / Wii |
+| **Rhythm Heaven Groove textures / sprite sets (TEX / SPR)** | `.tex`, `.spr` | *Rhythm Heaven Groove* |
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | *Mario Golf: Toadstool Tour*, *Mario Power Tennis*, *We Love Golf!* |
 | **CAN** | `.can` | *Excite Truck*, *ExciteBots* |
 | **CMAB** | `.cmab` | *Ocarina of Time 3D*, *Majora's Mask 3D* |
@@ -367,6 +368,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **EID** | `.eid` | *I Spy Spooky Mansion* |
 | **NGCSD (`_NGCSD02`)** | `.ngcsd` | *Totally Spies! Totally Party* (unpacked from BIGFILE members) |
 | **NUS3AUDIO** | `.nus3audio`, `.nus3bank` | *Super Smash Bros. Ultimate* |
+| **Rhythm Heaven Groove sound / tempo map (CWV / WMB)** | `.cwv`, `.wmb` | *Rhythm Heaven Groove* |
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | Wii / 3DS / Wii U / DS |
 | **SADL** | `.sad`, `.sadl` | *Professor Layton* |
 | **SDAT** | `.sdat` | DS |
@@ -382,7 +384,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **AAMP** | `.aamp` | Wii U / Switch |
 | **AGL parameters (AAMP)** | `.baglenv`, `.baglsky`, `.bgsdw`, other `.bagl*` | Switch titles, *Mario Kart World* |
 | **BCLYT / BCLAN** | `.bclyt`, `.bclan` | 3DS |
-| **BFLYT / BFLAN** | `.bflyt`, `.bflan` | Wii U |
+| **BFLYT / BFLAN** | `.bflyt`, `.bflan` | Wii U / Switch |
 | **BGLPBD** | `.bglpbd` | Wii U / Switch |
 | **BMG** | `.bmg` | GameCube / Wii |
 | **BRLYT / BRLAN** | `.brlyt`, `.brlan` | *Super Mario 3D All-Stars* |

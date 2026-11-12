@@ -1806,16 +1806,22 @@ static enumError BFTreeLoadXML (ccp text, bf_node_t *root)
 static const char *const WRAPS[8] = { "Near-Clamp", "Near-Repeat", "Near-Mirror", "GX2-Mirror-Once",
 	"Clamp", "Repeat", "Mirror", "GX2-Mirror-Once-Border" };
 
-static const char *const MAPPING_METHODS[5]
-	= { "UV-Mapping", "", "", "Orthogonal-Projection", "PaneBasedProjection" };
+// 5-7 only occur in Switch (FLYT >= 8.0) layouts, e.g. Tomodachi Life: Living
+// the Dream; 5 matches the 3DS TexCoordGen "Perspective-Projection" source,
+// 6/7 have no confirmed name and keep their number.
+static const char *const MAPPING_METHODS[8] = { "UV-Mapping", "", "", "Orthogonal-Projection",
+	"PaneBasedProjection", "Perspective-Projection", "6", "7" };
 
 // 3DS mat1 TexCoordGen source (distinct from the Wii MAPPING_METHODS above --
 // verified against Gericom/EveryFileExplorer's mat1.cs reference decoder)
 static const char *const TEXCOORD_GEN_SOURCE[6] = { "Tex0", "Tex1", "Tex2", "Orthogonal-Projection",
 	"PaneBasedProjection", "Perspective-Projection" };
 
-static const char *const COLOR_BLENDS[12] = { "Overwrite", "Multiply", "Add", "Exclude", "4",
-	"Subtract", "Dodge", "Burn", "Overlay", "Indirect", "Blend-Indirect", "Each-Indirect" };
+// 12-15: further combiner modes seen only in Switch layouts (13 in Tomodachi
+// Life: Living the Dream); unnamed, kept as numbers.
+static const char *const COLOR_BLENDS[16]
+	= { "Overwrite", "Multiply", "Add", "Exclude", "4", "Subtract", "Dodge", "Burn", "Overlay",
+		  "Indirect", "Blend-Indirect", "Each-Indirect", "12", "13", "14", "15" };
 
 static const char *const BLENDS[2] = { "Max", "Min" };
 
@@ -2257,10 +2263,19 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				}
 				const u8 *coloroffsets = d + ptr;
 				ptr += colorcount;
+				// The color values follow the offset bytes (offsets are relative
+				// to cpos); the texref/SRT/... records start after the last one.
+				// Leaving ptr on the color data made texref-0 read the first
+				// color's bytes -- harmless for {0,0,0,0} but rejected (wrap >= 8)
+				// on Tomodachi Life: Living the Dream's Button_* layouts.
+				uint colorend = (ptr + 3) & ~3u;
 				for (uint c = 0; c < colorcount; c++)
 				{
 					uint coff = cpos + coloroffsets[c];
 					u8 ctype = (colortype >> c) & 1;
+					uint cend = coff + (ctype ? 16 : 4);
+					if (cend > colorend)
+						colorend = cend;
 					char ckey[24];
 					if (c == 0)
 						strcpy (ckey, "foreground-color");
@@ -2296,6 +2311,7 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 						BFE (BFNodeSetFloat (color, "a", rdf32 (d + coff + 12, ctx->be)));
 					}
 				}
+				ptr = colorend;
 			}
 			else
 			{
@@ -2406,7 +2422,7 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 					return ERR_INVALID_DATA;
 				}
 				u8 method = d[ptr + 1];
-				if (method >= 5)
+				if (method >= 8)
 				{
 					FREE (offsets);
 					return ERR_INVALID_DATA;
@@ -2431,7 +2447,7 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 					return ERR_INVALID_DATA;
 				}
 				u8 cb = d[ptr], ab = d[ptr + 1];
-				if (cb >= 12 || ab >= 2)
+				if (cb >= 16 || ab >= 2)
 				{
 					FREE (offsets);
 					return ERR_INVALID_DATA;
@@ -2542,6 +2558,48 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				BFE (BFNodeSetFloat (fn, "Y-warp", rdf32 (d + ptr, ctx->be)));
 				ptr += 4;
 			}
+			// Switch (FLYT >= 8.0) flag bit 19: a 28-byte block plus 16 bytes per
+			// combiner stage, stored between the blend modes and the projection
+			// mappings (byte-accounted on all 52 such materials in Tomodachi
+			// Life: Living the Dream, whose projection structs follow it). The
+			// fields are not decoded; the bytes are kept as hex.
+			if (ctx->version_major >= 8 && (flags >> 19) & 1)
+			{
+				const uint dc_size = 28 + 16 * combiners;
+				if (!rb_ok (ctx, ptr, dc_size))
+				{
+					FREE (offsets);
+					return ERR_INVALID_DATA;
+				}
+				bf_node_t *fn = BFNodeSetNode (mat, "detailed-combiner");
+				if (!fn)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				char *hex = bf_hex_encode (d + ptr, 28);
+				if (!hex)
+				{
+					FREE (offsets);
+					return ERR_OUT_OF_MEMORY;
+				}
+				BFE (BFNodeSetStr (fn, "header", hex));
+				FREE (hex);
+				for (uint k = 0; k < combiners; k++)
+				{
+					char key[24];
+					snprintf (key, sizeof (key), "stage-%u", k);
+					hex = bf_hex_encode (d + ptr + 28 + 16 * k, 16);
+					if (!hex)
+					{
+						FREE (offsets);
+						return ERR_OUT_OF_MEMORY;
+					}
+					BFE (BFNodeSetStr (fn, key, hex));
+					FREE (hex);
+				}
+				ptr += dc_size;
+			}
 			for (uint k = 0; k < projection; k++)
 			{
 				if (!rb_ok (ctx, ptr, 20))
@@ -2617,6 +2675,27 @@ static enumError r_mat1 (bf_rctx_t *ctx, const u8 *d, uint size)
 				}
 				BFE (rb_color (ctx, d, size, ptr + 3, col));
 				ptr += 8;
+			}
+			// Switch flag bits 20 (116 bytes) and 24 (88 bytes) add trailing
+			// data with no known layout; keep whatever is left of the record.
+			if (ctx->version_major >= 8)
+			{
+				uint rec_end = size;
+				for (uint k = 0; k < num; k++)
+					if (offsets[k] > offsets[i] && offsets[k] < rec_end)
+						rec_end = offsets[k];
+				if (ptr < rec_end)
+				{
+					char *hex = bf_hex_encode (d + ptr, rec_end - ptr);
+					if (!hex)
+					{
+						FREE (offsets);
+						return ERR_OUT_OF_MEMORY;
+					}
+					BFE (BFNodeSetStr (mat, "unparsed", hex));
+					FREE (hex);
+					ptr = rec_end;
+				}
 			}
 		}
 		FREE (offsets);
@@ -4415,7 +4494,7 @@ static enumError p_mat_item_wiiu (bf_buf_t *b, bf_pctx_t *ctx, ccp itemtype, con
 
 	if (!strcmp (itemtype, "mapping-setting"))
 	{
-		int method = bf_str_index (MAPPING_METHODS, 5, bf_get_str (node, "method"));
+		int method = bf_str_index (MAPPING_METHODS, 8, bf_get_str (node, "method"));
 		if (method < 0)
 			return ERR_INVALID_DATA;
 		BFE (bf_buf_u8 (b, (u8)bf_get_int (node, "unknown", 0)));
@@ -4426,7 +4505,7 @@ static enumError p_mat_item_wiiu (bf_buf_t *b, bf_pctx_t *ctx, ccp itemtype, con
 
 	if (!strcmp (itemtype, "texture-combiner"))
 	{
-		int color = bf_str_index (COLOR_BLENDS, 12, bf_get_str (node, "color-blending"));
+		int color = bf_str_index (COLOR_BLENDS, 16, bf_get_str (node, "color-blending"));
 		int alpha = bf_str_index (BLENDS, 2, bf_get_str (node, "alpha-blending"));
 		if (color < 0 || alpha < 0)
 			return ERR_INVALID_DATA;

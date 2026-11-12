@@ -18881,6 +18881,36 @@ t_aal(){
 }
 t_aal
 
+t_rhgroove(){
+  local d; d=$(mktemp -d /tmp/_r_rhg.XXXXXX) || { fno "Rhythm Heaven Groove" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_rhgroove.py" "$d" >/dev/null 2>&1 || { fno "RHG fixtures" "build failed"; rm -rf "$d"; return; }
+  for f in t.cwv t.wmb t.tex t.spr v9.bflyt; do "$B/wszst" XX "$d/$f" --overwrite >/dev/null 2>&1; done
+  local pcm; pcm=$(od -An -tx1 -j44 -N16 "$d/t.wav" 2>/dev/null | tr -d ' \n')
+  if [ "$pcm" = "0200feff0400fcff0c00fcff0a00feff" ] && grep -q "smpl" "$d/t.wav"; then
+    fok "RHG .cwv DPCM -> WAV (stereo, loop)"
+  else
+    fno "RHG .cwv" "unexpected PCM '$pcm' in $d/t.wav"
+  fi
+  if grep -q "bpm: 120.000" "$d/t.wmb.yml" 2>/dev/null && grep -q -- "- \[-40, 6, 37, 37\]" "$d/t.spr.yml" 2>/dev/null; then
+    fok "RHG .wmb tempo map / .spr rectangles -> YAML"
+  else
+    fno "RHG .wmb/.spr" "unexpected $d/t.wmb.yml / t.spr.yml"
+  fi
+  if python3 "$PNGTOOL" pixel "$d/t.tex.png" 3 2 48 64 0 255 >/dev/null 2>&1 \
+     && python3 "$PNGTOOL" pixel "$d/t.tex.png" 15 7 240 224 0 255 >/dev/null 2>&1; then
+    fok "RHG .tex block-linear RGBA8 -> PNG"
+  else
+    fno "RHG .tex" "unexpected $d/t.tex.png"
+  fi
+  if grep -q "detailed-combiner" "$d/v9.bflyt.xml" 2>/dev/null && grep -q "b.bflim" "$d/v9.bflyt.xml" && grep -q ">13<" "$d/v9.bflyt.xml"; then
+    fok "BFLYT 9.0 material colors, combiner mode 13, flag-19 block"
+  else
+    fno "BFLYT 9.0 material" "unexpected $d/v9.bflyt.xml"
+  fi
+  rm -rf "$d"
+}
+t_rhgroove
+
 t_ainb(){
   local d; d=$(mktemp -d /tmp/_r_ainb.XXXXXX) || { fno "AINB" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_ainb.py" "$d/t.ainb" >/dev/null 2>&1 && "$B/wszst" XX "$d/t.ainb" --overwrite >/dev/null 2>&1

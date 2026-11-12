@@ -244,7 +244,7 @@ static enumError decode_bflyt_if_possible (ccp arg)
 		return ERR_NOTHING_TO_DO;
 	}
 	if (raw.fform != FF_BFLYT && raw.fform != FF_BCLYT && raw.fform != FF_BRLYT
-		&& raw.fform != FF_BRLAN)
+		&& raw.fform != FF_BRLAN && raw.fform != FF_BFLAN && raw.fform != FF_BCLAN)
 	{
 		ResetRawData (&raw);
 		return ERR_NOTHING_TO_DO;

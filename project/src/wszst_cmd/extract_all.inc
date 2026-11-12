@@ -467,6 +467,7 @@
 #include "extract/nds_strm.inc"
 #include "extract/switch_opus.inc"
 #include "extract/bwav.inc"
+#include "extract/rhgroove.inc"
 #include "extract/brstm_stream.inc"
 #include "extract/phive.inc"
 #include "extract/tera.inc"
