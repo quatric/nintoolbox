@@ -6,7 +6,7 @@ static enumError extract_sar_file (ccp arg, ccp basedir, uint depth)
 		&& !is_ext (arg, ".bfwar") && !is_ext (arg, ".bcgrp") && !is_ext (arg, ".bfgrp")
 		&& !is_ext (arg, ".csar") && !is_ext (arg, ".fsar") && !is_ext (arg, ".cwar")
 		&& !is_ext (arg, ".fwar") && !is_ext (arg, ".cgrp") && !is_ext (arg, ".fgrp")
-		&& !is_ext (arg, ".bin") && !is_ext (arg, ".arc"))
+		&& !is_ext (arg, ".fsst") && !is_ext (arg, ".bin") && !is_ext (arg, ".arc"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

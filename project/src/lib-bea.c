@@ -30,6 +30,7 @@ static inline bool bea_fits (u64 off, u64 need, uint size)
 //-----------------------------------------------------------------------------
 
 ccp BEA_SETUP_FILE = "bea-setup.txt";
+ccp BEA_FILE_SUFFIX = ".@file";
 
 bool IsBEA (const u8 *data, uint size)
 {
@@ -130,13 +131,14 @@ static enumError scan_bea_file (bea_file_t *f, const u8 *data, uint size, u64 as
 	ccp name = load_bea_string (data, size, rd_le64 (data + p));
 	p += 8;
 	(void)name_str_off;
-	if (!name || !bea_fits (file_offset, file_size, size))
-	{
-		FREE ((void *)name);
+	if (!name)
 		return ERR_INVALID_DATA;
-	}
 
+	// Keep the name on a data failure so ScanBEA() can report which member was
+	// lost (truncated dumps are common) instead of rejecting the whole archive.
 	f->name = name;
+	if (!bea_fits (file_offset, file_size, size))
+		return ERR_INVALID_DATA;
 	f->size = uncompressed_size;
 	f->is_compressed = uncompressed_size != file_size;
 
@@ -144,11 +146,14 @@ static enumError scan_bea_file (bea_file_t *f, const u8 *data, uint size, u64 as
 	{
 		u8 *dec = 0;
 		uint dec_size = 0;
+		// zero-filled / sparse regions of a damaged dump: no frame magic, so skip
+		// quietly rather than let the decoder print one error per member
+		if (file_size < 4 || rd_le32 (data + file_offset) != 0xFD2FB528u)
+			return ERR_INVALID_DATA;
 		const enumError derr = DecodeZSTD (&dec, &dec_size, data + file_offset, file_size);
 		if (derr || !dec || dec_size != uncompressed_size)
 		{
 			FREE (dec);
-			FREE ((void *)f->name);
 			return ERR_INVALID_DATA;
 		}
 		f->data = dec;
@@ -248,6 +253,7 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 		}
 	}
 
+	uint n_skipped = 0;
 	bea->n_files = file_count;
 	bea->files = CALLOC (file_count, sizeof (bea_file_t));
 	for (u32 i = 0; i < file_count; i++)
@@ -262,9 +268,25 @@ enumError ScanBEA (bea_archive_t *bea, const u8 *data, uint size)
 			= scan_bea_file (&bea->files[i], data, size, asst_off, bea->version_major2);
 		if (err)
 		{
-			ResetBEA (bea);
-			return err;
+			if (!bea->files[i].name)
+			{
+				ResetBEA (bea);
+				return err;
+			}
+			fprintf (stderr, "BEA: skipping unreadable member (truncated or corrupt): %s\n",
+				bea->files[i].name);
+			FREE ((void *)bea->files[i].name);
+			memset (&bea->files[i], 0, sizeof (bea->files[i]));
+			n_skipped++;
 		}
+		else if (n_skipped)
+			bea->files[i - n_skipped] = bea->files[i], memset (&bea->files[i], 0, sizeof (bea->files[i]));
+	}
+	bea->n_files -= n_skipped;
+	if (!bea->n_files)
+	{
+		ResetBEA (bea);
+		return ERR_INVALID_DATA;
 	}
 	return ERR_OK;
 }
@@ -1183,6 +1205,12 @@ enumError create_bea_dir (ccp source, ccp dest)
 		{
 			bea_file_t *bf = &bea.files[i];
 			bf->name = list.entry[i].name;
+			{
+				// undo the extractor's file-vs-directory name parking
+				size_t sl = strlen (BEA_FILE_SUFFIX), nl = strlen (bf->name);
+				if (nl > sl && !strcmp (bf->name + nl - sl, BEA_FILE_SUFFIX))
+					((char *)bf->name)[nl - sl] = 0;
+			}
 			bf->data = (u8 *)list.entry[i].data;
 			bf->size = list.entry[i].size;
 			list.entry[i].name = 0; // ownership moved into bf->name/bf->data

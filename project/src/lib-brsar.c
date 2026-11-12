@@ -1243,6 +1243,10 @@ enumError UnpackBRSAREx (const u8 *data, size_t size, ccp out_dir, bool recursiv
 		// "SYMB" -- confirmed against real Wii U BFSAR archives (Splatoon).
 		// Accept either tag; the block content layout read by
 		// UnpackBrsarContent() is unaffected by which 4-byte tag precedes it.
+		// Offsets come straight from the file: bound them before touching data[]
+		if ((size_t)symb_offs + 8 > size || (size_t)info_offs + 8 > size
+			|| (size_t)file_offs + 8 > size)
+			return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: section offset outside archive\n");
 		if (!symb_offs
 			|| (memcmp (data + symb_offs, "SYMB", 4) && memcmp (data + symb_offs, "STRG", 4)))
 			return ERROR0 (ERR_INVALID_DATA, "UnpackBRSAR: missing SYMB/STRG section\n");

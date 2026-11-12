@@ -84,6 +84,21 @@ static enumError extract_bea_file (ccp arg, ccp basedir, uint depth)
 				snprintf (safe_name, sizeof (safe_name), "%04u.bin", i);
 				name = safe_name;
 			}
+			// A member can also be the directory part of another member's path
+			// (Switch 2 "layout.lyt" next to "layout.lyt/textures/..."). Park
+			// the file under BEA_FILE_SUFFIX so both fit on disk; repacking strips it.
+			char dir_safe[PATH_MAX];
+			size_t nlen = strlen (name);
+			for (uint j = 0; j < bea.n_files; j++)
+			{
+				ccp o = bea.files[j].name;
+				if (j != i && o && !strncmp (o, name, nlen) && o[nlen] == '/')
+				{
+					snprintf (dir_safe, sizeof (dir_safe), "%s%s", name, BEA_FILE_SUFFIX);
+					name = dir_safe;
+					break;
+				}
+			}
 			char path[PATH_MAX];
 			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 			File_t F;

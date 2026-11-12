@@ -88,6 +88,7 @@ enumError CreateBEA (u8 **dest, uint *dest_size, bea_archive_t *bea);
 //-----------------------------------------------------------------------------
 
 extern ccp BEA_SETUP_FILE;
+extern ccp BEA_FILE_SUFFIX; // member that is also a directory prefix
 bool looks_like_bea_dir (ccp dir);
 enumError create_bea_dir (ccp source, ccp dest);
 
