@@ -491,6 +491,7 @@
 #include "extract/nds_zsd.inc"
 #include "extract/ish_isd.inc"
 #include "extract/hudson_pdt.inc"
+#include "extract/kt_wiibgm.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
