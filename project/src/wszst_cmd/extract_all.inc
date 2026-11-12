@@ -485,6 +485,7 @@
 #include "extract/nds_sadl.inc"
 #include "extract/gcdsp_misc.inc"
 #include "extract/gcub.inc"
+#include "extract/nds_hwas.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
