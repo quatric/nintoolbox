@@ -12,7 +12,8 @@ enumError DecodeDiff8 (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	if (!dest || !dest_size || !src || src_size < 4 || src[0] != 0x80)
 		return EINVAL;
 	const uint uncomp_size = ((uint)src[1]) | ((uint)src[2] << 8) | ((uint)src[3] << 16);
-	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT || src_size < 4 + uncomp_size)
+	if (!uncomp_size || uncomp_size > NFMT_MAX_OUTPUT || src_size < 4 + uncomp_size
+		|| src_size > 4 + uncomp_size + 3) // a real stream is size+4 (at most padded to 4); anything longer is a false positive
 		return EINVAL;
 
 	enumError err = AllocOutput (dest, dest_size, uncomp_size);
