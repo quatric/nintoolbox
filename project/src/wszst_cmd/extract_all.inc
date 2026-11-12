@@ -497,6 +497,7 @@
 #include "extract/sdd.inc"
 #include "extract/ads_midway.inc"
 #include "extract/gsnd.inc"
+#include "extract/rwsd_single.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
