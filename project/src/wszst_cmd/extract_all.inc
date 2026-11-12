@@ -502,6 +502,7 @@
 #include "extract/rwsd_single.inc"
 #include "extract/wayforward_wave.inc"
 #include "extract/wavebatch.inc"
+#include "extract/idsp_ie.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
