@@ -30,12 +30,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	enumError err = extract_nup_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
-	err = extract_pdat_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_parc_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
 	err = extract_addpac_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -181,6 +175,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_i3ds_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_nds_zsd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_ish_isd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_bwav_file (arg, basedir, depth);
@@ -760,9 +760,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_bnvib_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_xbin_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_ptex_file (arg, basedir, depth);
