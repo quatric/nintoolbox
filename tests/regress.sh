@@ -18911,6 +18911,22 @@ t_rhgroove(){
 }
 t_rhgroove
 
+t_xlnk(){
+  local d; d=$(mktemp -d /tmp/_r_xlnk.XXXXXX) || { fno "XLNK" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_xlnk.py" "$d/t.belnk" >/dev/null 2>&1 || { fno "XLNK fixture" "build failed"; rm -rf "$d"; return; }
+  "$B/wszst" XX "$d/t.belnk" --overwrite >/dev/null 2>&1
+  local y="$d/t.belnk.yml"
+  if grep -q '^  - name: "TestUser"' "$y" 2>/dev/null && grep -q 'switch-on: "Mode"' "$y" \
+     && grep -q 'condition: {compare: "==", value: 1}' "$y" && grep -q '"AssetName": "SE_Test"' "$y" \
+     && grep -q '"Volume": 0.5' "$y" && grep -q 'start-frame: 5' "$y" && grep -q 'one-shot: true' "$y"; then
+    fok "XLNK 0x24 effect link -> YAML (switch, condition, params, action trigger)"
+  else
+    fno "XLNK" "unexpected $y"
+  fi
+  rm -rf "$d"
+}
+t_xlnk
+
 t_ainb(){
   local d; d=$(mktemp -d /tmp/_r_ainb.XXXXXX) || { fno "AINB" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_ainb.py" "$d/t.ainb" >/dev/null 2>&1 && "$B/wszst" XX "$d/t.ainb" --overwrite >/dev/null 2>&1

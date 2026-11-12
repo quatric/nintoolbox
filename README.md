@@ -417,6 +417,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **SDF** | `.sdf` | *I Spy Spooky Mansion* |
 | **TSCB** | `.tscb` | *Mario Kart World* |
 | **VISLIST** | `.vis` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
+| **XLNK (XLink2 effect / sound links)** | `.belnk`, `.bslnk` | Switch (*Tears of the Kingdom*-era layout checked on *Tomodachi Life: Living the Dream*) |
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **ZEN** | `.zen` | *Mercury Meltdown Revolution* |
