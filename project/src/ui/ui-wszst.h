@@ -290,6 +290,7 @@ typedef enum enumOptions
 	OPT_MIDI_DECLICK,
 	OPT_MIDI_REVERB,
 	OPT_MIDI_FORMAT,
+	OPT_SOUND_FX,
 	OPT_WITH_7Z,
 	OPT_WITH_NSZ,
 	OPT_WITH_VGMTRANS,
@@ -327,7 +328,7 @@ typedef enum enumOptions
 	OPT_NEW,
 	OPT_EXTRACT,
 
-	OPT__N_TOTAL // == 266
+	OPT__N_TOTAL // == 267
 
 } enumOptions;
 
@@ -1438,6 +1439,7 @@ typedef enum enumGetOpt
 	GO_MIDI_DECLICK,
 	GO_MIDI_REVERB,
 	GO_MIDI_FORMAT,
+	GO_SOUND_FX,
 	GO_WITH_7Z,
 	GO_WITH_NSZ,
 	GO_WITH_VGMTRANS,

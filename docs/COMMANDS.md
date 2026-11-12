@@ -429,8 +429,10 @@ modelled as an LFO-modulated delay. That setup lives in game code, not in the ar
 values read from their code (Forecast Channel `rev_wtr.brsar`, Wii Speak Channel `MicChatSound.brsar`).
 Otherwise the SoundMaker effect tables some games ship next to the archive (`FxReverbHi.csv`, `FxReverbStd.csv`,
 `FxDelay.csv`, `FxChorus.csv`; rows marked in the `USE` column are skipped) set up the buses they list. Anything
-else gets the NintendoWare default `FxReverbHi` (pre-delay 0.02 s, 3 s, out gain 1). `NWSEQ_FX=0`
-renders dry. Looping music plays the loop twice
+else gets the NintendoWare default `FxReverbHi` (pre-delay 0.02 s, 3 s, out gain 1).
+`--sound-fx` changes this: `none` renders dry, and `BUS=EFFECT[,KEY=VALUE...]` items separated by `;`
+replace or adjust single buses, e.g. `--sound-fx "A=reverbstd,fused=hall,time=2,out=0.8;B=none"` or
+`--sound-fx "C=out=0.3"` (only lowers the automatic reverb on bus C). `wszst --help` lists the keys. Looping music plays the loop twice
 and fades out over 10 s. `sequences.tsv` marks these sounds `native` in its third column, and the
 SoundFont renderer leaves them alone. `wszst xx <archive>.d/midi/<sound>.mid` on one of them renders
 that sound again natively from the source archive `<archive>` if its audio is missing (or with

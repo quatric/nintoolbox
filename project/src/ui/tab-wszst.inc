@@ -2168,6 +2168,25 @@
 		" smaller than @'wav'@ (needs the external {flac} tool, otherwise WAV is"
 		" kept); macOS Quick Look plays both. Default is @'flac'@." },
 
+  { T_OPT_GP,	"SOUND_FX",	"sound-fx|soundfx",
+		"spec",
+		"AUX effects of natively rendered NintendoWare sequences. @'auto'@ (the"
+		" default) uses the setup known for the archive, else the SoundMaker"
+		" effect tables (Fx*.csv) next to it, else the NintendoWare default"
+		" reverb. @'none'@ renders dry. Otherwise a list of"
+		" @'BUS=EFFECT[,KEY=VALUE...]'@ separated by @';'@ overrides single buses"
+		" (BUS is A, B, C or ALL; no BUS means ALL). EFFECT is @'none'@,"
+		" @'default'@, @'reverb'@ (classic AXFX ReverbHi), @'reverbhi'@,"
+		" @'reverbstd'@, @'delay'@ or @'chorus'@ ({...exp} names work too). KEY"
+		" is @'predelay'@ (s), @'time'@ (s), @'coloration'@, @'damping'@,"
+		" @'crosstalk'@, @'out'@ (out gain; the wet/dry mix of @'reverb'@),"
+		" @'early'@ (5-40 ms), @'fused'@ (oldaxfx, metaltank, smallroom,"
+		" largeroom, hall, cavernous), @'earlygain'@, @'fusedgain'@,"
+		" @'delay'@ (ms), @'feedback'@, @'lpf'@, @'depth'@ or @'rate'@ (Hz)."
+		" An effect without keys starts from its NintendoWare defaults; a bus"
+		" given only keys (@'C=out=0.3'@) changes the automatic setup."
+		" Example: @'--sound-fx \"A=reverbstd,fused=hall,time=2;B=none\"'@." },
+
   { T_OPT_GP,	"WITH_7Z",	"with-7z|7z",
 		"path",
 		"Set the external 7-Zip extraction tool (7z, 7zz, 7za, unar). Default: '7z'." },

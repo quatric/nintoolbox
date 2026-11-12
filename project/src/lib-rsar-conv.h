@@ -37,6 +37,10 @@ extern bool RSARRenderAudio;
 // (FxReverbHi.csv, FxReverbStd.csv, FxDelay.csv, FxChorus.csv) next to the archive.
 extern ccp RSARSourcePath;
 
+// --sound-fx: "auto" / NULL (see RSARSourcePath), "none", or "BUS=EFFECT[,KEY=VALUE...];..." overrides
+// (syntax in the wszst help). Applied on top of the automatic setup.
+extern ccp RSARSoundFx;
+
 // When set to a MIDI file stem from sequences.tsv (without ".mid"), ConvertRSARNative() and ConvertFSARNative() only
 // render that one sequence (into <out_dir>/midi/<stem>.wav); no MIDI, SoundFont or manifest is written.
 extern ccp RSARRenderOnly;

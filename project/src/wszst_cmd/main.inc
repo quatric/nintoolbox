@@ -654,6 +654,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				if (g_midi_reverb > 100)
 					g_midi_reverb = 100;
 				break;
+			case GO_SOUND_FX:
+				RSARSoundFx = optarg;
+				break;
 			case GO_MIDI_FORMAT:
 				opt_midi_format = optarg;
 				break;

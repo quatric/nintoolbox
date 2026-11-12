@@ -1076,6 +1076,7 @@ static void rb_write_file (ccp path, const u8 *d, size_t n)
 void (*RSARRenderedHook) (ccp wav_path) = 0;
 bool RSARRenderAudio = false;
 ccp RSARSourcePath = 0;
+ccp RSARSoundFx = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // AUX effect setup for the native renderer. The effects (FxReverbHi, FxDelay, ...) are created by
@@ -1102,7 +1103,8 @@ static const rn_fx_game_t rn_fx_games[] = {
 
 static nws_fx_t rn_fx[3];
 static bool rn_fx_set[3];
-static char rn_fx_for[PATH_MAX]; // source path the setup was resolved for
+static char rn_fx_for[PATH_MAX + 1100]; // source path + --sound-fx the setup was resolved for
+static void rn_fx_auto (ccp src);
 
 static int rn_csv_split (char *line, char **col, int max)
 {
@@ -1191,13 +1193,152 @@ static void rn_fx_load_csv (ccp dir, ccp file, int type)
 	fclose (f);
 }
 
+// --sound-fx: starting values of an effect named in the spec
+static bool rn_fx_named (ccp name, nws_fx_t *fx)
+{
+	*fx = NWSeqDefaultFx;
+	if (!strcasecmp (name, "default"))
+		return true;
+	if (!strcasecmp (name, "none") || !strcasecmp (name, "off") || !strcasecmp (name, "dry"))
+		return fx->type = NWS_FX_NONE, true;
+	if (!strcasecmp (name, "reverb") || !strcasecmp (name, "classic"))
+	{
+		const nws_fx_t c = { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f };
+		return *fx = c, true;
+	}
+	if (!strcasecmp (name, "reverbhi") || !strcasecmp (name, "reverbhiexp"))
+		return true;
+	if (!strcasecmp (name, "reverbstd") || !strcasecmp (name, "reverbstdexp"))
+		return fx->type = NWS_FX_REVERB_STD_EXP, fx->crosstalk = 0, true;
+	if (!strcasecmp (name, "delay") || !strcasecmp (name, "delayexp"))
+	{
+		const nws_fx_t d = { NWS_FX_DELAY_EXP, .out_gain = 1.0f, .delay = 160.0f, .feedback = 0.4f, .lpf = 1.0f };
+		return *fx = d, true;
+	}
+	if (!strcasecmp (name, "chorus") || !strcasecmp (name, "chorusexp"))
+	{
+		const nws_fx_t c = { NWS_FX_CHORUS_EXP, .out_gain = 1.0f, .delay = 10.0f, .depth = 0.5f, .rate = 1.0f };
+		return *fx = c, true;
+	}
+	return false;
+}
+
+static bool rn_fx_key (nws_fx_t *fx, ccp k, ccp v)
+{
+	const float x = (float)atof (v);
+	if (!strcasecmp (k, "predelay")) fx->pre_delay = x;
+	else if (!strcasecmp (k, "time")) fx->time = x;
+	else if (!strcasecmp (k, "coloration")) fx->coloration = x;
+	else if (!strcasecmp (k, "damping")) fx->damping = x;
+	else if (!strcasecmp (k, "crosstalk")) fx->crosstalk = x;
+	else if (!strcasecmp (k, "out") || !strcasecmp (k, "outgain") || !strcasecmp (k, "mix")) fx->out_gain = x;
+	else if (!strcasecmp (k, "early")) fx->early_mode = rn_csv_mode (v, false);
+	else if (!strcasecmp (k, "fused"))
+	{
+		char tmp[32];
+		uint n = 0;
+		for (ccp p = v; *p && n < sizeof (tmp) - 2; p++)
+		{
+			if (*p == '_')
+				continue;
+			// accept "smallroom" as well as "SMALL_ROOM"
+			tmp[n++] = *p;
+		}
+		tmp[n] = 0;
+		static const ccp names[] = { "oldaxfx", "metaltank", "smallroom", "largeroom", "hall", "cavernous", "longest" };
+		int m = -1;
+		for (int i = 0; i < 7; i++)
+			if (!strcasecmp (tmp, names[i]))
+				m = i;
+		if (m < 0)
+			m = atoi (v);
+		fx->fused_mode = m;
+	}
+	else if (!strcasecmp (k, "earlygain")) fx->early_gain = x;
+	else if (!strcasecmp (k, "fusedgain")) fx->fused_gain = x;
+	else if (!strcasecmp (k, "delay")) fx->delay = x;
+	else if (!strcasecmp (k, "feedback") || !strcasecmp (k, "fb")) fx->feedback = x;
+	else if (!strcasecmp (k, "lpf")) fx->lpf = x;
+	else if (!strcasecmp (k, "depth")) fx->depth = x;
+	else if (!strcasecmp (k, "rate")) fx->rate = x;
+	else
+		return false;
+	return true;
+}
+
+static void rn_fx_apply_spec (ccp spec)
+{
+	if (!spec || !*spec || !strcasecmp (spec, "auto"))
+		return;
+	if (!strcasecmp (spec, "none") || !strcasecmp (spec, "off") || !strcasecmp (spec, "dry"))
+	{
+		for (int b = 0; b < 3; b++)
+			rn_fx[b].type = NWS_FX_NONE, rn_fx_set[b] = true;
+		return;
+	}
+	char buf[1024];
+	snprintf (buf, sizeof (buf), "%s", spec);
+	for (char *save = 0, *item = strtok_r (buf, ";", &save); item; item = strtok_r (0, ";", &save))
+	{
+		while (*item == ' ')
+			item++;
+		// bus prefix
+		int b0 = 0, b1 = 2;
+		char *eq = strchr (item, '=');
+		if (eq)
+		{
+			const size_t n = (size_t)(eq - item);
+			if (n == 1 && strchr ("AaBbCc", *item))
+				b0 = b1 = toupper ((uchar)*item) - 'A', item = eq + 1;
+			else if (n == 3 && !strncasecmp (item, "all", 3))
+				item = eq + 1;
+		}
+		char *fields[24];
+		const int nf = rn_csv_split (item, fields, 24);
+		for (int b = b0; b <= b1; b++)
+		{
+			nws_fx_t fx = rn_fx_set[b] ? rn_fx[b] : NWSeqDefaultFx;
+			int i = 0;
+			if (nf && !strchr (fields[0], '='))
+			{
+				if (!rn_fx_named (fields[0], &fx))
+				{
+					ERROR0 (ERR_SYNTAX, "--sound-fx: unknown effect '%s'\n", fields[0]);
+					continue;
+				}
+				i = 1;
+			}
+			for (; i < nf; i++)
+			{
+				char *v = strchr (fields[i], '=');
+				if (v)
+					*v++ = 0;
+				if (!v || !rn_fx_key (&fx, fields[i], v))
+					ERROR0 (ERR_SYNTAX, "--sound-fx: unknown setting '%s'\n", fields[i]);
+				if (v)
+					v[-1] = '='; // keep the item intact for the next bus
+			}
+			rn_fx[b] = fx;
+			rn_fx_set[b] = true;
+		}
+	}
+}
+
 static void rn_fx_setup (void)
 {
 	ccp src = RSARSourcePath ? RSARSourcePath : "";
-	if (!strcmp (src, rn_fx_for) && *rn_fx_for)
+	char key[PATH_MAX + 1100];
+	snprintf (key, sizeof (key), "%s|%s", src, RSARSoundFx ? RSARSoundFx : "");
+	if (!strcmp (key, rn_fx_for))
 		return;
-	snprintf (rn_fx_for, sizeof (rn_fx_for), "%s", src);
+	snprintf (rn_fx_for, sizeof (rn_fx_for), "%s", key);
 	memset (rn_fx_set, 0, sizeof (rn_fx_set));
+	rn_fx_auto (src);
+	rn_fx_apply_spec (RSARSoundFx);
+}
+
+static void rn_fx_auto (ccp src)
+{
 	if (!*src)
 		return;
 	ccp base = strrchr (src, '/');
