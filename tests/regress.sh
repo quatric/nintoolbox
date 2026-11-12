@@ -19128,7 +19128,8 @@ t_wii_engines
 t_kirby_switch2(){
   # Switch 2 Kirby titles: NUP containers (decrypted base/update/add-on trees), HAL's ".cmp"
   # (u32 size + LZ4 frame), HAL XData ("XBIN") binary YAML 6 and FDG 3 scene graphs, and
-  # Kirby Air Riders' phx PARC catalog over PDAT packs with a BC1 PTEX texture.
+  # Kirby Air Riders' phx PARC catalog over PDAT packs with a BC1 PTEX texture, and Sygnus
+  # ".soundstream" / PSND audio (float-seeded 4-bit ADPCM, optionally AES-192 encrypted).
   local d; d=$(mktemp -d /tmp/_r_kirby2.XXXXXX) || { fno "Switch 2 Kirby formats" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_kirby_switch2.py" "$d" >/dev/null 2>&1 || { fno "Switch 2 Kirby fixtures" "build failed"; rm -rf "$d"; return; }
   "$B/wszst" X "$d/t.nup" --overwrite >/dev/null 2>&1
@@ -19161,6 +19162,28 @@ t_kirby_switch2(){
     fok "phx PARC/PDAT assets (raw + zstd blocks) and PTEX BC1 texture -> PNG"
   else
     fno "phx PARC/PTEX" "unexpected files under $a"
+  fi
+  if python3 - "$a/pmsh/0a0b0c0d0e0f1011.glb" <<'PYE' 2>/dev/null; then
+import json, struct, sys
+b = open(sys.argv[1], 'rb').read()
+d = json.loads(b[20:20 + struct.unpack_from('<I', b, 12)[0]])
+p = d['meshes'][0]['primitives'][0]
+acc = d['accessors'][p['attributes']['POSITION']]
+assert len(d['meshes']) == 1 and acc['min'] == [0, 0, 0] and acc['max'] == [1, 0, 1]
+assert 'NORMAL' in p['attributes'] and 'TEXCOORD_0' in p['attributes']
+assert d['accessors'][p['indices']]['count'] == 6 if 'indices' in p else acc['count'] == 6
+PYE
+    fok "phx PMSH mesh (zero HEAD -> typed by Main) -> GLB with normals and UVs"
+  else
+    fno "phx PMSH" "missing or wrong $a/pmsh/0a0b0c0d0e0f1011.glb"
+  fi
+  "$B/wszst" XX "$d/plain.soundstream" "$d/enc.soundstream" "$d/sfx.psnd" --overwrite >/dev/null 2>&1
+  if tail -c +45 "$d/plain.soundstream.d/plain.wav" 2>/dev/null | cmp -s - "$d/plain.pcm" \
+     && tail -c +45 "$d/enc.soundstream.d/enc.wav" 2>/dev/null | cmp -s - "$d/plain.pcm" \
+     && tail -c +45 "$d/sfx.psnd.d/sfx.wav" 2>/dev/null | cmp -s - "$d/sfx.pcm"; then
+    fok "Sygnus .soundstream ADPCM (plain + AES-192 encrypted) and PSND sound effect -> WAV"
+  else
+    fno "Sygnus soundstream" "decoded PCM differs from the reference under $d"
   fi
   rm -rf "$d"
 }

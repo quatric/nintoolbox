@@ -536,7 +536,8 @@ static enumError export_models_tree (ccp root, uint depth)
 			// are exactly this case: 0 conversions without this, real output
 			// with it.
 			err = decode_brfnt_if_possible (path);
-			const enumError cfnt_err = decode_cfnt_if_possible (path);
+			const enumError cfnt_err
+				= cfnt_output_current (path) ? ERR_NOTHING_TO_DO : decode_cfnt_if_possible (path);
 			if (cfnt_err != ERR_NOTHING_TO_DO && err < cfnt_err)
 				err = cfnt_err;
 			const enumError bflyt_err = decode_bflyt_if_possible (path);

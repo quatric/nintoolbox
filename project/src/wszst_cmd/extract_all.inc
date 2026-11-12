@@ -473,6 +473,7 @@
 #include "extract/gnomz_ltex.inc"
 #include "extract/nds_strm.inc"
 #include "extract/switch_opus.inc"
+#include "extract/sygnus.inc"
 #include "extract/nintendo_ast.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"

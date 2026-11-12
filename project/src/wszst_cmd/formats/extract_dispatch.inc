@@ -76,8 +76,17 @@ static enumError extract_sfx_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Files an extractor processed itself (e.g. a decompressed ".bffnt" peeled from
+// ".bffnt.zst"). extract_tree()'s live readdir would otherwise meet them again
+// and decode them a second time.
+static StringField_t extract_nested_done = { 0 };
+static bool extract_from_tree_walk = false;
+
 static enumError extract_one_file (ccp arg, ccp basedir, uint depth)
 {
+	if (!extract_from_tree_walk && depth > 0 && !basedir)
+		InsertStringField (&extract_nested_done, arg, false);
+	extract_from_tree_walk = false;
 	enumError err = extract_one_file_inner (arg, basedir, depth);
 	if (depth > 0 && err > ERR_WARNING)
 		return ERR_WARNING;

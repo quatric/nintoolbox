@@ -30,4 +30,8 @@ void AES128_OFB_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *dat
 // CTR mode over 'size' bytes with standard 128-bit big-endian counter increment.
 void AES128_CTR_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *data, size_t size);
 
+// AES-192 ECB decryption over the whole 16-byte blocks of 'size' bytes (a
+// trailing partial block is left as is).
+void AES192_ECB_Decrypt (const uint8_t key[24], uint8_t *data, size_t size);
+
 #endif

@@ -5,6 +5,8 @@
 #include "lib-bntx.h"
 #include "lib-sha256.h"
 #include "lib-zstd.h"
+#include "lib-aes.h"
+#include <math.h>
 #include <dirent.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -279,27 +281,48 @@ enumError ExtractPARCArchive (ccp arg, ccp basedir, uint depth)
 		if (!rec || !nb)
 			continue;
 
-		// primary block: HEAD (textures, fonts), else Main / MAIN / BIN, else the first
+		// primary block: HEAD (textures, fonts), else Main / MAIN / BIN, else the first. A HEAD that
+		// is not a typed record (meshes carry 12 zero bytes there) gives way to the next candidate.
 		static const char *const prefer[] = { "HEAD", "Main", "MAIN", "BIN" };
 		uint prim = 0;
-		for (uint pi = 0, done_p = 0; pi < 4 && !done_p; pi++)
+		char type[8] = "";
+		s64 n = -1;
+		for (uint pi = 0; pi < 4 && !*type; pi++)
 			for (uint b = 0; b < nb; b++)
 				if (!strncmp ((ccp)rec + 24 + b * PARC_BLOCK_SIZE + 16, prefer[pi], 4))
 				{
-					prim = b;
-					done_p = 1;
+					const s64 bn = parc_load (&c, le64 (rec + 24 + b * PARC_BLOCK_SIZE + 24));
+					if (bn < 0)
+						break;
+					char bt[8];
+					parc_type (c.buf, (size_t)bn, bt, sizeof (bt));
+					if (strcmp (bt, "bin") || pi == 3)
+					{
+						prim = b;
+						n = bn;
+						snprintf (type, sizeof (type), "%s", bt);
+					}
 					break;
 				}
-
-		const u8 *pb = rec + 24 + prim * PARC_BLOCK_SIZE;
-		s64 n = parc_load (&c, le64 (pb + 24));
-		if (n < 0)
+		if (!*type)
 		{
-			failed++;
-			continue;
+			// nothing typed: keep the first preferred (else first) block as before
+			for (uint pi = 0, found = 0; pi < 4 && !found; pi++)
+				for (uint b = 0; b < nb; b++)
+					if (!strncmp ((ccp)rec + 24 + b * PARC_BLOCK_SIZE + 16, prefer[pi], 4))
+					{
+						prim = b;
+						found = 1;
+						break;
+					}
+			n = parc_load (&c, le64 (rec + 24 + prim * PARC_BLOCK_SIZE + 24));
+			if (n < 0)
+			{
+				failed++;
+				continue;
+			}
+			parc_type (c.buf, (size_t)n, type, sizeof (type));
 		}
-		char type[8];
-		parc_type (c.buf, (size_t)n, type, sizeof (type));
 
 		char tdir[PATH_MAX], path[PATH_MAX];
 		snprintf (tdir, sizeof (tdir), "%s/%s", dest, type);
@@ -553,4 +576,350 @@ enumError DecodePTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *head,
 	bntx.n_textures = 1;
 	bntx.textures = &syn;
 	return DecodeBNTX_Mip_RGBA (dest, width, height, &bntx, 0, 0);
+}
+
+//-----------------------------------------------------------------------------
+// Sygnus ".soundstream" (SOL-AVES sound engine): "SYGN" .. "STRM" header, payload at 0x2c.
+// Layout and ADPCM decoder after Nenkai's SolAvesSygnus_SoundStream.bt (010GameTemplates).
+
+static const u8 sygnus_key_raw[24] = { 0xf7, 0xbe, 0x9c, 0x6a, 0x28, 0xa6, 0x69, 0x46, 0xb5, 0x3e, 0xc3, 0x05,
+	0x45, 0xf8, 0xaf, 0x3d, 0x86, 0x9d, 0x1d, 0x56, 0xd6, 0x59, 0xb6, 0x1f };
+static const char sygnus_key_mask[25] = "Ua#oK3P94vdxX,ft*k-mnjoO";
+
+static bool sygnus_header_ok (const u8 *d)
+{
+	return !memcmp (d, "SYGN", 4) && !memcmp (d + 8, "STRM", 4);
+}
+
+static sygnus_kind_t sygnus_payload_kind (const u8 *p, uint size)
+{
+	if (size < 16)
+		return SYGNUS_OTHER;
+	const u32 v = le32 (p);
+	if (!memcmp (p, "RIFF", 4))
+		return SYGNUS_RIFF;
+	if (v == 0x80000001)
+		return SYGNUS_OPUS;
+	if (v >= 1 && v <= 8 && le32 (p + 4) >= 4000 && le32 (p + 4) <= 192000 && le32 (p + 12) >= 1)
+		return SYGNUS_ADPCM;
+	return SYGNUS_OTHER;
+}
+
+sygnus_kind_t PrepareSygnusStream (u8 *data, uint size, bool *decrypted)
+{
+	if (decrypted)
+		*decrypted = false;
+	if (!data || size < SYGNUS_PAYLOAD + 4)
+		return SYGNUS_NONE;
+	if (!sygnus_header_ok (data))
+	{
+		// Kirby Air Riders stores most streams AES-192-ECB encrypted as a whole.
+		u8 key[24], probe[16];
+		for (uint i = 0; i < 24; i++)
+			key[i] = sygnus_key_raw[i] ^ (u8)sygnus_key_mask[i];
+		memcpy (probe, data, 16);
+		AES192_ECB_Decrypt (key, probe, 16);
+		if (!sygnus_header_ok (probe))
+			return SYGNUS_NONE;
+		AES192_ECB_Decrypt (key, data, size & ~15u);
+		if (decrypted)
+			*decrypted = true;
+	}
+	return sygnus_payload_kind (data + SYGNUS_PAYLOAD, size - SYGNUS_PAYLOAD);
+}
+
+// Step table: row r (0..31) scales 8 magnitudes by 2^(r/2); odd rows use sqrt(2) rounded to 1/256.
+static float sygnus_step (uint row, uint code, uint *next)
+{
+	static const float m0[8] = { 1, 3.25f, 5.5f, 8, 11, 15, 21, 31 };
+	static const float m1[8] = { 362 / 256.0f, 1177 / 256.0f, 1991 / 256.0f, 2896 / 256.0f,
+		3982 / 256.0f, 5431 / 256.0f, 7603 / 256.0f, 11223 / 256.0f };
+	static const int adj[8] = { -1, 0, 0, 0, 0, 1, 1, 4 };
+	const uint mag = code >= 8 ? code - 8 : 7 - code;
+	const float v = ldexpf ((row & 1 ? m1 : m0)[mag], (int)(row / 2) - 18);
+	const int n = (int)row + adj[mag];
+	*next = n < 0 ? 0 : n > 31 ? 31 : (uint)n;
+	return code >= 8 ? v : -v;
+}
+
+sygnus_kind_t FindSygnusSource (const u8 *data, uint size, uint *payload_off)
+{
+	// phx "PSND" records embed a Sygnus "ASRC" bank. Banks holding one embedded source end with
+	// {u32 size, payload}; streamed sources (format 3) only point at a ".soundstream".
+	*payload_off = 0;
+	for (uint s = 0; s + 0x24 <= size && s < 0x1000; s += 4)
+	{
+		if (memcmp (data + s, "SYGN", 4) || memcmp (data + s + 8, "ASRC", 4))
+			continue;
+		if (le32 (data + s + 0x20) != 1)
+			return SYGNUS_NONE;
+		for (uint o = s + 0x24; o + 4 + 16 <= size; o += 4)
+			if ((u64)o + 4 + le32 (data + o) == size)
+			{
+				const sygnus_kind_t k = sygnus_payload_kind (data + o + 4, size - o - 4);
+				if (k == SYGNUS_OTHER)
+					continue;
+				*payload_off = o + 4;
+				return k;
+			}
+		return SYGNUS_NONE;
+	}
+	return SYGNUS_NONE;
+}
+
+enumError DecodeSygnusADPCM (s16 **pcm, uint *channels, uint *rate, uint *n_samples, const u8 *data, uint size)
+{
+	*pcm = 0;
+	if (size < 16)
+		return ERR_INVALID_DATA;
+	const u8 *h = data;
+	const uint ch = le32 (h), sr = le32 (h + 4), ns = le32 (h + 8), spb = le32 (h + 12);
+	if (ch < 1 || ch > 8 || !ns || ns > 0x10000000 || spb < 1 || spb > 0x100000)
+		return ERR_INVALID_DATA;
+	s16 *out = CALLOC ((size_t)ns * ch, sizeof (s16));
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	const u8 *in = h + 16, *end = data + size;
+	for (uint done = 0; done < ns;)
+	{
+		const uint n = ns - done < spb ? ns - done : spb;
+		const uint bs = n >= 3 ? ((n - 1) >> 1) + 9 : 4 * n;
+		if ((size_t)(end - in) < (size_t)bs * ch)
+		{
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		for (uint c = 0; c < ch; c++, in += bs)
+		{
+			s16 *o = out + (size_t)done * ch + c;
+			float p2 = lef4 (in), p1 = n >= 2 ? lef4 (in + 4) : 0;
+			uint row = in[8] < 31 ? in[8] : 31;
+			for (uint t = 0; t < n; t++)
+			{
+				float v = t == 0 ? p2 : p1;
+				if (t >= 2)
+				{
+					const u8 b = in[9 + (t - 2) / 2];
+					v = sygnus_step (row, (t - 2) & 1 ? b >> 4 : b & 15, &row) + 2 * p1 - p2;
+					p2 = p1;
+					p1 = v;
+				}
+				const float x = v * 32767.0f;
+				o[(size_t)t * ch] = x >= 32767 ? 32767 : x <= -32768 ? -32768 : (s16)lrintf (x);
+			}
+		}
+		done += n;
+	}
+	*pcm = out;
+	*channels = ch;
+	*rate = sr;
+	*n_samples = ns;
+	return ERR_OK;
+}
+
+//-----------------------------------------------------------------------------
+// PMSH mesh: "Main" flatbuffer + "GBuf" vertex/index data (+ "CBuf", not needed for geometry).
+// root.f3 geometry { f1 [stream {f1 attribute, f2 size, f3 GBuf offset, f4 format}],
+//                    f2 [submesh {f1 material, f3 vertex count, f4 first index, f5 index count}],
+//                    f5 bounds, f11 GBuf size }
+// Attributes: 0 position f32x3, 1 normal / 2 tangent unorm 10:10:10:2, 8..12 UV half2,
+// 24..26 colour RGBA8, 40 indices (format 1: u16, 2: u32), 41 CBuf data.
+
+static uint fb_ref (const u8 *d, uint n, uint t, uint field)
+{
+	const uint a = fb_field (d, n, t, field, 4);
+	if (!a)
+		return 0;
+	const u64 r = (u64)a + le32 (d + a);
+	return r + 4 <= n ? (uint)r : 0;
+}
+
+static u32 fb_u32 (const u8 *d, uint n, uint t, uint field, u32 def)
+{
+	const uint a = fb_field (d, n, t, field, 4);
+	return a ? le32 (d + a) : def;
+}
+
+static uint fb_vec (const u8 *d, uint n, uint t, uint field, uint *count)
+{
+	*count = 0;
+	const uint v = fb_ref (d, n, t, field);
+	if (!v)
+		return 0;
+	const u32 c = le32 (d + v);
+	if ((u64)v + 4 + (u64)c * 4 > n)
+		return 0;
+	*count = c;
+	return v + 4;
+}
+
+static uint fb_vec_table (const u8 *d, uint n, uint base, uint i)
+{
+	const uint a = base + 4 * i;
+	const u64 r = (u64)a + le32 (d + a);
+	return r + 4 <= n ? (uint)r : 0;
+}
+
+static float half_f (u16 h)
+{
+	const int e = h >> 10 & 31, m = h & 1023;
+	const float v = e == 0 ? ldexpf ((float)m, -24) : e == 31 ? (m ? NAN : INFINITY) : ldexpf ((float)(m | 1024), e - 25);
+	return h & 0x8000 ? -v : v;
+}
+
+bool IsPMSH (const u8 *data, uint size)
+{
+	return data && size >= 0x20 && !memcmp (data + 4, "PMSH", 4) && le32 (data) < size;
+}
+
+typedef struct pmsh_stream_t
+{
+	const u8 *p;
+	uint size, format;
+} pmsh_stream_t;
+
+model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
+{
+	if (!IsPMSH (main_d, main_n) || !gbuf)
+		return 0;
+	const uint geo = fb_ref (main_d, main_n, le32 (main_d), 3);
+	if (!geo)
+		return 0;
+	pmsh_stream_t st[64] = { { 0 } };
+	uint ns, nsub;
+	const uint sv = fb_vec (main_d, main_n, geo, 1, &ns), mv = fb_vec (main_d, main_n, geo, 2, &nsub);
+	if (!sv || !mv || !nsub)
+		return 0;
+	for (uint i = 0; i < ns; i++)
+	{
+		const uint t = fb_vec_table (main_d, main_n, sv, i);
+		if (!t)
+			return 0;
+		const u32 attr = fb_u32 (main_d, main_n, t, 1, 0), size = fb_u32 (main_d, main_n, t, 2, 0),
+				  off = fb_u32 (main_d, main_n, t, 3, 0);
+		const uint fa = fb_field (main_d, main_n, t, 4, 1);
+		if (attr >= 64 || attr == 41 || (u64)off + size > gbuf_n)
+			continue;
+		st[attr].p = gbuf + off;
+		st[attr].size = size;
+		st[attr].format = fa ? main_d[fa] : 0;
+	}
+	const uint nv = st[0].size / 12;
+	if (!st[0].p || !nv || !st[40].p)
+		return 0;
+	const uint isz = st[40].format == 2 ? 4 : 2;
+	const uint n_idx = st[40].size / isz;
+	const bool has_nrm = st[1].p && st[1].size >= nv * 4, has_uv = st[8].p && st[8].format == 2 && st[8].size >= nv * 4,
+			   has_col = st[24].p && st[24].size == nv * 4;
+
+	model_t *model = CALLOC (1, sizeof (*model));
+	if (!model)
+		return 0;
+	int *map = MALLOC (nv * sizeof (int));
+	if (!map)
+	{
+		FREE (model);
+		return 0;
+	}
+	uint max_mat = 0;
+	for (uint s = 0; s < nsub; s++)
+	{
+		const uint t = fb_vec_table (main_d, main_n, mv, s);
+		const u32 mat = t ? fb_u32 (main_d, main_n, t, 1, 0) : 0, first = t ? fb_u32 (main_d, main_n, t, 4, 0) : 0,
+				  cnt = t ? fb_u32 (main_d, main_n, t, 5, 0) : 0;
+		if (!t || mat > 255 || !cnt || cnt % 3 || (u64)first + cnt > n_idx)
+			continue;
+		if (mat + 1 > max_mat)
+			max_mat = mat + 1;
+		mesh_t *nm = REALLOC (model->meshes, (model->num_meshes + 1) * sizeof (*nm));
+		if (!nm)
+			break;
+		model->meshes = nm;
+		mesh_t *mesh = nm + model->num_meshes;
+		memset (mesh, 0, sizeof (*mesh));
+		model->num_meshes++;
+		snprintf (mesh->name, sizeof (mesh->name), "submesh_%u", s);
+		mesh->material_idx = (int)mat;
+		mesh->vertices = CALLOC (cnt, sizeof (*mesh->vertices));
+		mesh->positions = CALLOC (cnt, sizeof (*mesh->positions));
+		if (has_nrm)
+			mesh->normals = CALLOC (cnt, sizeof (*mesh->normals));
+		if (has_uv)
+			mesh->texcoords = CALLOC (cnt, sizeof (*mesh->texcoords));
+		if (has_col)
+			mesh->colors[0] = CALLOC (cnt, sizeof (*mesh->colors[0]));
+		if (!mesh->vertices || !mesh->positions || (has_nrm && !mesh->normals) || (has_uv && !mesh->texcoords)
+			|| (has_col && !mesh->colors[0]))
+			break;
+		memset (map, -1, nv * sizeof (int));
+		uint nu = 0;
+		for (uint k = 0; k < cnt; k++)
+		{
+			const u8 *ip = st[40].p + (size_t)(first + k) * isz;
+			const u32 vi = isz == 4 ? le32 (ip) : le16 (ip);
+			vertex_t *v = mesh->vertices + k;
+			v->tangent_idx = v->matrix_idx = v->color_idx[1] = -1;
+			for (int e = 0; e < 7; e++)
+				v->extra_texcoord_idx[e] = -1;
+			if (vi >= nv)
+			{
+				// out-of-range index: point at vertex 0 of this submesh
+				v->position_idx = v->normal_idx = v->texcoord_idx = v->color_idx[0] = 0;
+				continue;
+			}
+			if (map[vi] < 0)
+			{
+				map[vi] = (int)nu;
+				const u8 *pp = st[0].p + (size_t)vi * 12;
+				mesh->positions[nu] = (vec3_t){ lef4 (pp), lef4 (pp + 4), lef4 (pp + 8) };
+				if (has_nrm)
+				{
+					const u32 w = le32 (st[1].p + (size_t)vi * 4);
+					mesh->normals[nu] = (vec3_t){ (w & 1023) / 1023.0f * 2 - 1, (w >> 10 & 1023) / 1023.0f * 2 - 1,
+						(w >> 20 & 1023) / 1023.0f * 2 - 1 };
+				}
+				if (has_uv)
+				{
+					const u8 *q = st[8].p + (size_t)vi * 4;
+					mesh->texcoords[nu] = (vec2_t){ half_f (le16 (q)), half_f (le16 (q + 2)) };
+				}
+				if (has_col)
+				{
+					const u8 *q = st[24].p + (size_t)vi * 4;
+					mesh->colors[0][nu] = (color4_t){ q[0] / 255.0f, q[1] / 255.0f, q[2] / 255.0f, q[3] / 255.0f };
+				}
+				nu++;
+			}
+			v->position_idx = map[vi];
+			v->normal_idx = has_nrm ? map[vi] : -1;
+			v->texcoord_idx = has_uv ? map[vi] : -1;
+			v->color_idx[0] = has_col ? map[vi] : -1;
+		}
+		mesh->num_vertices = cnt;
+		mesh->num_positions = nu;
+		mesh->num_normals = has_nrm ? nu : 0;
+		mesh->num_texcoords = has_uv ? nu : 0;
+		mesh->num_colors[0] = has_col ? nu : 0;
+	}
+	FREE (map);
+	if (max_mat)
+	{
+		model->materials = CALLOC (max_mat, sizeof (*model->materials));
+		if (model->materials)
+		{
+			model->num_materials = max_mat;
+			for (uint i = 0; i < max_mat; i++)
+			{
+				material_t *mt = model->materials + i;
+				snprintf (mt->name, sizeof (mt->name), "material_%u", i);
+				mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+			}
+		}
+	}
+	if (!model->num_meshes || !model->meshes[model->num_meshes - 1].vertices)
+	{
+		FreeModel (model);
+		return 0;
+	}
+	return model;
 }

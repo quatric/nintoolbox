@@ -191,12 +191,18 @@ void AES128_EncryptBlock (const aes128_ctx_t *ctx, uint8_t block[16])
 	add_round_key (block, rk + NR * 16);
 }
 
+static void decrypt_block_rounds (const uint8_t *rk, int nr, uint8_t block[16]);
+
 void AES128_DecryptBlock (const aes128_ctx_t *ctx, uint8_t block[16])
 {
+	decrypt_block_rounds (ctx->round_key, NR, block);
+}
+
+static void decrypt_block_rounds (const uint8_t *rk, int nr, uint8_t block[16])
+{
 	build_inv_sbox ();
-	const uint8_t *rk = ctx->round_key;
-	add_round_key (block, rk + NR * 16);
-	for (int round = NR - 1; round >= 1; round--)
+	add_round_key (block, rk + nr * 16);
+	for (int round = nr - 1; round >= 1; round--)
 	{
 		inv_shift_rows (block);
 		inv_sub_bytes (block);
@@ -281,4 +287,28 @@ void AES128_CTR_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *dat
 				break;
 		}
 	}
+}
+
+// AES-192 (Nk = 6, Nr = 12): ECB decryption only.
+void AES192_ECB_Decrypt (const uint8_t key[24], uint8_t *data, size_t size)
+{
+	uint8_t rk[16 * 13];
+	memcpy (rk, key, 24);
+	uint8_t temp[4];
+	for (uint32_t i = 6; i < NB * 13; i++)
+	{
+		memcpy (temp, rk + (i - 1) * 4, 4);
+		if (i % 6 == 0)
+		{
+			uint8_t t = temp[0];
+			temp[0] = sbox[temp[1]] ^ rcon[i / 6];
+			temp[1] = sbox[temp[2]];
+			temp[2] = sbox[temp[3]];
+			temp[3] = sbox[t];
+		}
+		for (int j = 0; j < 4; j++)
+			rk[i * 4 + j] = rk[(i - 6) * 4 + j] ^ temp[j];
+	}
+	for (size_t off = 0; off + 16 <= size; off += 16)
+		decrypt_block_rounds (rk, 12, data + off);
 }

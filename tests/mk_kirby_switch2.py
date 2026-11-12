@@ -10,9 +10,13 @@ Writes:
   fdg.dat                  XBIN 5.0 / FDG 3 scene graph (2 scenes, 1 public, 1 dependency)
   Asset/assets.cat         PARC catalog for two assets:
   Asset/assets_a000.dat      PDAT pack 0: a PTEX BODY (4x4 BC1, solid red) + a zstd "PSND" record
-  Asset/assets_b000.dat      PDAT pack 1: the PTEX HEAD flatbuffer
+  Asset/assets_b000.dat      PDAT pack 1: the PTEX HEAD flatbuffer + a PMSH quad mesh (zero HEAD, Main, GBuf)
+  plain.soundstream        Sygnus stream: 2 ch, 600 samples of 4-bit ADPCM (one full + one short block)
+  enc.soundstream          the same file AES-192-ECB encrypted as the game ships it
+  sfx.psnd                 phx PSND record embedding a 1-channel ADPCM source (Sygnus ASRC bank)
+  plain.pcm / sfx.pcm      expected s16 samples from the reference decoder below
 """
-import hashlib, os, struct, subprocess, sys
+import base64, hashlib, math, os, random, struct, subprocess, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mk_nup  # noqa: E402
@@ -185,6 +189,79 @@ def ptex_head(width, height, fmt):
     return bytes(h)
 
 
+def flatbuffer(root_fields, ident):
+    """Tiny forward-layout flatbuffer writer. A table is a list of (field, value) where value is
+    ("u32", n), ("u8", n), ("table", fields) or ("vec", [fields, ...])."""
+    out = bytearray(8)
+    out[4:8] = ident
+
+    def table(fields):
+        fields = sorted(fields)
+        nf = max(f for f, _ in fields) + 1
+        vt = len(out)
+        body, offs, patches = bytearray(4), [0] * nf, []
+        for f, (kind, val) in fields:
+            if kind == "u8":
+                offs[f] = len(body)
+                body.append(val)
+            else:
+                while len(body) % 4:
+                    body.append(0)
+                offs[f] = len(body)
+                body += struct.pack("<I", val if kind == "u32" else 0)
+                if kind != "u32":
+                    patches.append((offs[f], kind, val))
+        while len(body) % 4:
+            body.append(0)
+        vtab = struct.pack("<HH", 4 + 2 * nf, len(body)) + struct.pack("<%dH" % nf, *offs)
+        while (len(out) + len(vtab)) % 4:
+            vtab += b"\0"
+        out.extend(vtab)
+        tpos = len(out)
+        struct.pack_into("<i", body, 0, tpos - vt)
+        out.extend(body)
+        for at, kind, val in patches:
+            if kind == "table":
+                child = table(val)
+            else:
+                elems = len(out)
+                out.extend(struct.pack("<I", len(val)) + bytes(4 * len(val)))
+                for k, v in enumerate(val):
+                    c = table(v)
+                    struct.pack_into("<I", out, elems + 4 + 4 * k, c - (elems + 4 + 4 * k))
+                child = elems
+            struct.pack_into("<I", out, tpos + at, child - (tpos + at))
+        return tpos
+
+    root = table(root_fields)
+    struct.pack_into("<I", out, 0, root)
+    return bytes(out)
+
+
+def pmsh_quad():
+    """PMSH Main + GBuf: one 2-triangle quad (positions, unorm10 normals, half UVs, u16 indices)."""
+    pos = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
+    gb = bytearray()
+    streams = []
+
+    def add(attr, data, fmt=None):
+        while len(gb) % 16:
+            gb.append(0)
+        f = [(1, ("u32", attr)), (2, ("u32", len(data))), (3, ("u32", len(gb)))]
+        if fmt is not None:
+            f.append((4, ("u8", fmt)))
+        streams.append(f)
+        gb.extend(data)
+
+    add(0, b"".join(struct.pack("<3f", *p) for p in pos))
+    up = 512 | (1023 << 10) | (512 << 20)  # (0, 1, 0)
+    add(1, struct.pack("<4I", *[up] * 4))
+    add(8, b"".join(struct.pack("<2e", p[0], p[2]) for p in pos), 2)
+    add(40, struct.pack("<6H", 0, 2, 1, 0, 3, 2), 1)
+    geo = [(1, ("vec", streams)), (2, ("vec", [[(3, ("u32", 4)), (5, ("u32", 6))]])), (11, ("u32", len(gb)))]
+    return flatbuffer([(3, ("table", geo))], b"PMSH"), bytes(gb)
+
+
 def build_parc(outdir):
     os.makedirs(outdir, exist_ok=True)
     tex_id, snd_id = 0x1122334455667788, 0x0102030405060708
@@ -209,6 +286,10 @@ def build_parc(outdir):
     l_head = add(1, head, False)
     l_body = add(0, bytes(body), False)
     l_snd = add(0, snd, True)
+    msh_main, msh_gbuf = pmsh_quad()
+    l_mhead = add(1, bytes(12), False)
+    l_mmain = add(1, msh_main, False)
+    l_mgbuf = add(1, msh_gbuf, True)
 
     hashes = []
     for i, p in enumerate(packs):
@@ -220,6 +301,7 @@ def build_parc(outdir):
     assets = [  # (id, blocks [(tag, sub, loc)])
         (tex_id, [("HEAD", 0, l_head), ("BODY", 0, l_body)]),
         (snd_id, [("Main", 0, l_snd)]),
+        (0x0A0B0C0D0E0F1011, [("HEAD", 0, l_mhead), ("GBuf", 0, l_mgbuf), ("Main", 0, l_mmain)]),
     ]
     recs = []
     for aid, blocks in assets:
@@ -250,6 +332,82 @@ def build_parc(outdir):
     open(os.path.join(outdir, "assets_b000.dat"), "wb").write(packs[1])
 
 
+# ---------------------------------------------------------------- Sygnus soundstream / PSND
+
+def sygnus_adpcm(ch, ns, spb=512, seed=7):
+    rnd = random.Random(seed)
+    body = bytearray()
+    done = 0
+    while done < ns:
+        n = min(spb, ns - done)
+        for c in range(ch):
+            b = struct.pack("<ff", 0.01 * (c + 1), 0.012 * (c + 1))
+            if n >= 3:
+                b += bytes([12 + c]) + bytes(rnd.randrange(256) for _ in range((n - 1) // 2))
+            else:
+                b = b[:4 * n]
+            body += b
+        done += n
+    return struct.pack("<IIII", ch, 48000, ns, spb) + bytes(body)
+
+
+def sygnus_stream(payload):
+    strm = b"STRM" + struct.pack("<I", 0x10 + len(payload)) + struct.pack("<Q", 0x1234) + struct.pack("<i", len(payload))
+    return b"SYGN" + bytes(4) + b"STRM" + bytes(4) + struct.pack("<II", 0, 0x14 + len(payload)) + strm + payload
+
+
+def sygnus_reference(payload):
+    """Decoder written from the game's ADPCMDecode (step table rows of 2^(row/2))."""
+    m0 = [1, 3.25, 5.5, 8, 11, 15, 21, 31]
+    m1 = [round(m * math.sqrt(2) * 256) / 256 for m in m0]
+    adj = [-1, 0, 0, 0, 0, 1, 1, 4]
+    f32 = lambda x: struct.unpack("<f", struct.pack("<f", x))[0]
+    ch, rate, ns, spb = struct.unpack_from("<IIII", payload, 0)
+    out = [[0] * ch for _ in range(ns)]
+    pos, done = 16, 0
+    while done < ns:
+        n = min(spb, ns - done)
+        bs = ((n - 1) >> 1) + 9 if n >= 3 else 4 * n
+        for c in range(ch):
+            blk = payload[pos:pos + bs]
+            pos += bs
+            p2 = struct.unpack_from("<f", blk, 0)[0]
+            p1 = struct.unpack_from("<f", blk, 4)[0] if n >= 2 else 0.0
+            row = min(blk[8], 31) if n >= 3 else 0
+            for t in range(n):
+                v = p2 if t == 0 else p1
+                if t >= 2:
+                    b = blk[9 + (t - 2) // 2]
+                    code = b >> 4 if (t - 2) & 1 else b & 15
+                    mag = code - 8 if code >= 8 else 7 - code
+                    step = f32((m1 if row & 1 else m0)[mag] * 2.0 ** (row // 2 - 18))
+                    row = max(0, min(31, row + adj[mag]))
+                    v = f32(f32((step if code >= 8 else -step) + f32(2 * p1)) - p2)
+                    p2, p1 = p1, v
+                x = f32(v * 32767.0)
+                out[done + t][c] = 32767 if x >= 32767 else -32768 if x <= -32768 else int(round(x))
+        done += n
+    return b"".join(struct.pack("<" + "h" * ch, *fr) for fr in out)
+
+
+SYGNUS_ENC = base64.b64decode(
+    "YKx93dO2BPMT8kyQPrlG9GgcZAybH2ogCglHhmkVdrAncOEw8fgFwnp8OtH+CKpKqsck1XMqTATTXyvKsSBeRH+IoZMSEJN55c1vM9D7fIVbFclK8psqeqnv6qQNMmyw93FSwxh5rHUcLGbfXZaxT72+uwZpHLlJe/87Z15PSShG2rdmUwvFcykiIrOjIc6+/D671KsTCwuEX9endORRLhKoUWhhXzyACXZKGIXnMWJz2rkHflPsixXpnBixBin03WJ3DG6wWHHhYFfORDUk/k4r1tcK3EWrYCCjKv4ORLlltN57bix+p/P164WuzJdMxthFK1330xtf+fVPVcqqtF6yoHCdeericXZwEAJ9ccqpUVIDTPF87fKr3r/pNRC+ZmGc3+ouem6+WXJdcEp6vyluk0A5YHX/qJBojROaUTBBpSrCTy2ByBucMeZWao9FpxKkqWMa83NCAOCpzBU8g4kY3PGwuZCMRq6gGzfhyLtuXFgaI5zuaE5OgW/o+pnBsHX/Z8lfLqTeNVipY07cO/WHFB1ompwZQykxQoI2qMKZC5LRSjdX2WZ4Vwy5SKvFN62C0nYkh2ge+rPgG0mLyXS0jTrlcvRV9aMLrftObLhrQiT4fFds3v6IkL7IZyOiZrMWUjhs+dGP7IPp+psulGOO4AkE8Flp1xlyuRu1Zchzp+4rnCm9TKdQbVAqnfD9MgqbGVBNYsXRw3tWp9OPc3G6vDsyOX+ii6ze1ZAcJBO4hXPKm7hCV7XrTveJKMzhnzYBr+BhoPInf7ViWYPsG7JDLjCJ8XQ1+q+qQm+W6zG8IqFfY+HtvjBXUjHovitgVIVPCE8vuvv++GPtFP2EFAMLhhJCejJ2CiN51q360rmyoqntxqHVgzjyuj+9zkbuPhAZOlHluSF7zOEl4mkgrGG/2w4=")
+
+
+def build_sygnus(outdir):
+    plain = sygnus_stream(sygnus_adpcm(2, 600))
+    open(os.path.join(outdir, "plain.soundstream"), "wb").write(plain)
+    assert len(SYGNUS_ENC) == len(plain)
+    open(os.path.join(outdir, "enc.soundstream"), "wb").write(SYGNUS_ENC)
+    open(os.path.join(outdir, "plain.pcm"), "wb").write(sygnus_reference(plain[0x2c:]))
+    src = sygnus_adpcm(1, 1029, seed=11)
+    bank = b"ASRC" + struct.pack("<II", 0x48 + len(src), 1) + bytes(0x40) + struct.pack("<I", len(src)) + src
+    rec = (struct.pack("<I", 0x1c) + b"PSND" + bytes(0x18) + b"SYGN" + bytes(4) + b"ASRC" + bytes(8)
+           + struct.pack("<I", len(bank)) + bank)
+    open(os.path.join(outdir, "sfx.psnd"), "wb").write(rec)
+    open(os.path.join(outdir, "sfx.pcm"), "wb").write(sygnus_reference(src))
+
+
 def main(outdir):
     os.makedirs(outdir, exist_ok=True)
     mk_nup.build(os.path.join(outdir, "t.nup"))
@@ -260,6 +418,7 @@ def main(outdir):
     open(os.path.join(outdir, "y.bin"), "wb").write(y)
     open(os.path.join(outdir, "fdg.dat"), "wb").write(xbin_fdg())
     build_parc(os.path.join(outdir, "Asset"))
+    build_sygnus(outdir)
 
 
 if __name__ == "__main__":

@@ -273,6 +273,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUSHDB** | `.nushdb` | *(text dump)* | *Super Smash Bros. Ultimate* |
 | **NUSKTB** | `.nusktb` | *(text dump)* | *Super Smash Bros. Ultimate* |
 | **PERS** | `.pers` | *(raw payload)* | N64 |
+| **PMSH (phx)** | `.pmsh` + `.pmsh.gbuf` (from PARC) | **GLB** | *Kirby Air Riders* |
 | **Phive collision** | `.bphsh`, `.bphsc` | **OBJ** (+ material JSON; water grids as 16-bit PNG) | *Splatoon 3*, *Mario Kart World* |
 | **SANIM** | `.sanim` | *(text dump)* | *Super Mario Strikers* |
 | **TTMODEL** | `.model` | **GLB** | *LEGO Star Wars: The Skywalker Saga* |
@@ -375,6 +376,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **RSEQ / CSEQ / FSEQ / SSEQ** | `.rseq`, `.cseq`, `.fseq`, `.sseq` | Wii / 3DS / Wii U / DS |
 | **SADL** | `.sad`, `.sadl` | *Professor Layton* |
 | **SDAT** | `.sdat` | DS |
+| **Sygnus soundstream / PSND** | `.soundstream`, `.psnd` (from PARC) | *Kirby Air Riders* |
 | **WT** | `.wt` | *Octomania* |
 
 ---

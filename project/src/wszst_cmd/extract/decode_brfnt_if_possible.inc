@@ -83,6 +83,27 @@ static enumError decode_brfnt_if_possible (ccp arg)
 	return max_err;
 }
 
+// True when ARG's sheet PNG ("<name>.png" or "<name>.sheet000.png") already
+// exists and is at least as new as ARG: the extract walk decoded this font, so
+// the deferred tree pass must not decode it again.
+static bool cfnt_output_current (ccp arg)
+{
+	struct stat src, out;
+	if (stat (arg, &src))
+		return false;
+	char dir[PATH_MAX], dest[PATH_MAX];
+	beside_source_dir (dir, sizeof (dir), arg);
+	ccp sl = strrchr (arg, '/');
+	static const char *const suffix[] = { ".png", ".sheet000.png" };
+	for (uint i = 0; i < 2; i++)
+	{
+		snprintf (dest, sizeof (dest), "%s/%s%s", dir, sl ? sl + 1 : arg, suffix[i]);
+		if (!stat (dest, &out) && S_ISREG (out.st_mode) && out.st_mtime >= src.st_mtime)
+			return true;
+	}
+	return false;
+}
+
 // Decode a 3DS/Wii U bitmap font (BCFNT/BFFNT) to PNG sheet(s) during
 // "wszst XX". AssignIMG()'s NFMT_BCFNT branch in lib-image-load.c handles the
 // pixel decode. Mirrors decode_brfnt_if_possible() sheet-iteration logic:

@@ -78,3 +78,43 @@ static enumError extract_phx_ptex_file (ccp arg, ccp basedir, uint depth)
 		err = SaveDecodedRGBAToPNG (rgba, w, h, &le_func, png, 0, false); // takes ownership
 	return err;
 }
+
+// phx PMSH mesh: "<id>.pmsh" (Main flatbuffer) + "<id>.pmsh.gbuf" -> "<id>.glb"
+static enumError extract_phx_pmsh_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	if (!is_ext (arg, ".pmsh"))
+		return ERR_NOTHING_TO_DO;
+	u8 *main_d = 0, *gbuf = 0;
+	size_t main_n = 0, gbuf_n = 0;
+	if (LoadFileAlloc (arg, 0, 0, &main_d, &main_n, 16u << 20, 2, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (!IsPMSH (main_d, (uint)main_n))
+	{
+		FREE (main_d);
+		return ERR_NOTHING_TO_DO;
+	}
+	char gpath[PATH_MAX], glb[PATH_MAX];
+	snprintf (gpath, sizeof (gpath), "%s.gbuf", arg);
+	if (LoadFileAlloc (gpath, 0, 0, &gbuf, &gbuf_n, 1u << 30, 2, 0, false))
+	{
+		FREE (main_d);
+		return ERR_OK; // mesh description without its geometry
+	}
+	model_t *model = DecodePMSH (main_d, (uint)main_n, gbuf, (uint)gbuf_n);
+	FREE (main_d);
+	FREE (gbuf);
+	if (!model)
+		return depth > 0 ? ERR_WARNING : ERROR0 (ERR_INVALID_DATA, "PMSH: no geometry decoded: %s\n", arg);
+	beside_source_dest_ext (glb, sizeof (glb), arg, ".glb");
+	size_t tris = 0;
+	for (size_t i = 0; i < model->num_meshes; i++)
+		tris += model->meshes[i].num_vertices / 3;
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE PMSH:%s (%zu submeshes, %zu triangles) -> GLB:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, model->num_meshes, tris, glb);
+	if (!testmode)
+		ExportModelToGLB (model, glb);
+	FreeModel (model);
+	return ERR_OK;
+}

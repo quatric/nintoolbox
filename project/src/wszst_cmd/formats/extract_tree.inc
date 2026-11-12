@@ -119,6 +119,9 @@ static enumError extract_tree (ccp root, uint depth)
 		}
 		else if (S_ISREG (st.st_mode))
 		{
+			if (FindStringField (&extract_nested_done, path))
+				continue;
+			extract_from_tree_walk = true;
 			err = extract_one_file (path, 0, depth + 1);
 		}
 		if (err != ERR_NOTHING_TO_DO)

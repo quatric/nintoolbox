@@ -84,6 +84,8 @@ static void swo_page (swo_ogg_t *o, const u8 *pkt, uint len, u64 granule, uint f
 	o->seq++;
 }
 
+static enumError switch_opus_decode_mem (ccp arg, ccp basedir, const u8 *raw, size_t sz, size_t base);
+
 static enumError extract_switch_opus_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -96,11 +98,19 @@ static enumError extract_switch_opus_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	enumError err = ERR_NOTHING_TO_DO;
-	swo_ogg_t og = { 0 };
 	size_t base = 0;
 	if (sz > 0x28 && !memcmp (raw, "OPUS", 4))
 		base = rd_be32 (raw + 0x20);
+	const enumError err = switch_opus_decode_mem (arg, basedir, raw, sz, base);
+	FREE (raw);
+	return err;
+}
+
+// Repack the Switch Opus stream at RAW+BASE into "<name>.ogg" (+ ".wav") beside ARG.
+static enumError switch_opus_decode_mem (ccp arg, ccp basedir, const u8 *raw, size_t sz, size_t base)
+{
+	enumError err = ERR_NOTHING_TO_DO;
+	swo_ogg_t og = { 0 };
 	if (base + 0x28 < sz && rd_le32 (raw + base) == 0x80000001)
 	{
 		const u8 *h = raw + base;
@@ -178,6 +188,5 @@ static enumError extract_switch_opus_file (ccp arg, ccp basedir, uint depth)
 		}
 	}
 	FREE (og.d);
-	FREE (raw);
 	return err;
 }

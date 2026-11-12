@@ -479,7 +479,7 @@ CFLAGS		+= -I$(DCLIB_DIR)
 SZS_O		:= $(XOBJ_IMAGE) lib-model-glb.o cgltf_impl.o lib-brres-model.o lib-nsbmd.o lib-nlg-lm.o lib-fedforce.o lib-excite.o lib-gf3ds.o lib-opoona.o lib-opoonamodel.o lib-monster4x4.o lib-magma.o lib-thevoice.o lib-dogisland.o lib-muramasa.o lib-redsteel2.o lib-zackwiki.o lib-teszip.o lib-safecracker.o lib-pak-tate.o lib-pf2-piff.o lib-t3pk.o lib-g3res.o lib-mercurymeltdown.o lib-octomania.o lib-ispyspookymansion.o lib-runefactoryfrontier.o lib-httyd.o lib-bermudatriangle.o lib-aquapanic.o lib-diabolik.o lib-botbbag.o lib-hkx.o lib-t4res.o lib-hdvoice.o lib-ttarch.o lib-fpk.o lib-casper.o lib-mtmob.o lib-bch.o lib-std.o lib-file.o lib-numeric.o lib-nds-banner.o lib-wii-banner.o \
 		   lib-szs.o fastyz.o trueyz.o lib-checksum.o lib-nintendo.o lib-nlg-probe.o lib-pfctex.o \
 		   lib-bfttf.o lib-bnvib.o lib-nacp.o lib-pfs0.o \
-		   lib-romfs.o lib-sha256.o lib-nro.o lib-nso.o lib-cnmt.o lib-npdm.o lib-xci.o lib-nup.o lib-xbin.o lib-phx.o lib-dahbwu.o \
+		   lib-romfs.o lib-sha256.o lib-nro.o lib-nso.o lib-cnmt.o lib-npdm.o lib-xci.o lib-nup.o lib-xbin.o lib-phx.o lib-aes.o lib-dahbwu.o \
 		   lib-segapvr.o lib-ninja.o lib-babyz.o \
 		   lib-dsb.o lib-bnr.o lib-brfnt.o lib-brfna.o lib-bcfnt.o lib-mpr-pak.o \
 		   lib-ncgr.o lib-nclr.o lib-sarc.o lib-nw4r.o lib-rst.o lib-thp.o \
