@@ -26,7 +26,19 @@ static bool dspwrap_probe (const u8 *raw, size_t sz, dspwrap_t *w)
 	memset (w, 0, sizeof (*w));
 	if (sz < 0x100)
 		return false;
-	if (!memcmp (raw, "IDSP", 4))
+	if (!memcmp (raw, "IDSP", 4) && !rd_be32 (raw + 4) && rd_be32 (raw + 8) >= 1 && rd_be32 (raw + 8) <= 8 && rd_be32 (raw + 0x24) >= 0x60
+		&& rd_be32 (raw + 0x20) >= 0x30 && rd_be32 (raw + 0x28) > rd_be32 (raw + 0x20))
+	{
+		// Namco IDSP (NUB / NUS3AUDIO: Smash Bros. 4 and Ultimate, Tekken Tag 2, Taiko Wii U): channels @8, rate @0xc, interleave @0x1c (0 = per-channel
+		// size @0x2c), header offset @0x20, header spacing @0x24, data start @0x28
+		w->ch = rd_be32 (raw + 8);
+		w->hdr = rd_be32 (raw + 0x20);
+		w->spacing = rd_be32 (raw + 0x24);
+		w->start = rd_be32 (raw + 0x28);
+		w->interleave = rd_be32 (raw + 0x1c) ? rd_be32 (raw + 0x1c) : rd_be32 (raw + 0x2c);
+		w->name = "IDSP-NAMCO";
+	}
+	else if (!memcmp (raw, "IDSP", 4))
 	{
 		const u32 v = rd_be32 (raw + 4), s = rd_be32 (raw + 8);
 		if ((v == 1 && s == 0xc8) || (v == 2 && s == 0xd2) || (v == 3 && s == 0x12c))
