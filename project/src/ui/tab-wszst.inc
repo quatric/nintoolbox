@@ -2163,9 +2163,10 @@
 
   { T_OPT_GP,	"MIDI_FORMAT",	"midi-format|midiformat",
 		"wav|flac",
-		"File format of rendered MIDI audio. @'flac'@ is lossless and about 60%"
+		"File format of rendered sequence audio (natively rendered NintendoWare"
+		" sequences and rendered MIDI). @'flac'@ is lossless and about 60%"
 		" smaller than @'wav'@ (needs the external {flac} tool, otherwise WAV is"
-		" kept); macOS Quick Look plays both. Default is @'wav'@." },
+		" kept); macOS Quick Look plays both. Default is @'flac'@." },
 
   { T_OPT_GP,	"WITH_7Z",	"with-7z|7z",
 		"path",

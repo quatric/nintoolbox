@@ -142,11 +142,19 @@ static enumError scan_info (const u8 *data, uint size, const u8 *block, bool le,
 	const u8 *begin = block + 8; // References below are relative to here
 	uint n_table = 0;
 
-	for (uint s = 0; s < sizeof (info_sections) / sizeof (*info_sections); s++)
+	// The INFO block body is a list of references whose type id names the table (the order on disc is
+	// Sound, SoundGroup, Bank, WaveArchive, Group, Player, File, SoundArchivePlayer -- not the enum order).
+	for (uint r = 0; r < 8; r++)
 	{
-		const u8 *ref = begin + 8 * s;
+		const u8 *ref = begin + 8 * r;
 		if ((u64)(ref - data) + 8 > size)
 			return ERROR0 (ERR_INVALID_DATA, "ScanBFSAR: INFO section table truncated\n");
+		const u16 ref_type = rd_u16e (ref, le);
+		uint s = 0;
+		while (s < sizeof (info_sections) / sizeof (*info_sections) && info_sections[s].ref_type != ref_type)
+			s++;
+		if (s == sizeof (info_sections) / sizeof (*info_sections))
+			continue; // SoundArchivePlayerInfo or unknown
 		s32 off = rd_s32e (ref + 4, le);
 		if (off == NULL_PTR)
 			continue;

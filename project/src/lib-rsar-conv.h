@@ -13,14 +13,24 @@
 //   RSARSeq.cpp      - RSEQ master-track entry points (see SequenceToMIDIFrom)
 //   VGMColl / SynthFile / SF2File / ScaleConversion - collection -> SF2 mapping
 //
-// Output layout (identical to the vgmtrans CLI wbrsar used to call):
+// Output layout:
 //   <out_dir>/midi/<sound>.mid      one MIDI per sequence sound
-//   <out_dir>/midi/sequences.tsv    "midi<TAB>soundfont" manifest (bank used by each MIDI)
+//   <out_dir>/midi/<sound>.wav      the sound rendered by the native NintendoWare engine model
+//                                   (lib-nwseq.c), 32 kHz stereo; RSARRenderedHook may turn it into FLAC
+//   <out_dir>/midi/sequences.tsv    "midi<TAB>soundfont<TAB>audio" manifest (bank used by each MIDI;
+//                                   audio = "native" when the WAV came from the native renderer)
 //   <out_dir>/soundfonts/<bank>.sf2 one SoundFont per bank used by at least one sequence
 //
 // Returns ERR_NOTHING_TO_DO when the data is not an RSAR archive, so callers can fall
 // back to another converter for BFSAR / BCSAR / SDAT.
 enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir);
+
+// Called with the path of every WAV the native sequence renderer wrote (e.g. to encode it to FLAC).
+extern void (*RSARRenderedHook) (ccp wav_path);
+
+// When true, ConvertRSARNative() also renders every sequence sound to audio (off by default: walking a
+// whole tree must not fill the disk with WAVs).
+extern bool RSARRenderAudio;
 
 // Nintendo DS SDAT -> MIDI + SF2, same output layout (port of NDSScanner / NDSInstrSet).
 // SSEQ sequences become MIDI through the sequence library; every bank used by a sequence

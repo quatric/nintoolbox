@@ -26,10 +26,23 @@ static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth)
 			*tab = 0;
 			char *sf = tab + 1;
 			sf[strcspn (sf, "\r\n")] = 0;
-			if (!strcmp (line, base) && *sf)
+			char *audio = strchr (sf, '\t');
+			if (audio)
+				*audio++ = 0;
+			if (!strcmp (line, base))
 			{
-				snprintf (sf2, sizeof (sf2), "%s/../soundfonts/%s", dir, sf);
-				break;
+				if (audio && !strcmp (audio, "native"))
+				{
+					// rendered by the native NintendoWare sequence engine already: that is the
+					// accurate version, the SoundFont rendering would only overwrite it
+					fclose (fp);
+					return ERR_NOTHING_TO_DO;
+				}
+				if (*sf)
+				{
+					snprintf (sf2, sizeof (sf2), "%s/../soundfonts/%s", dir, sf);
+					break;
+				}
 			}
 		}
 		fclose (fp);

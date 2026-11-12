@@ -118,6 +118,8 @@ We acknowledge and credit the following tools and authors whose research, format
   * Reference for the Rob Northen Compression (RNC ProPack) methods implemented in `lib-rnc.c`.
 * **GotaSequenceLib** by **Gota7** ([GotaSequenceLib](https://github.com/Gota7/GotaSequenceLib)) and **GotaSequenceCmd** by **kitlith** ([GotaSequenceCmd](https://github.com/kitlith/GotaSequenceCmd))
   * NintendoWare sequence bytecode opcode definitions and CLI conversion flow used by `lib-sequence.c`.
+* **Citric Composer** by **Gota7** ([Citric-Composer](https://github.com/Gota7/Citric-Composer))
+  * CSEQ/FSEQ command set (bank select, modulation curve/phase/period, modulators 2-4) and the FBNK/CBNK velocity region flags (tune, percussion mode, key group, ADSHR) used by the native sequence renderer `lib-nwseq.c`.
 * **NintyFont** by **hadashisora** ([NintyFont](https://github.com/hadashisora/NintyFont))
   * From-source CFNT/FINF/TGLP reader used to verify the Nintendo font (RFNT/CFNT) layouts in `lib-nintendo.c`.
 * **mpbintools** by **gamemasterplc** ([mpbintools](https://github.com/gamemasterplc/mpbintools))

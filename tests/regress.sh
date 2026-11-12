@@ -4785,7 +4785,7 @@ t_fbnk_sf2(){
     d=/tmp/_r_fbnk_$e; rm -rf "$d"; mkdir -p "$d"
     python3 "$PWD_PROJECT/../tests/gen_fbnk.py" $e "$d" || { no "FBNK generator ($e)" "failed"; return; }
     $B/wbrsar sf2 "$d/bank.bfbnk" "$d/waves.bfwar" "$d/song.sf2" >"$d/log" 2>&1 || ok_all=0
-    $B/wszst extract --decode "$d/song.mid" >>"$d/log" 2>&1
+    $B/wszst extract --decode --midi-format=wav "$d/song.mid" >>"$d/log" 2>&1
     python3 - "$d/song.wav" <<'PY' || ok_all=0
 import sys,wave,struct
 w=wave.open(sys.argv[1]); d=w.readframes(w.getnframes())

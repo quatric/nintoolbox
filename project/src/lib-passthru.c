@@ -1018,11 +1018,11 @@ enumError PassthruRenderMIDI (ccp mid_path, ccp sf2_path, ccp wav_path)
 	return ERR_OK;
 }
 
-// --midi-format=flac: re-encode a rendered WAV losslessly with the external flac tool and drop the WAV.
-// Returns ERR_NOTHING_TO_DO (WAV kept) when flac is not installed or the format is not "flac".
+// --midi-format=flac (the default): re-encode a rendered WAV losslessly with the external flac tool and
+// drop the WAV. Returns ERR_NOTHING_TO_DO (WAV kept) when flac is not installed or --midi-format=wav.
 enumError PassthruWavToFlac (ccp wav_path)
 {
-	if (!opt_midi_format || strcasecmp (opt_midi_format, "flac"))
+	if (opt_midi_format && strcasecmp (opt_midi_format, "flac"))
 		return ERR_NOTHING_TO_DO;
 	ccp tool = find_program ("flac");
 	if (!tool || !*tool)

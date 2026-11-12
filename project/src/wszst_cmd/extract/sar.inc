@@ -111,6 +111,16 @@ static enumError extract_sar_file (ccp arg, ccp basedir, uint depth)
 		}
 	}
 
+	// A whole FSAR/CSAR given directly with --decode (xx): sequences -> MIDI + SoundFonts, and each sequence
+	// rendered by the native NintendoWare engine model (lib-nwseq.c) to <dest>/midi/<sound>.flac
+	if (!testmode && !err && opt_decode && depth == 0 && (!memcmp (raw, "FSAR", 4) || !memcmp (raw, "CSAR", 4)))
+	{
+		RSARRenderAudio = true;
+		if (ConvertFSARNative (raw, raw_size, dest) == ERR_OK && verbose >= 0)
+			fprintf (stdlog, "EXPORT %s:%s -> %s/midi (native)\n", sar.magic, arg, dest);
+		RSARRenderAudio = false;
+	}
+
 	ResetSoundArchive (&sar);
 	FREE (raw);
 	if (!err && !testmode)

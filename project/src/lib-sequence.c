@@ -3101,6 +3101,10 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 		seq_code_region (seq_data, seq_size, 0, base_off, sec_size, true, &code, &code_size);
 	}
 
+	// the MML byte stream is big endian in every NintendoWare sequence format (RSEQ, CSEQ and FSEQ alike,
+	// whatever the file's byte order); only the DS SSEQ stores multi-byte arguments little endian
+	const bool mml_le = fmt == SEQ_FMT_SSEQ;
+
 	if (code_size == 0)
 		return ERR_INVALID_DATA;
 
@@ -3108,7 +3112,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 		)
 	{
 		// a collection whose first label is a dummy "fin" (standalone SE banks): play the first real sound after it
-		const enumError e = rs_seq_to_midi (code, code_size, start_pos == 0 && code[0] == 0xff && code_size > 1 ? 1 : start_pos, is_le, out_midi, out_size);
+		const enumError e = rs_seq_to_midi (code, code_size, start_pos == 0 && code[0] == 0xff && code_size > 1 ? 1 : start_pos, mml_le, out_midi, out_size);
 		if (e == ERR_OK)
 			return e;
 	}
@@ -3142,7 +3146,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 			if (pos + 4 <= code_size)
 			{
 				u8 trk = code[pos++];
-				u32 target = is_le ? read_le24 (code + pos) : read_be24 (code + pos);
+				u32 target = mml_le ? read_le24 (code + pos) : read_be24 (code + pos);
 				pos += 3;
 				if (trk < 16)
 				{
@@ -3187,7 +3191,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 			else if (op == SEQ_OP_TEMPO || op == SEQ_OP_MOD_DELAY || op == SEQ_OP_MOD_PERIOD)
 				pos += 2;
 			else if (op == SEQ_OP_EX_COMMAND)
-				seq_skip_ex (code, code_size, &pos, is_le);
+				seq_skip_ex (code, code_size, &pos, mml_le);
 			else if (op == SEQ_OP_JUMP || op == SEQ_OP_CALL)
 				pos += 3;
 			else if (op >= 0xA0 && op <= 0xDF)
@@ -3237,9 +3241,9 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				u32 dur;
 				if (pre.has_random && t_pos + 4 <= code_size)
 				{
-					int16_t lo = is_le ? (int16_t)read_le16 (code + t_pos)
+					int16_t lo = mml_le ? (int16_t)read_le16 (code + t_pos)
 									   : (int16_t)read_be16 (code + t_pos);
-					int16_t hi = is_le ? (int16_t)read_le16 (code + t_pos + 2)
+					int16_t hi = mml_le ? (int16_t)read_le16 (code + t_pos + 2)
 									   : (int16_t)read_be16 (code + t_pos + 2);
 					t_pos += 4;
 					dur = (u32)((lo + hi) / 2 >= 0 ? (lo + hi) / 2 : 0);
@@ -3260,9 +3264,9 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				u32 dur;
 				if (pre.has_random && t_pos + 4 <= code_size)
 				{
-					int16_t lo = is_le ? (int16_t)read_le16 (code + t_pos)
+					int16_t lo = mml_le ? (int16_t)read_le16 (code + t_pos)
 									   : (int16_t)read_be16 (code + t_pos);
-					int16_t hi = is_le ? (int16_t)read_le16 (code + t_pos + 2)
+					int16_t hi = mml_le ? (int16_t)read_le16 (code + t_pos + 2)
 									   : (int16_t)read_be16 (code + t_pos + 2);
 					t_pos += 4;
 					dur = (u32)((lo + hi) / 2 >= 0 ? (lo + hi) / 2 : 0);
@@ -3282,9 +3286,9 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				u32 prg;
 				if (pre.has_random && t_pos + 4 <= code_size)
 				{
-					int16_t lo = is_le ? (int16_t)read_le16 (code + t_pos)
+					int16_t lo = mml_le ? (int16_t)read_le16 (code + t_pos)
 									   : (int16_t)read_be16 (code + t_pos);
-					int16_t hi = is_le ? (int16_t)read_le16 (code + t_pos + 2)
+					int16_t hi = mml_le ? (int16_t)read_le16 (code + t_pos + 2)
 									   : (int16_t)read_be16 (code + t_pos + 2);
 					t_pos += 4;
 					prg = (u32)((lo + hi) / 2);
@@ -3297,31 +3301,31 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 			}
 			else if (op == SEQ_OP_VOLUME)
 			{
-				u8 vol = seq_midi_u8arg (code, code_size, &t_pos, is_le, &pre, 127);
+				u8 vol = seq_midi_u8arg (code, code_size, &t_pos, mml_le, &pre, 127);
 				seq_skip_time_tail (code, code_size, &t_pos, &pre);
 				add_midi_event (&tracks[t], cur_time, 0xB0, ch, 7, vol);
 			}
 			else if (op == SEQ_OP_PAN)
 			{
-				u8 pan = seq_midi_u8arg (code, code_size, &t_pos, is_le, &pre, 64);
+				u8 pan = seq_midi_u8arg (code, code_size, &t_pos, mml_le, &pre, 64);
 				seq_skip_time_tail (code, code_size, &t_pos, &pre);
 				add_midi_event (&tracks[t], cur_time, 0xB0, ch, 10, pan);
 			}
 			else if (op == SEQ_OP_EXPRESSION)
 			{
-				u8 expr = seq_midi_u8arg (code, code_size, &t_pos, is_le, &pre, 127);
+				u8 expr = seq_midi_u8arg (code, code_size, &t_pos, mml_le, &pre, 127);
 				seq_skip_time_tail (code, code_size, &t_pos, &pre);
 				add_midi_event (&tracks[t], cur_time, 0xB0, ch, 11, expr);
 			}
 			else if (op == SEQ_OP_DAMPER)
 			{
-				u8 dmp = seq_midi_u8arg (code, code_size, &t_pos, is_le, &pre, 0);
+				u8 dmp = seq_midi_u8arg (code, code_size, &t_pos, mml_le, &pre, 0);
 				seq_skip_time_tail (code, code_size, &t_pos, &pre);
 				add_midi_event (&tracks[t], cur_time, 0xB0, ch, 64, dmp);
 			}
 			else if (op == SEQ_OP_FXSEND_A)
 			{
-				u8 rev = seq_midi_u8arg (code, code_size, &t_pos, is_le, &pre, 0);
+				u8 rev = seq_midi_u8arg (code, code_size, &t_pos, mml_le, &pre, 0);
 				seq_skip_time_tail (code, code_size, &t_pos, &pre);
 				add_midi_event (&tracks[t], cur_time, 0xB0, ch, 91, rev);
 			}
@@ -3330,9 +3334,9 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				int bend;
 				if (pre.has_random && t_pos + 4 <= code_size)
 				{
-					int16_t lo = is_le ? (int16_t)read_le16 (code + t_pos)
+					int16_t lo = mml_le ? (int16_t)read_le16 (code + t_pos)
 									   : (int16_t)read_be16 (code + t_pos);
-					int16_t hi = is_le ? (int16_t)read_le16 (code + t_pos + 2)
+					int16_t hi = mml_le ? (int16_t)read_le16 (code + t_pos + 2)
 									   : (int16_t)read_be16 (code + t_pos + 2);
 					t_pos += 4;
 					bend = (lo + hi) / 2;
@@ -3355,9 +3359,9 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				u16 tempo = 0;
 				if (pre.has_random && t_pos + 4 <= code_size)
 				{
-					int16_t lo = is_le ? (int16_t)read_le16 (code + t_pos)
+					int16_t lo = mml_le ? (int16_t)read_le16 (code + t_pos)
 									   : (int16_t)read_be16 (code + t_pos);
-					int16_t hi = is_le ? (int16_t)read_le16 (code + t_pos + 2)
+					int16_t hi = mml_le ? (int16_t)read_le16 (code + t_pos + 2)
 									   : (int16_t)read_be16 (code + t_pos + 2);
 					t_pos += 4;
 					tempo = (u16)((lo + hi) / 2);
@@ -3366,7 +3370,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 					tempo = code[t_pos++];
 				else if (t_pos + 2 <= code_size)
 				{
-					tempo = is_le ? read_le16 (code + t_pos) : read_be16 (code + t_pos);
+					tempo = mml_le ? read_le16 (code + t_pos) : read_be16 (code + t_pos);
 					t_pos += 2;
 				}
 				// Add tempo on conductor track
@@ -3421,7 +3425,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 				else if (op == SEQ_OP_EX_COMMAND)
 				{
 					size_t sk = t_pos;
-					seq_skip_ex (code, code_size, &sk, is_le);
+					seq_skip_ex (code, code_size, &sk, mml_le);
 					t_pos = sk;
 				}
 				else if (op >= 0xA0 && op <= 0xDF)

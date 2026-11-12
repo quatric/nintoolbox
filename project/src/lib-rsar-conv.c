@@ -9,6 +9,8 @@
 #include "lib-rsar-conv.h"
 #include "lib-bfsar.h"
 #include "lib-nintendo.h"
+#include "lib-nwseq.h"
+#include "lib-sound-archive.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // big-endian readers with bounds checks (out of range reads yield 0)
@@ -90,6 +92,7 @@ typedef struct rs_sound_t
 {
 	char name[96];
 	u32 fileID, dataOffset, bankID, allocTrack;
+	u8 volume, panMode, panCurve;
 } rs_sound_t;
 
 typedef struct rs_bank_t
@@ -187,6 +190,9 @@ static bool rs_parse (rs_t *r)
 			rs_sound_t *s = r->sounds + r->n_sounds++;
 			snprintf (s->name, sizeof (s->name), "%s", rs_str (r, rc_u32 (f, sb)));
 			s->fileID = rc_u32 (f, sb + 4);
+			s->volume = rc_u8 (f, sb + 0x14);
+			s->panMode = rc_u8 (f, sb + 0x28);
+			s->panCurve = rc_u8 (f, sb + 0x29);
 			const size_t si = info + rc_u32 (f, sb + 0x1c);
 			s->dataOffset = rc_u32 (f, si);
 			s->bankID = rc_u32 (f, si + 4);
@@ -303,8 +309,9 @@ typedef struct rb_samp_t
 	// SF2 view: 16 bit signed little endian samples (interleaved when stereo, like the original)
 	s16 *pcm;
 	size_t pcm_count; // number of 16 bit values
-	u32 loop_start_s, loop_len_s; // in 16 bit values
+	u32 loop_start_s, loop_len_s; // in sample frames
 	int unity_from_region; // set while building regions
+	s16 *chpcm[2]; // deinterleaved channels (native renderer), NULL until needed
 } rb_samp_t;
 
 static u32 rb_dsp_samples (int fmt, u32 a)
@@ -378,7 +385,8 @@ static void rb_samp_load (const rc_file_t *f, rb_samp_t *s, size_t info, size_t 
 		}
 	}
 	s->dataOff = (u32)data_base + rc_u32 (f, info + 0x14);
-	s->nsamples = rb_dsp_samples (s->fmt, s->loopEnd);
+	// as the sound library reads it: loopEnd addresses the last sample (WaveFileReader::ReadWaveInfo)
+	s->nsamples = rb_dsp_samples (s->fmt, s->loopEnd) + 1;
 	if (s->nsamples > 0x4000000)
 		return;
 
@@ -398,8 +406,10 @@ static void rb_samp_load (const rc_file_t *f, rb_samp_t *s, size_t info, size_t 
 		s->valid = true;
 		if (s->loop)
 		{
-			s->loop_start_s = rb_dsp_samples (s->fmt, s->loopStart) - 2;
-			s->loop_len_s = rb_dsp_samples (s->fmt, s->loopEnd) - rb_dsp_samples (s->fmt, s->loopStart) + 2;
+			s->loop_start_s = rb_dsp_samples (s->fmt, s->loopStart);
+			if (s->loop_start_s >= s->nsamples)
+				s->loop_start_s = 0;
+			s->loop_len_s = s->nsamples - s->loop_start_s;
 		}
 		return;
 	}
@@ -450,14 +460,18 @@ static void rb_samp_load (const rc_file_t *f, rb_samp_t *s, size_t info, size_t 
 	// loop info (samples)
 	if (s->loop)
 	{
-		s->loop_start_s = rb_dsp_samples (s->fmt, s->loopStart) - 2;
-		s->loop_len_s = rb_dsp_samples (s->fmt, s->loopEnd) - rb_dsp_samples (s->fmt, s->loopStart) + 2;
+		s->loop_start_s = rb_dsp_samples (s->fmt, s->loopStart);
+		if (s->loop_start_s >= s->nsamples)
+			s->loop_start_s = 0;
+		s->loop_len_s = s->nsamples - s->loop_start_s;
 	}
 }
 
 static void rb_samp_free (rb_samp_t *s)
 {
 	FREE (s->pcm);
+	FREE (s->chpcm[0]);
+	FREE (s->chpcm[1]);
 }
 
 // a sample collection: list of samples
@@ -533,6 +547,8 @@ typedef struct rb_rgn_t
 	double attack, decay, sustain_level, release; // seconds / 0..1 (-1 = none)
 	double pan, volume;
 	int8_t unity;
+	float tune; // frequency multiplier
+	u8 a, h, d, s, r, note_off_ignore, alt, raw_pan, raw_vol;
 } rb_rgn_t;
 
 typedef struct rb_instr_t
@@ -600,6 +616,31 @@ static void rb_envelope (rb_rgn_t *r, u8 a, u8 d, u8 s, u8 rel)
 
 typedef struct rb_reg_t { u8 high; size_t sub; } rb_reg_t;
 
+static float rc_f32 (const rc_file_t *f, size_t o)
+{
+	const u32 v = rc_u32 (f, o);
+	float x;
+	memcpy (&x, &v, 4);
+	return x;
+}
+
+// BankFile::InstParam at "rb"
+static void rb_inst_param (const rc_file_t *f, size_t rb, rb_rgn_t *r)
+{
+	r->a = rc_u8 (f, rb + 4) & 127;
+	r->d = rc_u8 (f, rb + 5) & 127;
+	r->s = rc_u8 (f, rb + 6) & 127;
+	r->r = rc_u8 (f, rb + 7) & 127;
+	r->h = rc_u8 (f, rb + 8) & 127;
+	r->note_off_ignore = rc_u8 (f, rb + 0x0a) == 1;
+	r->alt = rc_u8 (f, rb + 0x0b);
+	r->raw_vol = rc_u8 (f, rb + 0x0d);
+	r->raw_pan = rc_u8 (f, rb + 0x0e);
+	r->tune = rc_f32 (f, rb + 0x10);
+	if (!(r->tune > 0.01f && r->tune < 100.0f))
+		r->tune = 1.0f;
+}
+
 // enumerates one level of the region trees; "set" is the instrument-set content offset (RBNK DATA block body)
 static uint rb_regions (const rc_file_t *f, size_t set, size_t ref, rb_reg_t *out, uint max)
 {
@@ -622,7 +663,7 @@ static uint rb_regions (const rc_file_t *f, size_t set, size_t ref, rb_reg_t *ou
 		const size_t o = set + rc_u32 (f, ref + 4);
 		const uint mn = rc_u8 (f, o), mx = rc_u8 (f, o + 1);
 		const size_t te = o + 4;
-		for (uint i = mn; i < mx && n < max; i++)
+		for (uint i = mn; i <= mx && n < max; i++)
 			out[n++] = (rb_reg_t){ i, te + (size_t)(i - mn) * 8 };
 	}
 	return n;
@@ -670,6 +711,7 @@ static bool rb_load_instrs (const rc_file_t *f, size_t set, rb_instr_t **out, ui
 				r->klo = klo; r->khi = khi; r->vlo = vlo; r->vhi = vhi;
 				r->samp = rc_u32 (f, rb);
 				rb_envelope (r, rc_u8 (f, rb + 4), rc_u8 (f, rb + 5), rc_u8 (f, rb + 6), rc_u8 (f, rb + 7));
+				rb_inst_param (f, rb, r);
 				r->unity = (int8_t)rc_u8 (f, rb + 0x0c);
 				r->volume = rc_u8 (f, rb + 0x0d) / 127.0;
 				const u8 p = rc_u8 (f, rb + 0x0e);
@@ -737,6 +779,23 @@ static void sf_gen_range (rc_buf_t *b, u16 oper, u8 lo, u8 hi)
 	rc_put16 (b, lo | hi << 8);
 }
 
+// instrument tune (frequency multiplier) as coarse + fine tune generators; returns the generator count
+static uint rb_tune_gens (const rb_rgn_t *r, rc_buf_t *b)
+{
+	if (!(r->tune > 0.0f) || r->tune == 1.0f)
+		return 0;
+	const int cents = rb_roundi (1200.0 * log (r->tune) / log (2.0));
+	if (!cents)
+		return 0;
+	const int coarse = cents / 100, fine = cents - coarse * 100;
+	if (b)
+	{
+		sf_gen (b, 51, coarse);
+		sf_gen (b, 52, fine);
+	}
+	return 2;
+}
+
 static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_ins, ccp name, u8 **out, size_t *out_size)
 {
 	rc_buf_t b = { 0 };
@@ -763,8 +822,10 @@ static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_
 	for (uint i = 0; i < coll->n; i++)
 	{
 		const rb_samp_t *s = coll->s + i;
-		for (size_t k = 0; k < s->pcm_count; k++)
-			rc_put16 (&b, (u16)s->pcm[k]);
+		// SF2 samples are mono: stereo waves are mixed down (their PCM is interleaved)
+		const size_t nch = s->channels == 2 ? 2 : 1, frames = s->pcm_count / nch;
+		for (size_t k = 0; k < frames; k++)
+			rc_put16 (&b, (u16)(nch == 2 ? (s16)(((int)s->pcm[2 * k] + s->pcm[2 * k + 1]) / 2) : s->pcm[k]));
 		for (int k = 0; k < 46; k++)
 			rc_put16 (&b, 0);
 	}
@@ -853,7 +914,7 @@ static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_
 			{
 				rc_put16 (&b, gens);
 				rc_put16 (&b, 0);
-				gens += ins[map[k]].r[j].vhi ? 11 : 10;
+				gens += (ins[map[k]].r[j].vhi ? 11 : 10) + rb_tune_gens (ins[map[k]].r + j, 0);
 			}
 		rc_put16 (&b, gens);
 		rc_put16 (&b, 0);
@@ -896,6 +957,7 @@ static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_
 				sus = 100.0;
 			sf_gen (&b, 37, rb_i16 (sus * 10));
 			sf_gen (&b, 38, r->release == 0 ? -32768 : rb_roundi (rb_secs_to_tc (r->release)));
+			rb_tune_gens (r, &b);
 			sf_gen (&b, 53, (int)si); // sampleID (terminal generator)
 		}
 	rc_put32 (&b, 0);
@@ -909,7 +971,7 @@ static enumError sf_build (const rb_coll_t *coll, const rb_instr_t *ins, uint n_
 			const rb_samp_t *s = coll->s + i;
 			snprintf (nm, sizeof (nm), "Sample_%04u", i);
 			rc_putname (&b, nm, 20);
-			const u32 start = off, end = start + (u32)s->pcm_count;
+			const u32 start = off, end = start + (u32)(s->pcm_count / (s->channels == 2 ? 2 : 1));
 			off = end + 46;
 			rc_put32 (&b, start);
 			rc_put32 (&b, end);
@@ -1006,6 +1068,198 @@ static void rb_write_file (ccp path, const u8 *d, size_t n)
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// native rendering: RBNK instrument lookup exactly as BankFileReader::GetInstParam does it
+
+void (*RSARRenderedHook) (ccp wav_path) = 0;
+bool RSARRenderAudio = false;
+
+typedef struct rn_bank_t
+{
+	const rc_file_t *f;
+	size_t set; // DATA block body: instrument table
+	bool have_vol; // bank version 1.1+: instrument volume and tune are valid
+	nws_wave_t *waves;
+	uint n_waves;
+} rn_bank_t;
+
+static void rn_bank_free (rn_bank_t *b)
+{
+	FREE (b->waves);
+	b->waves = 0;
+	b->n_waves = 0;
+}
+
+// wave table of a sample collection (stereo waves are split into per-channel buffers)
+static bool rn_bank_waves (rn_bank_t *b, rb_coll_t *c)
+{
+	b->waves = CALLOC (c->n ? c->n : 1, sizeof (nws_wave_t));
+	if (!b->waves)
+		return false;
+	b->n_waves = c->n;
+	for (uint i = 0; i < c->n; i++)
+	{
+		rb_samp_t *s = c->s + i;
+		nws_wave_t *w = b->waves + i;
+		if (!s->valid || !s->pcm || !s->nsamples)
+			continue;
+		const uint nch = s->channels == 2 ? 2 : 1;
+		const size_t frames = s->pcm_count / nch;
+		if (nch == 2 && !s->chpcm[0])
+		{
+			s->chpcm[0] = MALLOC (frames * sizeof (s16) + 2);
+			s->chpcm[1] = MALLOC (frames * sizeof (s16) + 2);
+			for (size_t k = 0; k < frames; k++)
+			{
+				s->chpcm[0][k] = s->pcm[2 * k];
+				s->chpcm[1][k] = s->pcm[2 * k + 1];
+			}
+		}
+		w->channels = nch;
+		w->pcm[0] = nch == 2 ? s->chpcm[0] : s->pcm;
+		w->pcm[1] = nch == 2 ? s->chpcm[1] : s->pcm;
+		w->rate = s->rate;
+		w->length = (u32)frames;
+		w->loop = s->loop;
+		w->loop_start = s->loop_start_s < frames ? s->loop_start_s : 0;
+		if (s->loop && s->loop_len_s && s->loop_start_s + s->loop_len_s < frames)
+			w->length = s->loop_start_s + s->loop_len_s;
+	}
+	return true;
+}
+
+// BankFileReader::GetReferenceToSubRegion
+static bool rn_sub_region (const rc_file_t *f, size_t set, size_t *ref, int key)
+{
+	switch (rc_u8 (f, *ref + 1))
+	{
+	case 1: // direct
+		return true;
+	case 2: // range table
+	{
+		const size_t o = set + rc_u32 (f, *ref + 4);
+		const uint n = rc_u8 (f, o);
+		uint idx = 0;
+		if (!n)
+			return false;
+		while (key > (int)rc_u8 (f, o + 1 + idx))
+			if (++idx >= n)
+				return false;
+		*ref = o + ((1 + n + 3) & ~3u) + 8 * idx;
+		return true;
+	}
+	case 3: // index table
+	{
+		const size_t o = set + rc_u32 (f, *ref + 4);
+		const int mn = rc_u8 (f, o), mx = rc_u8 (f, o + 1);
+		if (key < mn || key > mx)
+			return false;
+		*ref = o + 4 + 8 * (size_t)(key - mn);
+		return true;
+	}
+	}
+	return false;
+}
+
+static int rn_inst (void *ctx, int bank, int prg, int key, int vel, nws_inst_t *out)
+{
+	(void)bank; // RSEQ has no bank select
+	const rn_bank_t *b = ctx;
+	const rc_file_t *f = b->f;
+	if (prg < 0 || (u32)prg >= rc_u32 (f, b->set))
+		return false;
+	size_t ref = b->set + 4 + 8 * (size_t)prg;
+	for (int level = 0; level < 2; level++)
+	{
+		const uint t = rc_u8 (f, ref + 1);
+		if (t == 0 || t == 4)
+			return false;
+		if (t != 1 && !rn_sub_region (f, b->set, &ref, level ? vel : key))
+			return false;
+	}
+	if (rc_u8 (f, ref + 1) != 1)
+		return false;
+	const size_t ip = b->set + rc_u32 (f, ref + 4);
+	if (rc_u8 (f, ip + 9) != 0) // wave data location: index
+		return false;
+	const u32 wi = rc_u32 (f, ip);
+	if (wi >= b->n_waves || !b->waves[wi].length)
+		return false;
+	rb_rgn_t r;
+	memset (&r, 0, sizeof (r));
+	rb_inst_param (f, ip, &r);
+	out->wave = b->waves + wi;
+	out->attack = r.a;
+	out->hold = r.h;
+	out->decay = r.d;
+	out->sustain = r.s;
+	out->release = r.r;
+	out->release_ignore = r.note_off_ignore;
+	out->alternate_assign = r.alt;
+	out->original_key = rc_u8 (f, ip + 0x0c);
+	out->pan = r.raw_pan;
+	out->volume = b->have_vol ? r.raw_vol : 127;
+	out->tune = b->have_vol ? r.tune : 1.0f;
+	return true;
+}
+
+static u32 rn_be32 (const u8 *p) { return (u32)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+
+// RSEQ file at "seq" -> sequence code base (DATA block body + baseOffset)
+static bool rn_seq_base (const u8 *seq, size_t n, size_t *base)
+{
+	if (n < 0x20 || memcmp (seq, "RSEQ", 4))
+		return false;
+	const size_t d = rn_be32 (seq + 0x10);
+	if (d + 12 > n || memcmp (seq + d, "DATA", 4))
+		return false;
+	*base = d + rn_be32 (seq + d + 8);
+	return *base < n;
+}
+
+// renders one sequence; writes <dir>/<stem>.wav and hands it to RSARRenderedHook (FLAC)
+static bool rn_render_code (const u8 *code, size_t code_n, u32 start, u32 alloc_track, u8 volume, u8 pan_mode,
+	u8 pan_curve, nws_inst_fn inst, void *ctx, ccp dir, ccp stem)
+{
+	if (!code || start >= code_n)
+		return false;
+	nws_params_t p;
+	memset (&p, 0, sizeof (p));
+	p.seq = code;
+	p.seq_size = code_n;
+	p.start = start;
+	p.alloc_track = alloc_track;
+	p.volume = volume / 127.0f;
+	p.pan_mode = pan_mode <= 1 ? pan_mode : 0;
+	p.pan_curve = pan_curve <= 8 ? pan_curve : 0;
+	p.inst = inst;
+	p.ctx = ctx;
+	int16_t *pcm = 0;
+	size_t frames = 0;
+	int looped = 0;
+	if (NWSeqRender (&p, &pcm, &frames, &looped) || !frames)
+	{
+		NWSeqFree (pcm);
+		return false;
+	}
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s.wav", dir, stem);
+	const bool ok = NWSeqWriteWav (path, pcm, frames, NWS_RATE) == 0;
+	NWSeqFree (pcm);
+	if (ok && RSARRenderedHook)
+		RSARRenderedHook (path);
+	return ok;
+}
+
+static bool rn_render (const u8 *seq, size_t seq_n, const rs_sound_t *snd, rn_bank_t *bank, ccp dir, ccp stem)
+{
+	size_t base;
+	if (!rn_seq_base (seq, seq_n, &base))
+		return false;
+	return rn_render_code (seq + base, seq_n - base, snd->dataOffset, snd->allocTrack, snd->volume, snd->panMode,
+		snd->panCurve, bank ? rn_inst : 0, bank, dir, stem);
+}
+
 enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 {
 	rs_t r = { .f = { data, size } };
@@ -1031,13 +1285,19 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 	char (*used_sf)[128] = CALLOC (4096, 128);
 	uint n_un = 0, n_us = 0;
 	rc_buf_t manifest = { 0 };
-	rc_put (&manifest, "midi\tsoundfont\n", 15);
+	rc_put (&manifest, "midi\tsoundfont\taudio\n", 21);
 	char *bank_sf = CALLOC (r.n_banks ? r.n_banks : 1, 160);
+	rn_bank_t *rn = 0;
+	bool *coll_loaded = 0;
 	if (!colls || !inss || !n_inss || !bl || !used_bank || !used_names || !used_sf || !bank_sf)
 		goto done;
 
 	for (uint i = 0; i < r.n_banks; i++)
 		rb_bank_locate (&r, r.banks + i, bl + i);
+	rn = CALLOC (r.n_banks ? r.n_banks : 1, sizeof (*rn));
+	coll_loaded = CALLOC (r.n_banks ? r.n_banks : 1, sizeof (bool));
+	if (!rn || !coll_loaded)
+		goto done;
 
 	uint n_mid = 0;
 	for (uint s = 0; s < r.n_sounds; s++)
@@ -1065,15 +1325,36 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 		n_mid++;
 		char line[400];
 		const char *bn = snd->bankID < r.n_banks ? r.banks[snd->bankID].name : "";
+		rn_bank_t *rb = 0;
+		if (snd->bankID < r.n_banks && bl[snd->bankID].have)
+		{
+			const uint bi = snd->bankID;
+			if (!coll_loaded[bi])
+			{
+				coll_loaded[bi] = true;
+				if (bl[bi].is_wave)
+					rb_coll_wave (&r.f, colls + bi, bl[bi].wave_off, bl[bi].wave_data);
+				else
+					rb_coll_rwar (&r.f, colls + bi, bl[bi].wave_data);
+				rn[bi].f = &r.f;
+				rn[bi].set = bl[bi].instr_off;
+				u32 bd, bw, bsz;
+				rn[bi].have_vol = rs_resolve (&r, r.banks[bi].fileID, &bd, &bw, &bsz) && rc_u16 (&r.f, bd + 6) >= 0x0101;
+				rn_bank_waves (rn + bi, colls + bi);
+			}
+			if (rn[bi].waves)
+				rb = rn + bi;
+		}
+		const bool native = RSARRenderAudio && rn_render (data + d, sz && sz < avail ? sz : avail, snd, rb, midi_dir, uniq);
 		if (snd->bankID < r.n_banks && bl[snd->bankID].have)
 		{
 			used_bank[snd->bankID] = true;
 			if (!bank_sf[snd->bankID * 160])
 				rb_name_unique (bank_sf + snd->bankID * 160, 160, bn, used_sf, &n_us);
-			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\n", uniq, bank_sf + snd->bankID * 160);
+			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\t%s\n", uniq, bank_sf + snd->bankID * 160, native ? "native" : "");
 		}
 		else
-			snprintf (line, sizeof (line), "%s.mid\t\n", uniq);
+			snprintf (line, sizeof (line), "%s.mid\t\t%s\n", uniq, native ? "native" : "");
 		rc_put (&manifest, line, strlen (line));
 	}
 
@@ -1084,10 +1365,14 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 		if (!used_bank[i])
 			continue;
 		const rb_bank_t *b = bl + i;
-		if (b->is_wave)
-			rb_coll_wave (&r.f, colls + i, b->wave_off, b->wave_data);
-		else
-			rb_coll_rwar (&r.f, colls + i, b->wave_data);
+		if (!coll_loaded[i])
+		{
+			coll_loaded[i] = true;
+			if (b->is_wave)
+				rb_coll_wave (&r.f, colls + i, b->wave_off, b->wave_data);
+			else
+				rb_coll_rwar (&r.f, colls + i, b->wave_data);
+		}
 		if (!rb_load_instrs (&r.f, b->instr_off, inss + i, n_inss + i))
 			continue;
 		u8 *sf = 0;
@@ -1106,6 +1391,10 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 
 done:
 	FREE (manifest.d);
+	for (uint i = 0; rn && i < r.n_banks; i++)
+		rn_bank_free (rn + i);
+	FREE (rn);
+	FREE (coll_loaded);
 	for (uint i = 0; colls && i < r.n_banks; i++)
 	{
 		rb_coll_free (colls + i);
@@ -2167,6 +2456,22 @@ static bool fx_load_bank (const fx_t *f, rb_instr_t **out, uint *n_out, u32 **wa
 					for (int q = 0; q < 5; q++)
 						adshr[q] = fx_u8 (f, at + q);
 				rb_envelope (r, adshr[0], adshr[1], adshr[2], adshr[4]);
+				// raw parameters for the native renderer (ADSHR curve: attack, decay, sustain, hold, release)
+				r->a = adshr[0] & 127;
+				r->d = adshr[1] & 127;
+				r->s = adshr[2] & 127;
+				r->h = adshr[3] & 127;
+				r->r = adshr[4] & 127;
+				r->raw_vol = (u8)(r->volume * 127.0 + 0.5);
+				r->raw_pan = (u8)p;
+				const u32 pitch = fx_flag (f, fl, 3, &h);
+				float tune = 1.0f;
+				if (h)
+					memcpy (&tune, &pitch, 4);
+				r->tune = tune > 0.01f && tune < 100.0f ? tune : 1.0f;
+				const u32 vinfo = fx_flag (f, fl, 4, &h);
+				r->note_off_ignore = h && (vinfo & 0xff) != 0; // percussion mode
+				r->alt = h ? (u8)(vinfo >> 8) : 0; // key group
 			}
 		}
 	}
@@ -2233,6 +2538,10 @@ typedef struct fa_t
 	size_t n;
 	bfsar_t sar;
 	const bfsar_table_t *files, *sounds, *banks, *wars;
+	// groups (FGRP/CGRP) embedded in the FILE pool: banks and wave archives are usually stored in them
+	sound_archive_t *grp;
+	uint n_grp;
+	bool grp_scanned;
 } fa_t;
 
 static const bfsar_table_t *fa_table (const bfsar_t *s, bfsar_sound_type_t type, ccp name)
@@ -2244,7 +2553,7 @@ static const bfsar_table_t *fa_table (const bfsar_t *s, bfsar_sound_type_t type,
 }
 
 // embedded image of a file id
-static bool fa_file (const fa_t *a, u32 file_id, const u8 **img, size_t *n)
+static bool fa_file_direct (const fa_t *a, u32 file_id, const u8 **img, size_t *n)
 {
 	if (!a->files || file_id >= a->files->n_entry)
 		return false;
@@ -2256,6 +2565,54 @@ static bool fa_file (const fa_t *a, u32 file_id, const u8 **img, size_t *n)
 	return true;
 }
 
+static void fa_scan_groups (fa_t *a)
+{
+	if (a->grp_scanned || !a->files)
+		return;
+	a->grp_scanned = true;
+	a->grp = CALLOC (a->files->n_entry ? a->files->n_entry : 1, sizeof (sound_archive_t));
+	if (!a->grp)
+		return;
+	for (uint i = 0; i < a->files->n_entry; i++)
+	{
+		const u8 *img;
+		size_t n;
+		if (fa_file_direct (a, i, &img, &n) && n >= 0x20 && (!memcmp (img, "FGRP", 4) || !memcmp (img, "CGRP", 4))
+			&& ScanSoundArchive (a->grp + a->n_grp, img, n) == ERR_OK)
+			a->n_grp++;
+	}
+}
+
+static void fa_free_groups (fa_t *a)
+{
+	for (uint i = 0; i < a->n_grp; i++)
+		ResetSoundArchive (a->grp + i);
+	FREE (a->grp);
+	a->grp = 0;
+	a->n_grp = 0;
+}
+
+// embedded image of a file id: in the archive's own FILE pool, or inside one of its groups
+static bool fa_file (const fa_t *ac, u32 file_id, const u8 **img, size_t *n)
+{
+	if (fa_file_direct (ac, file_id, img, n))
+		return true;
+	fa_t *a = (fa_t *)ac; // the group index is a lazily built cache
+	fa_scan_groups (a);
+	for (uint g = 0; g < a->n_grp; g++)
+		for (uint i = 0; i < a->grp[g].n_entries; i++)
+		{
+			const sar_file_entry_t *e = a->grp[g].entries + i;
+			if (e->file_id == file_id && e->data && e->size)
+			{
+				*img = e->data;
+				*n = e->size;
+				return true;
+			}
+		}
+	return false;
+}
+
 static bool fa_war (void *ctx, u32 war_index, const u8 **img, size_t *n)
 {
 	const fa_t *a = ctx;
@@ -2263,6 +2620,123 @@ static bool fa_war (void *ctx, u32 war_index, const u8 **img, size_t *n)
 		return false;
 	const fx_t f = { a->d, a->n, a->sar.little_endian };
 	return fa_file (a, fx_u32 (&f, a->wars->entry[war_index].rec_off), img, n);
+}
+
+// -- native rendering of FSEQ/CSEQ sounds ------------------------------------------------------
+
+typedef struct fn_bank_t
+{
+	bool loaded;
+	rb_instr_t *ins;
+	uint ni;
+	rb_coll_t coll;
+	rn_bank_t rn; // wave table
+} fn_bank_t;
+
+typedef struct fn_ctx_t { fn_bank_t *slot[4]; } fn_ctx_t;
+
+static void fn_bank_load (fa_t *a, const fx_t *f, uint id, fn_bank_t *b)
+{
+	if (b->loaded)
+		return;
+	b->loaded = true;
+	const u8 *bimg;
+	size_t bn;
+	if (!fa_file (a, fx_u32 (f, a->banks->entry[id].rec_off), &bimg, &bn) || bn < 8)
+	{
+		if (getenv ("NWSEQ_DEBUG"))
+			fprintf (stderr, "nwseq: bank %u: file id %u (rec %u) not found in the archive (%u files, pool @%u)\n", id,
+				fx_u32 (f, a->banks->entry[id].rec_off), (u32)a->banks->entry[id].rec_off, a->files ? a->files->n_entry : 0,
+				(u32)a->sar.file_pool_off);
+		return;
+	}
+	const fx_t bf = { bimg, bn, bimg[4] == 0xff };
+	u32 *ids = 0;
+	uint nw = 0;
+	if (fx_load_bank (&bf, &b->ins, &b->ni, &ids, &nw))
+	{
+		fx_build_coll (&b->coll, ids, nw, fa_war, a);
+		rn_bank_waves (&b->rn, &b->coll);
+	}
+	if (getenv ("NWSEQ_DEBUG"))
+	{
+		uint ok = 0, nr = 0;
+		for (uint i = 0; i < b->rn.n_waves; i++)
+			ok += b->rn.waves[i].length != 0;
+		for (uint i = 0; i < b->ni; i++)
+			nr += b->ins[i].n;
+		fprintf (stderr, "nwseq: bank %u: %u instruments, %u regions, %u/%u waves usable\n", id, b->ni, nr, ok, nw);
+	}
+	FREE (ids);
+}
+
+static void fn_bank_free (fn_bank_t *b)
+{
+	if (b->ins)
+		rb_free_instrs (b->ins, b->ni);
+	rb_coll_free (&b->coll);
+	rn_bank_free (&b->rn);
+	memset (b, 0, sizeof (*b));
+}
+
+// region lookup over the key/velocity regions of the instrument "prg"
+static int fn_inst (void *ctx, int bank, int prg, int key, int vel, nws_inst_t *out)
+{
+	const fn_ctx_t *c = ctx;
+	if (bank < 0 || bank > 3 || !c->slot[bank])
+		return 0;
+	const fn_bank_t *b = c->slot[bank];
+	for (uint i = 0; i < b->ni; i++)
+	{
+		const rb_instr_t *in = b->ins + i;
+		if (in->num != (u32)prg)
+			continue;
+		for (uint j = 0; j < in->n; j++)
+		{
+			const rb_rgn_t *r = in->r + j;
+			const int vhi = r->vhi || r->vlo ? r->vhi : 127;
+			if (key < r->klo || key > r->khi || vel < r->vlo || vel > vhi)
+				continue;
+			if (r->samp >= b->rn.n_waves || !b->rn.waves[r->samp].length)
+				return 0;
+			out->wave = b->rn.waves + r->samp;
+			out->attack = r->a;
+			out->hold = r->h;
+			out->decay = r->d;
+			out->sustain = r->s;
+			out->release = r->r;
+			out->release_ignore = r->note_off_ignore;
+			out->alternate_assign = r->alt;
+			out->original_key = r->unity >= 0 ? (u8)r->unity : 60;
+			out->volume = r->raw_vol;
+			out->pan = r->raw_pan;
+			out->tune = r->tune > 0 ? r->tune : 1.0f;
+			return 1;
+		}
+		return 0;
+	}
+	return 0;
+}
+
+// FSEQ/CSEQ image -> MML code (DATA block body; the block table follows the file header)
+static bool fn_seq_code (const u8 *img, size_t n, const u8 **code, size_t *code_n)
+{
+	if (n < 0x20)
+		return false;
+	const fx_t f = { img, n, img[4] == 0xff };
+	const uint nb = fx_u16 (&f, 0x10);
+	for (uint i = 0; i < nb && i < 16; i++)
+	{
+		const size_t o = 0x14 + 12 * (size_t)i;
+		const u32 off = fx_u32 (&f, o + 4), sz = fx_u32 (&f, o + 8);
+		if (off + 8 <= n && !memcmp (img + off, "DATA", 4))
+		{
+			*code = img + off + 8;
+			*code_n = (sz >= 8 && off + sz <= n ? sz : n - off) - 8;
+			return true;
+		}
+	}
+	return false;
 }
 
 enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
@@ -2287,13 +2761,14 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 	char (*used_sf)[128] = CALLOC (4096, 128);
 	char *bank_sf = CALLOC (nb ? nb : 1, 160);
 	bool *used_bank = CALLOC (nb ? nb : 1, sizeof (bool));
+	fn_bank_t *fnb = CALLOC (nb ? nb : 1, sizeof (fn_bank_t));
 	rc_buf_t manifest = { 0 };
 	uint n_un = 0, n_us = 0, n_mid = 0, n_sf = 0;
-	if (!used_names || !used_sf || !bank_sf || !used_bank || !a.sounds)
+	if (!used_names || !used_sf || !bank_sf || !used_bank || !fnb || !a.sounds)
 		goto done;
 	CreatePath (midi_dir, true);
 	CreatePath (sf_dir, true);
-	rc_put (&manifest, "midi\tsoundfont\n", 15);
+	rc_put (&manifest, "midi\tsoundfont\taudio\n", 21);
 
 	for (uint s = 0; s < a.sounds->n_entry; s++)
 	{
@@ -2329,18 +2804,42 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 		FREE (mid);
 		n_mid++;
 
-		// first bank of the sequence's bank table that exists in the archive
+		// first bank of the sequence's bank table that exists in the archive (SoundFont); the native
+		// renderer gets all four slots, selected by the sequence's bank select command
 		int bank = -1;
 		size_t bt;
+		fn_ctx_t fc = { { 0 } };
 		if (fx_ref (&f, det, det, 0, &bt))
 		{
 			const uint cnt = fx_u32 (&f, bt);
-			for (uint j = 0; j < cnt && j < 4 && bank < 0; j++)
+			for (uint j = 0; j < cnt && j < 4; j++)
 			{
 				const u32 id = fx_u32 (&f, bt + 4 + 4 * (size_t)j) & 0xffffff;
-				if (id < nb && a.banks->entry[id].present)
+				if (id >= nb || !a.banks->entry[id].present)
+					continue;
+				if (bank < 0)
 					bank = (int)id;
+				if (RSARRenderAudio)
+				{
+					fn_bank_load (&a, &f, id, fnb + id);
+					if (fnb[id].rn.waves)
+						fc.slot[j] = fnb + id;
+				}
 			}
+		}
+		bool native = false;
+		if (RSARRenderAudio)
+		{
+			const u8 *code;
+			size_t code_n;
+			// SoundInfo: volume @8; optional pan info (flag 1: pan mode, pan curve) in the flags @0x14
+			bool hp;
+			const u32 po = fx_flag (&f, rec + 0x14, 1, &hp);
+			const u8 pan_mode = hp && rec + po + 2 <= size ? fx_u8 (&f, rec + po) : 0;
+			const u8 pan_curve = hp && rec + po + 2 <= size ? fx_u8 (&f, rec + po + 1) : 0;
+			if (fn_seq_code (img, img_n, &code, &code_n))
+				native = rn_render_code (code, code_n, start, fx_u32 (&f, det + 8), fx_u8 (&f, rec + 8), pan_mode,
+					pan_curve, fn_inst, &fc, midi_dir, uniq);
 		}
 		char line[400];
 		if (bank >= 0)
@@ -2356,12 +2855,14 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 						*p = '_';
 				rb_name_unique (bank_sf + bank * 160, 160, bname, used_sf, &n_us);
 			}
-			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\n", uniq, bank_sf + bank * 160);
+			snprintf (line, sizeof (line), "%s.mid\t%s.sf2\t%s\n", uniq, bank_sf + bank * 160, native ? "native" : "");
 		}
 		else
-			snprintf (line, sizeof (line), "%s.mid\t\n", uniq);
+			snprintf (line, sizeof (line), "%s.mid\t\t%s\n", uniq, native ? "native" : "");
 		rc_put (&manifest, line, strlen (line));
 	}
+	for (uint i = 0; i < nb; i++)
+		fn_bank_free (fnb + i);
 
 	// one SoundFont per bank used by at least one sequence
 	for (uint i = 0; i < nb; i++)
@@ -2405,6 +2906,11 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 	err = n_mid || n_sf ? ERR_OK : ERR_NOTHING_TO_DO;
 
 done:
+	fa_free_groups (&a);
+	if (fnb)
+		for (uint i = 0; i < nb; i++)
+			fn_bank_free (fnb + i);
+	FREE (fnb);
 	FREE (manifest.d);
 	FREE (used_names);
 	FREE (used_sf);

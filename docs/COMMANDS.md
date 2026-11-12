@@ -417,6 +417,15 @@ wmdlt GEOMETRY Course.mdl0
 
 Converts Nintendo sound archives to MIDI and SoundFont instruments, or unpacks/packs raw audio assets.
 
+**Listening renders.** `wszst xx <archive.brsar|.bfsar|.bcsar>` (a single archive given directly) also
+renders every sequence sound to `midi/<sound>.flac` (`--midi-format=wav` keeps WAV; FLAC needs the
+`flac` tool). The audio does not come from the MIDI + SoundFont pair: a native model of the
+NintendoWare sound engine (`lib-nwseq.c`) plays the RSEQ/CSEQ/FSEQ with the bank's own instrument
+lookup, envelopes (attack table, hold, decay/release in dB per ms), LFO, sweep/portamento, volume and
+pan curves and 3 ms update frames, mixed at the DSP rate of 32 kHz. Looping music plays the loop twice
+and fades out over 10 s. `sequences.tsv` marks these sounds `native` in its third column, and the
+SoundFont renderer leaves them alone. Set `NWSEQ_DEBUG=1` to trace notes that find no instrument region.
+
 ```bash
 # 1. Default: write BOTH output styles under output_dir:
 #      raw/         BrawlCrate-style .brseq/.brbnk/.brwsd/.brwar + sounds.tsv (repackable)

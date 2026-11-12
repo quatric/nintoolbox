@@ -1929,9 +1929,11 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 
     {	OPT_MIDI_FORMAT, false, false, false, false, false, 0, "midi-format",
 	"wav|flac",
-	"File format of rendered MIDI audio. 'flac' is lossless and about 60%"
-	" smaller than 'wav' (needs the external flac tool, otherwise WAV is"
-	" kept); macOS Quick Look plays both. Default is 'wav'."
+	"File format of rendered sequence audio (natively rendered"
+	" NintendoWare sequences and rendered MIDI). 'flac' is lossless and"
+	" about 60% smaller than 'wav' (needs the external flac tool,"
+	" otherwise WAV is kept); macOS Quick Look plays both. Default is"
+	" 'flac'."
     },
 
     {	OPT_WITH_7Z, false, false, false, false, false, 0, "with-7z",

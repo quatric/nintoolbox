@@ -1,4 +1,6 @@
 #include "lib-midirender.h"
+#include "lib-rsar-conv.h"
+#include "lib-passthru.h"
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1211,9 +1213,16 @@ static enumError CheckCommand (int argc, char **argv)
 ///////////////			main_wszst(), main()		///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+static void rsar_rendered_to_flac (ccp wav_path)
+{
+	if (!testmode)
+		PassthruWavToFlac (wav_path);
+}
+
 int main_wszst (int argc, char **argv)
 {
 	tool_name = "wszst";
+	RSARRenderedHook = rsar_rendered_to_flac;
 	print_title_func = print_title;
 	SetupLib (argc, argv, WSZST_SHORT, VERSION, TITLE);
 	SetupExtendedSZS ();

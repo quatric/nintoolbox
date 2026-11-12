@@ -1789,9 +1789,11 @@
 
 #:def_opt( "MIDI_FORMAT", "midi-format|midiformat", "GP", \
 	"wav|flac", \
-	"File format of rendered MIDI audio. @'flac'@ is lossless and about" \
-	" 60% smaller than @'wav'@ (needs the external {flac} tool, otherwise" \
-	" WAV is kept); macOS Quick Look plays both. Default is @'wav'@." )
+	"File format of rendered sequence audio (natively rendered" \
+	" NintendoWare sequences and rendered MIDI). @'flac'@ is lossless and" \
+	" about 60% smaller than @'wav'@ (needs the external {flac} tool," \
+	" otherwise WAV is kept); macOS Quick Look plays both. Default is" \
+	" @'flac'@." )
 
 #:def_opt( "WITH_7Z", "with-7z|7z", "GP", \
 	"path", \
