@@ -493,6 +493,7 @@
 #include "extract/ish_isd.inc"
 #include "extract/hudson_pdt.inc"
 #include "extract/kt_wiibgm.inc"
+#include "extract/asobo_vai.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
