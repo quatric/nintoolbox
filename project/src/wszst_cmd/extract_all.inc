@@ -471,6 +471,7 @@
 #include "extract/switch_opus.inc"
 #include "extract/nintendo_ast.inc"
 #include "extract/btsnd.inc"
+#include "extract/hal_ssm.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"

@@ -124,6 +124,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_btsnd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_hal_ssm_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_bwav_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
