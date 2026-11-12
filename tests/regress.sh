@@ -9706,6 +9706,30 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "EA Attrib" "mk_eaattrib.py failed"
   fi
 
+  # Sims VALT/VBIN vault (.vlt + .bin) -> attrib.txt
+  mkdir -p "$d/simsvault_test"
+  if python3 "$PWD_PROJECT/../tests/mk_simsvault.py" "$d/simsvault_test" >/dev/null 2>&1; then
+    sv="$d/simsvault_test/v"
+    "$B/wszst" xx "$sv/a.vlt" --overwrite >/dev/null 2>&1 \
+    && grep -q '^\[player/hero\] : base$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  ea.reflection.float speed = 1.5$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  ea.reflection.text title = "Hello vault"$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  ea.reflection.int32 scores = \[7, -2, 300\]$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  attrib.refspec buddy = player/base$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  attrib.types.vector3 pos = (1, 2, 3)$' "$sv/a.vlt.d/attrib.txt" \
+    && grep -q '^  ea.reflection.uint32 tags\[1\] = 12$' "$sv/a.vlt.d/attrib.txt" \
+    && ! grep -q '^  ea.reflection.uint32 tags = ' "$sv/a.vlt.d/attrib.txt" \
+    && "$B/wszst" xx "$sv/s.vlt" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$sv/a.vlt.d/attrib.txt")" = "$(cat "$sv/s.vlt.d/attrib.txt")" ] \
+    && "$B/wszst" xx "$sv/k.vlt" --overwrite >/dev/null 2>&1 \
+    && grep -q '^  ea.reflection.int32 scores = \[7, -2, 300\]$' "$sv/k.vlt.d/attrib.txt" \
+    && grep -q '^  game.cost cost = {kind={mkey=5}, amount=-3}$' "$sv/k.vlt.d/attrib.txt" \
+    && fok "Sims VALT/VBIN vault .vlt (SimAnimals and MySims layouts) -> attrib.txt" \
+    || fno "Sims vault" "failed to decode synthetic a/s/k.vlt"
+  else
+    fno "Sims vault" "mk_simsvault.py failed"
+  fi
+
   # CHNK tree container (.scene) -> tree.json
   mkdir -p "$d/chnk_test"
   if python3 "$PWD_PROJECT/../tests/mk_chnktree.py" "$d/chnk_test" >/dev/null 2>&1; then

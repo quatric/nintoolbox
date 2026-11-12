@@ -73,6 +73,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_eaattrib_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_simsvault_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_j3dbck_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
