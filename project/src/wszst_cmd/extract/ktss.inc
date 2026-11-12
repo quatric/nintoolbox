@@ -1,5 +1,5 @@
 // Koei Tecmo Switch "KTSS" audio (".kns" / ".kno" / ".ktss": Hyrule Warriors, Fire Emblem Warriors, Atelier Lydie & Suelle): u32 data size @4, codec @0x20 (2 =
-// DSP-ADPCM; 9 = Opus is not handled here), version @0x22, data start = u32 @0x24 + 0x20, tracks @0x28, channels per track @0x29, rate @0x2c, samples @0x30; DSP
+// DSP-ADPCM, 9 = Opus (mono/stereo, repacked to Ogg)), version @0x22, data start = u32 @0x24 + 0x20, tracks @0x28, channels per track @0x29, rate @0x2c, samples @0x30; DSP
 // coefficients are little-endian s16 x16 per channel at 0x40 (version 1, spacing 0x2e) or 0x5c (version 3, spacing 0x60), channels interleave every 8 bytes.
 // Decoded to "<name>.wav" via synthetic DSP files (after vgmstream ktss.c).
 #include "lib-dsp.h"
@@ -17,7 +17,59 @@ static enumError extract_ktss_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
-	if (sz > 0x80 && !memcmp (raw, "KTSS", 4) && raw[0x20] == 2 && (raw[0x22] == 1 || raw[0x22] == 3))
+	if (sz > 0x80 && !memcmp (raw, "KTSS", 4) && raw[0x20] == 9 && raw[0x28] * raw[0x29] >= 1 && raw[0x28] * raw[0x29] <= 2)
+	{
+		// Opus (Dead or Alive Xtreme 3, Fire Emblem Three Houses): Switch Opus packets at u32 @0x40 (size @0x44), skip @0x58; mono/stereo only, repacked to Ogg
+		const uint ch = raw[0x28] * raw[0x29], skip = raw[0x58] | raw[0x59] << 8;
+		const size_t off = rd_le32 (raw + 0x40), dsz = rd_le32 (raw + 0x44);
+		if (off < sz && off + dsz <= sz && dsz > 8)
+		{
+			swo_ogg_t og = { 0 };
+			u8 oh[19] = { 'O', 'p', 'u', 's', 'H', 'e', 'a', 'd', 1, (u8)ch, (u8)skip, (u8)(skip >> 8), 0x80, 0xbb, 0, 0, 0, 0, 0 };
+			og.serial = 0x4e494e54;
+			swo_page (&og, oh, 19, 0, 2);
+			static const u8 tags[] = { 'O', 'p', 'u', 's', 'T', 'a', 'g', 's', 5, 0, 0, 0, 'n', 'i', 'n', 't', 'o', 0, 0, 0, 0 };
+			swo_page (&og, tags, sizeof (tags), 0, 0);
+			const u8 *p = raw + off, *e = p + dsz;
+			u64 gp = 0;
+			uint npk = 0;
+			while (p + 8 <= e)
+			{
+				const uint len = rd_be32 (p);
+				if (!len || p + 8 + len > e)
+					break;
+				const uint ns = swo_packet_samples (p + 8, len);
+				if (!ns)
+					break;
+				gp += ns;
+				p += 8 + len;
+				swo_page (&og, p - len, len, gp, p + 8 > e ? 4 : 0);
+				npk++;
+			}
+			if (npk)
+			{
+				char dest[PATH_MAX], name[PATH_MAX], wav[PATH_MAX], ogg[PATH_MAX];
+				beside_source_dest (dest, sizeof (dest), arg);
+				const char *sl = strrchr (arg, '/');
+				snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
+				char *dot = strrchr (name, '.');
+				if (dot) *dot = 0;
+				snprintf (ogg, sizeof (ogg), "%s.ogg", name);
+				if (verbose >= 0 || testmode)
+					fprintf (stdlog, "%s%sDECODE KTSS-OPUS:%s (%u ch, %u packets) -> OGG/WAV\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, ch, npk);
+				if (testmode)
+					err = ERR_OK;
+				else if (!(err = shade_write (arg, dest, basedir, ogg, og.d, (uint)og.n)))
+				{
+					snprintf (ogg, sizeof (ogg), "%s/%s%s.ogg", dest, basedir ? basedir : "", name);
+					snprintf (wav, sizeof (wav), "%s/%s%s.wav", dest, basedir ? basedir : "", name);
+					PassthruDecodeAudio (ogg, wav);
+				}
+			}
+			FREE (og.d);
+		}
+	}
+	else if (sz > 0x80 && !memcmp (raw, "KTSS", 4) && raw[0x20] == 2 && (raw[0x22] == 1 || raw[0x22] == 3))
 	{
 		const uint ver = raw[0x22], ch = raw[0x28] * raw[0x29], rate = rd_le32 (raw + 0x2c), ns = rd_le32 (raw + 0x30);
 		const size_t start = (size_t)rd_le32 (raw + 0x24) + 0x20, cof = ver == 1 ? 0x40 : 0x5c, sp = ver == 1 ? 0x2e : 0x60;
