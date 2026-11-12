@@ -9887,6 +9887,11 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     && [ "$(cat "$d/unityassets_test/sharedassets9.assets.d/00003_tt.bytes")" = "hello" ] \
     && fok "Unity .assets (v6 BE) extracts LZ11 GX textures, stereo DSP clips and TextAssets" \
     || fno "Unity .assets" "failed to extract synthetic sharedassets9.assets"
+    "$B/wszst" xx "$d/unityassets_test/sharedassets3.assets" --overwrite >/dev/null 2>&1 \
+    && [ "$(xxd -s 16 -l 8 -p "$d/unityassets_test/sharedassets3.assets.d/00001_tx2.png")" = "0000000800000004" ] \
+    && [ "$(cat "$d/unityassets_test/sharedassets3.assets.d/00002_tt2.bytes")" = "abc" ] \
+    && fok "Unity .assets with type trees reads Texture2D pixels from the scene .ures stream" \
+    || fno "Unity .assets typed" "failed to extract synthetic sharedassets3.assets + level2-0.ures"
   else
     fno "Unity .assets" "mk_unityassets.py failed"
   fi

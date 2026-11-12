@@ -35,3 +35,23 @@ meta = b'\x01' + struct.pack('>ii', 0, len(objs)) + table + struct.pack('>i', 0)
 fsz = 16 + len(data) + len(meta)
 f = struct.pack('>IIII', len(meta), fsz, 6, 0) + data + meta
 open(os.path.join(out, 'sharedassets9.assets'), 'wb').write(f)
+
+# Later layout: type trees present, Texture2D pixels in the scene's .ures stream. Bundle 3 << 16 = scene 3 = "level2",
+# stream 0 -> level2-0.ures; an 8x4 I8 texture (format 0x0e, one GX tile) at offset 0x20.
+def node(t, n, size, children=(), arr=0):
+    b = t.encode() + b'\0' + n.encode() + b'\0' + struct.pack('>6i', size, 0, arr, 1, 0, len(children))
+    return b + b''.join(children)
+tree = struct.pack('>i', 28) + node('Texture2D', 'Base', -1, [node('int', 'm_Width', 4), node('int', 'm_Height', 4)])
+i8 = bytes(range(0, 256, 8))
+tex2 = name('tx2') + struct.pack('>4iB3x2i', 8, 4, 32, 0x0e, 0, 1, 2) + struct.pack('>iifi', 0, 0, 0.0, 0) \
+    + struct.pack('>IIi', 0x20, 3 << 16, 0)
+txt2 = name('tt2') + struct.pack('>I', 3) + b'abc' + b'\0'
+objs = [(1, 28, tex2), (2, 49, txt2)]
+data = b''; table = b''
+for pid, cls, b in objs:
+    table += struct.pack('>iIIiHH', pid, 16 + len(data), len(b), cls, cls, 0)
+    data += b + b'\0' * (-len(b) % 4)
+meta = b'\x01' + struct.pack('>i', 1) + tree + struct.pack('>i', len(objs)) + table + struct.pack('>i', 0)
+fsz = 16 + len(data) + len(meta)
+open(os.path.join(out, 'sharedassets3.assets'), 'wb').write(struct.pack('>IIII', len(meta), fsz, 6, 0) + data + meta)
+open(os.path.join(out, 'level2-0.ures'), 'wb').write(b'\xff' * 0x20 + i8)
