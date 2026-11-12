@@ -60,7 +60,7 @@ static enumError extract_nsmbw_tex_file (ccp arg, ccp basedir, uint depth)
 	}
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NSMBW-TEX (1024x256 RGB5A3):%s -> %s\n",
+		fprintf (stdlog, "%s%sEXTRACT TILESET-TEX (1024x256 RGB5A3):%s -> %s\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)

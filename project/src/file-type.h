@@ -516,7 +516,7 @@ typedef enum file_format_t
 					// Camelot GX texture bank)
 	FF_BERMUDA_PLANETG, // 412 - Bermuda Triangle "PLANETG" tagged-object resource (.MWG/.MSP)
 	FF_BERMUDA_PKI, // 413 - Bermuda Triangle "IMAGE_WII_COMPACT" texture-pack container (.PKI)
-	FF_BERMUDA_PGF, // 414 - Bermuda Triangle font resource (.pgf; header only)
+	FF_BERMUDA_PGF, // 414 - Planet-G bitmap font (.pgf; metrics + two-colour atlas)
 	FF_AQUAPANIC_RKET, // 415 - Aqua Panic! "RKET" resource container (.rck/.spa; outer header only)
 	FF_AQUAPANIC_MAT, // 416 - Aqua Panic! "MATF" material chunk table (.mat)
 	FF_AQUAPANIC_MB2, // 417 - Aqua Panic! "BNAM" name-string table (.mb2)

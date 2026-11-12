@@ -165,7 +165,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **Pikmin ARC/DIR** | `.arc` + `.dir` | *Pikmin* |
 | **PKG (Barking Lizards)** | `.pkg` | *Nickelodeon: The Naked Brothers Band - The Video Game* |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | *Bonsai Barber*, *World of Goo* |
-| **PKI** | `.PKI` | *Bermuda Triangle: Saving the Coral* |
+| **PKI** | `.PKI` | *Bermuda Triangle: Saving the Coral*, *Ocean Commander* |
 | **PKZ** | `.pkz` | *Bayonetta*, *Astral Chain* |
 | **PRC** | `.prc`, `.param` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **PTD** | `.ptd`, `.pdt` | *Mario Party 4-8* |
@@ -173,7 +173,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **Radical RCF** | `.rcf` | *Crash of the Titans*, *Simpsons Hit & Run* |
 | **RARC** | `.rarc`, `.arc` | GameCube / Wii |
 | **RFL_Res** | `RFL_Res.dat`, `.dat` | Wii / 3DS / Wii U |
-| **RKET** | `.rck`, `.spa` | *Aqua Panic!* |
+| **RKET** | `.rck`, `.spa` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
 | **RPAK** | `.rpak`, `.pak` | *Donkey Kong Country Returns* |
 | **RSO** | `.rso` | *Skylanders: SuperChargers Racing* |
 | **RST / TOC** | `.rst`, `.toc` | *Excite Truck*, *Excitebots* |
@@ -185,7 +185,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **SFZDAT** | `.dat` | *Star Fox Zero* |
 | **SHARC / SHARCFB** | `.sharc`, `.sharcfb`, `.sharcb` | Wii U / Switch / Switch 2 |
 | **SIR0** | `.sir0` | DS / 3DS |
-| **SMASH-ARC** | `.arc` | *Super Smash Bros. Ultimate* |
+| **DATA-ARC** | `.arc` | *Super Smash Bros. Ultimate* |
 | **Storybook ONE** | `.one` | *Sonic and the Secret Rings*, *Black Knight* |
 | **STPK** | `.srd`, `.stpk` | None verified (*Jump Stars* use ALAR) |
 | **Sumo STZ** | `.stz` | *Sonic & Sega All-Stars Racing* |
@@ -316,7 +316,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Layton backgrounds** | `.arc`, `.arb` | *Professor Layton* |
 | **MPR TXTR** | `.txtr` / `.mpr.txtr` | *Metroid Prime Remastered* |
 | **MTTEX** | `.tex` | 3DS |
-| **MWT** | `.MWT` | *Bermuda Triangle: Saving the Coral* |
+| **MWT** | `.MWT` | *Bermuda Triangle: Saving the Coral*, *Rock Blast*, *Veggy World*, *Ocean Commander*, *Arcade Shooting Gallery* |
+| **PGF** (two-colour font atlases) | `.pgf` | *Bermuda Triangle: Saving the Coral*, *Rock Blast*, *Veggy World*, *Ocean Commander*, *Arcade Shooting Gallery*, *Offshore Tycoon* |
 | **NCER / NANR** | `.ncer`, `.nanr` | DS |
 | **NCGR / NCLR** | `.ncgr`, `.nclr` | DS |
 | **NDS banner** | `banner.bin` | DS / DSi |
@@ -397,23 +398,23 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **HVT** | `.hvt`, `.Hvt` | *Rune Factory: Frontier* |
 | **KPMAP** | `.kpmap` | *New Super Mario Bros. Wii* |
 | **KRV** | `.KRV` | *DreamWorks How to Train Your Dragon* |
-| **LIT** | `.lit` | *Aqua Panic!* |
-| **MAT (Aqua Panic)** | `.mat` | *Aqua Panic!* |
+| **LIT** | `.lit` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
+| **MATF** | `.mat` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
 | **MAT (Mercury Meltdown)** | `.mat` | *Mercury Meltdown Revolution* |
-| **MB2** | `.mb2` | *Aqua Panic!* |
+| **MB2** | `.mb2` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
 | **MIO** | `.mio` | *WarioWare: D.I.Y.*, *Made in Ore* |
 | **MPBOARD** | `.bin`, `.csv`, `.xml` | *Super Mario Party*, *Mario Party 10* |
 | **MPMESS** | `.dat` | *Mario Party 4–7* |
 | **MSBT / MSBP / MSBF** | `.msbt`, `.msbp`, `.msbf` | 3DS / Wii U / Switch |
 | **MTMFX** | `.mfx`, `.lfx` | 3DS |
 | **MTMRL** | `.mrl` | SPICA |
-| **MWG / MSP** | `.MWG`, `.MSP` | *Bermuda Triangle: Saving the Coral* |
+| **PLANETG** | `.MWG`, `.MSP` | *Bermuda Triangle: Saving the Coral*, *Rock Blast*, *Veggy World*, *Ocean Commander*, *Arcade Shooting Gallery* |
 | **NAV** | `.nav` | *Mercury Meltdown Revolution* |
-| **PGF** | `.pgf` | *Bermuda Triangle: Saving the Coral* |
+| **PGF** | `.pgf` | *Bermuda Triangle: Saving the Coral*, *Rock Blast*, *Veggy World*, *Ocean Commander*, *Arcade Shooting Gallery*, *Offshore Tycoon* |
 | **RSTB / RESTBL** | `.rstb`, `.rsizetable` | *Breath of the Wild*, *Tears of the Kingdom*, *Mario Kart World* |
 | **SDF** | `.sdf` | *I Spy Spooky Mansion* |
 | **TSCB** | `.tscb` | *Mario Kart World* |
-| **VIS** | `.vis` | *Aqua Panic!* |
+| **VISLIST** | `.vis` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **ZEN** | `.zen` | *Mercury Meltdown Revolution* |

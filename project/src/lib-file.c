@@ -2095,6 +2095,12 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	if (data_size > 4 && file_size == 4 + 36 * 396 && be32 (data8) == 36)
 		return FF_VEHICLE;
 
+	// Eko Software .vis lists have no magic, but the block walk must cover the whole file exactly, which
+	// the looser magic-less probes below (DOL header, Treasure MRG table) cannot tell apart from their own
+	// layouts -- so it goes first. A real DOL starts with 0x00000100 (big endian), far beyond the group limit.
+	if (IsAquaPanicVis (data8, data_size, file_size))
+		return FF_AQUAPANIC_VIS;
+
 	if (IsDolHeader (data, data_size, 0))
 		return FF_DOL;
 
@@ -2329,11 +2335,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_MERCURY_COL;
 	if (IsMercuryPst (data8, data_size, file_size))
 		return FF_MERCURY_PST;
-	// Octomania (Wii) formats -- see lib-octomania.h.
+	// Octomania (Wii) formats -- see lib-octomania.h. The magic-less ".wt" offset table (one known sample)
+	// is NOT probed here: any file starting with two ascending big-endian words and 0xffffffff matched it.
+	// Like Mercury's ".mat"/".nav" it is recognized by extension only (see ExtFallbackMatchesFF()).
 	if (IsOctomaniaSec (data8, data_size, file_size))
 		return FF_OCTOMANIA_SEC;
-	if (IsOctomaniaWt (data8, data_size, file_size))
-		return FF_OCTOMANIA_WT;
 	// I Spy Spooky Mansion (Wii) formats -- see lib-ispyspookymansion.h.
 	if (IsSpookyEid (data8, data_size, file_size))
 		return FF_SPOOKY_EID;
@@ -2372,8 +2378,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 	// same policy as Mercury Meltdown Revolution's ".mat"/".nav".
 	if (IsHTTYDRws (data8, data_size, file_size))
 		return FF_HTTYD_RWS;
-	// Bermuda Triangle - Saving the Coral (Wii) formats -- see
-	// lib-bermudatriangle.h.
+	// Planet-G engine formats (Bermuda Triangle, Rock Blast, Veggy World, ...) -- see lib-bermudatriangle.h.
 	if (IsBermudaMwt (data8, data_size, file_size))
 		return FF_BERMUDA_MWT;
 	if (IsBermudaPlanetG (data8, data_size, file_size))
@@ -2382,19 +2387,16 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_BERMUDA_PKI;
 	if (IsBermudaPgf (data8, data_size, file_size))
 		return FF_BERMUDA_PGF;
-	// Aqua Panic! (Wii) formats -- see lib-aquapanic.h. ".mb2"/".mat" are
-	// gated behind an EOF-consistent chunk/table walk since they are
-	// (mostly) magic-based already; ".vis"/".lit" are magic-less fixed-
-	// size records gated by file_size below alongside the other
-	// structural checks in this function.
+	// Eko Software engine formats (Aqua Panic!, SPRay, Cyberbike, ...) -- see lib-aquapanic.h. RKET, MATF
+	// and BNAM have magics plus structural checks; the magic-less .vis lists are only accepted when the
+	// whole file is buffered and the block walk ends exactly at its end, the .lit lists by their date tag
+	// and the size equation.
 	if (IsAquaPanicRket (data8, data_size, file_size))
 		return FF_AQUAPANIC_RKET;
 	if (IsAquaPanicMat (data8, data_size, file_size))
 		return FF_AQUAPANIC_MAT;
 	if (IsAquaPanicMb2 (data8, data_size, file_size))
 		return FF_AQUAPANIC_MB2;
-	if (IsAquaPanicVis (data8, data_size, file_size))
-		return FF_AQUAPANIC_VIS;
 	if (IsAquaPanicLit (data8, data_size, file_size))
 		return FF_AQUAPANIC_LIT;
 	// Diabolik: The Original Sin (Wii) FAAFFAAF tagged-block resource
@@ -2806,13 +2808,49 @@ file_format_t GetFileTypeByMagic (
 		if (ff == FF_UNKNOWN && ext)
 		{
 			const file_type_t *ft = GetFileTypeByExt (ext, false);
-			if (ft)
+			if (ft && ExtFallbackMatchesFF (ft->fform, buf, sizeof (buf), fatt->size))
 				return ft->fform;
 		}
 		return ff;
 	}
 
 	return FF_INVALID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// [[ExtFallbackMatchesFF]]
+
+bool ExtFallbackMatchesFF (file_format_t fform, const void *data, uint data_size, uint file_size)
+{
+	const u8 *d = data;
+	if (file_size && data_size > file_size)
+		data_size = file_size;
+	switch (fform)
+	{
+		// Content-checked engine formats: GetByMagicFF() already ran these detectors, so an unrelated file
+		// that merely shares the extension (another game's ".lit", ".mat", ".pgf", ...) must stay unknown.
+		case FF_BERMUDA_MWT:
+		case FF_BERMUDA_PLANETG:
+		case FF_BERMUDA_PKI:
+		case FF_BERMUDA_PGF:
+		case FF_AQUAPANIC_RKET:
+		case FF_AQUAPANIC_MAT:
+		case FF_AQUAPANIC_MB2:
+		case FF_AQUAPANIC_VIS:
+		case FF_AQUAPANIC_LIT:
+			return false;
+
+		// Extension-only formats whose detector is too loose for the shared probe: require it here.
+		case FF_MERCURY_MAT:
+			return d && IsMercuryMat (d, data_size, file_size);
+		case FF_MERCURY_NAV:
+			return d && IsMercuryNav (d, data_size, file_size);
+		case FF_OCTOMANIA_WT:
+			return d && IsOctomaniaWt (d, data_size, file_size);
+
+		default:
+			return true;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////

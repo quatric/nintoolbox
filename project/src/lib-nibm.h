@@ -11,7 +11,7 @@
 //
 // Verified on all 311 .aud files of the CSI disc: the Ogg starts at offset 126
 // in each, and walking its pages lands exactly on the end of file every time.
-// (The "DAHBWU-AUDPCM" label wszst gives these files is a false positive from
+// (The "AUDPCM" label wszst gives these files is a false positive from
 // the raw-DSP .AUD of Destroy All Humans, which has no NIBM header.)
 //
 // Extract-only.

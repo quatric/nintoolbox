@@ -8946,8 +8946,8 @@ with open(sys.argv[1], "wb") as f:
   mkdir -p "$d/opoona_test"
   python3 "$PWD_PROJECT/../tests/mk_opoona.py" "$d/opoona_test/fx" >/dev/null 2>&1
   if [ -f "$d/opoona_test/fx/sample.mol" ] && [ -f "$d/opoona_test/fx/sample.mot" ]; then
-    chk_ft_op() { "$B/wszst" FILETYPE "$d/opoona_test/fx/$1" 2>/dev/null | grep -q "^$2"; }
-    chk_ft_op sample.mol OPOONA-MOL && chk_ft_op sample.mot OPOONA-MOT \
+    chk_ft_op() { "$B/wszst" FILETYPE "$d/opoona_test/fx/$1" 2>/dev/null | grep -q "^$2 "; }
+    chk_ft_op sample.mol MOL && chk_ft_op sample.mot MOT \
     && fok "Opoona family FILETYPE recognition (.mol/.mot)" \
     || fno "Opoona family FILETYPE" "misidentified synthetic fixture"
   else
@@ -9072,8 +9072,8 @@ with open(sys.argv[1], "wb") as f:
   mkdir -p "$d/bag_test"
   if python3 "$PWD_PROJECT/../tests/mk_bag.py" "$d/bag_test/test.bag" >/dev/null 2>&1; then
     cp "$d/bag_test/test.bag" "$d/bag_test/test.notbag"
-    if "$B/wszst" FT "$d/bag_test/test.bag" 2>/dev/null | grep -q "BOTB-BAG" \
-      && ! "$B/wszst" FT "$d/bag_test/test.notbag" 2>/dev/null | grep -q "BOTB-BAG"; then
+    if "$B/wszst" FT "$d/bag_test/test.bag" 2>/dev/null | grep -q "^BAG " \
+      && ! "$B/wszst" FT "$d/bag_test/test.notbag" 2>/dev/null | grep -q "^BAG "; then
       fok "Battle of the Bands .bag container recognized by FILETYPE"
     else
       fno "botb .bag" "FILETYPE did not recognize synthetic test.bag, or wrongly matched test.notbag"
@@ -11892,7 +11892,7 @@ PYE
   && fok "Thrillville ATTR field map" \
   || fno "Thrillville ATTR field map" "failed on synthetic w.atr"
 
-  # Bermuda Triangle PLANETG (.MWG) text manifest wired into wszst x
+  # Planet-G PLANETG (.MWG; Bermuda Triangle and others) text manifest wired into wszst x
   mkdir -p "$d/bermuda_test"
   python3 - "$d/bermuda_test/T.MWG" <<'PYE' >/dev/null 2>&1
 import struct, sys
@@ -11902,8 +11902,8 @@ PYE
   "$B/wszst" xx "$d/bermuda_test/T.MWG" --overwrite >/dev/null 2>&1 \
   && grep -q 'tag\[0x0\] len=24 "PLANETG_SPRITECOLLECTION"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
   && grep -q '"BTN_N"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
-  && fok "Bermuda PLANETG text manifest" \
-  || fno "Bermuda PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
+  && fok "PLANETG text manifest" \
+  || fno "PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
 
   # I Spy / Proteus SDASSETF full chunk walk (name, fixed payload, children), both byte orders
   mkdir -p "$d/proteus_test"
@@ -18913,6 +18913,50 @@ t_bphsc(){
   rm -rf "$d"
 }
 t_bphsc
+
+t_wii_engines(){
+  # Planet-G (Bermuda Triangle, Rock Blast, Veggy World, ...) and Eko Software (Aqua Panic!, SPRay,
+  # Cyberbike, ...) engine formats: plain type names (no game prefix), structural detection, and no
+  # extension-only labels for other games' files with the same extension.
+  local d; d=$(mktemp -d /tmp/_r_wiieng.XXXXXX) || { fno "Planet-G / Eko engine formats" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_wii_engines.py" "$d" >/dev/null 2>&1 || { fno "Planet-G / Eko fixtures" "build failed"; rm -rf "$d"; return; }
+  local ft_of; ft_of() { "$B/wszst" FILETYPE "$1" 2>/dev/null | awk 'NR>2 && NF>=2 {print $1; exit}'; }
+  local bad="" f want got
+  for f in t.MWT:MWT t.MWG:PLANETG t.PKI:PKI t.pgf:PGF t.rck:RKET t.mat:MATF t.mb2:MB2 t.vis:VISLIST t.lit:LIT; do
+    want=${f#*:}; got=$(ft_of "$d/${f%%:*}")
+    [ "$got" = "$want" ] || bad="$bad ${f%%:*}=$got"
+  done
+  for f in n.lit n.mat n.MWG n.pgf; do
+    got=$(ft_of "$d/$f")
+    case "$got" in LIT|MATF|MAT|WT|PLANETG|PGF|*-*) bad="$bad $f=$got";; esac
+  done
+  [ -z "$bad" ] && fok "Planet-G / Eko engine FILETYPE names and look-alike rejection" \
+    || fno "Planet-G / Eko engine FILETYPE" "$bad"
+  "$B/wszst" XX "$d/t.MWT" --overwrite >/dev/null 2>&1
+  if [ -s "$d/t.MWT.png" ] && [ ! -d "$d/t.MWT.d" ] && python3 "$PNGTOOL" pixel "$d/t.MWT.png" 3 2 152 152 152 255 2>/dev/null; then
+    fok "Planet-G .MWT (TPL in a GDATAVERSION envelope) -> PNG beside the source"
+  else
+    fno "Planet-G .MWT -> PNG" "$d/t.MWT.png"
+  fi
+  "$B/wszst" XX "$d/t.pgf" "$d/m.pgf" --overwrite >/dev/null 2>&1
+  if [ -s "$d/t.pgf.png" ] && [ ! -e "$d/m.pgf.png" ] && grep -q '^family = "Tahoma"$' "$d/t.pgf.d/t.pgf.txt" 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$d/t.pgf.png" 11 15 255 255 255 255 2>/dev/null \
+     && python3 "$PNGTOOL" pixel "$d/t.pgf.png" 12 14 255 255 255 0 2>/dev/null; then
+    fok "Planet-G two-colour .pgf font atlas -> PNG beside the source (multi-colour atlas left as text)"
+  else
+    fno "Planet-G .pgf -> PNG" "$d/t.pgf.png / $d/m.pgf.png"
+  fi
+  "$B/wszst" XX "$d/t.vis" --overwrite >/dev/null 2>&1
+  "$B/wszst" XX "$d/t.lit" --overwrite >/dev/null 2>&1
+  if grep -q '^objects = 2$' "$d/t.vis.d/t.vis.txt" 2>/dev/null && grep -q '^  group 1: 1/1$' "$d/t.vis.d/t.vis.txt" \
+     && grep -q 'light\[0\] id=0x01000001 pos=(1, 2, 3) color=(255, 128, 0)' "$d/t.lit.d/t.lit.txt" 2>/dev/null; then
+    fok "Eko .vis lists (not taken as a Treasure MRG) and .lit lights -> text"
+  else
+    fno "Eko .vis / .lit decode" "unexpected $d/t.vis.d/t.vis.txt or $d/t.lit.d/t.lit.txt"
+  fi
+  rm -rf "$d"
+}
+t_wii_engines
 
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]

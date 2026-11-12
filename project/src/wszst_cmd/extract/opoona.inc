@@ -271,7 +271,7 @@ static void opoona_export_model (ccp arg, ccp dest, const u8 *p, size_t sz)
 	snprintf (out, sizeof (out), "%s/%s.glb", dest, fn);
 	ExportModelToGLB (model, out);
 	if (verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT OPOONA-MDL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, out);
+		fprintf (stdlog, "%sEXTRACT MDL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, out);
 	FreeModel (model);
 	(void)sz;
 }
@@ -323,7 +323,7 @@ static enumError opoona_pkg_unpack (ccp arg, ccp basedir, uint depth, const u8 *
 	beside_source_dest (dest, sizeof (dest), arg);
 	const uint n = rd_le32 (p);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT OPOONA-PKG:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT PKG:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, n, dest);
 	enumError err = ERR_OK;
 	for (uint i = 0; i < n && !err; i++)
@@ -393,7 +393,7 @@ static enumError extract_opoona_map_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT OPOONA-MAP:%s -> %s/\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT MAP:%s -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 
 	enumError err = testmode ? ERR_OK : CreatePath (dest, true);
@@ -479,7 +479,7 @@ static enumError extract_opoona_map_file (ccp arg, ccp basedir, uint depth)
 						snprintf (out, sizeof (out), "%s/%s_%03u.glb", dest, nm, i);
 					ExportModelToGLB (model, out);
 					if (verbose >= 0)
-						fprintf (stdlog, "%sEXTRACT OPOONA-MDL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
+						fprintf (stdlog, "%sEXTRACT MDL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "",
 							arg, out);
 					FreeModel (model);
 					break;
@@ -548,7 +548,7 @@ static enumError extract_opoona_msg_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT OPOONA-MSG:%s (%u strings) -> %s/strings.txt\n",
+		fprintf (stdlog, "%s%sEXTRACT MSG:%s (%u strings) -> %s/strings.txt\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n_out, dest);
 	const enumError err = shade_write (arg, dest, basedir, "strings.txt", (u8 *)out, (uint)used);
 	FREE (out);
@@ -622,7 +622,7 @@ static enumError extract_opoona_atb_file (ccp arg, ccp basedir, uint depth)
 	char name[PATH_MAX];
 	snprintf (name, sizeof (name), "%s.obj", base);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT OPOONA-ATB:%s (%u triangles) -> %s/%s\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT ATB:%s (%u triangles) -> %s/%s\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, ntri, dest, name);
 	enumError err = shade_write (arg, dest, basedir, name, (u8 *)out, (uint)used);
 	FREE (out);
@@ -899,7 +899,7 @@ static enumError extract_opoona_param_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT OPOONA-PARAM:%s (%u records of %zu bytes) -> %s/records.tsv\n",
+		fprintf (stdlog, "%s%sEXTRACT PARAM:%s (%u records of %zu bytes) -> %s/records.tsv\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, cnt, rs, dest);
 	enumError err = shade_write (arg, dest, basedir, "records.tsv", (u8 *)out, (uint)used);
 	if (!err && !strcasecmp (base, "item_param.bin") && rs == 444)
@@ -953,7 +953,7 @@ static enumError extract_opoona_file (ccp arg, ccp basedir, uint depth)
 		ccp base = strrchr (arg, '/');
 		base = base ? base + 1 : arg;
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT OPOONA-TPL:%s -> %s/\n", verbose > 0 ? "\n" : "",
+			fprintf (stdlog, "%s%sEXTRACT TPL:%s -> %s/\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", arg, dest);
 		err = testmode ? ERR_OK : opoona_write_member (arg, dest, basedir, base, p, psz);
 		if (!err && !testmode)
@@ -974,7 +974,7 @@ static enumError extract_opoona_file (ccp arg, ccp basedir, uint depth)
 		char name[PATH_MAX];
 		snprintf (name, sizeof (name), "%s.dec", base);
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT OPOONA-SL01:%s (%zu bytes) -> %s/%s\n",
+			fprintf (stdlog, "%s%sEXTRACT SL01:%s (%zu bytes) -> %s/%s\n",
 				verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, psz, dest, name);
 		err = shade_write (arg, dest, basedir, name, p, (uint)psz);
 	}

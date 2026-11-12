@@ -58,7 +58,7 @@ static enumError extract_octowt_file (ccp arg, ccp basedir, uint depth)
 		char dest[PATH_MAX];
 		beside_source_dest (dest, sizeof (dest), arg);
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT OCTOMANIA-WT:%s (%u samples) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n,
+			fprintf (stdlog, "%s%sEXTRACT WT:%s (%u samples) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n,
 				dest);
 		for (uint i = 0; i < n && !err && !testmode; i++)
 		{

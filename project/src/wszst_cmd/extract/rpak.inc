@@ -58,7 +58,7 @@ static enumError extract_bermuda_pki_file (ccp arg, ccp basedir, uint depth)
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT BERMUDA-PKI:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT PKI:%s (%u entries) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, entry_count, dest);
 
 	size_t pos = 36;

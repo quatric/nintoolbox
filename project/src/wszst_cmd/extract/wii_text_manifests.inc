@@ -1,8 +1,10 @@
-// Text manifests for Wii formats whose lib-*.c decoders were only reachable through FILETYPE: Bermuda Triangle (.MWG/.MSP/.MWT/.PKI/.pgf),
-// Aqua Panic, Mercury Meltdown Revolution, Octomania, I Spy Spooky Mansion, How to Train Your Dragon, Tenchu (.b/.hd), Havok .hkx and
+// Text manifests for Wii formats whose lib-*.c decoders were only reachable through FILETYPE: the Planet-G engine (.MWG/.MSP/.PKI/.pgf; .MWT textures and
+// two-colour .pgf font atlases decode to PNG beside the source;
+// Bermuda Triangle, Rock Blast, Veggy World, ...), the Eko Software engine (.rck/.spa/.mb2/.vis/.lit/.mat; Aqua Panic!, SPRay, Cyberbike, ...),
+// Mercury Meltdown Revolution, Octomania, I Spy Spooky Mansion, How to Train Your Dragon, Tenchu (.b/.hd), Havok .hkx and
 // Battle of the Bands .bag. The extension only gates the probe; the matching Is*() detector validates the content. Output goes to
 // "<file>.d/<basename>.txt". Dispatched last in the chain so magic-validated handlers (EA .ast, Capcom .col, Tenchu .hd ...) win first;
-// table order matters for shared extensions (Aqua Panic .mat before the Mercury fallback).
+// table order matters for shared extensions (Eko MATF .mat before the Mercury fallback).
 #include "lib-bermudatriangle.h"
 #include "lib-aquapanic.h"
 #include "lib-mercurymeltdown.h"
@@ -24,8 +26,8 @@ typedef struct wii_text_def_t
 static const wii_text_def_t wii_text_defs[] =
 {
 	{ ".mwg", IsBermudaPlanetG, DecodeBermudaPlanetG_Text }, { ".msp", IsBermudaPlanetG, DecodeBermudaPlanetG_Text },
-	{ ".mwt", IsBermudaMwt, DecodeBermudaMwt_Text }, { ".pki", IsBermudaPki, DecodeBermudaPki_Text }, { ".pgf", IsBermudaPgf, DecodeBermudaPgf_Text },
-	{ ".rck", IsAquaPanicRket, DecodeAquaPanicRket_Text }, { ".mb2", IsAquaPanicMb2, DecodeAquaPanicMb2_Text },
+	{ ".pki", IsBermudaPki, DecodeBermudaPki_Text }, { ".pgf", IsBermudaPgf, DecodeBermudaPgf_Text },
+	{ ".rck", IsAquaPanicRket, DecodeAquaPanicRket_Text }, { ".spa", IsAquaPanicRket, DecodeAquaPanicRket_Text }, { ".mb2", IsAquaPanicMb2, DecodeAquaPanicMb2_Text },
 	{ ".vis", IsAquaPanicVis, DecodeAquaPanicVis_Text }, { ".lit", IsAquaPanicLit, DecodeAquaPanicLit_Text }, { ".mat", IsAquaPanicMat, DecodeAquaPanicMat_Text },
 	{ ".zen", IsMercuryZen, DecodeMercuryZen_Text }, { ".col", IsMercuryCol, DecodeMercuryCol_Text }, { ".pst", IsMercuryPst, DecodeMercuryPst_Text },
 	{ ".mat", IsMercuryMat, DecodeMercuryMat_Text }, { ".nav", IsMercuryNav, DecodeMercuryNav_Text },
@@ -34,6 +36,8 @@ static const wii_text_def_t wii_text_defs[] =
 	{ ".rws", IsHTTYDRws, DecodeHTTYDRws_Text }, { ".krv", IsHTTYDKrv, DecodeHTTYDKrv_Text },
 	{ ".b", IsT4Res, DecodeT4Res_Text }, { ".hd", IsHdVoice, DecodeHdVoice_Text }, { ".hkx", IsHKX, DecodeHKX_Text }, { ".bag", IsBotbBag, DecodeBotbBag_Text },
 };
+
+static enumError decode_image_if_possible (ccp arg); // formats/sprites.inc
 
 static enumError extract_wii_text_manifest_file (ccp arg, ccp basedir, uint depth)
 {
@@ -89,5 +93,12 @@ static enumError extract_wii_text_manifest_file (ccp arg, ccp basedir, uint dept
 	else
 		err = ERR_NOTHING_TO_DO;
 	FREE (buf);
+	// A two-colour .pgf atlas also decodes to "<file>.png" (the manifest above keeps the glyph metrics).
+	if (err == ERR_OK && def->is == IsBermudaPgf)
+	{
+		const enumError ierr = decode_image_if_possible (arg);
+		if (ierr != ERR_NOTHING_TO_DO && ierr > err)
+			err = ierr;
+	}
 	return err;
 }

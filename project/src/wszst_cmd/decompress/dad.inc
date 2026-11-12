@@ -37,7 +37,7 @@
 		}
 
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sDECOMPRESS SOMA-DAD:%s -> %s\n", verbose > 0 ? "\n" : "",
+			fprintf (stdlog, "%s%sDECOMPRESS DAD:%s -> %s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", arg, dest);
 		if (!testmode)
 		{

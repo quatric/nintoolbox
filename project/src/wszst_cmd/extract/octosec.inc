@@ -83,7 +83,7 @@ static enumError extract_octosec_file (ccp arg, ccp basedir, uint depth)
 			break;
 		}
 		if (!pass && (verbose >= 0 || testmode))
-			fprintf (stdlog, "%s%sEXTRACT OCTOMANIA-SEC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, k, dest);
+			fprintf (stdlog, "%s%sEXTRACT SEC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, k, dest);
 		if (testmode)
 			break;
 	}

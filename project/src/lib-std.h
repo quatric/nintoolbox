@@ -706,6 +706,10 @@ file_format_t GetFileTypeByMagic (
 	FileAttrib_t *fatt // not NULL: store file attributes
 );
 
+// False if FFORM, found by file extension alone, has a content check that DATA fails (another game's file
+// with the same extension).
+bool ExtFallbackMatchesFF (file_format_t fform, const void *data, uint data_size, uint file_size);
+
 const file_type_t *GetFileTypeByExt (
 	ccp ext, // NULL or file extension with optional preceeding point
 	bool need_magic // filter only file types with magic

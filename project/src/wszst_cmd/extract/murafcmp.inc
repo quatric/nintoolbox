@@ -27,7 +27,7 @@ static enumError extract_murafcmp_file (ccp arg)
 		char out[PATH_MAX];
 		snprintf (out, sizeof (out), "%s.dec", arg);
 		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sDECODE MURAMASA-FCMP:%s (%u bytes) -> %s\n", verbose > 0 ? "\n" : "",
+			fprintf (stdlog, "%s%sDECODE FCMP:%s (%u bytes) -> %s\n", verbose > 0 ? "\n" : "",
 				testmode ? "WOULD " : "", arg, dsz, out);
 		if (testmode)
 		{

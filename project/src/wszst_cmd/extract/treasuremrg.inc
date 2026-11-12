@@ -8,6 +8,10 @@ static enumError extract_treasuremrg_file (ccp arg, ccp basedir, uint depth)
 	// extension-gated TVOL extractor owns those files.
 	if (is_ext_match (arg, ".tvol"))
 		return ERR_NOTHING_TO_DO;
+	// Eko Software .vis visibility lists start with a small count and {u32, u32} pairs too, so a
+	// one-group list passes the table check; the .vis text manifest decodes those.
+	if (is_ext_match (arg, ".vis"))
+		return ERR_NOTHING_TO_DO;
 
 	FILE *f = fopen (arg, "rb");
 	if (!f)

@@ -956,7 +956,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Unreal Engine 4 archive (Mario & Luigi: Brothership .pak)" },
 
 	// FF_SMASH_ARC = 182 (Smash Ultimate data.arc)
-	{ FF_SMASH_ARC, 0, 0, "SMASH-ARC", ".arc", ".arc", ".arc",
+	{ FF_SMASH_ARC, 0, 0, "DATA-ARC", ".arc", ".arc", ".arc",
 		FFT_VALID | FFT_ARCHIVE | FFT_EXTRACT | FFT_CREATE, 8,
 		{ 0x10, 0x32, 0x54, 0x76, 0x98, 0xef, 0xcd, 0xab }, // 0xABCDEF9876543210
 		0, MinusString, MinusString, "Super Smash Bros. Ultimate data.arc archive" },
@@ -1086,7 +1086,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Newer SMBW Animated Tiles (AnimTiles.bin / NWRa)" },
 
 	// FF_NSMBW_CHK = 203 (NSMBW Tileset Collision Attributes)
-	{ FF_NSMBW_CHK, FF_NSMBW_CHK, 0, "NSMBW-CHK", ".bin", ".bin", ".bin",
+	{ FF_NSMBW_CHK, FF_NSMBW_CHK, 0, "BGCHK", ".bin", ".bin", ".bin",
 		FFT_VALID | FFT_DECODE | FFT_EXTRACT, 0, { 0 }, 0, MinusString, MinusString,
 		"NSMBW Tileset Collision Attributes (d_bgchk_*.bin)" },
 
@@ -1871,7 +1871,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// No magic bytes: a table of (offset,size,name) records (see
 	// IsOpoonaMOL() in lib-opoona.c). Only the manifest/lookup structure is
 	// understood; the offset field's exact runtime meaning is not.
-	{ FF_OPOONA_MOL, FF_OPOONA_MOL, 0, "OPOONA-MOL", ".mol", ".txt", ".mol", FFT_VALID | FFT_DECODE,
+	{ FF_OPOONA_MOL, FF_OPOONA_MOL, 0, "MOL", ".mol", ".txt", ".mol", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"Opoona character manifest (.mol, Wii, ArtePiazza)" },
 
@@ -1880,7 +1880,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// (see IsOpoonaMOT() in lib-opoona.c). Only the header and the static
 	// bind-pose skeleton are decoded; any per-frame animation-curve data
 	// that follows the bone array is NOT decoded (see lib-opoona.h).
-	{ FF_OPOONA_MOT, FF_OPOONA_MOT, 0, "OPOONA-MOT", ".mot", ".txt", ".mot", FFT_VALID | FFT_DECODE,
+	{ FF_OPOONA_MOT, FF_OPOONA_MOT, 0, "MOT", ".mot", ".txt", ".mot", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"Opoona skeletal animation clip (.mot, Wii, ArtePiazza; bind pose only)" },
 
@@ -1944,88 +1944,88 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_VOICE_SONG = 357 (The Voice song script)
 	// Plain-text XML, xmlns="zoe:Song". Decoded to a normalized manifest
 	// of game-mode setups and performance events (see lib-thevoice.h).
-	{ FF_VOICE_SONG, FF_VOICE_SONG, 0, "VOICE-SONG", ".song", ".txt", ".song",
+	{ FF_VOICE_SONG, FF_VOICE_SONG, 0, "SONG", ".song", ".txt", ".song",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice song script (.song, Wii)" },
 
 	// FF_VOICE_AMC = 358 (The Voice animesh catalogue)
 	// Plain-text Lua-like "animeshcatalogue={...}" list of referenced
 	// ".tas" animated-mesh scenes.
-	{ FF_VOICE_AMC, FF_VOICE_AMC, 0, "VOICE-AMC", ".amc", ".txt", ".amc", FFT_VALID | FFT_DECODE, 0,
+	{ FF_VOICE_AMC, FF_VOICE_AMC, 0, "AMC", ".amc", ".txt", ".amc", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString, "The Voice animesh catalogue (.amc, Wii)" },
 
 	// FF_VOICE_AMS = 359 (The Voice animesh sequence)
 	// Plain-text Lua-like "animeshsequence={...}" list of timed ".tas"
 	// placements.
-	{ FF_VOICE_AMS, FF_VOICE_AMS, 0, "VOICE-AMS", ".ams", ".txt", ".ams", FFT_VALID | FFT_DECODE, 0,
+	{ FF_VOICE_AMS, FF_VOICE_AMS, 0, "AMS", ".ams", ".txt", ".ams", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString, "The Voice animesh sequence (.ams, Wii)" },
 
 	// FF_VOICE_PALCAT = 360 (The Voice palette catalogue)
 	// Plain-text Lua-like "palettecatalogue={...}" list of referenced
 	// ".pal" raw-RGBA palettes.
-	{ FF_VOICE_PALCAT, FF_VOICE_PALCAT, 0, "VOICE-PALCAT", ".palcat", ".txt", ".palcat",
+	{ FF_VOICE_PALCAT, FF_VOICE_PALCAT, 0, "PALCAT", ".palcat", ".txt", ".palcat",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice palette catalogue (.palcat, Wii)" },
 
 	// FF_VOICE_PALSEQ = 361 (The Voice palette sequence)
 	// Plain-text Lua-like "palettesequence={...}" list of timed palette
 	// index swaps.
-	{ FF_VOICE_PALSEQ, FF_VOICE_PALSEQ, 0, "VOICE-PALSEQ", ".palseq", ".txt", ".palseq",
+	{ FF_VOICE_PALSEQ, FF_VOICE_PALSEQ, 0, "PALSEQ", ".palseq", ".txt", ".palseq",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Voice palette sequence (.palseq, Wii)" },
 
 	// FF_DOGISLAND_WDS = 362 (The Dog Island WARDP dialogue table)
 	// Confirmed interleaved offset/index table plus a raw string blob;
 	// decoded to one text field per entry (see lib-dogisland.h).
-	{ FF_DOGISLAND_WDS, FF_DOGISLAND_WDS, 0, "DOGISLAND-WDS", ".wds", ".txt", ".wds",
+	{ FF_DOGISLAND_WDS, FF_DOGISLAND_WDS, 0, "WDS", ".wds", ".txt", ".wds",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island WARDP dialogue table (.wds, Wii)" },
 
 	// FF_DOGISLAND_WDB = 363 (The Dog Island offset/string table)
 	// Confirmed fixed 24-byte record table with start/end string offsets.
-	{ FF_DOGISLAND_WDB, FF_DOGISLAND_WDB, 0, "DOGISLAND-WDB", ".wdb", ".txt", ".wdb",
+	{ FF_DOGISLAND_WDB, FF_DOGISLAND_WDB, 0, "WDB", ".wdb", ".txt", ".wdb",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island offset/string table (.wdb, Wii)" },
 
 	// FF_DOGISLAND_YOBJ = 364 (The Dog Island YOBJ model)
 	// Bare or DUMY-wrapped "YOBJ" chunk; only the outer header is
 	// decoded, the internal bone/mesh table is not reverse-engineered.
-	{ FF_DOGISLAND_YOBJ, FF_DOGISLAND_YOBJ, 0, "DOGISLAND-YOBJ", ".ymg", ".txt", ".ymg",
+	{ FF_DOGISLAND_YOBJ, FF_DOGISLAND_YOBJ, 0, "YOBJ", ".ymg", ".txt", ".ymg",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island YOBJ model (.ymg/.ymm, Wii; internal table not decoded)" },
 
 	// FF_DOGISLAND_PMS = 365 (The Dog Island EVNT event script)
 	// Confirmed fixed header (magic + LE event id matching the filename);
 	// the script bytecode body is not reverse-engineered.
-	{ FF_DOGISLAND_PMS, FF_DOGISLAND_PMS, 0, "DOGISLAND-PMS", ".pms", ".txt", ".pms",
+	{ FF_DOGISLAND_PMS, FF_DOGISLAND_PMS, 0, "PMS", ".pms", ".txt", ".pms",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island EVNT event script (.pms, Wii; bytecode body not decoded)" },
 
 	// FF_DOGISLAND_MTT = 366 (The Dog Island DUMY+POF0 container)
 	// Also seen reused for ".ypc"/".pac"; only the outer DUMY+POF0 shell
 	// is decoded, the packed pointer table is not reverse-engineered.
-	{ FF_DOGISLAND_MTT, FF_DOGISLAND_MTT, 0, "DOGISLAND-MTT", ".mtt", ".txt", ".mtt",
+	{ FF_DOGISLAND_MTT, FF_DOGISLAND_MTT, 0, "MTT", ".mtt", ".txt", ".mtt",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island DUMY+POF0 pointer-fixup container (.mtt/.ypc/.pac, Wii; pointer table not "
 		"decoded)" },
 
 	// FF_DOGISLAND_CPRM = 367 (The Dog Island fixed float record table)
 	// Fully confirmed big-endian header + 64-byte record layout.
-	{ FF_DOGISLAND_CPRM, FF_DOGISLAND_CPRM, 0, "DOGISLAND-CPRM", ".cprm", ".txt", ".cprm",
+	{ FF_DOGISLAND_CPRM, FF_DOGISLAND_CPRM, 0, "CPRM", ".cprm", ".txt", ".cprm",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island fixed float record table (.cprm, Wii)" },
 
 	// FF_DOGISLAND_SCRIPT = 368 (The Dog Island script bytecode)
 	// Covers ".efi"/".sci"/".qci"; structural header probe only, opcode
 	// semantics are not reverse-engineered.
-	{ FF_DOGISLAND_SCRIPT, FF_DOGISLAND_SCRIPT, 0, "DOGISLAND-SCRIPT", ".efi", ".txt", ".efi",
+	{ FF_DOGISLAND_SCRIPT, FF_DOGISLAND_SCRIPT, 0, "EFI", ".efi", ".txt", ".efi",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island script bytecode (.efi/.sci/.qci, Wii; opcodes not decoded)" },
 
 	// FF_DOGISLAND_MPQ = 369 (The Dog Island custom "MPQ" container)
 	// Magic "MPQ\0" -- verified NOT to be Blizzard's MPQ format (which
 	// uses "MPQ\x1A" and a different header layout). Outer header only.
-	{ FF_DOGISLAND_MPQ, FF_DOGISLAND_MPQ, 0, "DOGISLAND-MPQ", ".mpq", ".txt", ".mpq",
+	{ FF_DOGISLAND_MPQ, FF_DOGISLAND_MPQ, 0, "MPQ", ".mpq", ".txt", ".mpq",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"The Dog Island custom MPQ-like container (.mpq, Wii; NOT Blizzard MPQ, archive table not "
 		"decoded)" },
@@ -2033,26 +2033,26 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_MURAMASA_FCMP = 370 (Muramasa FCMP compressed container)
 	// Wraps ".mbs"/".ftx"/".esb"/".nsb"/".abf"/".nms"/".wbf"; a classic
 	// Okumura-style LZSS scheme, fully decoded -- see lib-muramasa.h.
-	{ FF_MURAMASA_FCMP, FF_MURAMASA_FCMP, 0, "MURAMASA-FCMP", ".mbs", ".txt", ".mbs",
+	{ FF_MURAMASA_FCMP, FF_MURAMASA_FCMP, 0, "FCMP", ".mbs", ".txt", ".mbs",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Muramasa FCMP compressed container (.mbs/.ftx/.esb/.nsb/.abf/.nms/.wbf, Wii; LZSS, fully "
 		"decoded)" },
 
 	// FF_MURAMASA_OTB = 371 (Muramasa .otb table)
 	// Confirmed header only, entry table not reverse-engineered.
-	{ FF_MURAMASA_OTB, FF_MURAMASA_OTB, 0, "MURAMASA-OTB", ".otb", ".txt", ".otb",
+	{ FF_MURAMASA_OTB, FF_MURAMASA_OTB, 0, "OTB", ".otb", ".txt", ".otb",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Muramasa .otb table (Wii; header only, entry table not decoded)" },
 
 	// FF_MURAMASA_NSI = 372 (Muramasa .nsi sound info table)
 	// Confirmed header only, entry table not reverse-engineered.
-	{ FF_MURAMASA_NSI, FF_MURAMASA_NSI, 0, "MURAMASA-NSI", ".nsi", ".txt", ".nsi",
+	{ FF_MURAMASA_NSI, FF_MURAMASA_NSI, 0, "NSI", ".nsi", ".txt", ".nsi",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Muramasa .nsi sound info table (Wii; header only, entry table not decoded)" },
 
 	// FF_REDSTEEL2_ABE = 373 (Red Steel 2 Ubisoft "ABE" bigfile)
 	// Confirmed 64-byte header only, directory-tree table not decoded.
-	{ FF_REDSTEEL2_ABE, FF_REDSTEEL2_ABE, 0, "REDSTEEL2-ABE", ".bbf", ".txt", ".bbf",
+	{ FF_REDSTEEL2_ABE, FF_REDSTEEL2_ABE, 0, "ABE", ".bbf", ".txt", ".bbf",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Red Steel 2 Ubisoft ABE bigfile (.bbf/.BF, Wii; header only, directory table not "
 		"decoded)" },
@@ -2060,14 +2060,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_REDSTEEL2_REL = 374 (Red Steel 2 / standard Nintendo REL module)
 	// Full header + section table decode; relocation/import table bodies
 	// not decoded.
-	{ FF_REDSTEEL2_REL, FF_REDSTEEL2_REL, 0, "REDSTEEL2-REL", ".rel", ".txt", ".rel",
+	{ FF_REDSTEEL2_REL, FF_REDSTEEL2_REL, 0, "RELMOD", ".rel", ".txt", ".rel",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Nintendo REL relocatable module (.rel, Wii/GC; header + section table decoded)" },
 
 	// FF_ZACKWIKI_TM2 = 375 (Zack & Wiki PS2-ported TIM2 texture)
 	// Standard PS2 TIM2 header + per-image header decoded; GS registers
 	// and indexed pixel/palette data not decoded.
-	{ FF_ZACKWIKI_TM2, FF_ZACKWIKI_TM2, 0, "ZACKWIKI-TM2", ".tm2", ".txt", ".tm2",
+	{ FF_ZACKWIKI_TM2, FF_ZACKWIKI_TM2, 0, "TM2", ".tm2", ".txt", ".tm2",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki PS2-ported TIM2 texture (.tm2, Wii; GS pixel data not decoded)" },
 
@@ -2075,7 +2075,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed 16-byte BE header + zlib stream per block, verified by
 	// clean zlib inflate against real samples; decompressed payload
 	// contents not decoded.
-	{ FF_ZACKWIKI_PPG, FF_ZACKWIKI_PPG, 0, "ZACKWIKI-PPG", ".ppg", ".txt", ".ppg",
+	{ FF_ZACKWIKI_PPG, FF_ZACKWIKI_PPG, 0, "PPG", ".ppg", ".txt", ".ppg",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki pCMP zlib-compressed container (.ppg, Wii; decompressed payload not "
 		"decoded)" },
@@ -2083,21 +2083,21 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_ZACKWIKI_TSB = 377 (Zack & Wiki sound bank)
 	// Confirmed chunk-offset directory + tagged chunk headers (REV/DEL/
 	// CHR/RND/TSB); per-record field layout not fully confirmed.
-	{ FF_ZACKWIKI_TSB, FF_ZACKWIKI_TSB, 0, "ZACKWIKI-TSB", ".tsb", ".txt", ".tsb",
+	{ FF_ZACKWIKI_TSB, FF_ZACKWIKI_TSB, 0, "TSB", ".tsb", ".txt", ".tsb",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki sound bank (.tsb, Wii; chunk directory decoded, record fields not fully "
 		"decoded)" },
 
 	// FF_ZACKWIKI_WHD = 378 (Zack & Wiki sound bank)
 	// Same chunk-directory shape as .tsb (PROG/SPLT tagged chunks).
-	{ FF_ZACKWIKI_WHD, FF_ZACKWIKI_WHD, 0, "ZACKWIKI-WHD", ".whd", ".txt", ".whd",
+	{ FF_ZACKWIKI_WHD, FF_ZACKWIKI_WHD, 0, "WHD", ".whd", ".txt", ".whd",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki sound bank (.whd, Wii; chunk directory decoded, record fields not fully "
 		"decoded)" },
 
 	// FF_ZACKWIKI_MDS = 379 (Zack & Wiki MDSV resource/level container)
 	// Structural probe only: magic + LOAD/MDFD tag presence.
-	{ FF_ZACKWIKI_MDS, FF_ZACKWIKI_MDS, 0, "ZACKWIKI-MDS", ".mds", ".txt", ".mds",
+	{ FF_ZACKWIKI_MDS, FF_ZACKWIKI_MDS, 0, "MDS", ".mds", ".txt", ".mds",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki MDSV resource/level container (.mds, Wii; header only, chunk body not "
 		"decoded)" },
@@ -2105,7 +2105,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_ZACKWIKI_SSD = 380 (Zack & Wiki streamed ADPCM audio)
 	// No confirmed magic/structure was found in any real sample;
 	// extension-recognized only, same as The Dog Island's .sci/.qci.
-	{ FF_ZACKWIKI_SSD, FF_ZACKWIKI_SSD, 0, "ZACKWIKI-SSD", ".ssd", ".txt", ".ssd",
+	{ FF_ZACKWIKI_SSD, FF_ZACKWIKI_SSD, 0, "SSD", ".ssd", ".txt", ".ssd",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Zack & Wiki streamed ADPCM audio (.ssd, Wii; NOT reverse-engineered, extension only)" },
 
@@ -2116,7 +2116,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// the paired .DAT; offsets are simply the running sum of prior sizes.
 	// See IsSafecrackerTOC()/DecodeSafecrackerTOC() in lib-safecracker.c.
 	// The .DAT payload itself is not decoded.
-	{ FF_SAFECRACKER_TOC, FF_SAFECRACKER_TOC, 0, "SAFECRACKER-TOC", ".TOC", ".txt", ".TOC",
+	{ FF_SAFECRACKER_TOC, FF_SAFECRACKER_TOC, 0, "TOC", ".TOC", ".txt", ".TOC",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Safecracker bigfile table-of-contents (.TOC, Wii; indexes paired .DAT, payload not "
 		"decoded)" },
@@ -2143,7 +2143,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// original "byte-order-flipped RIFF/WAVE" hypothesis was refuted, and
 	// the internal reflection-style record table is not understood well
 	// enough to parse structurally, so it is not.
-	{ FF_PF2_PIFF, FF_PF2_PIFF, 0, "PF2-PIFF", ".rbh", ".txt", ".rbh", FFT_VALID | FFT_DECODE, 0,
+	{ FF_PF2_PIFF, FF_PF2_PIFF, 0, "PIFF", ".rbh", ".txt", ".rbh", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Pony Friends 2 \"FFIP\" asset container (.rbh, Wii; outer shell only)" },
 
@@ -2162,7 +2162,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_MERCURY_ZEN = 388 (Mercury Meltdown Revolution scene file)
 	// Confirmed fixed "DAED" header plus a NUL-terminated source-path
 	// string; the fields after the path are not reverse-engineered.
-	{ FF_MERCURY_ZEN, FF_MERCURY_ZEN, 0, "MERCURY-ZEN", ".zen", ".txt", ".zen",
+	{ FF_MERCURY_ZEN, FF_MERCURY_ZEN, 0, "ZEN", ".zen", ".txt", ".zen",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution DAED scene file (.zen, Wii; outer header + source path "
 		"only)" },
@@ -2170,21 +2170,21 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_MERCURY_COL = 389 (Mercury Meltdown Revolution COL0 table)
 	// Also seen reused (often as an empty 12-byte instance) for ".cam";
 	// only the magic/count and each record's leading name are decoded.
-	{ FF_MERCURY_COL, FF_MERCURY_COL, 0, "MERCURY-COL", ".col", ".txt", ".col",
+	{ FF_MERCURY_COL, FF_MERCURY_COL, 0, "COL", ".col", ".txt", ".col",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution COL0 collision/camera table (.col/.cam, Wii; record property "
 		"data not decoded)" },
 
 	// FF_MERCURY_PST = 390 (Mercury Meltdown Revolution paletted texture)
 	// Confirmed fixed "TSPA" header including big-endian width/height.
-	{ FF_MERCURY_PST, FF_MERCURY_PST, 0, "MERCURY-PST", ".pst", ".txt", ".pst",
+	{ FF_MERCURY_PST, FF_MERCURY_PST, 0, "PST", ".pst", ".txt", ".pst",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution TSPA paletted texture (.pst, Wii; pixel data not decoded)" },
 
 	// FF_MERCURY_MAT = 391 (Mercury Meltdown Revolution material table)
 	// No confirmed magic/record layout was found; extension-recognized
 	// only, same policy as The Dog Island's .sci/.qci.
-	{ FF_MERCURY_MAT, FF_MERCURY_MAT, 0, "MERCURY-MAT", ".mat", ".txt", ".mat",
+	{ FF_MERCURY_MAT, FF_MERCURY_MAT, 0, "MAT", ".mat", ".txt", ".mat",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution material float-record table (.mat, Wii; NOT "
 		"reverse-engineered, extension only)" },
@@ -2192,7 +2192,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_MERCURY_NAV = 392 (Mercury Meltdown Revolution navigation mesh)
 	// No confirmed header shape was found (and many samples are
 	// zero-length); extension-recognized only.
-	{ FF_MERCURY_NAV, FF_MERCURY_NAV, 0, "MERCURY-NAV", ".nav", ".txt", ".nav",
+	{ FF_MERCURY_NAV, FF_MERCURY_NAV, 0, "NAV", ".nav", ".txt", ".nav",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution navigation-mesh table (.nav, Wii; NOT reverse-engineered, "
 		"extension only)" },
@@ -2200,14 +2200,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_MERCURY_TEX = 393 (Mercury Meltdown Revolution texture reference list)
 	// Fully decoded plain-text format: "#TEX FILE" header line followed
 	// by one source ".tga" authoring path per line.
-	{ FF_MERCURY_TEX, FF_MERCURY_TEX, 0, "MERCURY-TEX", ".TEX", ".txt", ".TEX",
+	{ FF_MERCURY_TEX, FF_MERCURY_TEX, 0, "TEXLIST", ".TEX", ".txt", ".TEX",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Mercury Meltdown Revolution texture reference list (.TEX, Wii; plain text)" },
 
 	// FF_OCTOMANIA_SEC = 394 (Octomania secB scene/demo container)
 	// Confirmed "secB" header plus a decoded chunk table (names + tags);
 	// per-chunk binary payload data not reverse-engineered.
-	{ FF_OCTOMANIA_SEC, FF_OCTOMANIA_SEC, 0, "OCTOMANIA-SEC", ".sec", ".txt", ".sec",
+	{ FF_OCTOMANIA_SEC, FF_OCTOMANIA_SEC, 0, "SEC", ".sec", ".txt", ".sec",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Octomania secB scene/demo container (.sec, Wii; chunk table decoded, payload data not "
 		"decoded)" },
@@ -2215,21 +2215,21 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_OCTOMANIA_WT = 395 (Octomania wavetable sample-offset index)
 	// Confirmed leading table of sample byte-offsets into the companion
 	// .pcm file; trailing index/metadata not reverse-engineered.
-	{ FF_OCTOMANIA_WT, FF_OCTOMANIA_WT, 0, "OCTOMANIA-WT", ".wt", ".txt", ".wt",
+	{ FF_OCTOMANIA_WT, FF_OCTOMANIA_WT, 0, "WT", ".wt", ".txt", ".wt",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Octomania wavetable sample-offset index (.wt, Wii; leading offset table only)" },
 
 	// FF_SPOOKY_EID = 396 (I Spy Spooky Mansion sound-event/effect table)
 	// Confirmed header, effect table and "VARS" field-record table,
 	// decoded byte-for-byte identically across 160 of the 161 samples.
-	{ FF_SPOOKY_EID, FF_SPOOKY_EID, 0, "SPOOKY-EID", ".eid", ".txt", ".eid", FFT_VALID | FFT_DECODE,
+	{ FF_SPOOKY_EID, FF_SPOOKY_EID, 0, "EID", ".eid", ".txt", ".eid", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion sound-event/effect table (.eid, Wii)" },
 
 	// FF_SPOOKY_AST = 397 (I Spy Spooky Mansion "SDASSETF" asset bundle)
 	// Confirmed outer header and first top-level chunk header; nested
 	// sub-chunk payloads (models/anims/textures) not reverse-engineered.
-	{ FF_SPOOKY_AST, FF_SPOOKY_AST, 0, "SPOOKY-AST", ".ast", ".txt", ".ast", FFT_VALID | FFT_DECODE,
+	{ FF_SPOOKY_AST, FF_SPOOKY_AST, 0, "AST", ".ast", ".txt", ".ast", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion \"SDASSETF\" asset-bundle container (.ast, Wii; outer chunk table "
 		"only)" },
@@ -2237,14 +2237,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_SPOOKY_SDF = 398 (I Spy Spooky Mansion asset-type registry table)
 	// Confirmed against the single real sample seen; TYPE-tag records and
 	// their embedded "VARS" tables decoded.
-	{ FF_SPOOKY_SDF, FF_SPOOKY_SDF, 0, "SPOOKY-SDF", ".sdf", ".txt", ".sdf", FFT_VALID | FFT_DECODE,
+	{ FF_SPOOKY_SDF, FF_SPOOKY_SDF, 0, "SDF", ".sdf", ".txt", ".sdf", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion asset-type registry table (.sdf, Wii)" },
 
 	// FF_SPOOKY_GES = 399 (I Spy Spooky Mansion Wiimote gesture recording)
 	// Magic-less; confirmed byte-for-byte identical shape across all 28
 	// real samples (fixed 10-point x/y/z float32 gesture recording).
-	{ FF_SPOOKY_GES, FF_SPOOKY_GES, 0, "SPOOKY-GES", ".ges", ".txt", ".ges", FFT_VALID | FFT_DECODE,
+	{ FF_SPOOKY_GES, FF_SPOOKY_GES, 0, "GES", ".ges", ".txt", ".ges", FFT_VALID | FFT_DECODE,
 		0, { 0 }, 0, MinusString, MinusString,
 		"I Spy Spooky Mansion Wiimote gesture recording (.ges, Wii; magic-less)" },
 
@@ -2252,7 +2252,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed 0x20-byte header plus a fully decoded 0x20-byte-stride
 	// entry table (name + hash + data byte-range); per-entity data-blob
 	// payload content not reverse-engineered.
-	{ FF_RFF_HXTB, FF_RFF_HXTB, 0, "RFF-HXTB", ".hvt", ".txt", ".hvt", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXTB, FF_RFF_HXTB, 0, "HXTB", ".hvt", ".txt", ".hvt", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX Table\" entry directory (.hvt/.Hvt, Wii; entry table "
 		"decoded)" },
@@ -2260,28 +2260,28 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_RFF_HXCB = 401 (Rune Factory: Frontier "HX" collision-box family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXCB, FF_RFF_HXCB, 0, "RFF-HXCB", ".Hvc", ".txt", ".Hvc", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXCB, FF_RFF_HXCB, 0, "HXCB", ".Hvc", ".txt", ".Hvc", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" collision-box family (.Hvc, Wii; header only)" },
 
 	// FF_RFF_HXAA = 402 (Rune Factory: Frontier "HX" animation family)
 	// Confirmed 0x20-byte header only (magic "HXAA0001" or "HXAB0001");
 	// post-header record layout not reverse-engineered.
-	{ FF_RFF_HXAA, FF_RFF_HXAA, 0, "RFF-HXAA", ".Hvb", ".txt", ".Hvb", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXAA, FF_RFF_HXAA, 0, "HXAA", ".Hvb", ".txt", ".Hvb", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" animation family (.Hvb, Wii; header only)" },
 
 	// FF_RFF_HXMB = 403 (Rune Factory: Frontier "HX" map/motion family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXMB, FF_RFF_HXMB, 0, "RFF-HXMB", ".Hvm", ".txt", ".Hvm", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXMB, FF_RFF_HXMB, 0, "HXMB", ".Hvm", ".txt", ".Hvm", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" map/motion family (.Hvm, Wii; header only)" },
 
 	// FF_RFF_HXHB = 404 (Rune Factory: Frontier "HX" hull/height family)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXHB, FF_RFF_HXHB, 0, "RFF-HXHB", ".Hvh", ".txt", ".Hvh", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXHB, FF_RFF_HXHB, 0, "HXHB", ".Hvh", ".txt", ".Hvh", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" hull/height family (.Hvh, Wii; header only)" },
 
@@ -2289,14 +2289,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed 0x20-byte header only; also seen embedded as a leading
 	// sub-resource inside FBTI .Mod sections. Post-header record layout
 	// not reverse-engineered.
-	{ FF_RFF_HXGB, FF_RFF_HXGB, 0, "RFF-HXGB", ".Hvg", ".txt", ".Hvg", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXGB, FF_RFF_HXGB, 0, "HXGB", ".Hvg", ".txt", ".Hvg", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" geometry family (.Hvg, Wii; header only)" },
 
 	// FF_RFF_HXTP = 406 (Rune Factory: Frontier "HX" triangle/points index)
 	// Confirmed 0x20-byte header only; post-header record layout not
 	// reverse-engineered.
-	{ FF_RFF_HXTP, FF_RFF_HXTP, 0, "RFF-HXTP", ".Hmt", ".txt", ".Hmt", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_HXTP, FF_RFF_HXTP, 0, "HXTP", ".Hmt", ".txt", ".Hmt", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"HX\" triangle/points index (.Hmt, Wii; header only)" },
 
@@ -2305,7 +2305,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed header plus a fully decoded offset/size section table
 	// (.Mod/.Mot); per-section payload content beyond an embedded HX
 	// header, when present, not reverse-engineered.
-	{ FF_RFF_FBTI, FF_RFF_FBTI, 0, "RFF-FBTI", ".Mod", ".txt", ".Mod", FFT_VALID | FFT_DECODE, 0,
+	{ FF_RFF_FBTI, FF_RFF_FBTI, 0, "FBTI", ".Mod", ".txt", ".Mod", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Rune Factory: Frontier \"FBTI\" model/motion section container (.Mod/.Mot, Wii; section "
 		"table decoded)" },
@@ -2314,14 +2314,14 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// audio container). Confirmed recursive 12-byte chunk headers
 	// (type/size/marker) walked exactly to EOF across all 118 real
 	// samples; leaf audio-sample payload contents not reverse-engineered.
-	{ FF_HTTYD_RWS, FF_HTTYD_RWS, 0, "HTTYD-RWS", ".RWS", ".txt", ".RWS", FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_RWS, FF_HTTYD_RWS, 0, "RWS", ".RWS", ".txt", ".RWS", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"DreamWorks How to Train Your Dragon chunk-tree audio container (.RWS, Wii; chunk tree "
 		"decoded, leaf payloads not decoded)" },
 
 	// FF_HTTYD_MTD = 409 (DreamWorks How to Train Your Dragon chunk-tree
 	// container, same 12-byte chunk-header layout as .RWS above).
-	{ FF_HTTYD_MTD, FF_HTTYD_MTD, 0, "HTTYD-MTD", ".mtd", ".txt", ".mtd", FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_MTD, FF_HTTYD_MTD, 0, "MTD", ".mtd", ".txt", ".mtd", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"DreamWorks How to Train Your Dragon chunk-tree container (.mtd, Wii; same layout as "
 		".RWS)" },
@@ -2330,86 +2330,68 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// localization string table). Outer gzip wrapper decoded directly by
 	// this module; leading integer header fields not fully pinned down,
 	// but the UTF-16LE string run that follows is enumerated in full.
-	{ FF_HTTYD_KRV, FF_HTTYD_KRV, 0, "HTTYD-KRV", ".KRV", ".txt", ".KRV", FFT_VALID | FFT_DECODE, 0,
+	{ FF_HTTYD_KRV, FF_HTTYD_KRV, 0, "KRV", ".KRV", ".txt", ".KRV", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"DreamWorks How to Train Your Dragon gzip-wrapped localization string table (.KRV, Wii)" },
 
-	// FF_BERMUDA_MWT = 411 (Bermuda Triangle - Saving the Coral
-	// "GDATAVERSION" resource envelope). Outer header decoded directly;
-	// the payload it wraps is, in every sample checked, an already
-	// supported Camelot-style GX texture bank (see lib-camtexbank.c).
-	{ FF_BERMUDA_MWT, FF_BERMUDA_MWT, 0, "BERMUDA-MWT", ".MWT", ".txt", ".MWT",
+	// FF_BERMUDA_MWT = 411 (Planet-G engine "GDATAVERSION" texture envelope: 0x40-byte header, a TPL and an
+	// optional 1-bit hit mask; Bermuda Triangle, Rock Blast, Veggy World, Ocean Commander, Arcade Shooting
+	// Gallery). See lib-bermudatriangle.h.
+	{ FF_BERMUDA_MWT, FF_BERMUDA_MWT, 0, "MWT", ".MWT", ".txt", ".MWT",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle GDATAVERSION resource envelope (.MWT, Wii; wraps a Camelot GX texture "
-		"bank)" },
+		"Planet-G GDATAVERSION texture envelope (.MWT, Wii; the wrapped TPL is converted to PNG)" },
 
-	// FF_BERMUDA_PLANETG = 412 (Bermuda Triangle "PLANETG" tagged-object
-	// resource, shared by .MWG and .MSP). Every tag/string name is
-	// decoded via a heuristic walk; exact tree shape and numeric field
-	// semantics not fully pinned down.
-	{ FF_BERMUDA_PLANETG, FF_BERMUDA_PLANETG, 0, "BERMUDA-PLANETG", ".MWG", ".txt", ".MWG",
+	// FF_BERMUDA_PLANETG = 412 (Planet-G "PLANETG" tagged-object resource, .MWG and .MSP). Tag names are
+	// decoded by a heuristic walk; the tree shape and numeric fields are not.
+	{ FF_BERMUDA_PLANETG, FF_BERMUDA_PLANETG, 0, "PLANETG", ".MWG", ".txt", ".MWG",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle PLANETG tagged-object resource (.MWG/.MSP, Wii; tag names decoded)" },
+		"Planet-G PLANETG tagged-object resource (.MWG/.MSP, Wii; tag names decoded)" },
 
-	// FF_BERMUDA_PKI = 413 (Bermuda Triangle "IMAGE_WII_COMPACT" texture
-	// pack container). Header and full name/size/offset entry table
-	// decoded.
-	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "BERMUDA-PKI", ".PKI", ".d", ".PKI",
+	// FF_BERMUDA_PKI = 413 (Planet-G "IMAGE_WII_COMPACT_FILE_VERSION_1" pack of .MWT files).
+	{ FF_BERMUDA_PKI, FF_BERMUDA_PKI, 0, "PKI", ".PKI", ".d", ".PKI",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle IMAGE_WII_COMPACT texture-pack container (.PKI, Wii; entry table "
+		"Planet-G IMAGE_WII_COMPACT texture pack (.PKI, Wii; entry table decoded)" },
+
+	// FF_BERMUDA_PGF = 414 (Planet-G bitmap font: family, point size, padding, per-glyph atlas rectangles
+	// for 256 codes, atlas size, run-length atlas; two-colour atlases decode to PNG).
+	{ FF_BERMUDA_PGF, FF_BERMUDA_PGF, 0, "PGF", ".pgf", ".txt", ".pgf",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Planet-G bitmap font (.pgf, Wii; glyph table decoded, two-colour atlas to PNG)" },
+
+	// FF_AQUAPANIC_RKET = 415 (Eko Software "RKET" resource container, .rck scenes and .spa language
+	// packs; Aqua Panic!, SPRay, Cyberbike, ...). See lib-aquapanic.h.
+	{ FF_AQUAPANIC_RKET, FF_AQUAPANIC_RKET, 0, "RKET", ".rck", ".txt", ".rck",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Eko Software RKET resource container (.rck/.spa, Wii; outer header only)" },
+
+	// FF_AQUAPANIC_MAT = 416 (Eko Software "MATF" material chunk table).
+	{ FF_AQUAPANIC_MAT, FF_AQUAPANIC_MAT, 0, "MATF", ".mat", ".txt", ".mat",
+		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
+		"Eko Software MATF material chunk table (.mat, Wii; chunk table decoded, payload data not "
 		"decoded)" },
 
-	// FF_BERMUDA_PGF = 414 (Bermuda Triangle font resource). Header
-	// (family name + point size) decoded; per-glyph offset table that
-	// follows not conclusively reverse-engineered.
-	{ FF_BERMUDA_PGF, FF_BERMUDA_PGF, 0, "BERMUDA-PGF", ".pgf", ".txt", ".pgf",
+	// FF_AQUAPANIC_MB2 = 417 (Eko Software "BNAM" bone/node name table).
+	{ FF_AQUAPANIC_MB2, FF_AQUAPANIC_MB2, 0, "MB2", ".mb2", ".txt", ".mb2",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Bermuda Triangle font resource (.pgf, Wii; header only)" },
+		"Eko Software BNAM bone/node name table (.mb2, Wii; fully decoded)" },
 
-	// FF_AQUAPANIC_RKET = 415 (Aqua Panic! RKET resource container)
-	// Shared magic/header between .rck (per-level scene) and .spa
-	// (localized language/UI pack); resource-graph structure after the
-	// outer header not reverse-engineered.
-	{ FF_AQUAPANIC_RKET, FF_AQUAPANIC_RKET, 0, "AQUAPANIC-RKET", ".rck", ".txt", ".rck",
+	// FF_AQUAPANIC_VIS = 418 (Eko Software per-object visibility lists, no magic; accepted only when the
+	// block walk ends exactly at the end of the file).
+	{ FF_AQUAPANIC_VIS, FF_AQUAPANIC_VIS, 0, "VISLIST", ".vis", ".txt", ".vis",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! RKET resource container (.rck/.spa, Wii; outer header only)" },
+		"Eko Software visibility lists (.vis, Wii; magic-less, fully decoded)" },
 
-	// FF_AQUAPANIC_MAT = 416 (Aqua Panic! MATF material chunk table)
-	// Confirmed outer header and tag/size chunk table, walked to EOF in
-	// every one of 100 real samples; per-chunk payload not decoded.
-	{ FF_AQUAPANIC_MAT, FF_AQUAPANIC_MAT, 0, "AQUAPANIC-MAT", ".mat", ".txt", ".mat",
+	// FF_AQUAPANIC_LIT = 419 (Eko Software light list: date tag 0x20031126, count, 36-byte lights).
+	{ FF_AQUAPANIC_LIT, FF_AQUAPANIC_LIT, 0, "LIT", ".lit", ".txt", ".lit",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! MATF material chunk table (.mat, Wii; chunk table decoded, payload data not "
-		"decoded)" },
-
-	// FF_AQUAPANIC_MB2 = 417 (Aqua Panic! BNAM name-string table)
-	// Fully decoded: header plus the length-prefixed bone/node name list,
-	// confirmed to consume every one of 100 real samples exactly to EOF.
-	{ FF_AQUAPANIC_MB2, FF_AQUAPANIC_MB2, 0, "AQUAPANIC-MB2", ".mb2", ".txt", ".mb2",
-		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! BNAM bone/node name-string table (.mb2, Wii; fully decoded)" },
-
-	// FF_AQUAPANIC_VIS = 418 (Aqua Panic! visibility/flag record)
-	// Magic-less, fixed 24-byte record, byte-for-byte identical across
-	// all 100 real samples on the disc; fully decoded.
-	{ FF_AQUAPANIC_VIS, FF_AQUAPANIC_VIS, 0, "AQUAPANIC-VIS", ".vis", ".txt", ".vis",
-		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! visibility/flag record (.vis, Wii; magic-less, fixed 24 bytes, fully "
-		"decoded)" },
-
-	// FF_AQUAPANIC_LIT = 419 (Aqua Panic! single-light record)
-	// Magic-less, fixed 48-byte record (plus a confirmed 12-byte empty
-	// variant) with float32 color/position fields; fully decoded.
-	{ FF_AQUAPANIC_LIT, FF_AQUAPANIC_LIT, 0, "AQUAPANIC-LIT", ".lit", ".txt", ".lit",
-		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
-		"Aqua Panic! single-light record (.lit, Wii; magic-less, fixed 48 bytes, fully decoded)" },
+		"Eko Software light list (.lit, Wii; positions and colours decoded)" },
 
 	// FF_DIABOLIK_RES = 420 (Diabolik: The Original Sin FAAFFAAF resource container)
 	// One shared tagged-block container used unchanged across every one of
 	// .cfg/.gam/.loc/.ls/.rgn; the TAG/SIZE block tree, embedded ASCII
 	// names/ids, and embedded UTF-16BE dialogue/subtitle text are decoded,
 	// but individual numeric fields' meaning was not fully pinned down.
-	{ FF_DIABOLIK_RES, FF_DIABOLIK_RES, 0, "DIABOLIK-RES", ".gam", ".txt", ".gam",
+	{ FF_DIABOLIK_RES, FF_DIABOLIK_RES, 0, "RES", ".gam", ".txt", ".gam",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Diabolik: The Original Sin FAAFFAAF resource container (.cfg/.gam/.loc/.ls/.rgn, Wii; "
 		"block tree and embedded text decoded)" },
@@ -2429,7 +2411,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Fixed 32-byte ASCII "1.00 <N>\n" header over a payload of concatenated
 	// sub-resources; a plain-text "name,size,offset" manifest lists them.
 	// Individual sub-resource binary layouts are not decoded.
-	{ FF_BOTB_BAG, FF_BOTB_BAG, 0, "BOTB-BAG", ".bag", ".txt", ".bag", FFT_VALID | FFT_DECODE, 0,
+	{ FF_BOTB_BAG, FF_BOTB_BAG, 0, "BAG", ".bag", ".txt", ".bag", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Battle of the Bands .bag asset container (Wii; header and sub-resource manifest "
 		"decoded)" },
@@ -2592,7 +2574,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// Confirmed fixed-shape outer envelope (per-asset tag + constant "4" +
 	// ASCII-hex content hash + zlib payload) across all 93 real samples;
 	// the decompressed "Chunk"-tagged payload itself is not decoded.
-	{ FF_DAHBWU_STREAM, FF_DAHBWU_STREAM, 0, "DAHBWU-STREAM", ".stream", ".txt", ".stream",
+	{ FF_DAHBWU_STREAM, FF_DAHBWU_STREAM, 0, "STREAM", ".stream", ".txt", ".stream",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Destroy All Humans! Big Willy Unleashed asset stream (.stream, Wii; outer envelope "
 		"decoded, inner Chunk payload not decoded)" },
@@ -2600,7 +2582,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_DAHBWU_TBL = 448 (Destroy All Humans! Big Willy Unleashed string table)
 	// No fixed magic (opens directly with a big-endian entry count); fully
 	// reverse-engineered and confirmed against all 370 real samples.
-	{ FF_DAHBWU_TBL, FF_DAHBWU_TBL, 0, "DAHBWU-TBL", ".tbl", ".txt", ".tbl",
+	{ FF_DAHBWU_TBL, FF_DAHBWU_TBL, 0, "TBL", ".tbl", ".txt", ".tbl",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Destroy All Humans! Big Willy Unleashed localized UTF-16BE string table (.tbl, Wii; "
 		"fully decoded)" },
@@ -2608,7 +2590,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// FF_DAHBWU_CNV = 449 (Destroy All Humans! Big Willy Unleashed conversation table)
 	// No fixed magic (opens directly with a big-endian record count); fully
 	// reverse-engineered and confirmed against all 300 real samples.
-	{ FF_DAHBWU_CNV, FF_DAHBWU_CNV, 0, "DAHBWU-CNV", ".cnv", ".txt", ".cnv",
+	{ FF_DAHBWU_CNV, FF_DAHBWU_CNV, 0, "CNV", ".cnv", ".txt", ".cnv",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Destroy All Humans! Big Willy Unleashed conversation/speaker/line table (.cnv, Wii; "
 		"fully decoded)" },
@@ -2623,7 +2605,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// byte 0. No fixed magic exists, so this is extension-recognized only,
 	// same policy as Mercury Meltdown Revolution's ".mat"/".nav" above; the
 	// sample rate is not stored in the file and was NOT confirmed.
-	{ FF_DAHBWU_AUDPCM, FF_DAHBWU_AUDPCM, 0, "DAHBWU-AUDPCM", ".AUD", ".txt", ".AUD",
+	{ FF_DAHBWU_AUDPCM, FF_DAHBWU_AUDPCM, 0, "AUDPCM", ".AUD", ".txt", ".AUD",
 		FFT_VALID | FFT_DECODE, 0, { 0 }, 0, MinusString, MinusString,
 		"Destroy All Humans! Big Willy Unleashed headerless raw BE16 PCM audio (.AUD, Wii; sample "
 		"rate not stored in file, NOT confirmed)" },
@@ -2658,34 +2640,34 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	// mask payloads are also fully decoded (ExportBabyzWspPng()/
 	// ExportBabyzMskPng()); the remaining inner formats (.wiz/.wsn/.tan/
 	// .wan/.spt/.snd/.wik/.lmc/.eff) are not.
-	{ FF_BABYZ_WIZ, FF_BABYZ_WIZ, 0, "BABYZ-WIZ", ".wiz", ".txt", ".wiz", FFT_VALID | FFT_DECODE, 0,
+	{ FF_BABYZ_WIZ, FF_BABYZ_WIZ, 0, "WIZ", ".wiz", ".txt", ".wiz", FFT_VALID | FFT_DECODE, 0,
 		{ 0 }, 0, MinusString, MinusString,
 		"Imagine: Party Babyz \"!Ce\" compressed container (.wiz/.wsp/.wsn/.tan/.wan/.msk/.spt/"
 		".snd/.wik/.lmc/.eff, Wii; LZSS, fully decoded; inner .wsp texture/.msk mask also "
 		"decoded)" },
 
 	// FF_SOMA_OBP = 454 (Monolith Soft Soma Bringer sprite/object texture sheet)
-	{ FF_SOMA_OBP, FF_SOMA_OBP, FF_SOMA_OBP, "SOMA-OBP", ".obp", ".txt", ".obp", FFT_VALID | FFT_DECODE, 4,
+	{ FF_SOMA_OBP, FF_SOMA_OBP, FF_SOMA_OBP, "OBP", ".obp", ".txt", ".obp", FFT_VALID | FFT_DECODE, 4,
 		{ 'O', 'B', 'P', '1' }, 0, MinusString, MinusString,
 		"Monolith Soft Soma Bringer sprite/object texture sheet (.obp / .ntp / OBP1, NDS; fully decoded)" },
 
 	// FF_SOMA_BGP = 455 (Monolith Soft Soma Bringer background graphic)
-	{ FF_SOMA_BGP, FF_SOMA_BGP, FF_SOMA_BGP, "SOMA-BGP", ".bgp", ".txt", ".bgp", FFT_VALID | FFT_DECODE, 4,
+	{ FF_SOMA_BGP, FF_SOMA_BGP, FF_SOMA_BGP, "BGP", ".bgp", ".txt", ".bgp", FFT_VALID | FFT_DECODE, 4,
 		{ 'B', 'G', 'P', '1' }, 0, MinusString, MinusString,
 		"Monolith Soft Soma Bringer background graphic (.bgp / BGP1, NDS; fully decoded)" },
 
 	// FF_SOMA_DAD = 456 (Monolith Soft Soma Bringer LZSS compressed container)
-	{ FF_SOMA_DAD, FF_SOMA_DAD, FF_SOMA_DAD, "SOMA-DAD", ".dad", ".bin", ".dad", FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4,
+	{ FF_SOMA_DAD, FF_SOMA_DAD, FF_SOMA_DAD, "DAD", ".dad", ".bin", ".dad", FFT_VALID | FFT_ARCHIVE | FFT_DECODE, 4,
 		{ 'D', 'A', 'D', 0x01 }, 0, MinusString, MinusString,
 		"Monolith Soft Soma Bringer LZSS compressed container (.dad / DAD, NDS; fully decoded)" },
 
 	// FF_SOMA_PCS = 457 (Monolith Soft Soma Bringer 2D animation / layout sequence)
-	{ FF_SOMA_PCS, FF_SOMA_PCS, FF_SOMA_PCS, "SOMA-PCS", ".pcs", ".txt", ".pcs", FFT_VALID | FFT_DECODE, 4,
+	{ FF_SOMA_PCS, FF_SOMA_PCS, FF_SOMA_PCS, "PCS", ".pcs", ".txt", ".pcs", FFT_VALID | FFT_DECODE, 4,
 		{ 'p', 'c', 's', 0 }, 0, MinusString, MinusString,
 		"Monolith Soft Soma Bringer 2D animation / layout sequence (.pcs / pcs, NDS; fully decoded)" },
 
 	// FF_CV_SPR = 458 (Konami Castlevania DS sprite object definition)
-	{ FF_CV_SPR, FF_CV_SPR, FF_CV_SPR, "CV-SPR", ".dat", ".txt", ".dat", FFT_VALID | FFT_DECODE, 4,
+	{ FF_CV_SPR, FF_CV_SPR, FF_CV_SPR, "SPR", ".dat", ".txt", ".dat", FFT_VALID | FFT_DECODE, 4,
 		{ 0x0d, 0xf0, 0xef, 0xbe }, 0, MinusString, MinusString,
 		"Konami Castlevania DS sprite object definition (.dat / 0xBEEFF00D, NDS; fully decoded)" },
 
@@ -2784,13 +2766,13 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		"Square Enix SEDB resource container (.rps/.txb/.shd/.phb/.lyb, Dragon Quest X)" },
 
 	// FF_MPH_ARC = 476 (Metroid Prime Hunters SNDFILE archive)
-	{ FF_MPH_ARC, FF_MPH_ARC, 0, "MPH-ARC", ".arc", ".arc", ".arc",
+	{ FF_MPH_ARC, FF_MPH_ARC, 0, "SNDFILE", ".arc", ".arc", ".arc",
 		FFT_VALID | FFT_ARCHIVE | FFT_CUT | FFT_EXTRACT, 8, { 'S', 'N', 'D', 'F', 'I', 'L', 'E', 0 },
 		0, MinusString, MinusString,
 		"Metroid Prime Hunters SNDFILE archive (.arc, Nintendo DS; fully extracted)" },
 
 	// FF_MPH_MODEL = 477 (Metroid Prime Hunters model)
-	{ FF_MPH_MODEL, FF_MPH_MODEL, 0, "MPH-MODEL", "_Model.bin", "_Model.bin", "_Model.bin",
+	{ FF_MPH_MODEL, FF_MPH_MODEL, 0, "MODEL", "_Model.bin", "_Model.bin", "_Model.bin",
 		FFT_VALID | FFT_CUT | FFT_EXTRACT, 0, { 0 },
 		0, MinusString, MinusString,
 		"Metroid Prime Hunters model (_Model.bin, Nintendo DS; converted to .glb with PNG textures)" },
@@ -2898,7 +2880,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_NCER, "NCER", "RECN", 0x3001 }, { FF_NANR, "NANR", "RNAN", 0x3001 },
 	{ FF_NUT, "NUT", "NTP3", 0x3809 }, { FF_NUD, "NUD", "NDP3", 0x3001 },
 	{ FF_DTLS, "DTLS", "LS", 0xe05 }, { FF_NUMSHB, "NUMSHB", "SSBH", 0x3001 },
-	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 }, { FF_SMASH_ARC, "SMASH-ARC", "SMASHARC", 0xe05 },
+	{ FF_UE4_PAK, "PAK", "UE4PAK", 0xe05 }, { FF_SMASH_ARC, "DATA-ARC", "SMASHARC", 0xe05 }, { FF_SMASH_ARC, "SMASH-ARC", "SMASH-ARC", 0xe05 },
 	{ FF_PRC, "PRC", "PARAM", 0x3001 }, { FF_CNUT, "CNUT", "SQIR", 0xe05 },
 	{ FF_CMP, "CMP", 0, 0x103 }, { FF_HSF, "HSF", "HSFV", 0x3001 },
 	{ FF_HSD, "HSD", "HALDAT", 0x3001 }, { FF_BNFM, "BNFM", 0, 0x3001 },
@@ -2910,7 +2892,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_G4PKM, "G4PKM", 0, 0x3001 }, { FF_LMD, "LMD", 0, 0x3001 },
 	{ FF_XMSG, "XMSG", "MESS", 0xe05 }, { FF_NWR_LEVELINFO, "NWR-LEVELINFO", "LEVELINFO", 0xe05 },
 	{ FF_NWR_ANIMTILES, "NWR-ANIMTILES", "ANIMTILES", 0xe05 },
-	{ FF_NSMBW_CHK, "NSMBW-CHK", "BGCHK", 0x3001 }, { FF_KPBIN, "KPBIN", "KP_M", 0xe05 },
+	{ FF_NSMBW_CHK, "BGCHK", "BGCHK", 0x3001 }, { FF_NSMBW_CHK, "NSMBW-CHK", "NSMBW-CHK", 0x3001 }, { FF_KPBIN, "KPBIN", "KP_M", 0xe05 },
 	{ FF_KPMAP, "KPMAP", 0, 0x3001 }, { FF_CHANS, "CHANS", "RCHE", 0xe05 },
 	{ FF_RLG, "RLG", 0, 0x3001 }, { FF_GAR, "GAR", "ZAR", 0xe05 }, { FF_CTXB, "CTXB", 0, 0x3809 },
 	{ FF_TMPK, "TMPK", 0, 0xe05 }, { FF_NXARC, "NXARC", "RAXN", 0xe05 },
@@ -2980,67 +2962,67 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CS_DCT, "CS_DCT", "CS_DCT", 0xe05 }, { FF_DSP, "DSP", "DSP", 0x3801 },
 	{ FF_HUFF, "HUFF", 0, 0x103 }, { FF_ZMB, "ZMB", 0, 0x3001 }, { FF_PK2, "PK2", "PK2", 0xe05 },
 	{ FF_MPT, "MPT", "MPT", 0x3809 }, { FF_AFS, "AFS", "AFS", 0xe05 },
-	{ FF_THOR, "THOR", "THOR", 0xe05 }, { FF_OPOONA_MOL, "OPOONA-MOL", "OPOONA-MOL", 0xe05 },
-	{ FF_OPOONA_MOT, "OPOONA-MOT", "OPOONA-MOT", 0xe05 }, { FF_TE_ZIP, "TE-ZIP", "TE-ZIP", 0xe05 },
+	{ FF_THOR, "THOR", "THOR", 0xe05 }, { FF_OPOONA_MOL, "MOL", "OPOONA-MOL", 0xe05 },
+	{ FF_OPOONA_MOT, "MOT", "OPOONA-MOT", 0xe05 }, { FF_TE_ZIP, "TE-ZIP", "TE-ZIP", 0xe05 },
 	{ FF_G3RES, "G3RES", "G3RES", 0xe05 }, { FF_CHNK, "CHNK", "CHNK", 0xe05 },
 	{ FF_MAGMA_FAT, "MAGMA-FAT", "MAGMA-FAT", 0xe05 },
 	{ FF_MAGMA_BF, "MAGMA-BF", "MAGMA-BF", 0xe05 },
-	{ FF_VOICE_SONG, "VOICE-SONG", "VOICE-SONG", 0xe05 },
-	{ FF_VOICE_AMC, "VOICE-AMC", "VOICE-AMC", 0xe05 },
-	{ FF_VOICE_AMS, "VOICE-AMS", "VOICE-AMS", 0xe05 },
-	{ FF_VOICE_PALCAT, "VOICE-PALCAT", "VOICE-PALCAT", 0xe05 },
-	{ FF_VOICE_PALSEQ, "VOICE-PALSEQ", "VOICE-PALSEQ", 0xe05 },
-	{ FF_DOGISLAND_WDS, "DOGISLAND-WDS", "DOGISLAND-WDS", 0xe05 },
-	{ FF_DOGISLAND_WDB, "DOGISLAND-WDB", "DOGISLAND-WDB", 0xe05 },
-	{ FF_DOGISLAND_YOBJ, "DOGISLAND-YOBJ", "DOGISLAND-YOBJ", 0xe05 },
-	{ FF_DOGISLAND_PMS, "DOGISLAND-PMS", "DOGISLAND-PMS", 0xe05 },
-	{ FF_DOGISLAND_MTT, "DOGISLAND-MTT", "DOGISLAND-MTT", 0xe05 },
-	{ FF_DOGISLAND_CPRM, "DOGISLAND-CPRM", "DOGISLAND-CPRM", 0xe05 },
-	{ FF_DOGISLAND_SCRIPT, "DOGISLAND-SCRIPT", "DOGISLAND-SCRIPT", 0xe05 },
-	{ FF_DOGISLAND_MPQ, "DOGISLAND-MPQ", "DOGISLAND-MPQ", 0xe05 },
-	{ FF_MURAMASA_FCMP, "MURAMASA-FCMP", "MURAMASA-FCMP", 0xe05 },
-	{ FF_MURAMASA_OTB, "MURAMASA-OTB", "MURAMASA-OTB", 0xe05 },
-	{ FF_MURAMASA_NSI, "MURAMASA-NSI", "MURAMASA-NSI", 0xe05 },
-	{ FF_REDSTEEL2_ABE, "REDSTEEL2-ABE", "REDSTEEL2-ABE", 0xe05 },
-	{ FF_REDSTEEL2_REL, "REDSTEEL2-REL", "REDSTEEL2-REL", 0xe05 },
-	{ FF_ZACKWIKI_TM2, "ZACKWIKI-TM2", "ZACKWIKI-TM2", 0xe05 },
-	{ FF_ZACKWIKI_PPG, "ZACKWIKI-PPG", "ZACKWIKI-PPG", 0xe05 },
-	{ FF_ZACKWIKI_TSB, "ZACKWIKI-TSB", "ZACKWIKI-TSB", 0xe05 },
-	{ FF_ZACKWIKI_WHD, "ZACKWIKI-WHD", "ZACKWIKI-WHD", 0xe05 },
-	{ FF_ZACKWIKI_MDS, "ZACKWIKI-MDS", "ZACKWIKI-MDS", 0xe05 },
-	{ FF_ZACKWIKI_SSD, "ZACKWIKI-SSD", "ZACKWIKI-SSD", 0xe05 },
-	{ FF_SAFECRACKER_TOC, "SAFECRACKER-TOC", "SAFECRACKER-TOC", 0xe05 },
-	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 }, { FF_PF2_PIFF, "PF2-PIFF", "PF2-PIFF", 0xe05 },
-	{ FF_T3PK, "T3PK", "T3PK", 0xe05 }, { FF_MERCURY_ZEN, "MERCURY-ZEN", "MERCURY-ZEN", 0xe05 },
-	{ FF_MERCURY_COL, "MERCURY-COL", "MERCURY-COL", 0xe05 },
-	{ FF_MERCURY_PST, "MERCURY-PST", "MERCURY-PST", 0xe05 },
-	{ FF_MERCURY_MAT, "MERCURY-MAT", "MERCURY-MAT", 0xe05 },
-	{ FF_MERCURY_NAV, "MERCURY-NAV", "MERCURY-NAV", 0xe05 },
-	{ FF_MERCURY_TEX, "MERCURY-TEX", "MERCURY-TEX", 0xe05 },
-	{ FF_OCTOMANIA_SEC, "OCTOMANIA-SEC", "OCTOMANIA-SEC", 0xe05 },
-	{ FF_OCTOMANIA_WT, "OCTOMANIA-WT", "OCTOMANIA-WT", 0xe05 },
-	{ FF_SPOOKY_EID, "SPOOKY-EID", "SPOOKY-EID", 0xe05 },
-	{ FF_SPOOKY_AST, "SPOOKY-AST", "SPOOKY-AST", 0xe05 },
-	{ FF_SPOOKY_SDF, "SPOOKY-SDF", "SPOOKY-SDF", 0xe05 },
-	{ FF_SPOOKY_GES, "SPOOKY-GES", "SPOOKY-GES", 0xe05 },
-	{ FF_RFF_HXTB, "RFF-HXTB", "RFF-HXTB", 0xe05 }, { FF_RFF_HXCB, "RFF-HXCB", "RFF-HXCB", 0xe05 },
-	{ FF_RFF_HXAA, "RFF-HXAA", "RFF-HXAA", 0xe05 }, { FF_RFF_HXMB, "RFF-HXMB", "RFF-HXMB", 0xe05 },
-	{ FF_RFF_HXHB, "RFF-HXHB", "RFF-HXHB", 0xe05 }, { FF_RFF_HXGB, "RFF-HXGB", "RFF-HXGB", 0xe05 },
-	{ FF_RFF_HXTP, "RFF-HXTP", "RFF-HXTP", 0xe05 }, { FF_RFF_FBTI, "RFF-FBTI", "RFF-FBTI", 0xe05 },
-	{ FF_HTTYD_RWS, "HTTYD-RWS", "HTTYD-RWS", 0xe05 },
-	{ FF_HTTYD_MTD, "HTTYD-MTD", "HTTYD-MTD", 0xe05 },
-	{ FF_HTTYD_KRV, "HTTYD-KRV", "HTTYD-KRV", 0xe05 },
-	{ FF_BERMUDA_MWT, "BERMUDA-MWT", "BERMUDA-MWT", 0xe05 },
-	{ FF_BERMUDA_PLANETG, "BERMUDA-PLANETG", "BERMUDA-PLANETG", 0xe05 },
-	{ FF_BERMUDA_PKI, "BERMUDA-PKI", "BERMUDA-PKI", 0xe05 },
-	{ FF_BERMUDA_PGF, "BERMUDA-PGF", "BERMUDA-PGF", 0xe05 },
-	{ FF_AQUAPANIC_RKET, "AQUAPANIC-RKET", "AQUAPANIC-RKET", 0xe05 },
-	{ FF_AQUAPANIC_MAT, "AQUAPANIC-MAT", "AQUAPANIC-MAT", 0xe05 },
-	{ FF_AQUAPANIC_MB2, "AQUAPANIC-MB2", "AQUAPANIC-MB2", 0xe05 },
-	{ FF_AQUAPANIC_VIS, "AQUAPANIC-VIS", "AQUAPANIC-VIS", 0xe05 },
-	{ FF_AQUAPANIC_LIT, "AQUAPANIC-LIT", "AQUAPANIC-LIT", 0xe05 },
-	{ FF_DIABOLIK_RES, "DIABOLIK-RES", "DIABOLIK-RES", 0xe05 }, { FF_DIG, "DIG", "DIG", 0xe05 },
-	{ FF_BOTB_BAG, "BOTB-BAG", "BOTB-BAG", 0xe05 }, { FF_HKX, "HKX", "HKX", 0xe05 },
+	{ FF_VOICE_SONG, "SONG", "VOICE-SONG", 0xe05 },
+	{ FF_VOICE_AMC, "AMC", "VOICE-AMC", 0xe05 },
+	{ FF_VOICE_AMS, "AMS", "VOICE-AMS", 0xe05 },
+	{ FF_VOICE_PALCAT, "PALCAT", "VOICE-PALCAT", 0xe05 },
+	{ FF_VOICE_PALSEQ, "PALSEQ", "VOICE-PALSEQ", 0xe05 },
+	{ FF_DOGISLAND_WDS, "WDS", "DOGISLAND-WDS", 0xe05 },
+	{ FF_DOGISLAND_WDB, "WDB", "DOGISLAND-WDB", 0xe05 },
+	{ FF_DOGISLAND_YOBJ, "YOBJ", "DOGISLAND-YOBJ", 0xe05 },
+	{ FF_DOGISLAND_PMS, "PMS", "DOGISLAND-PMS", 0xe05 },
+	{ FF_DOGISLAND_MTT, "MTT", "DOGISLAND-MTT", 0xe05 },
+	{ FF_DOGISLAND_CPRM, "CPRM", "DOGISLAND-CPRM", 0xe05 },
+	{ FF_DOGISLAND_SCRIPT, "EFI", "DOGISLAND-SCRIPT", 0xe05 },
+	{ FF_DOGISLAND_MPQ, "MPQ", "DOGISLAND-MPQ", 0xe05 },
+	{ FF_MURAMASA_FCMP, "FCMP", "MURAMASA-FCMP", 0xe05 },
+	{ FF_MURAMASA_OTB, "OTB", "MURAMASA-OTB", 0xe05 },
+	{ FF_MURAMASA_NSI, "NSI", "MURAMASA-NSI", 0xe05 },
+	{ FF_REDSTEEL2_ABE, "ABE", "REDSTEEL2-ABE", 0xe05 },
+	{ FF_REDSTEEL2_REL, "RELMOD", "REDSTEEL2-REL", 0xe05 },
+	{ FF_ZACKWIKI_TM2, "TM2", "ZACKWIKI-TM2", 0xe05 },
+	{ FF_ZACKWIKI_PPG, "PPG", "ZACKWIKI-PPG", 0xe05 },
+	{ FF_ZACKWIKI_TSB, "TSB", "ZACKWIKI-TSB", 0xe05 },
+	{ FF_ZACKWIKI_WHD, "WHD", "ZACKWIKI-WHD", 0xe05 },
+	{ FF_ZACKWIKI_MDS, "MDS", "ZACKWIKI-MDS", 0xe05 },
+	{ FF_ZACKWIKI_SSD, "SSD", "ZACKWIKI-SSD", 0xe05 },
+	{ FF_SAFECRACKER_TOC, "TOC", "SAFECRACKER-TOC", 0xe05 },
+	{ FF_PAK_TATE, "PAK-TATE", "PAK-TATE", 0xe05 }, { FF_PF2_PIFF, "PIFF", "PF2-PIFF", 0xe05 },
+	{ FF_T3PK, "T3PK", "T3PK", 0xe05 }, { FF_MERCURY_ZEN, "ZEN", "MERCURY-ZEN", 0xe05 },
+	{ FF_MERCURY_COL, "COL", "MERCURY-COL", 0xe05 },
+	{ FF_MERCURY_PST, "PST", "MERCURY-PST", 0xe05 },
+	{ FF_MERCURY_MAT, "MAT", "MERCURY-MAT", 0xe05 },
+	{ FF_MERCURY_NAV, "NAV", "MERCURY-NAV", 0xe05 },
+	{ FF_MERCURY_TEX, "TEXLIST", "MERCURY-TEX", 0xe05 },
+	{ FF_OCTOMANIA_SEC, "SEC", "OCTOMANIA-SEC", 0xe05 },
+	{ FF_OCTOMANIA_WT, "WT", "OCTOMANIA-WT", 0xe05 },
+	{ FF_SPOOKY_EID, "EID", "SPOOKY-EID", 0xe05 },
+	{ FF_SPOOKY_AST, "AST", "SPOOKY-AST", 0xe05 },
+	{ FF_SPOOKY_SDF, "SDF", "SPOOKY-SDF", 0xe05 },
+	{ FF_SPOOKY_GES, "GES", "SPOOKY-GES", 0xe05 },
+	{ FF_RFF_HXTB, "HXTB", "RFF-HXTB", 0xe05 }, { FF_RFF_HXCB, "HXCB", "RFF-HXCB", 0xe05 },
+	{ FF_RFF_HXAA, "HXAA", "RFF-HXAA", 0xe05 }, { FF_RFF_HXMB, "HXMB", "RFF-HXMB", 0xe05 },
+	{ FF_RFF_HXHB, "HXHB", "RFF-HXHB", 0xe05 }, { FF_RFF_HXGB, "HXGB", "RFF-HXGB", 0xe05 },
+	{ FF_RFF_HXTP, "HXTP", "RFF-HXTP", 0xe05 }, { FF_RFF_FBTI, "FBTI", "RFF-FBTI", 0xe05 },
+	{ FF_HTTYD_RWS, "RWS", "HTTYD-RWS", 0xe05 },
+	{ FF_HTTYD_MTD, "MTD", "HTTYD-MTD", 0xe05 },
+	{ FF_HTTYD_KRV, "KRV", "HTTYD-KRV", 0xe05 },
+	{ FF_BERMUDA_MWT, "MWT", "BERMUDA-MWT", 0xe05 },
+	{ FF_BERMUDA_PLANETG, "PLANETG", "BERMUDA-PLANETG", 0xe05 },
+	{ FF_BERMUDA_PKI, "PKI", "BERMUDA-PKI", 0xe05 },
+	{ FF_BERMUDA_PGF, "PGF", "BERMUDA-PGF", 0xe05 },
+	{ FF_AQUAPANIC_RKET, "RKET", "AQUAPANIC-RKET", 0xe05 },
+	{ FF_AQUAPANIC_MAT, "MATF", "AQUAPANIC-MAT", 0xe05 },
+	{ FF_AQUAPANIC_MB2, "MB2", "AQUAPANIC-MB2", 0xe05 },
+	{ FF_AQUAPANIC_VIS, "VISLIST", "AQUAPANIC-VIS", 0xe05 },
+	{ FF_AQUAPANIC_LIT, "LIT", "AQUAPANIC-LIT", 0xe05 },
+	{ FF_DIABOLIK_RES, "RES", "DIABOLIK-RES", 0xe05 }, { FF_DIG, "DIG", "DIG", 0xe05 },
+	{ FF_BOTB_BAG, "BAG", "BOTB-BAG", 0xe05 }, { FF_HKX, "HKX", "HKX", 0xe05 },
 	{ FF_T4RES, "T4-RES", "T4-RES", 0xe05 }, { FF_HDVOICE, "HDVOICE", "HDVOICE", 0xe05 },
 	{ FF_XTD, "XTD", "XTD", 0xe05 }, { FF_XMD, "XMD", "XMD", 0xe05 },
 	{ FF_PFCTEX, "PFCTEX", "PFCTEX", 0xe05 },
@@ -3054,16 +3036,16 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_CNMT, "CNMT", "CNMT", 0xe05 }, { FF_CNMT_TXT, "CNMT-TXT", 0, 0xe05 },
 	{ FF_NPDM, "NPDM", "NPDM", 0xe05 }, { FF_NPDM_TXT, "NPDM-TXT", 0, 0xe05 },
 	{ FF_XCI, "XCI", "XCI", 0xe05 },
-	{ FF_DAHBWU_STREAM, "DAHBWU-STREAM", "DAHBWU-STREAM", 0xe05 },
-	{ FF_DAHBWU_TBL, "DAHBWU-TBL", "DAHBWU-TBL", 0xe05 },
-	{ FF_DAHBWU_CNV, "DAHBWU-CNV", "DAHBWU-CNV", 0xe05 },
-	{ FF_DAHBWU_AUDPCM, "DAHBWU-AUDPCM", "DAHBWU-AUDPCM", 0xe05 },
+	{ FF_DAHBWU_STREAM, "STREAM", "DAHBWU-STREAM", 0xe05 },
+	{ FF_DAHBWU_TBL, "TBL", "DAHBWU-TBL", 0xe05 },
+	{ FF_DAHBWU_CNV, "CNV", "DAHBWU-CNV", 0xe05 },
+	{ FF_DAHBWU_AUDPCM, "AUDPCM", "DAHBWU-AUDPCM", 0xe05 },
 	{ FF_SEGA_PVR, "SEGA-PVR", "SEGA-PVR", 0xe05 }, { FF_NINJA, "NINJA", "NINJA", 0xe05 },
-	{ FF_SOMA_OBP, "SOMA-OBP", "SOMA-OBP", 0xe05 },
-	{ FF_SOMA_BGP, "SOMA-BGP", "SOMA-BGP", 0xe05 },
-	{ FF_SOMA_DAD, "SOMA-DAD", "SOMA-DAD", 0xe05 },
-	{ FF_SOMA_PCS, "SOMA-PCS", "SOMA-PCS", 0xe05 },
-	{ FF_CV_SPR, "CV-SPR", "CV-SPR", 0xe05 },
+	{ FF_SOMA_OBP, "OBP", "SOMA-OBP", 0xe05 },
+	{ FF_SOMA_BGP, "BGP", "SOMA-BGP", 0xe05 },
+	{ FF_SOMA_DAD, "DAD", "SOMA-DAD", 0xe05 },
+	{ FF_SOMA_PCS, "PCS", "SOMA-PCS", 0xe05 },
+	{ FF_CV_SPR, "SPR", "CV-SPR", 0xe05 }, { FF_BABYZ_WIZ, "WIZ", "BABYZ-WIZ", 0xe05 },
 	{ FF_CPAC, "CPAC", "CPAC", 0xe05 },
 	{ FF_RL, "RL", "RL", 0x103 },
 	{ FF_L5_PAC, "L5-PAC", "L5-PAC", 0xe05 },
@@ -3081,8 +3063,8 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_ATLUS_NDX, "ATLUS-NDX", "ATLUSNDX", 0xe05 },
 	{ FF_ARTE_TEX, "ARTE-TEX", "ARTETEX", 0x861 },
 	{ FF_SEDB, "SEDB", "SEDB", 0xe05 },
-	{ FF_MPH_ARC, "MPH-ARC", "SNDFILE", 0xe05 },
-	{ FF_MPH_MODEL, "MPH-MODEL", "MPHMODEL", 0x861 },
+	{ FF_MPH_ARC, "SNDFILE", "SNDFILE", 0xe05 }, { FF_MPH_ARC, "MPH-ARC", "MPH-ARC", 0xe05 },
+	{ FF_MPH_MODEL, "MODEL", "MPHMODEL", 0x861 }, { FF_MPH_MODEL, "MPH-MODEL", "MPH-MODEL", 0x861 },
 
 	{ 0, 0, 0, 0 }
 };

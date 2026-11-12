@@ -4291,7 +4291,7 @@ enumError cmd_filetype ()
 					else if (ext)
 					{
 						const file_type_t *ft = GetFileTypeByExt (ext, false);
-						if (ft)
+						if (ft && ExtFallbackMatchesFF (ft->fform, buf1, bufsize, fatt.size))
 							fform1 = ft->fform;
 					}
 				}

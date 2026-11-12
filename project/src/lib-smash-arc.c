@@ -330,7 +330,7 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT SMASH-ARC: %s -> %s/\n", verbose > 0 ? "\n" : "",
+		fprintf (stdlog, "%s%sEXTRACT DATA-ARC: %s -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, dest);
 
 	// 1. Read SearchFileSystem (paths and folders) if present

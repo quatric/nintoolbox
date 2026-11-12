@@ -35,6 +35,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "lib-bermudatriangle.h"
 #include "lib-std.h"
 #include "lib-image.h"
 #include "lib-szs.h"
@@ -338,6 +339,32 @@ enumError AssignIMG (Image_t *img, // pointer to valid img
 		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
 		img->info_fform = FF_NDS_BANNER;
 		return PatchListIMG (img);
+	}
+
+	// Planet-G .pgf font: a two-colour run-length atlas decodes to white ink on transparent background
+	// (multi-colour atlases do not store their colours; their image is the companion .MWT).
+	if (data_size >= 0x1000 && IsBermudaPgf (data, data_size, data_size)
+		&& GetBermudaPgfAtlasKind (data, data_size, data_size) == 1)
+	{
+		u8 *rgba = 0;
+		uint w = 0, h = 0;
+		const enumError perr = DecodeBermudaPgf_RGBA (&rgba, &w, &h, data, data_size, data_size);
+		if (perr)
+			return perr;
+		AssignDecodedRGBA (img, rgba, w, h, &le_func, fname);
+		img->info_fform = FF_BERMUDA_PGF;
+		return PatchListIMG (img);
+	}
+
+	// Planet-G .MWT (Bermuda Triangle, Rock Blast, ...): 0x40-byte "GDATAVERSION" envelope around a
+	// standard TPL (plus an optional 1-bit hit mask after it, not part of the image).
+	if (data_size >= 0x44 && !memcmp (data, "GDATAVERSION", 12) && IsBermudaMwt (data, data_size, data_size))
+	{
+		const enumError err
+			= AssignIMG (img, -1, data + 0x40, rd_le32 (data + 0x10), img_index, mipmaps, endian, fname);
+		if (!err)
+			img->info_fform = FF_BERMUDA_MWT;
+		return err;
 	}
 
 	if (data_size >= 4 && !memcmp (data, "Gfx2", 4))

@@ -399,6 +399,17 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (!memcmp (head, "BNTX", 4) || is_ext (arg, ".bntx"))
 		is_image = true;
+	else if (n_head >= 12 && !memcmp (head, "GDATAVERSION", 12))
+		is_image = true; // Planet-G .MWT texture envelope around a TPL
+	else if (is_ext (arg, ".pgf") && have_stat && st_probe.st_size < 0x1000000)
+	{
+		// Planet-G font: only the two-colour run-length atlases carry their pixels (see lib-bermudatriangle.h)
+		u8 *raw = 0;
+		size_t sz = 0;
+		if (!LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) && raw)
+			is_image = GetBermudaPgfAtlasKind (raw, sz, sz) == 1;
+		FREE (raw);
+	}
 	else if (!memcmp (head, "DFvN", 4))
 		is_image = true; // XTX (Switch texture container), e.g. sead's nvn2_font textures
 	// GSH shares the Gfx2 container with GTX but has no pixels. Let the

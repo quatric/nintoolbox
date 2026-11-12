@@ -34,7 +34,7 @@ static enumError extract_nsmbw_chk_file (ccp arg, ccp basedir, uint depth)
 		snprintf (dest, sizeof (dest), "%s.txt", arg);
 
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sEXTRACT NSMBW-CHK (Collision Behaviour):%s -> %s\n",
+		fprintf (stdlog, "%s%sEXTRACT BGCHK (Collision Behaviour):%s -> %s\n",
 			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, dest);
 
 	if (!testmode)

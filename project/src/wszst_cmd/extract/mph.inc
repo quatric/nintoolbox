@@ -20,7 +20,7 @@ static enumError extract_mph_arc_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	if (err || !n_entries)
 		return ERR_NOTHING_TO_DO;
-	return write_owned_entries (arg, basedir, depth, "MPH-ARC", entries, n_entries);
+	return write_owned_entries (arg, basedir, depth, "SNDFILE", entries, n_entries);
 }
 
 static enumError extract_mph_model_file (ccp arg, ccp basedir, uint depth)
@@ -45,7 +45,7 @@ static enumError extract_mph_model_file (ccp arg, ccp basedir, uint depth)
 	if (testmode)
 	{
 		FREE (raw);
-		fprintf (stdlog, "WOULD EXTRACT MPH-MODEL:%s -> GLB:%s\n", arg, dest);
+		fprintf (stdlog, "WOULD EXTRACT MODEL:%s -> GLB:%s\n", arg, dest);
 		return ERR_OK;
 	}
 
@@ -57,6 +57,6 @@ static enumError extract_mph_model_file (ccp arg, ccp basedir, uint depth)
 	if (err > ERR_WARNING)
 		return err;
 	if (verbose >= 0)
-		fprintf (stdlog, "%sEXTRACT MPH-MODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+		fprintf (stdlog, "%sEXTRACT MODEL:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return ERR_OK;
 }
