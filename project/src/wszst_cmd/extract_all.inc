@@ -478,6 +478,7 @@
 #include "extract/gcsw.inc"
 #include "extract/gcsp.inc"
 #include "extract/ydsp.inc"
+#include "extract/conan_str.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
