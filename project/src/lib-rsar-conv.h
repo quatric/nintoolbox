@@ -32,6 +32,11 @@ extern void (*RSARRenderedHook) (ccp wav_path);
 // whole tree must not fill the disk with WAVs).
 extern bool RSARRenderAudio;
 
+// Path of the archive file being converted (may be NULL). The native renderer uses it to pick the
+// game's AUX effect setup: a table of known archives, else the NintendoWare SoundMaker effect files
+// (FxReverbHi.csv, FxReverbStd.csv, FxDelay.csv, FxChorus.csv) next to the archive.
+extern ccp RSARSourcePath;
+
 // When set to a MIDI file stem from sequences.tsv (without ".mid"), ConvertRSARNative() and ConvertFSARNative() only
 // render that one sequence (into <out_dir>/midi/<stem>.wav); no MIDI, SoundFont or manifest is written.
 extern ccp RSARRenderOnly;

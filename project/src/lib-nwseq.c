@@ -1459,12 +1459,16 @@ static void render_frame (player_t *pl, float *mix, float (*aux)[FRAME_SAMPLES *
 	}
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// AUX effects: the classic AXFX "ReverbHi" (the MusyX derived reverb that FxReverbHi wraps).
-// Per channel: pre-delay -> 3 parallel combs -> 2 all-pass stages -> damping low-pass -> all-pass,
-// with an L/R crosstalk stage in front. The returned signal is wet and dry mixed by "mix".
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AUX effects: ports of the AXFX library effects behind NW4R's Fx classes, run at 32 kHz on
+// the stereo AUX bus (the surround channel of the originals carries nothing in stereo output).
 
-const nws_fx_t NWSeqDefaultFx = { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f };
+// FxReverbHi::ReverbHiParam() defaults: pre-delay 0.02 s, 3 s, coloration 0.6, damping 0.4,
+// crosstalk 0.1, out gain 1, early reflections 30 ms (gain 0), fused mode "old AXFX" (gain 1)
+const nws_fx_t NWSeqDefaultFx = { NWS_FX_REVERB_HI_EXP, 0.02f, 3.0f, 0.6f, 0.4f, 0.1f, 1.0f, 5, 0, 0.0f, 1.0f,
+                                  0, 0, 0, 0, 0 };
+
+// --- classic ReverbHi (the MusyX derived reverb of the original AXFX, used by early NW4R) ---
 
 typedef struct dline_t
 {
@@ -1481,7 +1485,6 @@ typedef struct reverb_t
 	float lp_last[2];
 	float *pre[2];
 	int pre_len, pre_pos[2];
-	double tail_sec; // how long the reverb rings after its input stops
 } reverb_t;
 
 static bool dline_init (dline_t *d, int delay)
@@ -1546,7 +1549,7 @@ static reverb_t *reverb_new (const nws_fx_t *fx)
 	if (damp < 0.05f)
 		damp = 0.05f;
 	rv->damping = 1.0f - (damp * 0.8f + 0.05f);
-	rv->wet = clampf (fx->mix, 0.0f, 1.0f) * 0.6f;
+	rv->wet = clampf (fx->out_gain, 0.0f, 1.0f) * 0.6f;
 	rv->dry = 0.6f - rv->wet;
 	rv->cross = clampf (fx->crosstalk, 0.0f, 1.0f) * 0.5f;
 	rv->pre_len = (int)(NWS_RATE * pre);
@@ -1555,7 +1558,6 @@ static reverb_t *reverb_new (const nws_fx_t *fx)
 			ok &= (rv->pre[c] = calloc ((size_t)rv->pre_len, sizeof (float))) != 0;
 	else
 		rv->pre_len = 0;
-	rv->tail_sec = time + pre + 0.1;
 	if (!ok)
 	{
 		reverb_free (rv);
@@ -1607,6 +1609,409 @@ static void reverb_process (reverb_t *rv, float *buf, int n)
 			buf[2 * s + c] = rv->wet * out + rv->dry * x;
 		}
 	}
+}
+
+// --- ring buffer with a fixed delay of "len" samples (read, then overwrite) ---
+
+typedef struct ring_t
+{
+	float *b;
+	int len, pos;
+} ring_t;
+
+static bool ring_init (ring_t *r, int len)
+{
+	r->len = len < 1 ? 1 : len;
+	r->pos = 0;
+	return (r->b = calloc ((size_t)r->len, sizeof (float))) != 0;
+}
+
+static inline float ring_get (const ring_t *r) { return r->b[r->pos]; }
+static inline void ring_put (ring_t *r, float x)
+{
+	r->b[r->pos] = x;
+	if (++r->pos == r->len)
+		r->pos = 0;
+}
+
+// --- ReverbHiExp / ReverbStdExp ---
+
+typedef struct xreverb_t
+{
+	bool hi;
+	// early reflections: Hi = one line with 3 taps, Std = one feedback tap
+	float *early[2];
+	int early_len, early_pos, early_tap[3];
+	float early_coef[3], early_gain;
+	float *pre[2];
+	int pre_len, pre_pos;
+	ring_t comb[2][3], ap[2][2], last[2];
+	int ncomb;
+	float comb_coef[3], ap_coef, lpf_coef, lpf_last[2], fused_gain, cross, out_gain;
+} xreverb_t;
+
+static void xreverb_free (xreverb_t *rv)
+{
+	if (!rv)
+		return;
+	for (int c = 0; c < 2; c++)
+	{
+		free (rv->early[c]);
+		free (rv->pre[c]);
+		for (int t = 0; t < 3; t++)
+			free (rv->comb[c][t].b);
+		for (int t = 0; t < 2; t++)
+			free (rv->ap[c][t].b);
+		free (rv->last[c].b);
+	}
+	free (rv);
+}
+
+static xreverb_t *xreverb_new (const nws_fx_t *fx, bool hi)
+{
+	// delay lengths in samples at 32 kHz, from the AXFX tables
+	static const int std_early[8] = { 163, 317, 479, 641, 797, 967, 1123, 1283 };
+	static const int std_filter[7][4] = { { 1789, 1999, 433, 149 }, { 149, 293, 251, 103 }, { 947, 1361, 433, 137 },
+	                                      { 1279, 1531, 509, 149 }, { 1531, 1847, 563, 179 }, { 1823, 2357, 571, 137 },
+	                                      { 1823, 2357, 571, 179 } };
+	static const int hi_early[8][3] = { { 157, 479, 829 }, { 317, 809, 1117 }, { 479, 941, 1487 }, { 641, 1259, 1949 },
+	                                    { 797, 1667, 2579 }, { 967, 1901, 2903 }, { 1123, 2179, 3413 },
+	                                    { 1279, 2477, 3889 } };
+	static const float hi_early_coef[8][3] = { { 0.4f, -1.0f, 0.3f }, { 0.5f, -0.95f, 0.3f }, { 0.6f, -0.9f, 0.3f },
+	                                           { 0.75f, -0.85f, 0.3f }, { -0.9f, 0.8f, 0.3f }, { -1.0f, 0.7f, 0.3f },
+	                                           { -1.0f, 0.7f, 0.3f }, { -1.0f, 0.7f, 0.3f } };
+	static const int hi_filter[7][5] = { { 1789, 1999, 2333, 433, 149 }, { 149, 293, 449, 251, 103 },
+	                                     { 947, 1361, 1531, 433, 137 }, { 1279, 1531, 1973, 509, 149 },
+	                                     { 1531, 1847, 2297, 563, 179 }, { 1823, 2357, 2693, 571, 137 },
+	                                     { 1823, 2357, 2693, 571, 179 } };
+	static const int hi_last[2] = { 47, 73 };
+
+	xreverb_t *rv = calloc (1, sizeof (*rv));
+	if (!rv)
+		return 0;
+	rv->hi = hi;
+	const int em = clampi (fx->early_mode, 0, 7), fm = clampi (fx->fused_mode, 0, 6);
+	const float time = fx->time > 0.01f ? fx->time : 0.01f;
+	bool ok = true;
+	rv->ncomb = hi ? 3 : 2;
+	if (hi)
+	{
+		rv->early_len = hi_early[em][2];
+		for (int k = 0; k < 3; k++)
+		{
+			rv->early_tap[k] = hi_early[em][k];
+			rv->early_coef[k] = 0.6f * clampf (fx->early_gain, 0.0f, 1.0f) * hi_early_coef[em][k];
+		}
+	}
+	else
+	{
+		rv->early_len = std_early[em];
+		rv->early_coef[0] = em <= 3 ? -0.33f : 0.33f;
+		rv->early_gain = 0.6f * clampf (fx->early_gain, 0.0f, 1.0f);
+	}
+	rv->pre_len = (int)(NWS_RATE * (fx->pre_delay > 0 ? fx->pre_delay : 0.0f));
+	for (int c = 0; c < 2; c++)
+	{
+		ok &= (rv->early[c] = calloc ((size_t)rv->early_len, sizeof (float))) != 0;
+		if (rv->pre_len)
+			ok &= (rv->pre[c] = calloc ((size_t)rv->pre_len, sizeof (float))) != 0;
+		for (int t = 0; t < rv->ncomb; t++)
+			ok &= ring_init (&rv->comb[c][t], hi ? hi_filter[fm][t] : std_filter[fm][t]);
+		for (int t = 0; t < 2; t++)
+			ok &= ring_init (&rv->ap[c][t], hi ? hi_filter[fm][3 + t] : std_filter[fm][2 + t]);
+		if (hi)
+			ok &= ring_init (&rv->last[c], hi_last[c]);
+	}
+	for (int t = 0; t < rv->ncomb; t++)
+	{
+		const int len = hi ? hi_filter[fm][t] : std_filter[fm][t];
+		rv->comb_coef[t] = (float)pow (10.0, (-3.0f * len) / (32000.0f * time));
+	}
+	rv->ap_coef = clampf (fx->coloration, 0.0f, 1.0f);
+	rv->lpf_coef = 1.0f - clampf (fx->damping, 0.0f, 1.0f);
+	if (rv->lpf_coef > 0.95f)
+		rv->lpf_coef = 0.95f;
+	rv->fused_gain = 0.6f * clampf (fx->fused_gain, 0.0f, 1.0f);
+	rv->cross = hi ? 0.5f * clampf (fx->crosstalk, 0.0f, 1.0f) : 0.0f;
+	rv->out_gain = clampf (fx->out_gain, 0.0f, 1.0f);
+	if (!ok)
+	{
+		xreverb_free (rv);
+		return 0;
+	}
+	return rv;
+}
+
+static void xreverb_process (xreverb_t *rv, float *buf, int n)
+{
+	const float a = rv->ap_coef, lc = rv->lpf_coef;
+	for (int s = 0; s < n; s++)
+	{
+		float out[2];
+		for (int c = 0; c < 2; c++)
+		{
+			const float x = buf[2 * s + c];
+			float *el = rv->early[c];
+			float early;
+			if (rv->hi)
+			{
+				early = 0.0f;
+				for (int k = 0; k < 3; k++)
+				{
+					int i = rv->early_pos + rv->early_len - rv->early_tap[k];
+					if (i >= rv->early_len)
+						i -= rv->early_len;
+					early += rv->early_coef[k] * el[i];
+				}
+				el[rv->early_pos] = x;
+			}
+			else
+			{
+				const float e = el[rv->early_pos];
+				el[rv->early_pos] = x + e * rv->early_coef[0];
+				early = e * rv->early_gain;
+			}
+			float p = x;
+			if (rv->pre_len)
+			{
+				p = rv->pre[c][rv->pre_pos];
+				rv->pre[c][rv->pre_pos] = x;
+			}
+			float sum = 0.0f;
+			for (int t = 0; t < rv->ncomb; t++)
+			{
+				ring_t *cb = &rv->comb[c][t];
+				const float d = ring_get (cb);
+				ring_put (cb, p + d * rv->comb_coef[t]);
+				sum += d;
+			}
+			ring_t *ap0 = &rv->ap[c][0], *ap1 = &rv->ap[c][1];
+			float d = ring_get (ap0), w = sum + d * a;
+			ring_put (ap0, w);
+			float y = d - w * a;
+			if (rv->hi)
+			{
+				d = ring_get (ap1);
+				w = y + d * a;
+				ring_put (ap1, w);
+				y = d - w * a;
+				rv->lpf_last[c] = (1.0f - lc) * y + lc * rv->lpf_last[c];
+				ring_t *la = &rv->last[c];
+				d = ring_get (la);
+				w = rv->lpf_last[c] + d * a;
+				ring_put (la, w);
+				y = d - w * a;
+			}
+			else
+			{
+				rv->lpf_last[c] = (1.0f - lc) * y + lc * rv->lpf_last[c];
+				d = ring_get (ap1);
+				w = rv->lpf_last[c] + d * a;
+				ring_put (ap1, w);
+				y = d - w * a;
+			}
+			out[c] = y * rv->fused_gain + early;
+		}
+		if (++rv->early_pos == rv->early_len)
+			rv->early_pos = 0;
+		if (rv->pre_len && ++rv->pre_pos == rv->pre_len)
+			rv->pre_pos = 0;
+		buf[2 * s] = (out[0] + out[1] * rv->cross) * rv->out_gain;
+		buf[2 * s + 1] = (out[1] + out[0] * rv->cross) * rv->out_gain;
+	}
+}
+
+// --- DelayExp (fixed point with 7 bit gains, like the original) ---
+
+typedef struct xdelay_t
+{
+	ring_t line[2];
+	int fb, lpf, out;
+	float last[2];
+} xdelay_t;
+
+static void xdelay_free (xdelay_t *d)
+{
+	if (d)
+	{
+		free (d->line[0].b);
+		free (d->line[1].b);
+		free (d);
+	}
+}
+
+static xdelay_t *xdelay_new (const nws_fx_t *fx)
+{
+	xdelay_t *d = calloc (1, sizeof (*d));
+	if (!d)
+		return 0;
+	const int len = (int)(32.0f * (fx->delay > 0 ? fx->delay : 0.0f));
+	float lc = 1.0f - clampf (fx->lpf, 0.0f, 1.0f);
+	if (lc > 0.95f)
+		lc = 0.95f;
+	d->fb = (int)(128.0f * clampf (fx->feedback, 0.0f, 0.99f));
+	d->lpf = (int)(128.0f * lc);
+	d->out = (int)(128.0f * clampf (fx->out_gain, 0.0f, 1.0f));
+	if (!ring_init (d->line, len) || !ring_init (d->line + 1, len))
+	{
+		xdelay_free (d);
+		return 0;
+	}
+	return d;
+}
+
+static void xdelay_process (xdelay_t *d, float *buf, int n)
+{
+	for (int s = 0; s < n; s++)
+		for (int c = 0; c < 2; c++)
+		{
+			const float y = ring_get (d->line + c);
+			d->last[c] = ((128 - d->lpf) * buf[2 * s + c] + d->lpf * d->last[c]) / 128.0f;
+			ring_put (d->line + c, d->last[c] + y * d->fb / 128.0f);
+			buf[2 * s + c] = y * d->out / 128.0f;
+		}
+}
+
+// --- ChorusExp: a sine LFO modulated delay with feedback (centre 32 * delay samples, swing
+// 32 * delay * depth - 1 samples, as the AXFX setup derives them) ---
+
+typedef struct xchorus_t
+{
+	float *line[2];
+	int len, w;
+	double phase, inc;
+	float centre, swing, fb, out;
+} xchorus_t;
+
+static void xchorus_free (xchorus_t *ch)
+{
+	if (ch)
+	{
+		free (ch->line[0]);
+		free (ch->line[1]);
+		free (ch);
+	}
+}
+
+static xchorus_t *xchorus_new (const nws_fx_t *fx)
+{
+	xchorus_t *ch = calloc (1, sizeof (*ch));
+	if (!ch)
+		return 0;
+	const float dt = clampf (fx->delay, 0.1f, 50.0f), depth = clampf (fx->depth, 0.0f, 1.0f);
+	ch->centre = 32.0f * dt;
+	ch->swing = 32.0f * dt * depth - 1.0f;
+	if (ch->swing < 0)
+		ch->swing = 0;
+	if (ch->swing > ch->centre - 2)
+		ch->swing = ch->centre > 2 ? ch->centre - 2 : 0;
+	ch->inc = 2 * M_PI * clampf (fx->rate, 0.1f, 2.0f) / NWS_RATE;
+	ch->fb = clampf (fx->feedback, 0.0f, 0.99f);
+	ch->out = clampf (fx->out_gain, 0.0f, 1.0f);
+	ch->len = (int)(ch->centre + ch->swing) + 8;
+	for (int c = 0; c < 2; c++)
+		if (!(ch->line[c] = calloc ((size_t)ch->len, sizeof (float))))
+		{
+			xchorus_free (ch);
+			return 0;
+		}
+	return ch;
+}
+
+static void xchorus_process (xchorus_t *ch, float *buf, int n)
+{
+	for (int s = 0; s < n; s++)
+	{
+		const double d = ch->centre + ch->swing * sin (ch->phase);
+		ch->phase += ch->inc;
+		if (ch->phase > 2 * M_PI)
+			ch->phase -= 2 * M_PI;
+		double rp = ch->w - d;
+		while (rp < 0)
+			rp += ch->len;
+		const int i = (int)rp;
+		const float x = (float)(rp - i);
+		for (int c = 0; c < 2; c++)
+		{
+			const float *l = ch->line[c];
+			const float ym1 = l[(i - 1 + ch->len) % ch->len], y0 = l[i % ch->len], y1 = l[(i + 1) % ch->len],
+			            y2 = l[(i + 2) % ch->len];
+			const float c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2,
+			            c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
+			const float y = ((c3 * x + c2) * x + c1) * x + y0;
+			ch->line[c][ch->w] = buf[2 * s + c] + y * ch->fb;
+			buf[2 * s + c] = y * ch->out;
+		}
+		if (++ch->w == ch->len)
+			ch->w = 0;
+	}
+}
+
+// --- one AUX bus effect ---
+
+typedef struct fx_t
+{
+	int type;
+	void *p;
+	double tail_sec; // how long the effect rings after its input stops
+} fx_t;
+
+static bool fx_new (fx_t *f, const nws_fx_t *fx)
+{
+	f->type = fx->type;
+	f->p = 0;
+	switch (fx->type)
+	{
+	case NWS_FX_REVERB_HI:
+		f->p = reverb_new (fx);
+		f->tail_sec = clampf (fx->time, 0.01f, 10.0f) + clampf (fx->pre_delay, 0.0f, 0.1f) + 0.1;
+		break;
+	case NWS_FX_REVERB_HI_EXP:
+	case NWS_FX_REVERB_STD_EXP:
+		f->p = xreverb_new (fx, fx->type == NWS_FX_REVERB_HI_EXP);
+		f->tail_sec = fx->time + fx->pre_delay + 0.2;
+		break;
+	case NWS_FX_DELAY_EXP:
+	{
+		f->p = xdelay_new (fx);
+		const float fb = clampf (fx->feedback, 0.0f, 0.99f);
+		const double repeats = fb > 0.001f ? -3.0 / log10 (fb) + 1 : 1;
+		f->tail_sec = fx->delay / 1000.0 * repeats + 0.05;
+		break;
+	}
+	case NWS_FX_CHORUS_EXP:
+		f->p = xchorus_new (fx);
+		f->tail_sec = 0.1 + (fx->feedback > 0 ? 0.5 : 0.0);
+		break;
+	}
+	if (f->tail_sec > 15)
+		f->tail_sec = 15;
+	return f->p != 0;
+}
+
+static void fx_process (fx_t *f, float *buf, int n)
+{
+	switch (f->type)
+	{
+	case NWS_FX_REVERB_HI: reverb_process (f->p, buf, n); break;
+	case NWS_FX_REVERB_HI_EXP:
+	case NWS_FX_REVERB_STD_EXP: xreverb_process (f->p, buf, n); break;
+	case NWS_FX_DELAY_EXP: xdelay_process (f->p, buf, n); break;
+	case NWS_FX_CHORUS_EXP: xchorus_process (f->p, buf, n); break;
+	}
+}
+
+static void fx_free (fx_t *f)
+{
+	switch (f->type)
+	{
+	case NWS_FX_REVERB_HI: reverb_free (f->p); break;
+	case NWS_FX_REVERB_HI_EXP:
+	case NWS_FX_REVERB_STD_EXP: xreverb_free (f->p); break;
+	case NWS_FX_DELAY_EXP: xdelay_free (f->p); break;
+	case NWS_FX_CHORUS_EXP: xchorus_free (f->p); break;
+	}
+	f->p = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1685,7 +2090,8 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 	// AUX effects; created on the first send to the bus
 	const char *fx_env = getenv ("NWSEQ_FX");
 	const bool fx_on = !fx_env || strcmp (fx_env, "0");
-	reverb_t *rv[3] = { 0, 0, 0 };
+	fx_t fxs[3];
+	memset (fxs, 0, sizeof (fxs));
 	bool aux_used[3] = { false, false, false }, aux_live[3] = { false, false, false };
 	size_t fx_tail = 0; // frames the effects still ring after the last voice
 	size_t tail_frames = 0;
@@ -1738,17 +2144,17 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 			if (!fx_on || (!sent[b] && !aux_live[b]))
 				continue;
 			const nws_fx_t *fx = p->fx[b] ? p->fx[b] : &NWSeqDefaultFx;
-			if (fx->type != NWS_FX_REVERB_HI)
+			if (fx->type == NWS_FX_NONE)
 				continue;
-			if (!rv[b] && !(rv[b] = reverb_new (fx)))
+			if (!fxs[b].p && !fx_new (fxs + b, fx))
 				continue;
 			aux_used[b] = aux_live[b] = true;
-			reverb_process (rv[b], aux[b], FRAME_SAMPLES);
+			fx_process (fxs + b, aux[b], FRAME_SAMPLES);
 			for (int s = 0; s < FRAME_SAMPLES * 2; s++)
 				mix[s] += aux[b][s];
 			if (sent[b])
 			{
-				const size_t t = (size_t)(rv[b]->tail_sec * 1000 / FRAME_MS);
+				const size_t t = (size_t)(fxs[b].tail_sec * 1000 / FRAME_MS);
 				if (t > fx_tail)
 					fx_tail = t;
 			}
@@ -1799,7 +2205,7 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 		         pl->looped ? "looped" : "one-shot", aux_used[0] ? 'A' : '-', aux_used[1] ? 'B' : '-',
 		         aux_used[2] ? 'C' : '-');
 	for (int b = 0; b < 3; b++)
-		reverb_free (rv[b]);
+		fx_free (fxs + b);
 	free (pl);
 	if (rc)
 	{

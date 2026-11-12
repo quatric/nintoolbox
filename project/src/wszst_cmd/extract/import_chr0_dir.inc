@@ -268,10 +268,12 @@ static enumError convert_brsar_if_possible (ccp arg, bool render_midi)
 			CreatePath (ndest, true);
 			const enumError uerr = is_sdat ? UnpackSDAT (raw, raw_size, raw_dir) : UnpackBRSAREx (raw, raw_size, raw_dir, false);
 			RSARRenderAudio = opt_decode && render_midi;
+			RSARSourcePath = arg;
 			const enumError cerr = is_sdat ? ConvertSDATNative (raw, raw_size, ndest)
 				: is_fsar ? ConvertFSARNative (raw, raw_size, ndest)
 				: ConvertRSARNative (raw, raw_size, ndest);
 			RSARRenderAudio = false;
+			RSARSourcePath = 0;
 			FREE (raw);
 			if (cerr == ERR_OK || uerr == ERR_OK)
 			{

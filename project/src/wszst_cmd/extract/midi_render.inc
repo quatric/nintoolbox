@@ -54,7 +54,9 @@ static enumError midi_render_native (ccp dir, ccp base, bool *fallback)
 	enumError err = ERR_OK;
 	if (!testmode)
 	{
+		RSARSourcePath = src;
 		err = RenderSoundArchiveSequence (raw, raw_size, rdir, stem);
+		RSARSourcePath = 0;
 		if (err == ERR_NOTHING_TO_DO)
 			*fallback = true;
 	}

@@ -21,9 +21,9 @@
 //     stereo waves split across L/R, 4 tap interpolation, 32 kHz output (the DSP mixing rate);
 //     a render that would clip is redone once with just enough headroom
 //
-//   * effects: the sequence's fx sends (fxsend A/B/C) feed three AUX buses, each processed by the
-//     classic AXFX "ReverbHi" (comb + all-pass + damping low-pass + crosstalk, the reverb games
-//     attach to the AUX buses with FxReverbHi) whose return is added to the main mix
+//   * effects: the sequence's fx sends (fxsend A/B/C) feed three AUX buses, each processed by an
+//     AXFX effect (ReverbHi, ReverbHiExp, ReverbStdExp, DelayExp, ChorusExp) whose return is added
+//     to the main mix
 //
 // The format specific part (finding the instrument and wave for a program / key / velocity) is
 // supplied by the caller through nws_inst_fn.
@@ -54,22 +54,40 @@ typedef struct nws_inst_t
 // (bank select, 3DS/Wii U/Switch only; always 0 for RSEQ). Return 0 if the note has no region.
 typedef int (*nws_inst_fn) (void *ctx, int bank, int prg, int key, int velocity, nws_inst_t *out);
 
-// AUX bus effect. The effect setup lives in each game's code, not in the sound archive.
-enum { NWS_FX_NONE = 0, NWS_FX_REVERB_HI = 1 };
+// AUX bus effects (the AXFX library behind NW4R's Fx classes). The effect setup lives in each
+// game's code (or in the SoundMaker Fx*.csv files some games ship), not in the sound archive.
+enum
+{
+	NWS_FX_NONE = 0,
+	NWS_FX_REVERB_HI,      // classic AXFX ReverbHi (old NW4R FxReverbHi); returns wet + dry mixed by out_gain
+	NWS_FX_REVERB_HI_EXP,  // AXFX ReverbHiExp (NW4R FxReverbHi): early reflections + 3 combs, wet only
+	NWS_FX_REVERB_STD_EXP, // AXFX ReverbStdExp (NW4R FxReverbStd): 1 early tap + 2 combs, wet only
+	NWS_FX_DELAY_EXP,      // AXFX DelayExp (NW4R FxDelay)
+	NWS_FX_CHORUS_EXP,     // AXFX ChorusExp (NW4R FxChorus), modelled as an LFO modulated delay
+};
 
 typedef struct nws_fx_t
 {
 	int type;              // NWS_FX_*
-	float pre_delay;       // seconds, 0..0.1
-	float time;            // decay time in seconds (-60 dB), 0.01..10
+	// reverbs
+	float pre_delay;       // seconds
+	float time;            // fused (late) reverb decay time in seconds (-60 dB)
 	float coloration;      // all-pass coefficient, 0..1
 	float damping;         // low-pass damping, 0..1
-	float crosstalk;       // L/R bleed, 0..1
-	float mix;             // wet/dry of the returned signal, 0..1 (NW4R "outGain")
+	float crosstalk;       // L/R bleed, 0..1 (ReverbHi)
+	float out_gain;        // 0..1; for the classic ReverbHi this is its wet/dry "mix"
+	int early_mode;        // Exp: early reflections 0..7 = 5..40 ms
+	int fused_mode;        // Exp: 0 old AXFX, 1 metal tank, 2 small room, 3 large room, 4 hall, 5 cavernous
+	float early_gain, fused_gain; // Exp
+	// delay / chorus
+	float delay;           // delay time in ms (chorus: centre delay)
+	float feedback;        // 0..<1
+	float lpf;             // delay: low-pass, 0..1 (1 = open)
+	float depth;           // chorus: 0..1
+	float rate;            // chorus: LFO rate in Hz
 } nws_fx_t;
 
-// The default AUX effect: FxReverbHi as set up by the Wii Forecast Channel, whose coloration,
-// damping and crosstalk match the NintendoWare sample code.
+// The NintendoWare default (FxReverbHi::ReverbHiParam()), used for a bus without setup.
 extern const nws_fx_t NWSeqDefaultFx;
 
 typedef struct nws_params_t

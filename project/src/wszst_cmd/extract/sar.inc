@@ -116,9 +116,11 @@ static enumError extract_sar_file (ccp arg, ccp basedir, uint depth)
 	if (!testmode && !err && opt_decode && depth == 0 && (!memcmp (raw, "FSAR", 4) || !memcmp (raw, "CSAR", 4)))
 	{
 		RSARRenderAudio = true;
+		RSARSourcePath = arg;
 		if (ConvertFSARNative (raw, raw_size, dest) == ERR_OK && verbose >= 0)
 			fprintf (stdlog, "EXPORT %s:%s -> %s/midi (native)\n", sar.magic, arg, dest);
 		RSARRenderAudio = false;
+		RSARSourcePath = 0;
 	}
 
 	ResetSoundArchive (&sar);

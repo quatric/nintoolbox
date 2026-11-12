@@ -423,10 +423,14 @@ renders every sequence sound to `midi/<sound>.flac` (`--midi-format=wav` keeps W
 NintendoWare sound engine (`lib-nwseq.c`) plays the RSEQ/CSEQ/FSEQ with the bank's own instrument
 lookup, envelopes (attack table, hold, decay/release in dB per ms), LFO, sweep/portamento, volume and
 pan curves and 3 ms update frames, mixed at the DSP rate of 32 kHz. The sequence's fx sends
-(`fxsend_a/b/c`) feed the AUX buses through the classic AXFX ReverbHi that games attach with
-`FxReverbHi`. That setup lives in game code, not in the archive, so every bus uses the Forecast
-Channel's settings (pre-delay 0.1 s, time 2.1 s, coloration 0.6, damping 0.4, crosstalk 0.1, out gain 0.2);
-`NWSEQ_FX=0` renders dry. Looping music plays the loop twice
+(`fxsend_a/b/c`) feed the three AUX buses, each running a port of the AXFX effect the game attaches with NW4R's
+`Fx*` classes: the classic ReverbHi, or the newer ReverbHiExp, ReverbStdExp and DelayExp, plus ChorusExp
+modelled as an LFO-modulated delay. That setup lives in game code, not in the archive. Known archives use the
+values read from their code (Forecast Channel `rev_wtr.brsar`, Wii Speak Channel `MicChatSound.brsar`).
+Otherwise the SoundMaker effect tables some games ship next to the archive (`FxReverbHi.csv`, `FxReverbStd.csv`,
+`FxDelay.csv`, `FxChorus.csv`; rows marked in the `USE` column are skipped) set up the buses they list. Anything
+else gets the NintendoWare default `FxReverbHi` (pre-delay 0.02 s, 3 s, out gain 1). `NWSEQ_FX=0`
+renders dry. Looping music plays the loop twice
 and fades out over 10 s. `sequences.tsv` marks these sounds `native` in its third column, and the
 SoundFont renderer leaves them alone. `wszst xx <archive>.d/midi/<sound>.mid` on one of them renders
 that sound again natively from the source archive `<archive>` if its audio is missing (or with

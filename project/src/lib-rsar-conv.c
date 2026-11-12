@@ -1,9 +1,11 @@
 // Native BRSAR -> MIDI + SF2 conversion. See lib-rsar-conv.h for provenance.
 
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include "lib-std.h"
 #include "lib-sequence.h"
 #include "lib-rsar-conv.h"
@@ -1073,6 +1075,151 @@ static void rb_write_file (ccp path, const u8 *d, size_t n)
 
 void (*RSARRenderedHook) (ccp wav_path) = 0;
 bool RSARRenderAudio = false;
+ccp RSARSourcePath = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+// AUX effect setup for the native renderer. The effects (FxReverbHi, FxDelay, ...) are created by
+// game code, so they are not in the archive: known archives come from a table (values read from the
+// games' code), other games may ship the SoundMaker effect tables (Fx*.csv) next to the archive.
+
+typedef struct rn_fx_game_t
+{
+	ccp archive;     // file name of the archive
+	nws_fx_t fx[3];  // AUX A, B, C
+} rn_fx_game_t;
+
+static const rn_fx_game_t rn_fx_games[] = {
+	// Forecast Channel: classic FxReverbHi on AUX C (AUX B runs a custom analyser, no audio effect)
+	{ "rev_wtr.brsar",
+		{ { NWS_FX_NONE }, { NWS_FX_NONE },
+		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f } } },
+	// Wii Speak Channel: FxChorus on A, FxDelay on B, FxReverbHi (default parameters) on C
+	{ "MicChatSound.brsar",
+		{ { NWS_FX_CHORUS_EXP, .out_gain = 1.0f, .delay = 20.0f, .depth = 0.6f, .rate = 0.1f },
+		  { NWS_FX_DELAY_EXP, .out_gain = 1.0f, .delay = 160.0f, .feedback = 0.4f, .lpf = 1.0f },
+		  { NWS_FX_REVERB_HI_EXP, 0.02f, 3.0f, 0.6f, 0.4f, 0.1f, 1.0f, 5, 0, 0.0f, 1.0f } } },
+};
+
+static nws_fx_t rn_fx[3];
+static bool rn_fx_set[3];
+static char rn_fx_for[PATH_MAX]; // source path the setup was resolved for
+
+static int rn_csv_split (char *line, char **col, int max)
+{
+	int n = 0;
+	for (char *p = line; n < max;)
+	{
+		col[n++] = p;
+		char *c = strchr (p, ',');
+		if (!c)
+			break;
+		*c = 0;
+		p = c + 1;
+	}
+	for (int i = 0; i < n; i++)
+	{
+		char *e = col[i] + strlen (col[i]);
+		while (e > col[i] && (e[-1] == '\r' || e[-1] == '\n' || e[-1] == ' '))
+			*--e = 0;
+	}
+	return n;
+}
+
+static int rn_csv_mode (ccp v, bool fused)
+{
+	if (!fused)
+	{
+		const int ms = atoi (v); // "30MS"
+		return ms >= 5 && ms <= 40 ? ms / 5 - 1 : 5;
+	}
+	static const ccp names[] = { "OLD_AXFX", "METAL_TANK", "SMALL_ROOM", "LARGE_ROOM", "HALL", "CAVERNOUS", "LONGEST" };
+	for (int i = 0; i < 7; i++)
+		if (!strcasecmp (v, names[i]))
+			return i;
+	return 0;
+}
+
+// FxReverbHi.csv etc.: "USE,ID,BUS,<params>...,COMMENT"; rows marked in USE are disabled.
+// The first enabled row of a bus wins (files are read reverb first).
+static void rn_fx_load_csv (ccp dir, ccp file, int type)
+{
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/%s", dir, file);
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return;
+	char line[1024], head[1024];
+	char *hc[32], *vc[32];
+	int nh = 0;
+	if (fgets (head, sizeof (head), f))
+		nh = rn_csv_split (head, hc, 32);
+	while (nh > 3 && fgets (line, sizeof (line), f))
+	{
+		const int nv = rn_csv_split (line, vc, 32);
+		if (nv < 4 || *vc[0] || !*vc[2])
+			continue;
+		const int bus = toupper ((uchar)vc[2][0]) - 'A';
+		if (bus < 0 || bus > 2 || rn_fx_set[bus])
+			continue;
+		nws_fx_t fx = NWSeqDefaultFx;
+		fx.type = type;
+		if (type == NWS_FX_DELAY_EXP || type == NWS_FX_CHORUS_EXP)
+			fx.lpf = 1.0f, fx.feedback = 0, fx.delay = 10, fx.depth = 0.5f, fx.rate = 1;
+		for (int i = 3; i < nv && i < nh; i++)
+		{
+			ccp k = hc[i], v = vc[i];
+			const float x = (float)atof (v);
+			if (!strcasecmp (k, "preDelayTime")) fx.pre_delay = x;
+			else if (!strcasecmp (k, "fusedTime")) fx.time = x;
+			else if (!strcasecmp (k, "coloration")) fx.coloration = x;
+			else if (!strcasecmp (k, "damping")) fx.damping = x;
+			else if (!strcasecmp (k, "crosstalk")) fx.crosstalk = x;
+			else if (!strcasecmp (k, "outGain")) fx.out_gain = x;
+			else if (!strcasecmp (k, "earlyMode")) fx.early_mode = rn_csv_mode (v, false);
+			else if (!strcasecmp (k, "fusedMode")) fx.fused_mode = rn_csv_mode (v, true);
+			else if (!strcasecmp (k, "earlyGain")) fx.early_gain = x;
+			else if (!strcasecmp (k, "fusedGain")) fx.fused_gain = x;
+			else if (!strcasecmp (k, "delay") || !strcasecmp (k, "delayTime")) fx.delay = x;
+			else if (!strcasecmp (k, "feedback")) fx.feedback = x;
+			else if (!strcasecmp (k, "lpf")) fx.lpf = x;
+			else if (!strcasecmp (k, "depth")) fx.depth = x;
+			else if (!strcasecmp (k, "rate")) fx.rate = x;
+		}
+		rn_fx[bus] = fx;
+		rn_fx_set[bus] = true;
+	}
+	fclose (f);
+}
+
+static void rn_fx_setup (void)
+{
+	ccp src = RSARSourcePath ? RSARSourcePath : "";
+	if (!strcmp (src, rn_fx_for) && *rn_fx_for)
+		return;
+	snprintf (rn_fx_for, sizeof (rn_fx_for), "%s", src);
+	memset (rn_fx_set, 0, sizeof (rn_fx_set));
+	if (!*src)
+		return;
+	ccp base = strrchr (src, '/');
+	base = base ? base + 1 : src;
+	for (uint g = 0; g < sizeof (rn_fx_games) / sizeof (*rn_fx_games); g++)
+		if (!strcmp (base, rn_fx_games[g].archive))
+		{
+			for (int b = 0; b < 3; b++)
+				rn_fx[b] = rn_fx_games[g].fx[b], rn_fx_set[b] = true;
+			return;
+		}
+	char dir[PATH_MAX];
+	snprintf (dir, sizeof (dir), "%.*s", base > src ? (int)(base - src - 1) : 1, base > src ? src : ".");
+	rn_fx_load_csv (dir, "FxReverbHi.csv", NWS_FX_REVERB_HI_EXP);
+	rn_fx_load_csv (dir, "FxReverbStd.csv", NWS_FX_REVERB_STD_EXP);
+	rn_fx_load_csv (dir, "FxDelay.csv", NWS_FX_DELAY_EXP);
+	rn_fx_load_csv (dir, "FxChorus.csv", NWS_FX_CHORUS_EXP);
+	if (rn_fx_set[0] || rn_fx_set[1] || rn_fx_set[2])
+		for (int b = 0; b < 3; b++)
+			if (!rn_fx_set[b])
+				rn_fx[b].type = NWS_FX_NONE, rn_fx_set[b] = true; // the tables cover every bus the game uses
+}
 ccp RSARRenderOnly = 0;
 
 typedef struct rn_bank_t
@@ -1235,6 +1382,9 @@ static bool rn_render_code (const u8 *code, size_t code_n, u32 start, u32 alloc_
 	p.pan_curve = pan_curve <= 8 ? pan_curve : 0;
 	p.inst = inst;
 	p.ctx = ctx;
+	rn_fx_setup ();
+	for (int b = 0; b < 3; b++)
+		p.fx[b] = rn_fx_set[b] ? rn_fx + b : 0;
 	int16_t *pcm = 0;
 	size_t frames = 0;
 	int looped = 0;
