@@ -1252,6 +1252,8 @@ t_romc
 f_fres_switch=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
+  # Skeleton-only archives have no shapes to name.
+  case "$f" in *[Ss]keleton*) continue ;; esac
   bomC=$(od -An -tx1 -j12 -N2 "$f" 2>/dev/null | tr -d ' ')
   [ "$bomC" = "fffe" ] && { f_fres_switch="$f"; break; }
 done < <(awk -F'\t' -v m="FRES" '$1==m{print $2}' "$IDX")
