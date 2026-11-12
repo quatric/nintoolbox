@@ -11,6 +11,15 @@ Results were produced with `wszst xx`; an `F` on `.arc`, `.mo`, `.bin` and simil
 
 The original census is stale: many extractors have been added since, and several `F` marks (CPK, BGIB, `.spd`/`.spt`, ...) are now supported. Games are re-audited with the current build (download, `wit x`, `wszst xx` on samples, delete) and merged in by `merge_audit.py <sweep dir>`; re-audited rows carry the date in the `audited` column (and `audited` in the JSON), empty means the row is still from the original census. `.rcf` / `.dsf` files seen in about ten games are Wii save images, not game data.
 
+## Audit artifacts (2026-11-12)
+
+An in-place re-check (`wszst xx` run next to the sample's sibling files on a fresh build) shows that several frequent `F` marks are not gaps:
+
+- `.brfnt` / `.brfna` (about 370 / 180 games): `xx` deliberately leaves Wii fonts raw so `CREATE` can rebuild them; `wimgt decode` turns them into PNG sheets.
+- Formats that need a sibling file fail when the audit copies one file alone: `.spd` + `.spt` banks, `.dir` + data (PIKARC), DIABOLIK resources, `.msh` / `.vtx` pairs.
+- Rows audited before an extractor was added still say `F`, e.g. Casper's Scare School `.tex` (ATH-TEX), Movie Games `BUG\0` `.bf`, Wwise `RIFX` `.wav`, Crash Car Racer genome `.dat`.
+- `.wav` with `RIFF` (about 100 games) is mostly plain PCM.
+
 ## Known open formats (2026-11-08)
 
 Web searches (QuickBMS, TCRF, WiiBrew, GitHub) found no public documentation for these; notes are what was worked out from retail files so far.
@@ -25,4 +34,5 @@ Web searches (QuickBMS, TCRF, WiiBrew, GitHub) found no public documentation for
 | `vaps` `.wii` page sets | Disney Princess: Enchanted Journey, George of the Jungle | big-endian paged heap image: a 0x100 root block, then `vaps` directory blocks (`{magic, 0x00010003, count, ..., nbuckets, count, bucket off, entry off}`, hash buckets, then 12-byte `{hash, size, offset}` entries in 0x80 units); entries carry no names or type tags (raw GX tiles, palettes, vertex data), so they are not decoded |
 | `MOC5` `.dat` movies | 89 games (e.g. `sys/mpls_movie/dat/movie4_nl.dat`) | already handled: the `MOC` magic routes to the Mobiclip extractor; the audit simply never listed the 4-byte `MOC5` string |
 | `FVRT` `.dat` archives | My Body Coach, My Body Coach 2, Cocoto Festival | already listed as unsupported by the audit; now extracted (Kylotonn archive, see `docs/FORMATS.md`); the members (`.vid`, `.snd`, `.anm`, `.mdl`, ...) are not decoded |
+| `StrE` `.bin` + `.vlt` | EA Playground, FIFA 10-15, EA Sports Active, Skate It, NHL Slapshot (26 games) | decoded for the Playground-engine titles (EA Attrib vault, see `docs/FORMATS.md`): `db.vlt` turns into `attrib.txt`; the `.bin` is its data file and is not converted on its own |
 | `GGXA` `.bin` archives | Radirgy Noa Wii | now extracted (`GGXArchiver1.00`, Gage BPE members, see `docs/FORMATS.md`); `.pvr` textures decode to PNG; the Ninja `.nj` models now export to OBJ (see `docs/FORMATS.md`); `.njm` motions and `.njc` cameras are only described, not converted |

@@ -168,6 +168,7 @@
 #include "extract/nekolzss.inc"
 #include "extract/nekogrp.inc"
 #include "extract/bcsv.inc"
+#include "extract/eaattrib.inc"
 #include "extract/j3dbck.inc"
 #include "extract/j3dbpk.inc"
 #include "extract/j3dbtp.inc"

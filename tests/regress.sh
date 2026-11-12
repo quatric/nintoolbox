@@ -9689,6 +9689,21 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Lang STR" "mk_langstr.py failed"
   fi
 
+  # EA Attrib vault (.vlt + .bin) -> attrib.txt
+  mkdir -p "$d/eaattrib_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eaattrib.py" "$d/eaattrib_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eaattrib_test/t.vlt" --overwrite >/dev/null 2>&1 \
+    && grep -q '^\[player/hero\] : base$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
+    && grep -q '^  Float speed = 1.5$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
+    && grep -q '^  Text title = "Hello vault"$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
+    && grep -q '^  Int32 scores = \[7, -2, 300\]$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
+    && grep -q '^  RefSpec buddy = player/base$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
+    && fok "EA Attrib vault .vlt -> attrib.txt" \
+    || fno "EA Attrib" "failed to decode synthetic t.vlt"
+  else
+    fno "EA Attrib" "mk_eaattrib.py failed"
+  fi
+
   # CHNK tree container (.scene) -> tree.json
   mkdir -p "$d/chnk_test"
   if python3 "$PWD_PROJECT/../tests/mk_chnktree.py" "$d/chnk_test" >/dev/null 2>&1; then
