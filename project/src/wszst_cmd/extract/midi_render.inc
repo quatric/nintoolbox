@@ -137,11 +137,18 @@ static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth)
 	snprintf (wav, sizeof (wav), "%s", arg);
 	char *dot = strrchr (wav, '.');
 	if (dot) strcpy (dot, ".wav");
+	// the WAV is only an intermediate when FLAC (the default) is wanted: name the file that is kept
+	const bool want_flac = !opt_midi_format || !strcasecmp (opt_midi_format, "flac");
+	char out[PATH_MAX];
+	snprintf (out, sizeof (out), "%s", wav);
+	if (want_flac)
+		strcpy (out + strlen (out) - 4, ".flac");
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sRENDER MIDI:%s + %s -> WAV:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, sf2, wav);
+		fprintf (stdlog, "%s%sRENDER MIDI:%s + %s -> %s:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "",
+			arg, sf2, want_flac ? "FLAC" : "WAV", out);
 	const enumError err = PassthruRenderMIDI (arg, sf2, wav);
-	if (!err && !testmode)
-		PassthruWavToFlac (wav);
+	if (!err && !testmode && want_flac && PassthruWavToFlac (wav) != ERR_OK && verbose >= 0)
+		fprintf (stdlog, "  no FLAC encoder found, kept WAV:%s\n", wav);
 	if (err == ERR_NOTHING_TO_DO)
 		return ERROR0 (ERR_WARNING, "no fluidsynth found to render %s", arg);
 	return err;
