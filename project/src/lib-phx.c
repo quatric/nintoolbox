@@ -774,7 +774,7 @@ enumError DecodeSygnusADPCM (s16 **pcm, uint *channels, uint *rate, uint *n_samp
 // PMSH mesh: "Main" flatbuffer + "GBuf" vertex/index data (+ "CBuf", not needed for geometry).
 // root.f3 geometry { f1 [stream {f1 attribute, f2 size, f3 GBuf offset, f4 format}],
 //                    f2 [submesh {f1 material, f3 vertex count, f4 first index, f5 index count}],
-//                    f5 bounds, f11 GBuf size }
+//                    f4 [{f0 u64 material slot hash}], f5 bounds, f11 GBuf size }
 // Attributes: 0 position f32x3, 1 normal / 2 tangent unorm 10:10:10:2, 8..12 UV half2,
 // 24..26 colour RGBA8, 40 indices (format 1: u16, 2: u32), 41 CBuf data.
 
@@ -964,7 +964,15 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 			for (uint i = 0; i < max_mat; i++)
 			{
 				material_t *mt = model->materials + i;
-				snprintf (mt->name, sizeof (mt->name), "material_%u", i);
+				// geometry.f4: one 64-bit slot-name hash per material index
+				uint nslot = 0;
+				const uint slots = fb_vec (main_d, main_n, geo, 4, &nslot);
+				const uint st_t = slots && i < nslot ? fb_vec_table (main_d, main_n, slots, i) : 0;
+				const uint hp = st_t ? fb_field (main_d, main_n, st_t, 0, 8) : 0;
+				if (hp)
+					snprintf (mt->name, sizeof (mt->name), "material_%016llx", (unsigned long long)le64 (main_d + hp));
+				else
+					snprintf (mt->name, sizeof (mt->name), "material_%u", i);
 				mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
 			}
 		}
