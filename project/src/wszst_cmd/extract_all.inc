@@ -481,6 +481,7 @@
 #include "extract/ydsp.inc"
 #include "extract/conan_str.inc"
 #include "extract/nds_swar.inc"
+#include "extract/nds_sadl.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
