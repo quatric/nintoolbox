@@ -121,6 +121,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_nintendo_ast_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_btsnd_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_bwav_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

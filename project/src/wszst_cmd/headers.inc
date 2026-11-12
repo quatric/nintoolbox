@@ -144,6 +144,7 @@
 #include "lib-cnmt.h"
 #include "lib-npdm.h"
 #include "lib-xci.h"
+#include "lib-nup.h"
 
 bool IsNTTF (const u8 *data, uint size);
 
