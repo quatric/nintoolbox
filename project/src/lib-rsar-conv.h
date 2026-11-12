@@ -32,6 +32,14 @@ extern void (*RSARRenderedHook) (ccp wav_path);
 // whole tree must not fill the disk with WAVs).
 extern bool RSARRenderAudio;
 
+// When set to a MIDI file stem from sequences.tsv (without ".mid"), ConvertRSARNative() and ConvertFSARNative() only
+// render that one sequence (into <out_dir>/midi/<stem>.wav); no MIDI, SoundFont or manifest is written.
+extern ccp RSARRenderOnly;
+
+// Renders one sequence of an RSAR / FSAR / CSAR archive by its MIDI stem (see RSARRenderOnly) with the native
+// engine. Returns ERR_OK if the audio was written, ERR_NOTHING_TO_DO if the archive has no such sequence.
+enumError RenderSoundArchiveSequence (const u8 *data, size_t size, ccp out_dir, ccp stem);
+
 // Nintendo DS SDAT -> MIDI + SF2, same output layout (port of NDSScanner / NDSInstrSet).
 // SSEQ sequences become MIDI through the sequence library; every bank used by a sequence
 // becomes a SoundFont holding the eight synthesized PSG duty waves followed by the samples

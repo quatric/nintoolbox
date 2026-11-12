@@ -424,7 +424,10 @@ NintendoWare sound engine (`lib-nwseq.c`) plays the RSEQ/CSEQ/FSEQ with the bank
 lookup, envelopes (attack table, hold, decay/release in dB per ms), LFO, sweep/portamento, volume and
 pan curves and 3 ms update frames, mixed at the DSP rate of 32 kHz. Looping music plays the loop twice
 and fades out over 10 s. `sequences.tsv` marks these sounds `native` in its third column, and the
-SoundFont renderer leaves them alone. Set `NWSEQ_DEBUG=1` to trace notes that find no instrument region.
+SoundFont renderer leaves them alone. `wszst xx <archive>.d/midi/<sound>.mid` on one of them renders
+that sound again natively from the source archive `<archive>` if its audio is missing (or with
+`--overwrite`). Without that archive it falls back to the SoundFont. Set `NWSEQ_DEBUG=1` to trace
+notes that find no instrument region.
 
 ```bash
 # 1. Default: write BOTH output styles under output_dir:

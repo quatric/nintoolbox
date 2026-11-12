@@ -1073,6 +1073,7 @@ static void rb_write_file (ccp path, const u8 *d, size_t n)
 
 void (*RSARRenderedHook) (ccp wav_path) = 0;
 bool RSARRenderAudio = false;
+ccp RSARRenderOnly = 0;
 
 typedef struct rn_bank_t
 {
@@ -1269,11 +1270,13 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 		return ERR_NOTHING_TO_DO;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
+	const bool only = RSARRenderOnly && *RSARRenderOnly;
 	char midi_dir[PATH_MAX], sf_dir[PATH_MAX], path[PATH_MAX];
 	snprintf (midi_dir, sizeof (midi_dir), "%s/midi", out_dir);
 	snprintf (sf_dir, sizeof (sf_dir), "%s/soundfonts", out_dir);
 	CreatePath (midi_dir, true);
-	CreatePath (sf_dir, true);
+	if (!only)
+		CreatePath (sf_dir, true);
 
 	// bank -> collection / instruments, built lazily
 	rb_coll_t *colls = CALLOC (r.n_banks ? r.n_banks : 1, sizeof (*colls));
@@ -1319,8 +1322,16 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 		}
 		char uniq[160];
 		rb_name_unique (uniq, sizeof (uniq), snd->name, used_names, &n_un);
-		snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
-		rb_write_file (path, mid, mid_n);
+		if (only && strcmp (uniq, RSARRenderOnly))
+		{
+			FREE (mid);
+			continue;
+		}
+		if (!only)
+		{
+			snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
+			rb_write_file (path, mid, mid_n);
+		}
 		FREE (mid);
 		n_mid++;
 		char line[400];
@@ -1346,6 +1357,11 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 				rb = rn + bi;
 		}
 		const bool native = RSARRenderAudio && rn_render (data + d, sz && sz < avail ? sz : avail, snd, rb, midi_dir, uniq);
+		if (only)
+		{
+			err = native ? ERR_OK : ERR_NOTHING_TO_DO;
+			goto done;
+		}
 		if (snd->bankID < r.n_banks && bl[snd->bankID].have)
 		{
 			used_bank[snd->bankID] = true;
@@ -1357,6 +1373,8 @@ enumError ConvertRSARNative (const u8 *data, size_t size, ccp out_dir)
 			snprintf (line, sizeof (line), "%s.mid\t\t%s\n", uniq, native ? "native" : "");
 		rc_put (&manifest, line, strlen (line));
 	}
+	if (only)
+		goto done; // the requested sequence does not exist
 
 	// one SoundFont per bank used by at least one sequence
 	uint n_sf = 0;
@@ -2764,10 +2782,12 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 	fn_bank_t *fnb = CALLOC (nb ? nb : 1, sizeof (fn_bank_t));
 	rc_buf_t manifest = { 0 };
 	uint n_un = 0, n_us = 0, n_mid = 0, n_sf = 0;
+	const bool only = RSARRenderOnly && *RSARRenderOnly;
 	if (!used_names || !used_sf || !bank_sf || !used_bank || !fnb || !a.sounds)
 		goto done;
 	CreatePath (midi_dir, true);
-	CreatePath (sf_dir, true);
+	if (!only)
+		CreatePath (sf_dir, true);
 	rc_put (&manifest, "midi\tsoundfont\taudio\n", 21);
 
 	for (uint s = 0; s < a.sounds->n_entry; s++)
@@ -2799,8 +2819,16 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 				*p = '_';
 		char uniq[160];
 		rb_name_unique (uniq, sizeof (uniq), base, used_names, &n_un);
-		snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
-		rb_write_file (path, mid, mid_n);
+		if (only && strcmp (uniq, RSARRenderOnly))
+		{
+			FREE (mid);
+			continue;
+		}
+		if (!only)
+		{
+			snprintf (path, sizeof (path), "%s/%s.mid", midi_dir, uniq);
+			rb_write_file (path, mid, mid_n);
+		}
 		FREE (mid);
 		n_mid++;
 
@@ -2841,6 +2869,11 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 				native = rn_render_code (code, code_n, start, fx_u32 (&f, det + 8), fx_u8 (&f, rec + 8), pan_mode,
 					pan_curve, fn_inst, &fc, midi_dir, uniq);
 		}
+		if (only)
+		{
+			err = native ? ERR_OK : ERR_NOTHING_TO_DO;
+			goto done;
+		}
 		char line[400];
 		if (bank >= 0)
 		{
@@ -2861,6 +2894,8 @@ enumError ConvertFSARNative (const u8 *data, size_t size, ccp out_dir)
 			snprintf (line, sizeof (line), "%s.mid\t\t%s\n", uniq, native ? "native" : "");
 		rc_put (&manifest, line, strlen (line));
 	}
+	if (only)
+		goto done; // the requested sequence does not exist
 	for (uint i = 0; i < nb; i++)
 		fn_bank_free (fnb + i);
 
@@ -2917,5 +2952,21 @@ done:
 	FREE (bank_sf);
 	FREE (used_bank);
 	ResetBFSAR (&a.sar);
+	return err;
+}
+
+enumError RenderSoundArchiveSequence (const u8 *data, size_t size, ccp out_dir, ccp stem)
+{
+	if (!stem || !*stem)
+		return ERR_NOTHING_TO_DO;
+	const bool old_audio = RSARRenderAudio;
+	ccp old_only = RSARRenderOnly;
+	RSARRenderAudio = true;
+	RSARRenderOnly = stem;
+	enumError err = ConvertRSARNative (data, size, out_dir);
+	if (err == ERR_NOTHING_TO_DO)
+		err = ConvertFSARNative (data, size, out_dir);
+	RSARRenderAudio = old_audio;
+	RSARRenderOnly = old_only;
 	return err;
 }

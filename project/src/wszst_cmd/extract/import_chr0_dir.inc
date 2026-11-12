@@ -3,6 +3,8 @@
 #include "lib-rsar-conv.h"
 static enumError extract_midi_render_file (ccp arg, ccp basedir, uint depth);
 #define extract_midi_render_file_fwd extract_midi_render_file
+// set while the MIDIs of a just extracted sound archive are rendered: their native audio exists, say nothing
+static bool midi_render_quiet = false;
 // Load every CHR0 in one extracted "AnmChr(NW4R)" directory into `model`.
 // Extracted BRRES members keep their raw resource name verbatim -- no
 // ".chr0" extension is added (unlike, say, texture PNGs) -- so a sidecar
@@ -283,6 +285,7 @@ static enumError convert_brsar_if_possible (ccp arg, bool render_midi)
 					snprintf (mdir, sizeof (mdir), "%s/midi", ndest);
 					DIR *dp = opendir (mdir);
 					uint rendered = 0;
+					midi_render_quiet = true;
 					for (struct dirent *de; dp && (de = readdir (dp));)
 					{
 						if (!is_ext (de->d_name, ".mid"))
@@ -292,6 +295,7 @@ static enumError convert_brsar_if_possible (ccp arg, bool render_midi)
 						if (extract_midi_render_file_fwd (mpath, 0, 0) == ERR_OK)
 							rendered++;
 					}
+					midi_render_quiet = false;
 					if (dp)
 						closedir (dp);
 					if (verbose >= 0 && rendered)
