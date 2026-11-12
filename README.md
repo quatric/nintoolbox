@@ -157,11 +157,13 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **NIBM audio** | `.aud` | *CSI: Hard Evidence*, *Destroy All Humans* |
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | *Pocoyo Racing* |
 | **NLG DICT** | `.dict`, `.data` | *Federation Force*, *Luigi's Mansion 2/3*, *Strikers* |
+| **NUP** | `.nup` | Decrypted Switch / Switch 2 dumps (*Kirby and the Forgotten Land – Nintendo Switch 2 Edition*, *Kirby Air Riders*) |
 | **NXARC** | `.nxarc` | Switch titles |
 | **PAC (Nd Cube)** | `.bin` | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **PAC / MRG** | `.pac`, `.mrg` | HAL Laboratory / Game Arts Wii titles |
 | **PAKb** | `.pak` | *Secret Files: Tunguska*, *Secret Files 2: Puritas Cordis* |
 | **PCK2 / PLZ** | `.plz`, `.pck2` | *Professor Layton and the Diabolical Box* |
+| **phx PARC / PDAT** | `assets.cat` + `assets_*.dat` | *Kirby Air Riders* |
 | **Pikmin ARC/DIR** | `.arc` + `.dir` | *Pikmin* |
 | **PKG (Barking Lizards)** | `.pkg` | *Nickelodeon: The Naked Brothers Band - The Video Game* |
 | **PKG / GPKG / GPAK** | `.pkg`, `.pak`, `.gpak` | *Bonsai Barber*, *World of Goo* |
@@ -298,6 +300,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BREFT** | `.breft`, `.bt-img` | Wii |
 | **BTGA / LGA** | `.btga`, `.lga` | LEGO 3DS titles |
 | **BTI / TPL** | `.bti`, `.tpl` | GameCube / Wii |
+| **PTEX (phx)** | `.ptex` + `.ptex.body` (from PARC) | *Kirby Air Riders* |
 | **Rhythm Heaven Groove textures / sprite sets (TEX / SPR)** | `.tex`, `.spr` | *Rhythm Heaven Groove* |
 | **Camelot GX bank** | *(none)*, `.stpl`, `.sbn` | *Mario Golf: Toadstool Tour*, *Mario Power Tennis*, *We Love Golf!* |
 | **CAN** | `.can` | *Excite Truck*, *ExciteBots* |
@@ -417,6 +420,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **SDF** | `.sdf` | *I Spy Spooky Mansion* |
 | **TSCB** | `.tscb` | *Mario Kart World* |
 | **VISLIST** | `.vis` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
+| **XBIN (HAL XData: YAML / FDG)** | `.bin`, `.dat`, `.archive.bin` | *Kirby and the Forgotten Land* |
 | **XLNK (XLink2 effect / sound links)** | `.belnk`, `.bslnk` | Switch (*Tears of the Kingdom*-era layout checked on *Tomodachi Life: Living the Dream*) |
 | **BAEV (animation events)** | `.baev` | *Tomodachi Life: Living the Dream* |
 | **ASB (animation sequence binary)** | `.asb` | *Tomodachi Life: Living the Dream* |
@@ -444,6 +448,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **Deflate / Zlib** | `78 01`, `78 9C`, `78 DA` | Many cross-platform titles |
 | **Diff8 / Diff16** | `0x81`, `0x82` | DS titles |
 | **FZIP** | `FZIP` | *Game & Wario* |
+| **HAL LZ4** | `.cmp`, `.cmpbin` (u32 size + `04 22 4D 18`) | *Kirby and the Forgotten Land* |
 | **Huffman (4-bit / 8-bit)** | `0x24`, `0x28` | DS / GBA titles |
 | **LZ10** | `0x10` (LZSS) | GameCube / Wii / DS / GBA |
 | **LZ11** | `0x11` (Extended LZSS) | DS / 3DS |

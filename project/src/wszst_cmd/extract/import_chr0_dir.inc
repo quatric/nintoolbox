@@ -266,7 +266,39 @@ static enumError convert_brsar_if_possible (ccp arg, bool render_midi)
 			char raw_dir[PATH_MAX];
 			snprintf (raw_dir, sizeof (raw_dir), "%s/raw", ndest);
 			CreatePath (ndest, true);
-			const enumError uerr = is_sdat ? UnpackSDAT (raw, raw_size, raw_dir) : UnpackBRSAREx (raw, raw_size, raw_dir, false);
+			enumError uerr = ERR_NOTHING_TO_DO;
+			bool scanned = false;
+			if (is_fsar && raw_size <= UINT_MAX)
+			{
+				// Real BFSAR / BCSAR (either byte order: Switch FSARs are little-endian) use
+				// reference tables that UnpackBRSAREx's RSAR-layout reader does not know; it
+				// only fits archives this tool encoded itself, so it stays as the fallback.
+				// Archives whose files are all external streams have no FILE pool to carve.
+				bfsar_t fs;
+				if (!ScanBFSAR (&fs, raw, (uint)raw_size))
+				{
+					scanned = true;
+					bool has_files = false;
+					for (uint t = 0; t < fs.n_table; t++)
+						if (!strcmp (fs.table[t].type_name, "File"))
+							for (uint i = 0; i < fs.table[t].n_entry; i++)
+							{
+								const bfsar_entry_t *e = fs.table[t].entry + i;
+								if (e->present && e->file_size
+									&& (u64)fs.file_pool_off + e->file_off + e->file_size <= raw_size)
+									has_files = true;
+							}
+					uerr = ERR_NOTHING_TO_DO;
+					if (has_files && fs.file_pool_off && fs.file_pool_off < raw_size)
+					{
+						CreatePath (raw_dir, true);
+						uerr = ExtractBFSARFiles (&fs, raw, (uint)raw_size, raw_dir, 0);
+					}
+				}
+				ResetBFSAR (&fs);
+			}
+			if (!scanned)
+				uerr = is_sdat ? UnpackSDAT (raw, raw_size, raw_dir) : UnpackBRSAREx (raw, raw_size, raw_dir, false);
 			RSARRenderAudio = opt_decode && render_midi;
 			RSARSourcePath = arg;
 			const enumError cerr = is_sdat ? ConvertSDATNative (raw, raw_size, ndest)

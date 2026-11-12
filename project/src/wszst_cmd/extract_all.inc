@@ -49,6 +49,8 @@
 #include "extract/npdm.inc"
 #include "extract/xci.inc"
 #include "extract/nup.inc"
+#include "extract/xbin.inc"
+#include "extract/parc.inc"
 #include "extract/ctxb.inc"
 #include "extract/bntx.inc"
 #include "extract/gsh.inc"

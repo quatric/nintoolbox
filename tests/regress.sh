@@ -19125,6 +19125,47 @@ t_wii_engines(){
 }
 t_wii_engines
 
+t_kirby_switch2(){
+  # Switch 2 Kirby titles: NUP containers (decrypted base/update/add-on trees), HAL's ".cmp"
+  # (u32 size + LZ4 frame), HAL XData ("XBIN") binary YAML 6 and FDG 3 scene graphs, and
+  # Kirby Air Riders' phx PARC catalog over PDAT packs with a BC1 PTEX texture.
+  local d; d=$(mktemp -d /tmp/_r_kirby2.XXXXXX) || { fno "Switch 2 Kirby formats" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_kirby_switch2.py" "$d" >/dev/null 2>&1 || { fno "Switch 2 Kirby fixtures" "build failed"; rm -rf "$d"; return; }
+  "$B/wszst" X "$d/t.nup" --overwrite >/dev/null 2>&1
+  local n="$d/t.nup.d"
+  if [ "$(cat "$n/0400000000001000_update_v65536/romfs/data/hello.txt" 2>/dev/null)" = "Patched text" ] \
+     && [ "$(head -1 "$n/0400000000001000_base/romfs/data/hello.txt" 2>/dev/null)" = "Hello from the base package!" ] \
+     && [ -f "$n/0400000000001000_base/romfs/empty.bin" ] && [ ! -s "$n/0400000000001000_base/romfs/empty.bin" ] \
+     && grep -q '^title = Test Title$' "$n/0400000000001000_base/meta/meta.txt" 2>/dev/null; then
+    fok "NUP container: raw + zstd members, empty file, update package, meta block"
+  else
+    fno "NUP container" "unexpected tree under $n"
+  fi
+  "$B/wszst" XX "$d/cam.bin.cmp" "$d/y.bin" "$d/fdg.dat" --overwrite >/dev/null 2>&1
+  if grep -q '^Kind: "Rail"$' "$d/cam.yml" 2>/dev/null && grep -q '^IsClose: false$' "$d/cam.yml"; then
+    fok "HAL .cmp (size + LZ4 frame) -> XBIN -> YAML text"
+  else
+    fno "HAL .cmp LZ4" "$d/cam.yml"
+  fi
+  if grep -q '^scale: 1.5$' "$d/y.yml" 2>/dev/null && grep -q '^"quote me": "a \\"b\\""$' "$d/y.yml" \
+     && grep -q '^    three: 3$' "$d/y.yml" && grep -q '^empty: \[\]$' "$d/y.yml" \
+     && grep -q '^      - "Scene_Title"$' "$d/fdg.yml" 2>/dev/null && grep -q '^    public: true$' "$d/fdg.yml"; then
+    fok "XBIN YAML 6 and FDG 3 -> YAML text"
+  else
+    fno "XBIN YAML / FDG" "$d/y.yml / $d/fdg.yml"
+  fi
+  "$B/wszst" XX "$d/Asset/assets.cat" --overwrite >/dev/null 2>&1
+  local a="$d/Asset/assets.cat.d"
+  if [ -s "$a/psnd/0102030405060708.psnd" ] && grep -q "phx sound record" "$a/psnd/0102030405060708.psnd" \
+     && python3 "$PNGTOOL" pixel "$a/ptex/1122334455667788.png" 1 1 255 0 0 255 2>/dev/null; then
+    fok "phx PARC/PDAT assets (raw + zstd blocks) and PTEX BC1 texture -> PNG"
+  else
+    fno "phx PARC/PTEX" "unexpected files under $a"
+  fi
+  rm -rf "$d"
+}
+t_kirby_switch2
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
