@@ -19,6 +19,10 @@
 // "attrib.txt": every class with its field definitions, then every collection ("[class/name] :
 // parent") with its typed values. `Structs::*` members are not described by the file and are
 // written as BE u32 words.
+// EA Sports Active 2 and NFL Training Camp use the same layout with 32-bit keys (Jenkins' lookup2,
+// init 0xABCDEF00): every u64 key, count and fix-up target above is a u32 there, so exports are 16
+// bytes, fix-ups 12, fields 16, collection headers 32 and entries 12. The width is told apart by
+// the size of `ExpN`.
 
 typedef struct eaat_name_t
 {
@@ -40,6 +44,7 @@ typedef struct eaat_t
 	uint nfix[2], capfix[2];
 	eaat_name_t *names;
 	uint nnames, capnames;
+	uint w; // key width: 8 (lookup8) or 4 (lookup2)
 	bcsv_buf_t out;
 } eaat_t;
 
@@ -122,6 +127,72 @@ static u64 eaat_hash (const u8 *k, uint len)
 }
 #undef EAAT_MIX
 
+// Bob Jenkins' lookup2 hash, the 32-bit Attrib key (init 0xABCDEF00).
+static u32 eaat_hash32 (const u8 *k, uint len)
+{
+	u32 a = 0x9e3779b9u, b = a, c = 0xABCDEF00u;
+	uint n = len;
+#define EAAT_MIX32(a, b, c)                                                                        \
+	do                                                                                             \
+	{                                                                                              \
+		a -= b;                                                                                    \
+		a -= c;                                                                                    \
+		a ^= c >> 13;                                                                              \
+		b -= c;                                                                                    \
+		b -= a;                                                                                    \
+		b ^= a << 8;                                                                               \
+		c -= a;                                                                                    \
+		c -= b;                                                                                    \
+		c ^= b >> 13;                                                                              \
+		a -= b;                                                                                    \
+		a -= c;                                                                                    \
+		a ^= c >> 12;                                                                              \
+		b -= c;                                                                                    \
+		b -= a;                                                                                    \
+		b ^= a << 16;                                                                              \
+		c -= a;                                                                                    \
+		c -= b;                                                                                    \
+		c ^= b >> 5;                                                                               \
+		a -= b;                                                                                    \
+		a -= c;                                                                                    \
+		a ^= c >> 3;                                                                               \
+		b -= c;                                                                                    \
+		b -= a;                                                                                    \
+		b ^= a << 10;                                                                              \
+		c -= a;                                                                                    \
+		c -= b;                                                                                    \
+		c ^= b >> 15;                                                                              \
+	} while (0)
+	while (n >= 12)
+	{
+		a += k[0] | k[1] << 8 | k[2] << 16 | (u32)k[3] << 24;
+		b += k[4] | k[5] << 8 | k[6] << 16 | (u32)k[7] << 24;
+		c += k[8] | k[9] << 8 | k[10] << 16 | (u32)k[11] << 24;
+		EAAT_MIX32 (a, b, c);
+		k += 12;
+		n -= 12;
+	}
+	c += len;
+	for (int j = (int)n - 1; j >= 0; j--)
+	{
+		if (j >= 8)
+			c += (u32)k[j] << (8 * (j - 7));
+		else if (j >= 4)
+			b += (u32)k[j] << (8 * (j - 4));
+		else
+			a += (u32)k[j] << (8 * j);
+	}
+	EAAT_MIX32 (a, b, c);
+#undef EAAT_MIX32
+	return c;
+}
+
+// A key, count or target of the vault's width.
+static u64 eaat_key (const eaat_t *v, const u8 *p)
+{
+	return v->w == 8 ? eaat_be64 (p) : rd_be32 (p);
+}
+
 static int eaat_name_cmp (const void *x, const void *y)
 {
 	const u64 a = ((const eaat_name_t *)x)->h, b = ((const eaat_name_t *)y)->h;
@@ -151,7 +222,8 @@ static void eaat_add_strings (eaat_t *v, const u8 *p, size_t n)
 				v->names = REALLOC (v->names, v->capnames * sizeof (*v->names));
 			}
 			eaat_name_t *e = v->names + v->nnames++;
-			e->h = eaat_hash (p + i, (uint)(j - i));
+			e->h
+				= v->w == 8 ? eaat_hash (p + i, (uint)(j - i)) : eaat_hash32 (p + i, (uint)(j - i));
 			e->s = (const char *)p + i;
 			e->n = (uint)(j - i);
 		}
@@ -173,7 +245,8 @@ static void eaat_put_key (eaat_t *v, u64 h)
 		bcsv_put (&v->out, e->s, e->n);
 	else
 	{
-		const int n = snprintf (tmp, sizeof (tmp), "0x%016llx", (unsigned long long)h);
+		const int n = v->w == 8 ? snprintf (tmp, sizeof (tmp), "0x%016llx", (unsigned long long)h)
+								: snprintf (tmp, sizeof (tmp), "0x%08x", (u32)h);
 		bcsv_put (&v->out, tmp, n);
 	}
 }
@@ -302,11 +375,11 @@ static void eaat_put_value (eaat_t *v, u64 type, uint file, size_t off, uint siz
 		bcsv_put (&v->out, ")", 1);
 		return;
 	}
-	else if (eaat_type_is (t, "Attrib::RefSpec") && size >= 16)
+	else if (eaat_type_is (t, "Attrib::RefSpec") && size >= 2 * v->w)
 	{
-		eaat_put_key (v, eaat_be64 (p));
+		eaat_put_key (v, eaat_key (v, p));
 		bcsv_put (&v->out, "/", 1);
-		eaat_put_key (v, eaat_be64 (p + 8));
+		eaat_put_key (v, eaat_key (v, p + v->w));
 		return;
 	}
 	else if (t && t->n > 7 && !memcmp (t->s, "Enums::", 7) && size >= 4)
@@ -395,17 +468,27 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 	}
 	if (!exp || !ptr || expsz < 16)
 		goto done;
+	for (uint w = 8; w >= 4 && !v.w; w -= 4)
+	{
+		const u64 n = w == 8 ? eaat_be64 (vb + exp + 8) : rd_be32 (vb + exp + 8);
+		const u64 used = 8 + w + n * (2 * w + 8);
+		if (n && used <= expsz && used + 16 > expsz)
+			v.w = w;
+	}
+	if (!v.w)
+		goto done;
+	const uint W = v.w;
 
 	// dependency 1 = the .bin (name from DepN, else <stem>.bin)
 	{
 		char binname[256] = "";
 		if (dep && depsz >= 16)
 		{
-			const u64 nd = eaat_be64 (vb + dep + 8);
-			const size_t names = dep + 16 + nd * 12;
+			const u64 nd = eaat_key (&v, vb + dep + 8);
+			const size_t names = dep + 8 + W + nd * (W + 4);
 			if (nd >= 2 && nd < 16 && names < dep + depsz)
 			{
-				const u32 no = rd_be32 (vb + dep + 16 + nd * 8 + 4);
+				const u32 no = rd_be32 (vb + dep + 8 + W + nd * W + 4);
 				if (names + no < dep + depsz)
 					snprintf (binname, sizeof (binname), "%.*s",
 						(int)strnlen ((const char *)vb + names + no, dep + depsz - names - no),
@@ -428,7 +511,7 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 	// fix-ups
 	{
 		uint cur = 2;
-		for (size_t e = ptr + 8; e + 16 <= ptr + ptrsz; e += 16)
+		for (size_t e = ptr + 8; e + 8 + W <= ptr + ptrsz; e += 8 + W)
 		{
 			const u32 loc = rd_be32 (vb + e);
 			const uint kind = vb[e + 4] << 8 | vb[e + 5], file = vb[e + 6] << 8 | vb[e + 7];
@@ -444,7 +527,7 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 					v.fix[cur] = REALLOC (v.fix[cur], v.capfix[cur] * sizeof (eaat_fix_t));
 				}
 				eaat_fix_t *x = v.fix[cur] + v.nfix[cur]++;
-				x->loc = loc, x->file = file, x->dst = eaat_be64 (vb + e + 8);
+				x->loc = loc, x->file = file, x->dst = eaat_key (&v, vb + e + 8);
 			}
 		}
 		for (uint i = 0; i < 2; i++)
@@ -478,32 +561,33 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 	eaat_add_strings (&v, (const u8 *)builtin[2], strlen (builtin[2]));
 	if (v.nnames)
 		qsort (v.names, v.nnames, sizeof (*v.names), eaat_name_cmp);
-	const u64 t_class = eaat_hash ((const u8 *)builtin[0], (uint)strlen (builtin[0]));
-	const u64 t_coll = eaat_hash ((const u8 *)builtin[1], (uint)strlen (builtin[1]));
-
-	const u64 nexp = eaat_be64 (vb + exp + 8);
-	if (nexp > (expsz - 16) / 24)
-		goto done;
+	const u64 t_class = W == 8 ? eaat_hash ((const u8 *)builtin[0], (uint)strlen (builtin[0]))
+							   : eaat_hash32 ((const u8 *)builtin[0], (uint)strlen (builtin[0]));
+	const u64 t_coll = W == 8 ? eaat_hash ((const u8 *)builtin[1], (uint)strlen (builtin[1]))
+							  : eaat_hash32 ((const u8 *)builtin[1], (uint)strlen (builtin[1]));
+	const uint XR = 2 * W + 8, FR = 2 * W + 8, ER = W + 8; // export, field and entry record sizes
+	const u64 nexp = eaat_key (&v, vb + exp + 8);
+	const size_t xbase = exp + 8 + W;
 
 	// classes
 	uint nclass = 0, ncoll = 0;
 	for (int pass = 0; pass < 2; pass++)
 		for (u64 i = 0; i < nexp; i++)
 		{
-			const u8 *x = vb + exp + 16 + i * 24;
-			const u64 type = eaat_be64 (x + 8);
-			const u32 esz = rd_be32 (x + 16), off = rd_be32 (x + 20);
+			const u8 *x = vb + xbase + i * XR;
+			const u64 type = eaat_key (&v, x + W);
+			const u32 esz = rd_be32 (x + 2 * W), off = rd_be32 (x + 2 * W + 4);
 			if (off > vsz || esz > vsz - off)
 				continue;
 			if (type == t_coll && pass == 0)
 				ncoll++;
-			if (type != t_class || esz < 0x14)
+			if (type != t_class || esz < W + 12)
 				continue;
-			const u64 ck = eaat_be64 (vb + off);
-			const u32 nf = rd_be32 (vb + off + 12);
-			const eaat_fix_t *fx = eaat_fix (&v, 0, off + 0x10);
+			const u64 ck = eaat_key (&v, vb + off);
+			const u32 nf = rd_be32 (vb + off + W + 4);
+			const eaat_fix_t *fx = eaat_fix (&v, 0, off + W + 8);
 			if (!fx || nf > 0x10000 || fx->dst > v.sz[fx->file]
-				|| (u64)nf * 24 > v.sz[fx->file] - fx->dst)
+				|| (u64)nf * FR > v.sz[fx->file] - fx->dst)
 				continue;
 			const u8 *fp = v.f[fx->file] + fx->dst;
 			if (pass == 0)
@@ -512,10 +596,12 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 				fd = REALLOC (fd, (nfd + nf) * sizeof (*fd));
 				for (u32 j = 0; j < nf; j++, nfd++)
 				{
-					const u8 *r = fp + j * 24;
-					fd[nfd].cls = ck, fd[nfd].key = eaat_be64 (r), fd[nfd].type = eaat_be64 (r + 8);
-					fd[nfd].size = rd_be32 (r + 16), fd[nfd].count = r[20] << 8 | r[21],
-					fd[nfd].flags = r[22], fd[nfd].align = r[23];
+					const u8 *r = fp + j * FR;
+					fd[nfd].cls = ck, fd[nfd].key = eaat_key (&v, r),
+					fd[nfd].type = eaat_key (&v, r + W);
+					fd[nfd].size = rd_be32 (r + 2 * W),
+					fd[nfd].count = r[2 * W + 4] << 8 | r[2 * W + 5], fd[nfd].flags = r[2 * W + 6],
+					fd[nfd].align = r[2 * W + 7];
 				}
 				continue;
 			}
@@ -523,19 +609,20 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 			eaat_puts (&v, "# class ");
 			eaat_put_key (&v, ck);
 			const int m = snprintf (
-				tmp, sizeof (tmp), " (%u fields, %u collections)\n", nf, rd_be32 (vb + off + 8));
+				tmp, sizeof (tmp), " (%u fields, %u collections)\n", nf, rd_be32 (vb + off + W));
 			bcsv_put (&v.out, tmp, m);
 			for (u32 j = 0; j < nf; j++)
 			{
-				const u8 *r = fp + j * 24;
-				const uint cnt = r[20] << 8 | r[21];
+				const u8 *r = fp + j * FR;
+				const uint cnt = r[2 * W + 4] << 8 | r[2 * W + 5];
 				eaat_puts (&v, "#   ");
-				eaat_put_type (&v, eaat_be64 (r + 8));
+				eaat_put_type (&v, eaat_key (&v, r + W));
 				bcsv_put (&v.out, " ", 1);
-				eaat_put_key (&v, eaat_be64 (r));
-				const int k = r[22] & 1 ? cnt == 0xffff ? snprintf (tmp, sizeof (tmp), "[]")
-														: snprintf (tmp, sizeof (tmp), "[%u]", cnt)
-										: 0;
+				eaat_put_key (&v, eaat_key (&v, r));
+				const int k = r[2 * W + 6] & 1 ? cnt == 0xffff
+						? snprintf (tmp, sizeof (tmp), "[]")
+						: snprintf (tmp, sizeof (tmp), "[%u]", cnt)
+											   : 0;
 				bcsv_put (&v.out, tmp, k);
 				bcsv_put (&v.out, "\n", 1);
 			}
@@ -547,16 +634,16 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 	// collections
 	for (u64 i = 0; i < nexp; i++)
 	{
-		const u8 *x = vb + exp + 16 + i * 24;
-		const u32 esz = rd_be32 (x + 16), off = rd_be32 (x + 20);
-		if (eaat_be64 (x + 8) != t_coll || off > vsz || esz > vsz - off || esz < 48)
+		const u8 *x = vb + xbase + i * XR;
+		const u32 esz = rd_be32 (x + 2 * W), off = rd_be32 (x + 2 * W + 4);
+		if (eaat_key (&v, x + W) != t_coll || off > vsz || esz > vsz - off || esz < 4 * W + 16)
 			continue;
-		const u64 key = eaat_be64 (vb + off), cls = eaat_be64 (vb + off + 8),
-				  par = eaat_be64 (vb + off + 16);
-		const u32 ne = rd_be32 (vb + off + 32);
-		const uint tl = vb[off + 38] << 8 | vb[off + 39];
-		const size_t eo = off + 48 + (size_t)tl * 8;
-		if (eo + (size_t)ne * 16 > (size_t)off + esz)
+		const u64 key = eaat_key (&v, vb + off), cls = eaat_key (&v, vb + off + W),
+				  par = eaat_key (&v, vb + off + 2 * W);
+		const u32 ne = rd_be32 (vb + off + 3 * W + 8);
+		const uint tl = vb[off + 3 * W + 14] << 8 | vb[off + 3 * W + 15];
+		const size_t tb = off + 4 * W + 16, eo = tb + (size_t)tl * W;
+		if (eo + (size_t)ne * ER > (size_t)off + esz)
 			continue;
 		bcsv_put (&v.out, "[", 1);
 		eaat_put_key (&v, cls);
@@ -571,13 +658,13 @@ static enumError extract_eaattrib_file (ccp arg, ccp basedir, uint depth)
 		bcsv_put (&v.out, "\n", 1);
 		for (u32 j = 0; j < ne; j++)
 		{
-			const u8 *r = vb + eo + j * 16;
-			const u64 fk = eaat_be64 (r);
-			const uint ti = r[12] << 8 | r[13], nfl = r[14] << 8 | r[15];
-			const u64 type = ti < tl ? eaat_be64 (vb + off + 48 + ti * 8) : 0;
+			const u8 *r = vb + eo + j * ER;
+			const u64 fk = eaat_key (&v, r);
+			const uint ti = r[W + 4] << 8 | r[W + 5], nfl = r[W + 6] << 8 | r[W + 7];
+			const u64 type = ti < tl ? eaat_key (&v, vb + tb + ti * W) : 0;
 			const eaat_field_t *f = eaat_field (fd, nfd, cls, fk);
 			const uint fsz = f ? f->size : 4;
-			const u32 loc = (u32)(eo + j * 16 + 8);
+			const u32 loc = (u32)(eo + j * ER + W);
 			eaat_puts (&v, "  ");
 			eaat_put_type (&v, type);
 			bcsv_put (&v.out, " ", 1);

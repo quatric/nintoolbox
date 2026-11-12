@@ -9698,7 +9698,9 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     && grep -q '^  Text title = "Hello vault"$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
     && grep -q '^  Int32 scores = \[7, -2, 300\]$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
     && grep -q '^  RefSpec buddy = player/base$' "$d/eaattrib_test/t.vlt.d/attrib.txt" \
-    && fok "EA Attrib vault .vlt -> attrib.txt" \
+    && "$B/wszst" xx "$d/eaattrib_test/t32.vlt" --overwrite >/dev/null 2>&1 \
+    && [ "$(cat "$d/eaattrib_test/t.vlt.d/attrib.txt")" = "$(cat "$d/eaattrib_test/t32.vlt.d/attrib.txt")" ] \
+    && fok "EA Attrib vault .vlt (64- and 32-bit keys) -> attrib.txt" \
     || fno "EA Attrib" "failed to decode synthetic t.vlt"
   else
     fno "EA Attrib" "mk_eaattrib.py failed"
