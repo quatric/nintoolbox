@@ -424,7 +424,7 @@ NintendoWare sound engine (`lib-nwseq.c`) plays the RSEQ/CSEQ/FSEQ with the bank
 lookup, envelopes (attack table, hold, decay/release in dB per ms), LFO, sweep/portamento, volume and
 pan curves and 3 ms update frames, mixed at the DSP rate of 32 kHz. The sequence's fx sends
 (`fxsend_a/b/c`) feed the three AUX buses, each running a port of the AXFX effect the game attaches with NW4R's
-`Fx*` classes: the classic ReverbHi, or the newer ReverbHiExp, ReverbStdExp and DelayExp, plus ChorusExp
+`Fx*` classes: ReverbHi (a ReverbHiExp preset on the Wii), ReverbHiExp, ReverbStdExp and DelayExp, plus ChorusExp
 modelled as an LFO-modulated delay. That setup lives in game code, not in the archive. Known archives use the
 values read from their code (Forecast Channel `rev_wtr.brsar`, Wii Speak Channel `MicChatSound.brsar`).
 Otherwise the SoundMaker effect tables some games ship next to the archive (`FxReverbHi.csv`, `FxReverbStd.csv`,

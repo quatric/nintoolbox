@@ -1468,149 +1468,6 @@ static void render_frame (player_t *pl, float *mix, float (*aux)[FRAME_SAMPLES *
 const nws_fx_t NWSeqDefaultFx = { NWS_FX_REVERB_HI_EXP, 0.02f, 3.0f, 0.6f, 0.4f, 0.1f, 1.0f, 5, 0, 0.0f, 1.0f,
                                   0, 0, 0, 0, 0 };
 
-// --- classic ReverbHi (the MusyX derived reverb of the original AXFX, used by early NW4R) ---
-
-typedef struct dline_t
-{
-	float *buf;
-	int len, in, out;
-	float last;
-} dline_t;
-
-typedef struct reverb_t
-{
-	dline_t comb[2][3], ap[2][2], lp[2];
-	float comb_coef[2][3];
-	float ap_coef, damping, wet, dry, cross;
-	float lp_last[2];
-	float *pre[2];
-	int pre_len, pre_pos[2];
-} reverb_t;
-
-static bool dline_init (dline_t *d, int delay)
-{
-	d->len = delay + 2;
-	d->buf = calloc ((size_t)d->len, sizeof (float));
-	d->in = 0;
-	d->out = (d->len - delay) % d->len;
-	d->last = 0.0f;
-	return d->buf != 0;
-}
-
-// returns the delayed sample and stores "x"
-static inline float dline_step (dline_t *d, float x)
-{
-	d->buf[d->in] = x;
-	if (++d->in == d->len)
-		d->in = 0;
-	d->last = d->buf[d->out];
-	if (++d->out == d->len)
-		d->out = 0;
-	return d->last;
-}
-
-static void reverb_free (reverb_t *rv)
-{
-	if (!rv)
-		return;
-	for (int c = 0; c < 2; c++)
-	{
-		for (int t = 0; t < 3; t++)
-			free (rv->comb[c][t].buf);
-		for (int t = 0; t < 2; t++)
-			free (rv->ap[c][t].buf);
-		free (rv->lp[c].buf);
-		free (rv->pre[c]);
-	}
-	free (rv);
-}
-
-static reverb_t *reverb_new (const nws_fx_t *fx)
-{
-	static const int comb_delay[3] = { 1789, 1999, 2333 }, ap_delay[2] = { 433, 149 }, lp_delay[2] = { 47, 73 };
-	reverb_t *rv = calloc (1, sizeof (*rv));
-	if (!rv)
-		return 0;
-	const float time = clampf (fx->time, 0.01f, 10.0f), pre = clampf (fx->pre_delay, 0.0f, 0.1f);
-	bool ok = true;
-	for (int c = 0; c < 2; c++)
-	{
-		for (int t = 0; t < 3; t++)
-		{
-			ok &= dline_init (&rv->comb[c][t], comb_delay[t]);
-			rv->comb_coef[c][t] = powf (10.0f, comb_delay[t] * -3.0f / (time * NWS_RATE));
-		}
-		for (int t = 0; t < 2; t++)
-			ok &= dline_init (&rv->ap[c][t], ap_delay[t]);
-		ok &= dline_init (&rv->lp[c], lp_delay[c]);
-	}
-	rv->ap_coef = clampf (fx->coloration, 0.0f, 1.0f);
-	float damp = clampf (fx->damping, 0.0f, 1.0f);
-	if (damp < 0.05f)
-		damp = 0.05f;
-	rv->damping = 1.0f - (damp * 0.8f + 0.05f);
-	rv->wet = clampf (fx->out_gain, 0.0f, 1.0f) * 0.6f;
-	rv->dry = 0.6f - rv->wet;
-	rv->cross = clampf (fx->crosstalk, 0.0f, 1.0f) * 0.5f;
-	rv->pre_len = (int)(NWS_RATE * pre);
-	if (rv->pre_len > 1)
-		for (int c = 0; c < 2; c++)
-			ok &= (rv->pre[c] = calloc ((size_t)rv->pre_len, sizeof (float))) != 0;
-	else
-		rv->pre_len = 0;
-	if (!ok)
-	{
-		reverb_free (rv);
-		return 0;
-	}
-	return rv;
-}
-
-// processes interleaved stereo in place
-static void reverb_process (reverb_t *rv, float *buf, int n)
-{
-	if (rv->cross != 0.0f)
-		for (int s = 0; s < n; s++)
-		{
-			float *b = buf + 2 * s;
-			const float all = (b[0] + b[1]) * rv->cross;
-			b[0] = b[0] * (1.0f - rv->cross) + all;
-			b[1] = b[1] * (1.0f - rv->cross) + all;
-		}
-	const float a = rv->ap_coef;
-	for (int c = 0; c < 2; c++)
-	{
-		dline_t *cb = rv->comb[c], *ap = rv->ap[c], *lp = rv->lp + c;
-		for (int s = 0; s < n; s++)
-		{
-			const float x = buf[2 * s + c];
-			float x2 = x;
-			if (rv->pre_len)
-			{
-				// the pointer wraps one sample early: an effective delay of pre_len - 1
-				int *pp = rv->pre_pos + c;
-				x2 = rv->pre[c][*pp];
-				rv->pre[c][*pp] = x;
-				if (++*pp == rv->pre_len - 1)
-					*pp = 0;
-			}
-			float csum = 0.0f;
-			for (int t = 0; t < 3; t++)
-				csum += dline_step (cb + t, rv->comb_coef[c][t] * cb[t].last + x2);
-			const float in0 = a * ap[0].last + csum;
-			const float in1 = a * ap[1].last - (a * in0 - ap[0].last);
-			const float low = -(a * in1 - ap[1].last);
-			dline_step (ap + 0, in0);
-			dline_step (ap + 1, in1);
-			rv->lp_last[c] = rv->damping * rv->lp_last[c] + low * 0.3f;
-			const float in2 = a * lp->last + rv->lp_last[c];
-			const float out = -(a * in2 - lp->last);
-			dline_step (lp, in2);
-			buf[2 * s + c] = rv->wet * out + rv->dry * x;
-		}
-	}
-}
-
 // --- ring buffer with a fixed delay of "len" samples (read, then overwrite) ---
 
 typedef struct ring_t
@@ -1963,9 +1820,20 @@ static bool fx_new (fx_t *f, const nws_fx_t *fx)
 	switch (fx->type)
 	{
 	case NWS_FX_REVERB_HI:
-		f->p = reverb_new (fx);
-		f->tail_sec = clampf (fx->time, 0.01f, 10.0f) + clampf (fx->pre_delay, 0.0f, 0.1f) + 0.1;
+	{
+		// AXFXReverbHi of the Wii SDK is a wrapper around ReverbHiExp: early reflections 30 ms with
+		// gain 0, fused mode "old AXFX" with gain 1, out gain = mix
+		nws_fx_t e = *fx;
+		e.type = NWS_FX_REVERB_HI_EXP;
+		e.early_mode = 5;
+		e.fused_mode = 0;
+		e.early_gain = 0.0f;
+		e.fused_gain = 1.0f;
+		f->type = e.type;
+		f->p = xreverb_new (&e, true);
+		f->tail_sec = fx->time + fx->pre_delay + 0.2;
 		break;
+	}
 	case NWS_FX_REVERB_HI_EXP:
 	case NWS_FX_REVERB_STD_EXP:
 		f->p = xreverb_new (fx, fx->type == NWS_FX_REVERB_HI_EXP);
@@ -1993,7 +1861,6 @@ static void fx_process (fx_t *f, float *buf, int n)
 {
 	switch (f->type)
 	{
-	case NWS_FX_REVERB_HI: reverb_process (f->p, buf, n); break;
 	case NWS_FX_REVERB_HI_EXP:
 	case NWS_FX_REVERB_STD_EXP: xreverb_process (f->p, buf, n); break;
 	case NWS_FX_DELAY_EXP: xdelay_process (f->p, buf, n); break;
@@ -2005,7 +1872,6 @@ static void fx_free (fx_t *f)
 {
 	switch (f->type)
 	{
-	case NWS_FX_REVERB_HI: reverb_free (f->p); break;
 	case NWS_FX_REVERB_HI_EXP:
 	case NWS_FX_REVERB_STD_EXP: xreverb_free (f->p); break;
 	case NWS_FX_DELAY_EXP: xdelay_free (f->p); break;

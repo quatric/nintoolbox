@@ -1090,7 +1090,7 @@ typedef struct rn_fx_game_t
 } rn_fx_game_t;
 
 static const rn_fx_game_t rn_fx_games[] = {
-	// Forecast Channel: classic FxReverbHi on AUX C (AUX B runs a custom analyser, no audio effect)
+	// Forecast Channel: FxReverbHi (AXFXReverbHi) on AUX C (AUX B runs a custom analyser, no audio effect)
 	{ "rev_wtr.brsar",
 		{ { NWS_FX_NONE }, { NWS_FX_NONE },
 		  { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f } } },
@@ -1201,7 +1201,7 @@ static bool rn_fx_named (ccp name, nws_fx_t *fx)
 		return true;
 	if (!strcasecmp (name, "none") || !strcasecmp (name, "off") || !strcasecmp (name, "dry"))
 		return fx->type = NWS_FX_NONE, true;
-	if (!strcasecmp (name, "reverb") || !strcasecmp (name, "classic"))
+	if (!strcasecmp (name, "reverb"))
 	{
 		const nws_fx_t c = { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f };
 		return *fx = c, true;

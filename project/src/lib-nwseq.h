@@ -59,7 +59,7 @@ typedef int (*nws_inst_fn) (void *ctx, int bank, int prg, int key, int velocity,
 enum
 {
 	NWS_FX_NONE = 0,
-	NWS_FX_REVERB_HI,      // classic AXFX ReverbHi (old NW4R FxReverbHi); returns wet + dry mixed by out_gain
+	NWS_FX_REVERB_HI,      // AXFX ReverbHi (old NW4R FxReverbHi): ReverbHiExp, 30 ms early (gain 0), old AXFX fused mode
 	NWS_FX_REVERB_HI_EXP,  // AXFX ReverbHiExp (NW4R FxReverbHi): early reflections + 3 combs, wet only
 	NWS_FX_REVERB_STD_EXP, // AXFX ReverbStdExp (NW4R FxReverbStd): 1 early tap + 2 combs, wet only
 	NWS_FX_DELAY_EXP,      // AXFX DelayExp (NW4R FxDelay)
@@ -75,7 +75,7 @@ typedef struct nws_fx_t
 	float coloration;      // all-pass coefficient, 0..1
 	float damping;         // low-pass damping, 0..1
 	float crosstalk;       // L/R bleed, 0..1 (ReverbHi)
-	float out_gain;        // 0..1; for the classic ReverbHi this is its wet/dry "mix"
+	float out_gain;        // 0..1 (AXFX ReverbHi: "mix")
 	int early_mode;        // Exp: early reflections 0..7 = 5..40 ms
 	int fused_mode;        // Exp: 0 old AXFX, 1 metal tank, 2 small room, 3 large room, 4 hall, 5 cavernous
 	float early_gain, fused_gain; // Exp

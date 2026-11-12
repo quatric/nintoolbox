@@ -1944,7 +1944,7 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	" reverb. 'none' renders dry. Otherwise a list of"
 	" 'BUS=EFFECT[,KEY=VALUE...]' separated by ';' overrides single buses"
 	" (BUS is A, B, C or ALL; no BUS means ALL). EFFECT is 'none',"
-	" 'default', 'reverb' (classic AXFX ReverbHi), 'reverbhi',"
+	" 'default', 'reverb' (AXFX ReverbHi of older NW4R), 'reverbhi',"
 	" 'reverbstd', 'delay' or 'chorus' (...exp names work too). KEY is"
 	" 'predelay' (s), 'time' (s), 'coloration', 'damping', 'crosstalk',"
 	" 'out' (out gain; the wet/dry mix of 'reverb'), 'early' (5-40 ms),"
