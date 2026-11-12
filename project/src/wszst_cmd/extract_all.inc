@@ -476,6 +476,7 @@
 #include "extract/agsc.inc"
 #include "extract/nds_rrds.inc"
 #include "extract/gcsw.inc"
+#include "extract/gcsp.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
