@@ -2673,6 +2673,10 @@ static enumError ss_emit_midi (ss_trk_t *tr, uint ntr, ss_trk_t *cond_p, u16 ppq
 	return ERR_OK;
 }
 
+static bool rs_ds; // Nintendo DS command numbering (open track 0x93, jump 0x94, call 0x95, variables 0xB0-0xBD)
+
+static enumError rs_seq_to_midi (const u8 *code, size_t n, size_t start, bool le, u8 **out_midi, size_t *out_size);
+
 static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *out_size)
 {
 	if (n < 0x20 || memcmp (d, "SSEQ", 4) || memcmp (d + 0x10, "DATA", 4))
@@ -2680,6 +2684,12 @@ static enumError ss_sseq_to_midi (const u8 *d, size_t n, u8 **out_midi, size_t *
 	const size_t base = read_le32 (d + 0x18);
 	if (base >= n || base < 0x1c)
 		return ERR_INVALID_DATA;
+	// shared player (variables, IF, counted loops); the older stand-alone player below stays as the fallback
+	rs_ds = true;
+	const enumError ds_err = rs_seq_to_midi (d + base, n - base, 0, true, out_midi, out_size);
+	rs_ds = false;
+	if (ds_err == ERR_OK)
+		return ds_err;
 	size_t pos = base;
 	size_t tstart[16] = { 0 };
 	uint ntr = 1;
@@ -2753,6 +2763,63 @@ static int rs_arg (const u8 *d, size_t n, size_t *pos, bool le, const seq_prefix
 	return *pos < n ? d[(*pos)++] : 0;
 }
 
+// variable operation of an extended command / DS 0xB0-0xBD command: [u8 var][value]; ex 0x80.. = assignments, 0x90.. = comparisons (set the IF flag)
+static bool rs_varop (const u8 *d, size_t n, size_t *pos_p, bool le, const seq_prefix_t *pre, uint ex, bool skip, bool *flag)
+{
+	size_t pos = *pos_p;
+	if (pos + 2 > n)
+		return false;
+	const uint vi = d[pos++];
+	const int cur = rs_var (vi);
+	int val = 0;
+	if (pre->has_variable)
+		val = rs_var (d[pos++]);
+	else if (pre->has_random && pos + 4 <= n)
+	{
+		val = ((int16_t)rs_u16 (d + pos, le) + (int16_t)rs_u16 (d + pos + 2, le)) / 2;
+		pos += 4;
+	}
+	else if (pos + 2 <= n)
+	{
+		val = (int16_t)rs_u16 (d + pos, le);
+		pos += 2;
+	}
+	*pos_p = pos;
+	if (skip)
+		return true;
+	int r = cur;
+	if (ex < 0x90)
+	{
+		switch (ex & 15)
+		{
+		case 0: r = val; break;
+		case 1: r = cur + val; break;
+		case 2: r = cur - val; break;
+		case 3: r = cur * val; break;
+		case 4: r = val ? cur / val : cur; break;
+		case 5: r = val >= 0 ? cur << (val & 15) : cur >> ((-val) & 15); break;
+		case 6: r = val ? (int)((uint)(val < 0 ? -val : val) / 2) : 0; break; // random: midpoint
+		case 7: r = cur & val; break;
+		case 8: r = cur | val; break;
+		case 9: r = cur ^ val; break;
+		case 10: r = ~val; break;
+		case 11: r = val ? cur % val : cur; break;
+		}
+		rs_setvar (vi, r);
+	}
+	else
+		switch (ex & 15)
+		{
+		case 0: *flag = cur == val; break;
+		case 1: *flag = cur >= val; break;
+		case 2: *flag = cur > val; break;
+		case 3: *flag = cur <= val; break;
+		case 4: *flag = cur < val; break;
+		case 5: *flag = cur != val; break;
+		}
+	return true;
+}
+
 static void rs_run_track (const u8 *d, size_t n, bool le, size_t start, u32 t0, uint ch, ss_trk_t *t, ss_trk_t *cond,
 	rs_open_t *opens, uint *n_opens, u16 *ppq)
 {
@@ -2777,6 +2844,19 @@ static void rs_run_track (const u8 *d, size_t n, bool le, size_t start, u32 t0, 
 		if (!seq_consume_prefix (d, n, &pos, &pre, &op))
 			break;
 		used[begin] = 1;
+		if (rs_ds && op >= 0x90)
+		{
+			if (op == 0x93) op = 0x88;
+			else if (op == 0x94) op = 0x89;
+			else if (op == 0x95) op = 0x8a;
+			else if (op >= 0xb0 && op <= 0xbd && op != 0xb7)
+			{
+				// variable commands share the code path of the NW4R "ex" ones
+				if (!rs_varop (d, n, &pos, le, &pre, op < 0xb8 ? 0x80 + (op - 0xb0) : 0x90 + (op - 0xb8), pre.has_if && !flag, &flag))
+					goto done;
+				continue;
+			}
+		}
 		const bool skip = pre.has_if && !flag;
 		const size_t snap_t = t->n, snap_c = cond ? cond->n : 0;
 		const u32 snap_time = time;
@@ -2892,55 +2972,7 @@ static void rs_run_track (const u8 *d, size_t n, bool le, size_t start, u32 t0, 
 			if ((ex & 0xf0) == 0xe0) pos += 2;
 			else if ((ex & 0xf0) == 0x80 || (ex & 0xf0) == 0x90)
 			{
-				if (pos + 2 > n) goto done;
-				const uint vi = d[pos++];
-				const int cur = rs_var (vi);
-				int val = 0;
-				if (pre.has_variable)
-					val = rs_var (d[pos++]);
-				else if (pre.has_random && pos + 4 <= n)
-				{
-					val = ((int16_t)rs_u16 (d + pos, le) + (int16_t)rs_u16 (d + pos + 2, le)) / 2;
-					pos += 4;
-				}
-				else if (pos + 2 <= n)
-				{
-					val = (int16_t)rs_u16 (d + pos, le);
-					pos += 2;
-				}
-				if (!skip)
-				{
-					int r = cur;
-					if (ex < 0x90)
-					{
-						switch (ex & 15)
-						{
-						case 0: r = val; break;
-						case 1: r = cur + val; break;
-						case 2: r = cur - val; break;
-						case 3: r = cur * val; break;
-						case 4: r = val ? cur / val : cur; break;
-						case 5: r = val >= 0 ? cur << (val & 15) : cur >> ((-val) & 15); break;
-						case 6: r = val ? (int)((uint)(val < 0 ? -val : val) / 2) : 0; break; // random: midpoint
-						case 7: r = cur & val; break;
-						case 8: r = cur | val; break;
-						case 9: r = cur ^ val; break;
-						case 10: r = ~val; break;
-						case 11: r = val ? cur % val : cur; break;
-						}
-						rs_setvar (vi, r);
-					}
-					else
-						switch (ex & 15)
-						{
-						case 0: flag = cur == val; break;
-						case 1: flag = cur >= val; break;
-						case 2: flag = cur > val; break;
-						case 3: flag = cur <= val; break;
-						case 4: flag = cur < val; break;
-						case 5: flag = cur != val; break;
-						}
-				}
+				if (!rs_varop (d, n, &pos, le, &pre, ex, skip, &flag)) goto done;
 			}
 			else if ((ex & 0xf0) == 0xa0 || (ex & 0xf0) == 0xb0) pos += 1;
 			else goto done;
