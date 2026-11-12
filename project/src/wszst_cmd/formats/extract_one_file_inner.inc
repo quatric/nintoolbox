@@ -25,7 +25,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	// generic sniffers below get a chance to misfire on them.
 	// Retro PAK v2 has a strict header; claim it before the loose ".pak" sniffers.
 	// Natsume "add" PAC (strict magic): claim it before the loose ".pac" sniffers below.
-	enumError err = extract_addpac_file (arg, basedir, depth);
+	// NUP containers run to tens of GB: claim them (128-byte probe) before any
+	// extractor that loads the whole file.
+	enumError err = extract_nup_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_addpac_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_jpack_file (arg, basedir, depth);
@@ -125,6 +130,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_hal_ssm_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_nintendo_afc_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_bwav_file (arg, basedir, depth);
@@ -725,9 +733,6 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_xci_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_nup_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_art_file (arg, basedir, depth);
