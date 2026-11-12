@@ -153,6 +153,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_conan_str_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_nds_swar_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_bwav_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -739,6 +742,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_nro_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_nrr_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_nso_file (arg, basedir, depth);
