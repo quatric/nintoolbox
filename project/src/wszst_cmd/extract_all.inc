@@ -496,6 +496,7 @@
 #include "extract/asobo_vai.inc"
 #include "extract/sdd.inc"
 #include "extract/ads_midway.inc"
+#include "extract/gsnd.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
 #include "extract/xlnk.inc"
