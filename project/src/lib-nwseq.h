@@ -21,6 +21,10 @@
 //     stereo waves split across L/R, 4 tap interpolation, 32 kHz output (the DSP mixing rate);
 //     a render that would clip is redone once with just enough headroom
 //
+//   * effects: the sequence's fx sends (fxsend A/B/C) feed three AUX buses, each processed by the
+//     classic AXFX "ReverbHi" (comb + all-pass + damping low-pass + crosstalk, the reverb games
+//     attach to the AUX buses with FxReverbHi) whose return is added to the main mix
+//
 // The format specific part (finding the instrument and wave for a program / key / velocity) is
 // supplied by the caller through nws_inst_fn.
 
@@ -50,6 +54,24 @@ typedef struct nws_inst_t
 // (bank select, 3DS/Wii U/Switch only; always 0 for RSEQ). Return 0 if the note has no region.
 typedef int (*nws_inst_fn) (void *ctx, int bank, int prg, int key, int velocity, nws_inst_t *out);
 
+// AUX bus effect. The effect setup lives in each game's code, not in the sound archive.
+enum { NWS_FX_NONE = 0, NWS_FX_REVERB_HI = 1 };
+
+typedef struct nws_fx_t
+{
+	int type;              // NWS_FX_*
+	float pre_delay;       // seconds, 0..0.1
+	float time;            // decay time in seconds (-60 dB), 0.01..10
+	float coloration;      // all-pass coefficient, 0..1
+	float damping;         // low-pass damping, 0..1
+	float crosstalk;       // L/R bleed, 0..1
+	float mix;             // wet/dry of the returned signal, 0..1 (NW4R "outGain")
+} nws_fx_t;
+
+// The default AUX effect: FxReverbHi as set up by the Wii Forecast Channel, whose coloration,
+// damping and crosstalk match the NintendoWare sample code.
+extern const nws_fx_t NWSeqDefaultFx;
+
 typedef struct nws_params_t
 {
 	const uint8_t *seq;    // sequence data base (offsets in the MML are relative to this)
@@ -65,6 +87,7 @@ typedef struct nws_params_t
 	double fade_sec;       // fade out length, default 10
 	double max_sec;        // hard limit, default 900
 	double tail_sec;       // limit on the release tail once every track finished, default 15
+	const nws_fx_t *fx[3]; // effect on AUX A/B/C; NULL = NWSeqDefaultFx (env NWSEQ_FX=0 disables all)
 } nws_params_t;
 
 #define NWS_RATE 32000

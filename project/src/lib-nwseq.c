@@ -357,7 +357,7 @@ typedef struct channel_t
 	s32 length;
 	u8 key, original_key;
 	float init_volume, init_pan, tune;
-	float user_volume, user_pitch, user_pitch_ratio, user_pan, main_send;
+	float user_volume, user_pitch, user_pitch_ratio, user_pan, main_send, fx_send[3];
 	bool release_ignore;
 	u8 alternate_assign;
 	env_t env;
@@ -372,7 +372,7 @@ typedef struct channel_t
 	const nws_wave_t *wave;
 	double pos;
 	float ve_init, ve_target, volume, pitch, pan;
-	float mix_l[2], mix_r[2], prev_l[2], prev_r[2];
+	float mix_l[4][2], mix_r[4][2], prev_l[4][2], prev_r[4][2]; // [main, AUX A, B, C][wave channel]
 	bool mix_valid;
 } channel_t;
 
@@ -394,7 +394,7 @@ typedef struct track_t
 	u8 volume2, velocity_range, bend_range, priority, porta_key, porta_time;
 	s8 init_pan, transpose;
 	u8 attack, decay, sustain, release, env_hold;
-	u8 main_send;
+	u8 main_send, fx_send[3];
 	s16 var[16];
 	int head; // channel list (most recent first), -1 = empty
 	int loops; // backward jumps taken (loop passes)
@@ -608,7 +608,10 @@ static void channel_update (player_t *pl, int ci)
 	c->pan = pan;
 
 	// mix (stereo output mode)
-	const float send = clampf (c->main_send + 1.0f, 0.0f, 1.0f);
+	float send[4];
+	send[0] = clampf (c->main_send + 1.0f, 0.0f, 1.0f);
+	for (int b = 0; b < 3; b++)
+		send[b + 1] = clampf (c->fx_send[b], 0.0f, 1.0f);
 	const pan_info_t pi = pan_info (c->pan_curve);
 	const int nch = c->wave ? c->wave->channels : 1;
 	for (int k = 0; k < nch; k++)
@@ -625,10 +628,13 @@ static void channel_update (player_t *pl, int ci)
 			l = calc_pan_ratio (pan + vp, pi);
 			r = calc_pan_ratio (0.0f - (pan + vp), pi);
 		}
-		c->prev_l[k] = c->mix_valid ? c->mix_l[k] : send * l;
-		c->prev_r[k] = c->mix_valid ? c->mix_r[k] : send * r;
-		c->mix_l[k] = send * l;
-		c->mix_r[k] = send * r;
+		for (int b = 0; b < 4; b++)
+		{
+			c->prev_l[b][k] = c->mix_valid ? c->mix_l[b][k] : send[b] * l;
+			c->prev_r[b][k] = c->mix_valid ? c->mix_r[b][k] : send[b] * r;
+			c->mix_l[b][k] = send[b] * l;
+			c->mix_r[b][k] = send[b] * r;
+		}
 	}
 	c->mix_valid = true;
 }
@@ -667,6 +673,9 @@ static void track_update_channel_param (player_t *pl, track_t *t)
 	const float pitch = (mv_value (&t->pitch_bend) / 128.0f) * t->bend_range;
 	const float pan = clampf (mv_value (&t->pan) / 63.0f, -1.0f, 1.0f);
 	const float main_send = t->main_send / 127.0f - 1.0f;
+	float fx_send[3];
+	for (int b = 0; b < 3; b++)
+		fx_send[b] = t->fx_send[b] / 127.0f;
 	for (int i = t->head; i >= 0; i = pl->ch[i].next)
 	{
 		channel_t *c = pl->ch + i;
@@ -675,6 +684,7 @@ static void track_update_channel_param (player_t *pl, track_t *t)
 		c->user_pitch_ratio = 1.0f;
 		c->user_pan = pan;
 		c->main_send = main_send;
+		memcpy (c->fx_send, fx_send, sizeof (fx_send));
 		c->lfo.p = t->lfo;
 		c->lfo_target = t->lfo_target;
 	}
@@ -878,7 +888,7 @@ enum
 	MML_MOD_DEPTH = 0xca, MML_MOD_SPEED = 0xcb, MML_MOD_TYPE = 0xcc, MML_MOD_RANGE = 0xcd, MML_PORTA_SW = 0xce,
 	MML_PORTA_TIME = 0xcf, MML_ATTACK = 0xd0, MML_DECAY = 0xd1, MML_SUSTAIN = 0xd2, MML_RELEASE = 0xd3,
 	MML_LOOP_START = 0xd4, MML_VOLUME2 = 0xd5, MML_MAINSEND = 0xdb, MML_INIT_PAN = 0xdc, MML_MUTE = 0xdd,
-	MML_DAMPER = 0xdf,
+	MML_FXSEND_A = 0xd9, MML_FXSEND_B = 0xda, MML_FXSEND_C = 0xde, MML_DAMPER = 0xdf,
 	MML_MOD_DELAY = 0xe0, MML_TEMPO = 0xe1, MML_SWEEP_PITCH = 0xe3,
 	MML_EX_COMMAND = 0xf0, MML_ENV_RESET = 0xfb, MML_LOOP_END = 0xfc, MML_RET = 0xfd, MML_ALLOC_TRACK = 0xfe,
 	MML_FIN = 0xff
@@ -944,6 +954,9 @@ static void command (player_t *pl, int ti, u32 cmd, s32 a1, s32 a2)
 		case MML_PORTA: t->porta_key = (u8)(a1 + t->transpose); t->porta = true; break;
 		case MML_PORTA_SW: t->porta = a1 != 0; break;
 		case MML_MAINSEND: t->main_send = (u8)a1; break;
+		case MML_FXSEND_A: t->fx_send[0] = (u8)a1; break;
+		case MML_FXSEND_B: t->fx_send[1] = (u8)a1; break;
+		case MML_FXSEND_C: t->fx_send[2] = (u8)a1; break;
 		case 0xb6: t->bank = clampi ((s8)a1, 0, 3); break; // bank select (CSEQ/FSEQ)
 		case 0xbd: t->lfo.phase = (s8)a1 / 128.0f; if (t->lfo.phase < 0) t->lfo.phase += 1.0f; break; // mod phase
 		case 0xbe: t->lfo.curve = (u8)a1; break; // mod curve
@@ -1373,7 +1386,7 @@ static inline float wave_at (const nws_wave_t *w, int ch, int64_t i)
 	return w->pcm[ch][i];
 }
 
-static void render_frame (player_t *pl, float *mix)
+static void render_frame (player_t *pl, float *mix, float (*aux)[FRAME_SAMPLES * 2], bool *aux_used)
 {
 	for (int ci = 0; ci < MAX_CHANNELS; ci++)
 	{
@@ -1385,6 +1398,15 @@ static void render_frame (player_t *pl, float *mix)
 		const float v0 = clampf (c->volume * c->ve_init, 0.0f, 2.0f);
 		const float v1 = clampf (c->volume * c->ve_target, 0.0f, 2.0f);
 		const int nch = w->channels == 2 ? 2 : 1;
+		bool send[3];
+		for (int b = 0; b < 3; b++)
+		{
+			send[b] = false;
+			for (int k = 0; k < nch; k++)
+				send[b] |= c->mix_l[b + 1][k] != 0 || c->mix_r[b + 1][k] != 0 || c->prev_l[b + 1][k] != 0 ||
+				           c->prev_r[b + 1][k] != 0;
+			aux_used[b] |= send[b];
+		}
 		double pos = c->pos;
 		bool ended = false;
 		for (int s = 0; s < FRAME_SAMPLES; s++)
@@ -1406,10 +1428,17 @@ static void render_frame (player_t *pl, float *mix)
 				const float c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2,
 				            c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
 				const float smp = ((c3 * x + c2) * x + c1) * x + y0;
-				const float l = c->prev_l[k] + (c->mix_l[k] - c->prev_l[k]) * f;
-				const float r = c->prev_r[k] + (c->mix_r[k] - c->prev_r[k]) * f;
-				mix[2 * s] += smp * ve * l;
-				mix[2 * s + 1] += smp * ve * r;
+				const float sv = smp * ve;
+				const float l = c->prev_l[0][k] + (c->mix_l[0][k] - c->prev_l[0][k]) * f;
+				const float r = c->prev_r[0][k] + (c->mix_r[0][k] - c->prev_r[0][k]) * f;
+				mix[2 * s] += sv * l;
+				mix[2 * s + 1] += sv * r;
+				for (int b = 0; b < 3; b++)
+					if (send[b])
+					{
+						aux[b][2 * s] += sv * (c->prev_l[b + 1][k] + (c->mix_l[b + 1][k] - c->prev_l[b + 1][k]) * f);
+						aux[b][2 * s + 1] += sv * (c->prev_r[b + 1][k] + (c->mix_r[b + 1][k] - c->prev_r[b + 1][k]) * f);
+					}
 			}
 			pos += step;
 			if (w->loop && pos >= w->length)
@@ -1427,6 +1456,156 @@ static void render_frame (player_t *pl, float *mix)
 		c->pos = pos;
 		if (ended)
 			channel_stop (pl, ci); // end of a one-shot wave
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AUX effects: the classic AXFX "ReverbHi" (the MusyX derived reverb that FxReverbHi wraps).
+// Per channel: pre-delay -> 3 parallel combs -> 2 all-pass stages -> damping low-pass -> all-pass,
+// with an L/R crosstalk stage in front. The returned signal is wet and dry mixed by "mix".
+
+const nws_fx_t NWSeqDefaultFx = { NWS_FX_REVERB_HI, 0.1f, 2.1f, 0.6f, 0.4f, 0.1f, 0.2f };
+
+typedef struct dline_t
+{
+	float *buf;
+	int len, in, out;
+	float last;
+} dline_t;
+
+typedef struct reverb_t
+{
+	dline_t comb[2][3], ap[2][2], lp[2];
+	float comb_coef[2][3];
+	float ap_coef, damping, wet, dry, cross;
+	float lp_last[2];
+	float *pre[2];
+	int pre_len, pre_pos[2];
+	double tail_sec; // how long the reverb rings after its input stops
+} reverb_t;
+
+static bool dline_init (dline_t *d, int delay)
+{
+	d->len = delay + 2;
+	d->buf = calloc ((size_t)d->len, sizeof (float));
+	d->in = 0;
+	d->out = (d->len - delay) % d->len;
+	d->last = 0.0f;
+	return d->buf != 0;
+}
+
+// returns the delayed sample and stores "x"
+static inline float dline_step (dline_t *d, float x)
+{
+	d->buf[d->in] = x;
+	if (++d->in == d->len)
+		d->in = 0;
+	d->last = d->buf[d->out];
+	if (++d->out == d->len)
+		d->out = 0;
+	return d->last;
+}
+
+static void reverb_free (reverb_t *rv)
+{
+	if (!rv)
+		return;
+	for (int c = 0; c < 2; c++)
+	{
+		for (int t = 0; t < 3; t++)
+			free (rv->comb[c][t].buf);
+		for (int t = 0; t < 2; t++)
+			free (rv->ap[c][t].buf);
+		free (rv->lp[c].buf);
+		free (rv->pre[c]);
+	}
+	free (rv);
+}
+
+static reverb_t *reverb_new (const nws_fx_t *fx)
+{
+	static const int comb_delay[3] = { 1789, 1999, 2333 }, ap_delay[2] = { 433, 149 }, lp_delay[2] = { 47, 73 };
+	reverb_t *rv = calloc (1, sizeof (*rv));
+	if (!rv)
+		return 0;
+	const float time = clampf (fx->time, 0.01f, 10.0f), pre = clampf (fx->pre_delay, 0.0f, 0.1f);
+	bool ok = true;
+	for (int c = 0; c < 2; c++)
+	{
+		for (int t = 0; t < 3; t++)
+		{
+			ok &= dline_init (&rv->comb[c][t], comb_delay[t]);
+			rv->comb_coef[c][t] = powf (10.0f, comb_delay[t] * -3.0f / (time * NWS_RATE));
+		}
+		for (int t = 0; t < 2; t++)
+			ok &= dline_init (&rv->ap[c][t], ap_delay[t]);
+		ok &= dline_init (&rv->lp[c], lp_delay[c]);
+	}
+	rv->ap_coef = clampf (fx->coloration, 0.0f, 1.0f);
+	float damp = clampf (fx->damping, 0.0f, 1.0f);
+	if (damp < 0.05f)
+		damp = 0.05f;
+	rv->damping = 1.0f - (damp * 0.8f + 0.05f);
+	rv->wet = clampf (fx->mix, 0.0f, 1.0f) * 0.6f;
+	rv->dry = 0.6f - rv->wet;
+	rv->cross = clampf (fx->crosstalk, 0.0f, 1.0f) * 0.5f;
+	rv->pre_len = (int)(NWS_RATE * pre);
+	if (rv->pre_len > 1)
+		for (int c = 0; c < 2; c++)
+			ok &= (rv->pre[c] = calloc ((size_t)rv->pre_len, sizeof (float))) != 0;
+	else
+		rv->pre_len = 0;
+	rv->tail_sec = time + pre + 0.1;
+	if (!ok)
+	{
+		reverb_free (rv);
+		return 0;
+	}
+	return rv;
+}
+
+// processes interleaved stereo in place
+static void reverb_process (reverb_t *rv, float *buf, int n)
+{
+	if (rv->cross != 0.0f)
+		for (int s = 0; s < n; s++)
+		{
+			float *b = buf + 2 * s;
+			const float all = (b[0] + b[1]) * rv->cross;
+			b[0] = b[0] * (1.0f - rv->cross) + all;
+			b[1] = b[1] * (1.0f - rv->cross) + all;
+		}
+	const float a = rv->ap_coef;
+	for (int c = 0; c < 2; c++)
+	{
+		dline_t *cb = rv->comb[c], *ap = rv->ap[c], *lp = rv->lp + c;
+		for (int s = 0; s < n; s++)
+		{
+			const float x = buf[2 * s + c];
+			float x2 = x;
+			if (rv->pre_len)
+			{
+				// the pointer wraps one sample early: an effective delay of pre_len - 1
+				int *pp = rv->pre_pos + c;
+				x2 = rv->pre[c][*pp];
+				rv->pre[c][*pp] = x;
+				if (++*pp == rv->pre_len - 1)
+					*pp = 0;
+			}
+			float csum = 0.0f;
+			for (int t = 0; t < 3; t++)
+				csum += dline_step (cb + t, rv->comb_coef[c][t] * cb[t].last + x2);
+			const float in0 = a * ap[0].last + csum;
+			const float in1 = a * ap[1].last - (a * in0 - ap[0].last);
+			const float low = -(a * in1 - ap[1].last);
+			dline_step (ap + 0, in0);
+			dline_step (ap + 1, in1);
+			rv->lp_last[c] = rv->damping * rv->lp_last[c] + low * 0.3f;
+			const float in2 = a * lp->last + rv->lp_last[c];
+			const float out = -(a * in2 - lp->last);
+			dline_step (lp, in2);
+			buf[2 * s + c] = rv->wet * out + rv->dry * x;
+		}
 	}
 }
 
@@ -1500,8 +1679,15 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 	const size_t max_frames = (size_t)(max_sec * 1000 / FRAME_MS);
 	size_t cap = 0, n = 0; // samples (stereo frames)
 	int16_t *buf = 0;
-	float mix[FRAME_SAMPLES * 2];
+	float mix[FRAME_SAMPLES * 2], aux[3][FRAME_SAMPLES * 2];
 	long fade_total = 0, fade_left = -1;
+
+	// AUX effects; created on the first send to the bus
+	const char *fx_env = getenv ("NWSEQ_FX");
+	const bool fx_on = !fx_env || strcmp (fx_env, "0");
+	reverb_t *rv[3] = { 0, 0, 0 };
+	bool aux_used[3] = { false, false, false }, aux_live[3] = { false, false, false };
+	size_t fx_tail = 0; // frames the effects still ring after the last voice
 	size_t tail_frames = 0;
 	int rc = 0;
 
@@ -1515,7 +1701,11 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 		for (int ci = 0; ci < MAX_CHANNELS && !any_ch; ci++)
 			any_ch = pl->ch[ci].active;
 		if (!pl->active && !any_ch)
-			break;
+		{
+			if (!fx_tail)
+				break;
+			fx_tail--;
+		}
 		if (!pl->active)
 		{
 			// release tail; stop runaway sustains (looping waves with ignored note-off)
@@ -1540,7 +1730,29 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 			fade_total = fade_left = (long)(fade_sec * NWS_RATE);
 
 		memset (mix, 0, sizeof (mix));
-		render_frame (pl, mix);
+		memset (aux, 0, sizeof (aux));
+		bool sent[3] = { false, false, false };
+		render_frame (pl, mix, aux, sent);
+		for (int b = 0; b < 3; b++)
+		{
+			if (!fx_on || (!sent[b] && !aux_live[b]))
+				continue;
+			const nws_fx_t *fx = p->fx[b] ? p->fx[b] : &NWSeqDefaultFx;
+			if (fx->type != NWS_FX_REVERB_HI)
+				continue;
+			if (!rv[b] && !(rv[b] = reverb_new (fx)))
+				continue;
+			aux_used[b] = aux_live[b] = true;
+			reverb_process (rv[b], aux[b], FRAME_SAMPLES);
+			for (int s = 0; s < FRAME_SAMPLES * 2; s++)
+				mix[s] += aux[b][s];
+			if (sent[b])
+			{
+				const size_t t = (size_t)(rv[b]->tail_sec * 1000 / FRAME_MS);
+				if (t > fx_tail)
+					fx_tail = t;
+			}
+		}
 
 		if (n + FRAME_SAMPLES > cap)
 		{
@@ -1583,7 +1795,11 @@ static int render_pass (const nws_params_t *p, float gain, int16_t **out, size_t
 	if (looped)
 		*looped = pl->looped;
 	if (pl->debug)
-		fprintf (stderr, "nwseq: %zu samples (%.2f s), %s\n", n, (double)n / NWS_RATE, pl->looped ? "looped" : "one-shot");
+		fprintf (stderr, "nwseq: %zu samples (%.2f s), %s, aux %c%c%c\n", n, (double)n / NWS_RATE,
+		         pl->looped ? "looped" : "one-shot", aux_used[0] ? 'A' : '-', aux_used[1] ? 'B' : '-',
+		         aux_used[2] ? 'C' : '-');
+	for (int b = 0; b < 3; b++)
+		reverb_free (rv[b]);
 	free (pl);
 	if (rc)
 	{
