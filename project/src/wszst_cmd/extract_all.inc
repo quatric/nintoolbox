@@ -502,6 +502,7 @@
 #include "extract/gsnd.inc"
 #include "extract/rwsd_single.inc"
 #include "extract/wayforward_wave.inc"
+#include "extract/gcax_bank.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
