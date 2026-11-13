@@ -17,30 +17,49 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 	size_t lim = rd_be32 (c + 8);
 	if (lim > cs || lim < 0x100)
 		lim = cs;
-	for (size_t o = 0x40; o + 24 <= lim; o += 4)
+	float bmin[3], bmax[3];
+	for (int k = 0; k < 3; k++)
 	{
-		const u32 size = rd_be32 (c + o + 4), off = rd_be32 (c + o + 8);
-		if (!size || size % 16 || size > 0x400000 || off < 0x40 || (size_t)off + size > cs || rd_be32 (c + o + 12) || rd_be32 (c + o + 16))
-			continue;
-		bool good = true;
-		for (u32 i = 0; i < size && good; i += 16)
-		{
-			const u8 *v = c + off + i;
-			if (rd_be32 (v + 12))
-				good = false;
-			for (int k = 0; k < 3 && good; k++)
-			{
-				const float f = mh2inst_f (v + 4 * k, true);
-				if (!(f > -1e5f && f < 1e5f))
-					good = false;
-			}
-		}
-		if (!good)
-			continue;
-		sumo_printf (&b, "o buffer%04u_%08x\n", groups++, off);
-		for (u32 i = 0; i < size; i += 16)
-			sumo_printf (&b, "v %g %g %g\n", mh2inst_f (c + off + i, true), mh2inst_f (c + off + i + 4, true), mh2inst_f (c + off + i + 8, true));
+		bmin[k] = mh2inst_f (c + 0x30 + 4 * k, true) - 5.0f;
+		bmax[k] = mh2inst_f (c + 0x40 + 4 * k, true) + 5.0f;
 	}
+	u32 seen[512];
+	uint nseen = 0;
+	for (size_t o = 0x40; o + 16 <= lim; o += 4)
+		for (int variant = 0; variant < 2; variant++)
+		{
+			const u32 w1 = rd_be32 (c + o + 4), w2 = rd_be32 (c + o + 8);
+			const u32 size = variant ? w2 : w1, off = variant ? w1 : w2;
+			if (!size || size % 16 || size > 0x400000 || off < 0x40 || (size_t)off + size > cs)
+				continue;
+			uint k2;
+			for (k2 = 0; k2 < nseen && seen[k2] != off; k2++)
+				;
+			if (k2 < nseen || nseen == 512)
+				continue;
+			bool good = true;
+			uint nonzero = 0;
+			for (u32 i = 0; i < size && good; i += 16)
+			{
+				const u8 *v = c + off + i;
+				if (rd_be32 (v + 12))
+					good = false;
+				for (int k = 0; k < 3 && good; k++)
+				{
+					const float f = mh2inst_f (v + 4 * k, true);
+					if (!(f >= bmin[k] && f <= bmax[k]))
+						good = false;
+					if (f != 0.0f)
+						nonzero++;
+				}
+			}
+			if (!good || !nonzero)
+				continue;
+			seen[nseen++] = off;
+			sumo_printf (&b, "o buffer%04u_%08x\n", groups++, off);
+			for (u32 i = 0; i < size; i += 16)
+				sumo_printf (&b, "v %g %g %g\n", mh2inst_f (c + off + i, true), mh2inst_f (c + off + i + 4, true), mh2inst_f (c + off + i + 8, true));
+		}
 	FREE (c);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && groups && b.n < 0xffffffffu)
