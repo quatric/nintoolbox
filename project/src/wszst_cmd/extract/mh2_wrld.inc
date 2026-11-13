@@ -532,8 +532,8 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				}
 				const uint n = rd_be16 (c + o + 1);
 				o += 3;
-				uint ix[4096], iu[4096];
-				const uint m = n < 4096 ? n : 4096;
+				static uint ix[65536], iu[65536];
+				const uint m = n;
 				for (uint i = 0; i < m; i++)
 				{
 					ix[i] = vtotal + 1 + mh2w_pidx (c + o + (size_t)i * stride, ppoff, ppsz);
