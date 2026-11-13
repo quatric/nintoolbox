@@ -68,6 +68,21 @@ static enumError extract_wii_text_manifest_file (ccp arg, ccp basedir, uint dept
 	}
 	char *buf = 0;
 	size_t blen = 0;
+#ifdef _WIN32
+	// mingw has no open_memstream(): decode into a temporary file and read it back.
+	FILE *f = tmpfile ();
+	if (!f)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	enumError err = def->dec (f, raw, sz, sz);
+	fflush (f);
+	long flen = fseek (f, 0, SEEK_END) ? -1 : ftell (f);
+	if (flen > 0 && !fseek (f, 0, SEEK_SET) && (buf = (char *)malloc ((size_t)flen)) != 0)
+		blen = fread (buf, 1, (size_t)flen, f);
+	fclose (f);
+#else
 	FILE *f = open_memstream (&buf, &blen);
 	if (!f)
 	{
@@ -76,6 +91,7 @@ static enumError extract_wii_text_manifest_file (ccp arg, ccp basedir, uint dept
 	}
 	enumError err = def->dec (f, raw, sz, sz);
 	fclose (f);
+#endif
 	FREE (raw);
 	if (!err && blen)
 	{
