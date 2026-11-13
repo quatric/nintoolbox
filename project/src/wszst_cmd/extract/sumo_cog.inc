@@ -172,7 +172,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			nd++;
 			q += 16;
 		}
-		if (!ok || !nd || q + 16 > cs || rd_be32 (c + q) != 0x0f000000)
+		if (!ok || !nd || q + 16 > cs)
 			continue;
 		const size_t dl = (q + 16 + 31) & ~(size_t)31;
 		uint stride = 0, ipos = 0, inrm = 99, iuv = 99;
