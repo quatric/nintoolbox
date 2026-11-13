@@ -531,6 +531,7 @@
 #include "extract/sega_gro3.inc"
 #include "extract/mh2z.inc"
 #include "extract/ifp_anct.inc"
+#include "extract/mh2_inst.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
