@@ -2380,6 +2380,24 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 
 	cgltf_result res = cgltf_write_file (&options, out_glb_file, &data);
 
+	// cgltf_write only serializes. Re-read what was written and run the library's
+	// own validation (accessor/bufferView bounds, index ranges, ...) on it, so a
+	// broken GLB is reported instead of silently shipped.
+	if (res == cgltf_result_success)
+	{
+		cgltf_options vopt = { 0 };
+		cgltf_data *vdata = NULL;
+		cgltf_result vres = cgltf_parse_file (&vopt, out_glb_file, &vdata);
+		if (vres == cgltf_result_success)
+			vres = cgltf_load_buffers (&vopt, vdata, out_glb_file);
+		if (vres == cgltf_result_success)
+			vres = cgltf_validate (vdata);
+		if (vres != cgltf_result_success)
+			fprintf (stderr, "WARNING: written GLB failed cgltf validation (result %d): %s\n", (int)vres, out_glb_file);
+		if (vdata)
+			cgltf_free (vdata);
+	}
+
 	// Cleanup
 	for (size_t i = 0; i < data.meshes_count; i++)
 	{
