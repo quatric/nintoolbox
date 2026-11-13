@@ -122,6 +122,18 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	sumo_buf_t b = { 0, 0, 0, true };
+	sumo_buf_t mt = { 0, 0, 0, true };
+	char stem[PATH_MAX];
+	{
+		const char *sl = strrchr (arg, '/');
+		snprintf (stem, sizeof (stem), "%s", sl ? sl + 1 : arg);
+		char *dot = strrchr (stem, '.');
+		if (dot)
+			*dot = 0;
+	}
+	char mnames[128][64];
+	uint nmnames = 0;
+	sumo_printf (&b, "mtllib %s.mtl\n", stem);
 	uint groups = 0;
 	size_t lim = rd_be32 (c + 8);
 	if (lim > cs || lim < 0x100)
@@ -170,9 +182,36 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		const size_t q = sq[si];
 		const uint cnt = scnt[si], vs = svs[si];
 		const size_t base = q - 0x38;
+		// The mesh record points at the sector start (+108); its first words are the texture table (u32 entries pointer, u32 count; 12-byte entries starting with a name pointer).
+		// A display list's material index (low half of its table entry) selects the texture.
+		ccp texn[64];
+		uint ntex = 0;
+		for (size_t p = 108; p + 4 <= cs && !ntex; p += 4)
+			if (rd_be32 (c + p) == base)
+			{
+				const size_t r = p - 108, tp = rd_be32 (c + r), tc = rd_be32 (c + r + 4);
+				if (!tc || tc > 64 || tp < 0x20 || tp + tc * 12 > cs)
+					continue;
+				uint good = 0;
+				for (uint i = 0; i < tc; i++)
+				{
+					const size_t np = rd_be32 (c + tp + 12 * i);
+					size_t l = 0;
+					while (np && np < cs && l < 60 && c[np + l] >= 32 && c[np + l] < 127)
+						l++;
+					if (l && np + l < cs && !c[np + l])
+					{
+						texn[good++] = (ccp)c + np;
+						continue;
+					}
+					good = 0;
+					break;
+				}
+				ntex = good;
+			}
 		const size_t tend = si + 1 < ns ? sq[si + 1] : lim;
 		size_t dls[256], dss[256];
-		uint dst[256], nd = 0;
+		uint dst[256], dmat[256], nd = 0;
 		for (size_t t = q + 4 + (size_t)cnt * vs; t + 16 <= tend && nd < 256; t += 4)
 		{
 			const bool marked = rd_be32 (c + t + 8) == 0x01000000 && (rd_be32 (c + t + 12) >> 8) == 0x150100;
@@ -192,6 +231,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				continue;
 			dls[nd] = dl;
 			dss[nd] = dsz;
+			dmat[nd] = marked ? rd_be16 (c + t + 14) : 0;
 			dst[nd++] = stride;
 		}
 		uint al = 0;
@@ -278,6 +318,27 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		{
 			size_t o = dls[d];
 			const uint stride = dst[d];
+			{
+				char mn[64];
+				if (dmat[d] < ntex)
+					snprintf (mn, sizeof (mn), "%s", texn[dmat[d]]);
+				else
+					snprintf (mn, sizeof (mn), "material%u", dmat[d]);
+				for (char *ch = mn; *ch; ch++)
+					if (*ch == ' ')
+						*ch = '_';
+				uint mi;
+				for (mi = 0; mi < nmnames && strcmp (mnames[mi], mn); mi++)
+					;
+				if (mi == nmnames && nmnames < 128)
+				{
+					snprintf (mnames[nmnames++], sizeof (mnames[0]), "%s", mn);
+					sumo_printf (&mt, "newmtl %s\nKd 1 1 1\n", mn);
+					if (dmat[d] < ntex)
+						sumo_printf (&mt, "map_Kd %s.png\n", mn);
+				}
+				sumo_printf (&b, "usemtl %s\n", mn);
+			}
 			while (o < dls[d] + dss[d])
 			{
 				const u8 op = c[o];
@@ -364,16 +425,12 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && groups && b.n < 0xffffffffu)
 	{
-		char name[PATH_MAX];
-		const char *sl = strrchr (arg, '/');
-		snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
-		char *dot = strrchr (name, '.');
-		if (dot)
-			*dot = 0;
-		strcat (name, ".obj");
-		nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
-		if (entries && OwnedEntryAdd (entries, 0, name, (u8 *)b.p, (uint)b.n))
-			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, 1);
+		char name[PATH_MAX], mname[PATH_MAX];
+		snprintf (name, sizeof (name), "%s.obj", stem);
+		snprintf (mname, sizeof (mname), "%s.mtl", stem);
+		nintendo_sarc_entry_t *entries = CALLOC (2, sizeof (*entries));
+		if (entries && OwnedEntryAdd (entries, 0, name, (u8 *)b.p, (uint)b.n) && OwnedEntryAdd (entries, 1, mname, (u8 *)mt.p, (uint)mt.n))
+			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, 2);
 		else
 			FREE (entries);
 	}
