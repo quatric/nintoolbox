@@ -10,6 +10,24 @@ static float mh2w_pos (const u8 *c, size_t q, uint vs, uint al, uint i, int k)
 	return (float)(s16)rd_be16 (c + q + 4 + al + (size_t)vs * i + 2 * k) / (float)(1u << (c[q + 2] & 15));
 }
 
+// normal of vertex i, component k of an s16 stream with 6 components (the three s16 after the position)
+static float mh2w_nrm (const u8 *c, size_t q, uint vs, uint al, uint i, int k)
+{
+	return (float)(s16)rd_be16 (c + q + 4 + al + (size_t)vs * i + 6 + 2 * k) / (float)(1u << (c[q + 2] & 15));
+}
+
+// one face line; with normals every vertex is written as v//vn using the same index
+static void mh2w_face (sumo_buf_t *b, bool hasn, uint ntotal_minus_vtotal, uint n, const uint *v)
+{
+	sumo_printf (b, "f");
+	for (uint i = 0; i < n; i++)
+		if (hasn)
+			sumo_printf (b, " %u//%u", v[i], v[i] + ntotal_minus_vtotal);
+		else
+			sumo_printf (b, " %u", v[i]);
+	sumo_printf (b, "\n");
+}
+
 // checks a display list (GX draws 0x80 quads, 0x90 triangles, 0x98 strips, 0xa0 fans; zero bytes are padding) whose vertices have a constant size; the first u16 of each vertex is a
 // position index below cnt. Returns the vertex size, or 0.
 static uint mh2w_dl_stride (const u8 *c, size_t dl, size_t dsz, uint cnt)
@@ -103,7 +121,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		svs[ns++] = vs;
 		q += (size_t)cnt * vs;
 	}
-	uint vtotal = 0;
+	uint vtotal = 0, ntotal = 0;
 	for (uint si = 0; si < ns; si++)
 	{
 		const size_t q = sq[si];
@@ -181,6 +199,10 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		sumo_printf (&b, "o sector%04u_%08x\n", groups++, (uint)q);
 		for (uint i = 0; i < cnt; i++)
 			sumo_printf (&b, "v %g %g %g\n", mh2w_pos (c, q, vs, al, i, 0), mh2w_pos (c, q, vs, al, i, 1), mh2w_pos (c, q, vs, al, i, 2));
+		const bool hasn = c[q + 2] != 0x40 && vs == 12;
+		if (hasn)
+			for (uint i = 0; i < cnt; i++)
+				sumo_printf (&b, "vn %g %g %g\n", mh2w_nrm (c, q, vs, al, i, 0), mh2w_nrm (c, q, vs, al, i, 1), mh2w_nrm (c, q, vs, al, i, 2));
 		for (uint d = 0; d < nd; d++)
 		{
 			size_t o = dls[d];
@@ -202,19 +224,27 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				o += (size_t)n * stride;
 				if (op == 0x90)
 					for (uint i = 0; i + 2 < m; i += 3)
-						sumo_printf (&b, "f %u %u %u\n", ix[i], ix[i + 1], ix[i + 2]);
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, ix + i);
 				else if (op == 0x98)
 					for (uint i = 0; i + 2 < m; i++)
-						sumo_printf (&b, "f %u %u %u\n", ix[i], i & 1 ? ix[i + 2] : ix[i + 1], i & 1 ? ix[i + 1] : ix[i + 2]);
+					{
+						const uint t3[3] = { ix[i], i & 1 ? ix[i + 2] : ix[i + 1], i & 1 ? ix[i + 1] : ix[i + 2] };
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3);
+					}
 				else if (op == 0xa0)
 					for (uint i = 1; i + 1 < m; i++)
-						sumo_printf (&b, "f %u %u %u\n", ix[0], ix[i], ix[i + 1]);
+					{
+						const uint t3[3] = { ix[0], ix[i], ix[i + 1] };
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3);
+					}
 				else
 					for (uint i = 0; i + 3 < m; i += 4)
-						sumo_printf (&b, "f %u %u %u %u\n", ix[i], ix[i + 1], ix[i + 2], ix[i + 3]);
+						mh2w_face (&b, hasn, ntotal - vtotal, 4, ix + i);
 			}
 		}
 		vtotal += cnt;
+		if (hasn)
+			ntotal += cnt;
 	}
 	u32 seen[512];
 	uint nseen = 0;
