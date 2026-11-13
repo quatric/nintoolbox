@@ -234,7 +234,7 @@ jobs:
   # lipo-ing the results together via `make mac2`.
   build-macos-universal:
     name: macos-universal
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -333,7 +333,7 @@ jobs:
   build-gui-macos:
     name: gui-macos-universal
     needs: build-macos-universal
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
