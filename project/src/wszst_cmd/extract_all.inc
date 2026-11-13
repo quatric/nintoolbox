@@ -510,6 +510,7 @@
 #include "extract/rw_txd_gc.inc"
 #include "extract/kdsp.inc"
 #include "extract/rockstar_gxt.inc"
+#include "extract/ubi_loc.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
