@@ -2,7 +2,7 @@
 // {u8 attribute (3 position, 6 normal, 8/10 colour, 11 texcoord), u8 index width (1/2), 2 flag bytes, u8 component type (0 u8, 1 s8, 2 u16, 3 s16, 4 f32), u8 count code, u8 frac,
 // u8, u8 stride, 3 pad, u32 offset into the .gog}, ended by a 0x0F descriptor, followed (aligned to 0x20) by a GX display list (0x80 quads, 0x90 triangles, 0x98 strip, 0xA0 fan; u16
 // vertex count, then one u8/u16 index per descriptor in order). The .gog holds the vertex pools: positions as 3 x f32, normals as s8 x 3 (/64), texcoords as u16 x 2 (/512).
-// Meshes whose positions are f32 triples are written to "<name>.cog.d/<name>.obj" as one group each, in the mesh's own (joint-local) space; node transforms and skinning are not applied.
+// Textures (CMPR/IA8 entries tagged "*.TGA", pixels in the .gog) are decoded to PNG too. Meshes whose positions are f32 triples are written to "<name>.cog.d/<name>.obj" as one group each, in the mesh's own (joint-local) space; node transforms and skinning are not applied.
 typedef struct sumo_buf_t
 {
 	char *p;
@@ -49,6 +49,86 @@ static float sumo_be_float (const u8 *p)
 	float f;
 	memcpy (&f, &v, 4);
 	return f;
+}
+
+
+// Texture entries of a .cog: a 0x10601BEC 0x40000000 tag followed by the NUL-terminated "<name>.TGA"; before it (up to 0x90 bytes back) the words {u16 width, u16 height; u32 GX format
+// (14 CMPR, 3 IA8); 0; 0; u32 mip count; 1}, and the last non-zero word before the tag is the offset of the base level in the .gog. Decoded to "<name>.cog.d/<name>.png".
+static uint sumo_cog_textures (ccp arg, const u8 *c, size_t cs, const u8 *g, size_t gs)
+{
+	uint wrote = 0;
+	char dest[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	bool made = false;
+	for (size_t m = 0x20; m + 12 < cs; m += 4)
+	{
+		if (rd_be32 (c + m) != 0x10601bec || rd_be32 (c + m + 4) != 0x40000000)
+			continue;
+		size_t q;
+		uint w = 0, h = 0, fmt = 0;
+		bool found = false;
+		for (q = m - 16; q + 24 <= cs && q + 0x90 > m && q >= 4; q -= 4)
+		{
+			const uint wh = rd_be32 (c + q);
+			fmt = rd_be32 (c + q + 4);
+			if (!rd_be32 (c + q + 8) && !rd_be32 (c + q + 12) && rd_be32 (c + q + 20) == 1 && (fmt == 14 || fmt == 3) && (wh >> 16) >= 4 && (wh & 0xffff) >= 4 && rd_be32 (c + q + 16) <= 12)
+			{
+				w = wh >> 16;
+				h = wh & 0xffff;
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			continue;
+		size_t o = m - 4;
+		while (o > q + 0x18 && !rd_be32 (c + o))
+			o -= 4;
+		const size_t off = rd_be32 (c + o);
+		uint isz = 0;
+		const image_format_t gx = fmt == 14 ? IMG_CMPR : IMG_IA8;
+		if (w > 4096 || h > 4096 || !CalcImageGeometry (gx, w, h, 0, 0, 0, 0, &isz) || !isz || off + isz > gs)
+			continue;
+		char nm[96];
+		snprintf (nm, sizeof nm, "%.80s", (ccp)c + m + 8);
+		char *dot = strrchr (nm, '.');
+		if (dot)
+			*dot = 0;
+		for (char *k = nm; *k; k++)
+			if (!isalnum ((u8)*k) && *k != '_' && *k != '-')
+				*k = '_';
+		Image_t img;
+		InitializeIMG (&img);
+		img.data = CALLOC (1, isz + 64);
+		if (!img.data)
+			continue;
+		memcpy (img.data, g + off, isz);
+		img.data_alloced = true;
+		img.data_size = isz;
+		img.width = w;
+		img.height = h;
+		img.iform = img.info_iform = gx;
+		img.info_fform = FF_PNG;
+		img.info_n_image = 1;
+		img.endian = &be_func;
+		CalcImageGeometry (img.iform, img.width, img.height, &img.xwidth, &img.xheight, 0, 0, 0);
+		char path[PATH_MAX];
+		snprintf (path, sizeof path, "%s/%s.png", dest, nm);
+		if (testmode)
+			wrote++;
+		else
+		{
+			if (!made)
+			{
+				CreatePath (dest, true);
+				made = true;
+			}
+			if (!ConvertIMG (&img, false, 0, IMG_X_RGB, PAL_INVALID) && !SavePNG (&img, false, 0, path, 0, 0, true, 0))
+				wrote++;
+		}
+		ResetIMG (&img);
+	}
+	return wrote;
 }
 
 static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
@@ -104,12 +184,31 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			if (ds[i].attr == 11 && ds[i].ty == 2 && ds[i].stride == 4 && iuv == 99)
 				iuv = i;
 		}
-		// walk the display list, collecting the highest index per descriptor
+		// walk the display list (indexed XF loads 0x20/0x28/0x30/0x38 = 5 bytes and NOPs are skipped), collecting the highest index per descriptor and the draw commands
 		uint mx[8] = { 0 };
 		size_t e = dl;
-		uint ncmd = 0;
-		while (e + 3 <= cs && (c[e] == 0x80 || c[e] == 0x90 || c[e] == 0x98 || c[e] == 0xa0))
+		uint ncmd = 0, zeros = 0;
+		size_t *draws = CALLOC (4096, sizeof (size_t));
+		if (!draws)
+			continue;
+		while (e + 3 <= cs && ncmd < 4096)
 		{
+			const u8 cmd = c[e];
+			if (!cmd)
+			{
+				if (++zeros > 32)
+					break;
+				e++;
+				continue;
+			}
+			zeros = 0;
+			if (cmd == 0x20 || cmd == 0x28 || cmd == 0x30 || cmd == 0x38)
+			{
+				e += 5;
+				continue;
+			}
+			if (cmd != 0x80 && cmd != 0x90 && cmd != 0x98 && cmd != 0xa0)
+				break;
 			const uint cnt = rd_be16 (c + e + 1);
 			if (!cnt || e + 3 + (size_t)cnt * stride > cs)
 				break;
@@ -124,11 +223,14 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 						mx[d] = v;
 				}
 			}
+			draws[ncmd++] = e;
 			e += 3 + (size_t)cnt * stride;
-			ncmd++;
 		}
 		if (!ncmd || (size_t)ds[ipos].off + ((size_t)mx[ipos] + 1) * 12 > gs)
+		{
+			FREE (draws);
 			continue;
+		}
 		if (inrm != 99 && (size_t)ds[inrm].off + ((size_t)mx[inrm] + 1) * 3 > gs)
 			inrm = 99;
 		if (iuv != 99 && (size_t)ds[iuv].off + ((size_t)mx[iuv] + 1) * 4 > gs)
@@ -142,13 +244,12 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 		if (inrm != 99)
 			for (uint i = 0; i <= mx[inrm]; i++)
 				sumo_printf (&b, "vn %.4f %.4f %.4f\n", (signed char)g[ds[inrm].off + 3 * i] / 64.0, (signed char)g[ds[inrm].off + 3 * i + 1] / 64.0, (signed char)g[ds[inrm].off + 3 * i + 2] / 64.0);
-		size_t pe = dl;
-		while (pe < e)
+		for (uint di = 0; di < ncmd; di++)
 		{
+			const size_t pe = draws[di];
 			const u8 cmd = c[pe];
 			const uint cnt = rd_be16 (c + pe + 1);
 			const u8 *v = c + pe + 3;
-			pe += 3 + (size_t)cnt * stride;
 			for (uint i = 0; i < cnt; i++)
 			{
 				uint ii[3];
@@ -212,6 +313,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 				}
 			}
 		}
+		FREE (draws);
 		nv += mx[ipos] + 1;
 		nt += iuv != 99 ? mx[iuv] + 1 : 0;
 		nn += inrm != 99 ? mx[inrm] + 1 : 0;
@@ -232,6 +334,13 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 		err = b.n < 0xffffffffu ? shade_write (arg, dest, basedir, name, (u8 *)b.p, (uint)b.n) : ERR_NOTHING_TO_DO;
 	}
 	FREE (b.p);
+	const uint ntex = sumo_cog_textures (arg, c, cs, g, gs);
+	if (ntex)
+	{
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sDECODE SUMO-COG:%s (%u textures)\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, ntex);
+		err = ERR_OK;
+	}
 	FREE (c);
 	FREE (g);
 	return err;
