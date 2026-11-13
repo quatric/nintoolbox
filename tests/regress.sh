@@ -19269,7 +19269,7 @@ t_zelda_switch2(){
   # dictionary by ID), BFEVFL event flows, TARB R32F height tiles.
   local d; d=$(mktemp -d /tmp/_r_zelda2.XXXXXX) || { fno "Zelda Switch 2 formats" "mktemp failed"; return; }
   python3 "$PWD_PROJECT/../tests/mk_zelda_switch2.py" "$d" >/dev/null 2>&1 || { fno "Zelda Switch 2 formats" "fixture generation failed"; rm -rf "$d"; return; }
-  "$B/wszst" XX "$d/Model/a.txt.zs" "$d/flow.bfevfl" "$d/hght.hght" --overwrite >/dev/null 2>&1
+  "$B/wszst" XX "$d/Model/a.txt.zs" "$d/flow.bfevfl" "$d/hght.hght" "$d/test.bklight" "$d/Boxes.bbox" "$d/imp.flnt" "$d/m.bfres.mc" --overwrite >/dev/null 2>&1
   if cmp -s "$d/Model/a.txt" "$d/a.expect"; then
     fok "zstd dictionary frames decoded with the romfs Pack/ZsDic.pack.zs dictionaries"
   else
@@ -19288,6 +19288,16 @@ t_zelda_switch2(){
     fok "TARB R32F height tile -> 16 bit PNG"
   else
     fno "TARB R32F" "wrong samples in $d/hght.hght.png"
+  fi
+  if grep -q 'spot_lights: # 1' "$d/test.bklight.yml" 2>/dev/null \
+     && grep -q 'size: \[2, 4\], intensity: 5' "$d/test.bklight.yml" \
+     && grep -q 'id: 0x00000101, flags: 0x00000001, center: \[0.5, 1.5, -2\]' "$d/Boxes.bbox.yml" 2>/dev/null \
+     && grep -q 'name: "treeA"' "$d/imp.flnt.yml" 2>/dev/null \
+     && grep -q 'section_b: {offset: 0x44, size: 40}' "$d/m.bfres.mc.yml" 2>/dev/null \
+     && grep -q 'major: 1' "$d/m.bfres.mc.yml"; then
+    fok "Zelda Switch 2 BKLT lights, culling boxes, foliage impostor table and MCPK container -> YAML"
+  else
+    fno "Zelda small tables" "unexpected YAML beside $d"
   fi
   rm -rf "$d"
 }

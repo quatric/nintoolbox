@@ -384,6 +384,7 @@ static void hk_flow (hk_t *h, u32 t, u64 off, uint depth)
 }
 
 static void hk_value (hk_t *h, u32 t, u64 off, uint indent, uint depth);
+static ccp hk_type_name (const hk_t *h, u32 t);
 
 // Members of record T (parents first), each "name: value" at INDENT.
 static void hk_record (hk_t *h, u32 t, u64 off, uint indent, uint depth, bool *any)
@@ -437,6 +438,20 @@ static void hk_value (hk_t *h, u32 t, u64 off, uint indent, uint depth)
 		u32 count = f >> 8;
 		if (!(f & 0x20))
 		{
+			// hkRelArray (Havok 2025 navmesh trees): {s64 offset of the elements relative to the array,
+			// u64 count}
+			if (!strcmp (hk_type_name (h, t), "hkRelArray"))
+			{
+				const s64 rel = (s64)hk_u64 (h, off);
+				base = off + (u64)rel;
+				count = (u32)hk_u64 (h, off + 8);
+				if (count > 0x1000000 || (rel < 0 && (u64)-rel > off))
+				{
+					h->bad = true;
+					return;
+				}
+				goto have_array;
+			}
 			// hkArray: item index of the elements
 			const u64 idx = hk_u64 (h, off);
 			if (idx >= h->n_items)
@@ -447,6 +462,7 @@ static void hk_value (hk_t *h, u32 t, u64 off, uint indent, uint depth)
 			base = idx ? h->items[idx].off : 0;
 			count = idx ? h->items[idx].count : 0;
 		}
+	have_array:;
 		u32 ef, es, esub;
 		hk_info (h, sub, &ef, &es, &esub);
 		if (!count)

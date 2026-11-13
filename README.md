@@ -648,6 +648,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | Format | Extensions | Games |
 | --- | --- | --- |
 | **AiLive LiveMove LMC** | `.lmc` | Wii |
+| **Baked light list / culling boxes / foliage tables** | `.bklight`, `.bbox`, `.flnt` | *The Legend of Zelda: Ocarina of Time* (Switch 2) |
+| **MCPK mesh package (container only)** | `.mc` | *The Legend of Zelda: Ocarina of Time* (Switch 2) |
 | **AINB AI node graph** | `.ainb` | *Splatoon 3*, *Tears of the Kingdom*, *Mario Kart World*, *The Legend of Zelda: Ocarina of Time* (Switch 2) |
 | **BFEVFL event flow** | `.bfevfl` | *The Legend of Zelda: Ocarina of Time* (Switch 2), *Tears of the Kingdom*-style event flows |
 | **AAMP** | `.aamp` | Wii U / Switch |
@@ -736,7 +738,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **XLNK (XLink2 effect / sound links)** | `.belnk`, `.bslnk` | Switch (*Tears of the Kingdom*-era layout checked on *Tomodachi Life: Living the Dream*) |
 | **BAEV (animation events)** | `.baev` | *Tomodachi Life: Living the Dream* |
 | **ASB (animation sequence binary)** | `.asb` | *Tomodachi Life: Living the Dream* |
-| **Phive cloth / Havok tag files** | `.bphcl` | *Tomodachi Life: Living the Dream* |
+| **Phive cloth / Havok tag files** | `.bphcl`, `.bphnm` | *Tomodachi Life: Living the Dream*, *The Legend of Zelda: Ocarina of Time* (Switch 2) |
 | **VoiceText database** | `.vtdb2` | *Tomodachi Life: Living the Dream* |
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |

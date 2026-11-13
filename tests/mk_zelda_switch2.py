@@ -242,3 +242,30 @@ pl[0x19] = 1
 pl[0x1c:0x24] = struct.pack("<iI", 0x34 - 0x1c, len(data))
 open(out + "/hght.hght", "wb").write(tarb_file(bytes(pl) + data))
 open(out + "/hght.expect", "wb").write(b"".join(struct.pack("<H", round(min(max(v, 0), 1) * 65535)) for v in heights))
+
+
+# ---- small data tables: BKLT, culling boxes, foliage impostor info, MCPK container ------------
+def f32s(*v):
+    return b"".join(struct.pack("<f", x) for x in v)
+
+
+bk = b"BKLT" + struct.pack("<IIII", 1, 1, 1, 1)
+bk += f32s(1, 2, 3, 0.5, 0.25, 0.125, 2)  # point
+bk += f32s(1, 2, 3, 0, 0, 1, 1, 1, 1, 0.5, 0.75, 4, 8)  # spot
+bk += f32s(0, 0, 0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 2, 4, 5)  # area
+open(out + "/test.bklight", "wb").write(bk)
+
+bb = struct.pack("<II", 2, 2)
+for i in range(2):
+    bb += struct.pack("<II", 0x100 + i, 1) + f32s(i * 0.5, 1.5, -2) + f32s(0, 0, 0) + f32s(4, 8, 16)
+open(out + "/Boxes.bbox", "wb").write(bb)
+
+nm = b"treeA"
+fl = struct.pack("<IIII", 2, 0, 1, 1) + bytes([len(nm)]) + nm + bytes(255 - len(nm))
+fl += struct.pack("<IIII", 0, 1, 7, 0) + f32s(*range(20))
+open(out + "/imp.flnt", "wb").write(fl)
+
+secA = b"FMSH" + struct.pack("<IIIII", 0x10000, 0x1000, 0x400, 0x800, 0x129) + bytes(16)
+secB = bytes(40)
+mc = b"MCPK" + struct.pack("<BBHI", 0, 0, 1, 0x1234) + struct.pack("<IIII", len(secA), 0x2000, len(secB), 0x803) + secA + secB
+open(out + "/m.bfres.mc", "wb").write(mc)
