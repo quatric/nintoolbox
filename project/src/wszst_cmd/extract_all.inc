@@ -511,6 +511,7 @@
 #include "extract/kdsp.inc"
 #include "extract/rockstar_gxt.inc"
 #include "extract/ubi_loc.inc"
+#include "extract/serz_tg.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
