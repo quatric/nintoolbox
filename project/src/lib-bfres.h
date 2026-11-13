@@ -19,6 +19,12 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size);
 // Returns the number of animations added. A skeleton-only FMDL parses into a model without meshes.
 int ImportBFRESSwitchAnims (model_t *model, const uint8_t *data, size_t size);
 
+// An animation-only Switch BFRES (FSKA list, no FMDL) is bound to a model in its directory: first the
+// "<Base>.<Base>.bfres" of a "<Base>_Animation.anim.bfres" (Switch 2 Zelda), else the shortest
+// "*Skeleton*.bfres" (".bfres.zs") that takes at least one animation (Tomodachi Life). `arg` is the path of
+// the animation file. Returns the model with the animations or NULL.
+model_t *LoadBFRESSwitchAnimSkeleton (const char *arg, const uint8_t *data, size_t size);
+
 // Wii U BFRES 3.x archive resource census. The header carries a fixed table
 // of 12 dictionary slots (offset at 0x20 + 4*slot, count at 0x50 + 2*slot)
 // that register, per real Yoshi's Woolly World (v3.5.0.3) samples: slot 0

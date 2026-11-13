@@ -177,6 +177,8 @@ static enumError export_model_if_possible (ccp arg)
 		model = ParseBFRES (data, size);
 		if (!model)
 			model = ParseBFRESSwitch (data, size);
+		if (!model && size >= 0x100)
+			model = LoadBFRESSwitchAnimSkeleton (arg, data, size);
 	}
 	else if (size >= 4 && !memcmp (data, "MDL0", 4))
 	{
