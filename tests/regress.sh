@@ -19183,6 +19183,35 @@ PYE
   else
     fno "phx material binding" "$a/materials.tsv or the GLB image is wrong"
   fi
+  if python3 - "$a/pmsh/0a0b0c0d0e0f1012.glb" <<'PYE' 2>/dev/null; then
+import json, struct, sys
+b = open(sys.argv[1], 'rb').read()
+jl = struct.unpack_from('<I', b, 12)[0]
+d = json.loads(b[20:20 + jl]); bin_ = b[28 + jl:]
+def acc(i, fmt, n):
+    a = d['accessors'][i]; v = d['bufferViews'][a['bufferView']]
+    o = v.get('byteOffset', 0) + a.get('byteOffset', 0)
+    return [struct.unpack_from(fmt, bin_, o + k * struct.calcsize(fmt)) for k in range(a['count'])]
+sk = d['skins'][0]; names = [d['nodes'][j]['name'] for j in sk['joints']]
+assert names == ['joint_1111aaaa2222bbbb', 'joint_3333cccc4444dddd'], names
+root, tip = sk['joints']
+assert tip in d['nodes'][root].get('children', [])
+p = d['meshes'][0]['primitives'][0]['attributes']
+P = acc(p['POSITION'], '<3f', 3); J = acc(p['JOINTS_0'], '<4H', 4); W = acc(p['WEIGHTS_0'], '<4f', 4)
+for pos, j, w in zip(P, J, W):
+    if pos[2] == 0:
+        assert j[0] == 0 and abs(w[0] - 1) < 1e-6
+    else:
+        assert {j[0], j[1]} == {0, 1} and abs(w[0] - 0.5) < 1e-3 and abs(w[1] - 0.5) < 1e-3
+PYE
+    if grep -q $'^3333cccc4444dddd\t5566778899aabbcc$' "$a/skeletons.tsv" 2>/dev/null; then
+      fok "phx skinned PMSH: joint palette + PSKS skeleton -> GLB skin (hierarchy, remapped weights)"
+    else
+      fno "phx PMSH skin" "$a/skeletons.tsv lacks the PSKS joints"
+    fi
+  else
+    fno "phx PMSH skin" "wrong skin in $a/pmsh/0a0b0c0d0e0f1012.glb"
+  fi
   if python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 13 2 60 120 180 255 2>/dev/null \
      && python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 2 3 120 180 0 255 2>/dev/null; then
     fok "phx 3D PTEX (RGBA8 LUT, Orin block linear in z) -> slice strip PNG"

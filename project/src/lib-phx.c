@@ -246,6 +246,8 @@ typedef struct phx_bind_t
 	uint n_tex, cap_tex;
 	uint *pfab; // asset indexes of Pfab records
 	uint n_pfab, cap_pfab;
+	u64 *skel; // PSKS: {joint name hash, skeleton id}
+	uint n_skel, cap_skel;
 } phx_bind_t;
 
 static void phx_bind_collect (phx_bind_t *b, ccp type, u64 id, uint asset, const u8 *d, uint n);
@@ -853,6 +855,204 @@ typedef struct pmsh_stream_t
 	uint size, format;
 } pmsh_stream_t;
 
+// Skinning. Attribute 4 holds four {u16 palette index, u16 weight / 65535} pairs per vertex;
+// geometry.f3 is the joint palette: {f1 {u64 joint-name hash}, f2 inverse bind matrix (4x4 f32,
+// column-major)}. The palette alone gives a flat skeleton; PMSHApplySkeleton adds the PSKS
+// hierarchy. Influences are indexed by source vertex (position_node = vertex index).
+
+static void pmsh_joint_name (char *buf, size_t sz, u64 hash)
+{
+	snprintf (buf, sz, "joint_%016llx", (unsigned long long)hash);
+}
+
+// 4x4 column-major -> joint_t's 3x4 row-major
+static void pmsh_m44_to_43 (float out[12], const float m[16])
+{
+	for (uint r = 0; r < 3; r++)
+		for (uint c = 0; c < 4; c++)
+			out[r * 4 + c] = m[c * 4 + r];
+}
+
+static bool pmsh_invert43 (float out[12], const float m[12])
+{
+	const double det = (double)m[0] * (m[5] * m[10] - m[6] * m[9]) - (double)m[1] * (m[4] * m[10] - m[6] * m[8])
+		+ (double)m[2] * (m[4] * m[9] - m[5] * m[8]);
+	if (fabs (det) < 1e-20)
+		return false;
+	const float d = (float)(1.0 / det);
+	out[0] = (m[5] * m[10] - m[6] * m[9]) * d;
+	out[1] = (m[2] * m[9] - m[1] * m[10]) * d;
+	out[2] = (m[1] * m[6] - m[2] * m[5]) * d;
+	out[4] = (m[6] * m[8] - m[4] * m[10]) * d;
+	out[5] = (m[0] * m[10] - m[2] * m[8]) * d;
+	out[6] = (m[2] * m[4] - m[0] * m[6]) * d;
+	out[8] = (m[4] * m[9] - m[5] * m[8]) * d;
+	out[9] = (m[1] * m[8] - m[0] * m[9]) * d;
+	out[10] = (m[0] * m[5] - m[1] * m[4]) * d;
+	out[3] = -(out[0] * m[3] + out[1] * m[7] + out[2] * m[11]);
+	out[7] = -(out[4] * m[3] + out[5] * m[7] + out[6] * m[11]);
+	out[11] = -(out[8] * m[3] + out[9] * m[7] + out[10] * m[11]);
+	return true;
+}
+
+static void pmsh_mul43 (float out[12], const float a[12], const float b[12])
+{
+	float t[12];
+	for (uint r = 0; r < 3; r++)
+		for (uint c = 0; c < 4; c++)
+			t[r * 4 + c] = a[r * 4] * b[c] + a[r * 4 + 1] * b[4 + c] + a[r * 4 + 2] * b[8 + c] + (c == 3 ? a[r * 4 + 3] : 0);
+	memcpy (out, t, sizeof (t));
+}
+
+static bool pmsh_skin (model_t *model, const u8 *d, uint n, uint geo, const u8 *sk, uint nv)
+{
+	uint np = 0;
+	const uint pv = fb_vec (d, n, geo, 3, &np);
+	if (!pv || !np || np > 1024)
+		return false;
+	model->joints = CALLOC (np, sizeof (*model->joints));
+	model->node_influences = CALLOC (nv, sizeof (*model->node_influences));
+	if (!model->joints || !model->node_influences)
+		goto fail;
+	model->num_joints = np;
+	for (uint i = 0; i < np; i++)
+	{
+		joint_t *j = model->joints + i;
+		const uint t = fb_vec_table (d, n, pv, i), nt = t ? fb_ref (d, n, t, 1) : 0;
+		const uint hp = nt ? fb_field (d, n, nt, 0, 8) : 0, mp = t ? fb_field (d, n, t, 2, 64) : 0;
+		pmsh_joint_name (j->name, sizeof (j->name), hp ? le64 (d + hp) : i);
+		j->parent_idx = -1;
+		j->scale = (vec3_t){ 1, 1, 1 };
+		if (mp)
+		{
+			float m[16];
+			for (uint k = 0; k < 16; k++)
+				m[k] = lef4 (d + mp + 4 * k);
+			pmsh_m44_to_43 (j->inverse_bind, m);
+			j->has_inverse_bind = pmsh_invert43 (j->bind, j->inverse_bind);
+		}
+		if (!j->has_inverse_bind)
+		{
+			memset (j->bind, 0, sizeof (j->bind));
+			j->bind[0] = j->bind[5] = j->bind[10] = 1;
+			memcpy (j->inverse_bind, j->bind, sizeof (j->bind));
+			j->has_inverse_bind = 1;
+		}
+	}
+	for (uint v = 0; v < nv; v++)
+	{
+		node_influence_t *ni = model->node_influences + v;
+		ni->weights = MALLOC (4 * sizeof (*ni->weights));
+		if (!ni->weights)
+			goto fail;
+		for (uint k = 0; k < 4; k++)
+		{
+			const u16 ji = le16 (sk + (size_t)v * 16 + k * 4), w = le16 (sk + (size_t)v * 16 + k * 4 + 2);
+			if (w && ji < np)
+				ni->weights[ni->num_weights++] = (influence_t){ ji, w / 65535.0f };
+		}
+		if (!ni->num_weights)
+			ni->weights[ni->num_weights++] = (influence_t){ 0, 1.0f };
+	}
+	model->num_node_influences = nv;
+	return true;
+fail:
+	for (uint v = 0; model->node_influences && v < nv; v++)
+		FREE (model->node_influences[v].weights);
+	FREE (model->joints);
+	FREE (model->node_influences);
+	model->joints = 0;
+	model->node_influences = 0;
+	model->num_joints = 0;
+	return false;
+}
+
+bool IsPSKS (const u8 *data, uint size)
+{
+	return data && size >= 0x20 && !memcmp (data + 4, "PSKS", 4) && le32 (data) < size;
+}
+
+// PSKS skeleton: f3.f1 = joints {f2 {u64 name hash}, f4 u16 parent index (0xffff = root),
+// f5 translation {x,y,z}, f6 rotation quaternion {x,y,z,w} (all zero = identity), f7 scale}.
+uint PMSHApplySkeleton (model_t *model, const u8 *d, uint n)
+{
+	if (!model || !model->num_joints || !IsPSKS (d, n))
+		return 0;
+	const uint sk = fb_ref (d, n, le32 (d), 3);
+	uint nj = 0;
+	const uint jv = sk ? fb_vec (d, n, sk, 1, &nj) : 0;
+	if (!jv || !nj || nj > 4096)
+		return 0;
+	joint_t *js = CALLOC (nj, sizeof (*js));
+	int *remap = MALLOC (model->num_joints * sizeof (int));
+	uint matched = 0;
+	if (!js || !remap)
+		goto out;
+	for (uint i = 0; i < nj; i++)
+	{
+		joint_t *j = js + i;
+		const uint t = fb_vec_table (d, n, jv, i), nt = t ? fb_ref (d, n, t, 2) : 0;
+		const uint hp = nt ? fb_field (d, n, nt, 0, 8) : 0, pp = t ? fb_field (d, n, t, 4, 2) : 0;
+		pmsh_joint_name (j->name, sizeof (j->name), hp ? le64 (d + hp) : i);
+		const uint par = pp ? le16 (d + pp) : 0xffff;
+		j->parent_idx = par < i ? (int)par : -1; // parents precede children
+		float tr[3] = { 0, 0, 0 }, q[4] = { 0, 0, 0, 0 }, s[3] = { 1, 1, 1 };
+		const uint tt = t ? fb_ref (d, n, t, 5) : 0, rt = t ? fb_ref (d, n, t, 6) : 0, st = t ? fb_ref (d, n, t, 7) : 0;
+		for (uint k = 0; k < 4; k++)
+		{
+			uint a;
+			if (k < 3 && tt && (a = fb_field (d, n, tt, k, 4)))
+				tr[k] = lef4 (d + a);
+			if (rt && (a = fb_field (d, n, rt, k, 4)))
+				q[k] = lef4 (d + a);
+			if (k < 3 && st && (a = fb_field (d, n, st, k, 4)))
+				s[k] = lef4 (d + a);
+		}
+		const double qn = sqrt ((double)q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+		double x = 0, y = 0, z = 0, w = 1;
+		if (qn > 1e-6)
+			x = q[0] / qn, y = q[1] / qn, z = q[2] / qn, w = q[3] / qn;
+		const float local[12] = { (float)(1 - 2 * (y * y + z * z)) * s[0], (float)(2 * (x * y - z * w)) * s[1],
+			(float)(2 * (x * z + y * w)) * s[2], tr[0], (float)(2 * (x * y + z * w)) * s[0],
+			(float)(1 - 2 * (x * x + z * z)) * s[1], (float)(2 * (y * z - x * w)) * s[2], tr[1],
+			(float)(2 * (x * z - y * w)) * s[0], (float)(2 * (y * z + x * w)) * s[1],
+			(float)(1 - 2 * (x * x + y * y)) * s[2], tr[2] };
+		j->scale = (vec3_t){ 1, 1, 1 };
+		if (j->parent_idx >= 0)
+			pmsh_mul43 (j->bind, js[j->parent_idx].bind, local);
+		else
+			memcpy (j->bind, local, sizeof (local));
+		j->has_inverse_bind = pmsh_invert43 (j->inverse_bind, j->bind);
+	}
+	for (uint p = 0; p < model->num_joints; p++)
+	{
+		remap[p] = -1;
+		for (uint i = 0; i < nj && remap[p] < 0; i++)
+			if (!strcmp (model->joints[p].name, js[i].name))
+				remap[p] = (int)i;
+		matched += remap[p] >= 0;
+	}
+	if (matched < model->num_joints)
+	{
+		matched = 0; // a different skeleton: keep the flat palette
+		goto out;
+	}
+	for (size_t v = 0; v < model->num_node_influences; v++)
+	{
+		node_influence_t *ni = model->node_influences + v;
+		for (size_t k = 0; k < ni->num_weights; k++)
+			ni->weights[k].bone_idx = remap[ni->weights[k].bone_idx];
+	}
+	FREE (model->joints);
+	model->joints = js;
+	model->num_joints = nj;
+	js = 0;
+out:
+	FREE (js);
+	FREE (remap);
+	return matched;
+}
+
 model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 {
 	if (!IsPMSH (main_d, main_n) || !gbuf)
@@ -890,6 +1090,7 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 	model_t *model = CALLOC (1, sizeof (*model));
 	if (!model)
 		return 0;
+	const bool has_skin = st[4].p && st[4].size >= nv * 16 && pmsh_skin (model, main_d, main_n, geo, st[4].p, nv);
 	int *map = MALLOC (nv * sizeof (int));
 	if (!map)
 	{
@@ -923,8 +1124,10 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 			mesh->texcoords = CALLOC (cnt, sizeof (*mesh->texcoords));
 		if (has_col)
 			mesh->colors[0] = CALLOC (cnt, sizeof (*mesh->colors[0]));
+		if (has_skin)
+			mesh->position_node = CALLOC (cnt, sizeof (int));
 		if (!mesh->vertices || !mesh->positions || (has_nrm && !mesh->normals) || (has_uv && !mesh->texcoords)
-			|| (has_col && !mesh->colors[0]))
+			|| (has_col && !mesh->colors[0]) || (has_skin && !mesh->position_node))
 			break;
 		memset (map, -1, nv * sizeof (int));
 		uint nu = 0;
@@ -945,6 +1148,8 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 			if (map[vi] < 0)
 			{
 				map[vi] = (int)nu;
+				if (has_skin)
+					mesh->position_node[nu] = (int)vi;
 				const u8 *pp = st[0].p + (size_t)vi * 12;
 				mesh->positions[nu] = (vec3_t){ lef4 (pp), lef4 (pp + 4), lef4 (pp + 8) };
 				if (has_nrm)
@@ -1103,6 +1308,22 @@ static void phx_bind_collect (phx_bind_t *b, ccp type, u64 id, uint asset, const
 			push_u64 (&b->tex, &b->n_tex, &b->cap_tex, pair, 2);
 		}
 	}
+	else if (!strcmp (type, "psks"))
+	{
+		const uint sk = IsPSKS (d, n) ? fb_ref (d, n, le32 (d), 3) : 0;
+		uint cnt = 0;
+		const uint v = sk ? fb_vec (d, n, sk, 1, &cnt) : 0;
+		for (uint i = 0; v && i < cnt && i < 4096; i++)
+		{
+			const uint t = fb_vec_table (d, n, v, i), nt = t ? fb_ref (d, n, t, 2) : 0;
+			const uint hp = nt ? fb_field (d, n, nt, 0, 8) : 0;
+			if (hp)
+			{
+				const u64 pr[2] = { le64 (d + hp), id };
+				push_u64 (&b->skel, &b->n_skel, &b->cap_skel, pr, 2);
+			}
+		}
+	}
 	else if (!strcmp (type, "pfab"))
 	{
 		if (b->n_pfab == b->cap_pfab)
@@ -1138,6 +1359,22 @@ static void phx_bind_finish (phx_bind_t *b, parc_ctx_t *c, ccp dest)
 {
 	u64 *pairs = 0; // {slot, material}
 	uint n_pairs = 0, cap_pairs = 0;
+	if (b->n_skel)
+	{
+		// "<dest>/skeletons.tsv": joint name hash -> every PSKS defining it, for skinned PMSH export
+		qsort (b->skel, b->n_skel / 2, 2 * sizeof (u64), cmp_slot_seq);
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/skeletons.tsv", dest);
+		FILE *f = fopen (path, "w");
+		if (f)
+		{
+			fprintf (f, "# joint\tskeleton\n");
+			for (uint i = 0; i < b->n_skel; i += 2)
+				if (!i || b->skel[i] != b->skel[i - 2] || b->skel[i + 1] != b->skel[i - 1])
+					fprintf (f, "%016llx\t%016llx\n", (unsigned long long)b->skel[i], (unsigned long long)b->skel[i + 1]);
+			fclose (f);
+		}
+	}
 	if (!b->n_slot || !b->n_mat || !b->n_pfab)
 		goto out;
 	qsort (b->slot, b->n_slot, sizeof (u64), cmp_u64);
@@ -1226,5 +1463,6 @@ out:
 	FREE (b->ref);
 	FREE (b->tex);
 	FREE (b->pfab);
+	FREE (b->skel);
 	memset (b, 0, sizeof (*b));
 }

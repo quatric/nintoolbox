@@ -193,7 +193,8 @@ def ptex_head(width, height, fmt, depth=1, dim=1):
 
 def flatbuffer(root_fields, ident):
     """Tiny forward-layout flatbuffer writer. A table is a list of (field, value) where value is
-    ("u32", n), ("u8", n), ("u64", n), ("table", fields) or ("vec", [fields, ...])."""
+    ("u32", n), ("u8", n), ("u16", n), ("u64", n), ("raw", bytes) (inline struct), ("table", fields)
+    or ("vec", [fields, ...])."""
     out = bytearray(8)
     out[4:8] = ident
 
@@ -206,6 +207,16 @@ def flatbuffer(root_fields, ident):
             if kind == "u8":
                 offs[f] = len(body)
                 body.append(val)
+            elif kind == "u16":
+                while len(body) % 2:
+                    body.append(0)
+                offs[f] = len(body)
+                body += struct.pack("<H", val)
+            elif kind == "raw":
+                while len(body) % 4:
+                    body.append(0)
+                offs[f] = len(body)
+                body += val
             elif kind == "u64":
                 while len(body) % 4:
                     body.append(0)
@@ -263,8 +274,24 @@ def pfab_prefab():
     return bytes(d)
 
 
-def pmsh_quad():
-    """PMSH Main + GBuf: one 2-triangle quad (positions, unorm10 normals, half UVs, u16 indices)."""
+JOINT_ROOT, JOINT_TIP, PSKS_ID, SKIN_MESH_ID = 0x1111AAAA2222BBBB, 0x3333CCCC4444DDDD, 0x5566778899AABBCC, 0x0A0B0C0D0E0F1012
+
+
+def psks_skeleton():
+    """PSKS: f3.f1 joints {f2 {u64 name}, f4 u16 parent, f5 translation, f6 rotation, f7 scale}: tip 1 up z."""
+    def joint(name, parent, t):
+        f = [(2, ("table", [(0, ("u64", name))])), (4, ("u16", parent)),
+             (5, ("table", [(i, ("raw", struct.pack("<f", v))) for i, v in enumerate(t) if v])),
+             (6, ("table", [(3, ("raw", struct.pack("<f", 1.0)))])), (7, ("table", [(i, ("raw", struct.pack("<f", 1.0))) for i in range(3)]))]
+        return [x for x in f if x[1][0] != "table" or x[1][1]]
+    joints = [joint(JOINT_ROOT, 0xFFFF, (0, 0, 0)), joint(JOINT_TIP, 0, (0, 0, 1))]
+    return flatbuffer([(3, ("table", [(1, ("vec", joints))]))], b"PSKS")
+
+
+def pmsh_quad(skinned=False):
+    """PMSH Main + GBuf: one 2-triangle quad (positions, unorm10 normals, half UVs, u16 indices).
+    skinned: attribute 4 {u16 palette joint, u16 weight} x4 and the joint palette (geometry.f3),
+    listed tip first so the exporter must remap palette indices onto the PSKS order."""
     pos = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
     gb = bytearray()
     streams = []
@@ -285,6 +312,14 @@ def pmsh_quad():
     add(40, struct.pack("<6H", 0, 2, 1, 0, 3, 2), 1)
     geo = [(1, ("vec", streams)), (2, ("vec", [[(3, ("u32", 4)), (5, ("u32", 6))]])),
            (4, ("vec", [[(0, ("u64", PMSH_SLOT))]])), (11, ("u32", len(gb)))]
+    if skinned:
+        # z = 0 edge on the root (palette 1), z = 1 edge split between tip (0) and root
+        add(4, struct.pack("<8H", 1, 65535, 0, 0, 0, 0, 0, 0) * 2 + struct.pack("<8H", 0, 32768, 1, 32767, 0, 0, 0, 0) * 2)
+        ident = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        tip = ident[:14] + [-1, 1]  # column-major inverse bind of a joint at z = 1
+        pal = [[(1, ("table", [(0, ("u64", JOINT_TIP))])), (2, ("raw", struct.pack("<16f", *tip)))],
+               [(1, ("table", [(0, ("u64", JOINT_ROOT))])), (2, ("raw", struct.pack("<16f", *ident)))]]
+        geo.append((3, ("vec", pal)))
     return flatbuffer([(3, ("table", geo))], b"PMSH"), bytes(gb)
 
 
@@ -334,6 +369,10 @@ def build_parc(outdir):
     l_mhead = add(1, bytes(12), False)
     l_mmain = add(1, msh_main, False)
     l_mgbuf = add(1, msh_gbuf, True)
+    sk_main, sk_gbuf = pmsh_quad(skinned=True)
+    l_smain = add(1, sk_main, False)
+    l_sgbuf = add(0, sk_gbuf, False)
+    l_psks = add(1, psks_skeleton(), False)
 
     hashes = []
     for i, p in enumerate(packs):
@@ -350,6 +389,8 @@ def build_parc(outdir):
         (PMTR_ID, [("Main", 0, l_pmtr)]),
         (PFAB_ID, [("Main", 0, l_pfab)]),
         (0x0A0B0C0D0E0F1011, [("HEAD", 0, l_mhead), ("GBuf", 0, l_mgbuf), ("Main", 0, l_mmain)]),
+        (SKIN_MESH_ID, [("HEAD", 0, l_mhead), ("GBuf", 0, l_sgbuf), ("Main", 0, l_smain)]),
+        (PSKS_ID, [("Main", 0, l_psks)]),
     ]
     recs = []
     for aid, blocks in assets:

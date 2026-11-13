@@ -21,9 +21,14 @@ enumError DecodePTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *head,
 	const u8 *body, uint body_size, ccp *format_name);
 
 // PMSH mesh: the "Main" flatbuffer (".pmsh") plus its "GBuf" block (".pmsh.gbuf") -> model
-// (one mesh per submesh: positions, normals, UV0, colour 0). NULL when not decodable.
+// (one mesh per submesh: positions, normals, UV0, colour 0, skin). NULL when not decodable.
 bool IsPMSH (const u8 *data, uint size);
+// Skinned meshes (attribute 4) get a flat skeleton from the mesh's joint palette (name hashes +
+// inverse binds); PMSHApplySkeleton replaces it with the PSKS hierarchy when that skeleton has
+// every palette joint. Returns the matched joint count, 0 when the skeleton does not fit.
 model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n);
+bool IsPSKS (const u8 *data, uint size);
+uint PMSHApplySkeleton (model_t *model, const u8 *psks, uint psks_size);
 
 // Sygnus ".soundstream" (SOL-AVES sound engine, Kirby Air Riders): "SYGN" ... "STRM" header,
 // payload at 0x2c. Encrypted files (AES-192-ECB, key from the game) are decrypted in place.

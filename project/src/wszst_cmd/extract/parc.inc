@@ -276,6 +276,91 @@ static void pmsh_bind_textures (model_t *model, ccp arg, uint depth)
 	}
 }
 
+// "<dest>/skeletons.tsv": {joint name hash, PSKS id} rows sorted by joint, then skeleton.
+static struct
+{
+	char path[PATH_MAX];
+	u64 *rows;
+	uint n, cap;
+} pmsh_skel;
+
+static bool pmsh_skel_has (u64 joint, u64 skel)
+{
+	uint lo = 0, hi = pmsh_skel.n / 2;
+	while (lo < hi)
+	{
+		const uint mid = (lo + hi) / 2;
+		const u64 *r = pmsh_skel.rows + 2 * mid;
+		if (r[0] == joint && r[1] == skel)
+			return true;
+		if (r[0] < joint || (r[0] == joint && r[1] < skel))
+			lo = mid + 1;
+		else
+			hi = mid;
+	}
+	return false;
+}
+
+// Replace a skinned mesh's flat palette skeleton with the PSKS that defines all of its joints.
+static void pmsh_bind_skeleton (model_t *model, ccp dir)
+{
+	if (!model->num_joints)
+		return;
+	char tsv[PATH_MAX];
+	snprintf (tsv, sizeof (tsv), "%s/../skeletons.tsv", dir);
+	if (strcmp (pmsh_skel.path, tsv))
+	{
+		FREE (pmsh_skel.rows);
+		memset (&pmsh_skel, 0, sizeof (pmsh_skel));
+		snprintf (pmsh_skel.path, sizeof (pmsh_skel.path), "%s", tsv);
+		FILE *f = fopen (tsv, "r");
+		char line[128];
+		while (f && fgets (line, sizeof (line), f))
+		{
+			unsigned long long r[2];
+			if (line[0] != '#' && sscanf (line, "%16llx\t%16llx", r, r + 1) == 2)
+				pmsh_push (&pmsh_skel.rows, &pmsh_skel.n, &pmsh_skel.cap, (const u64 *)r, 2);
+		}
+		if (f)
+			fclose (f);
+	}
+	unsigned long long j0;
+	if (!pmsh_skel.n || sscanf (model->joints[0].name, "joint_%16llx", &j0) != 1)
+		return;
+	// candidates: every skeleton with the first palette joint; take the first that has them all
+	uint lo = 0, hi = pmsh_skel.n / 2;
+	while (lo < hi)
+	{
+		const uint mid = (lo + hi) / 2;
+		if (pmsh_skel.rows[2 * mid] < j0)
+			lo = mid + 1;
+		else
+			hi = mid;
+	}
+	for (uint i = lo; i < pmsh_skel.n / 2 && pmsh_skel.rows[2 * i] == j0; i++)
+	{
+		const u64 sk = pmsh_skel.rows[2 * i + 1];
+		bool all = true;
+		for (size_t k = 1; k < model->num_joints && all; k++)
+		{
+			unsigned long long jh;
+			all = sscanf (model->joints[k].name, "joint_%16llx", &jh) == 1 && pmsh_skel_has (jh, sk);
+		}
+		if (!all)
+			continue;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/../psks/%016llx.psks", dir, (unsigned long long)sk);
+		u8 *d = 0;
+		size_t n = 0;
+		if (LoadFileAlloc (path, 0, 0, &d, &n, 16u << 20, 2, 0, false))
+			continue;
+		const uint m = PMSHApplySkeleton (model, d, (uint)n);
+		FREE (d);
+		if (m)
+			return;
+	}
+}
+
 // phx PMSH mesh: "<id>.pmsh" (Main flatbuffer) + "<id>.pmsh.gbuf" -> "<id>.glb"
 static enumError extract_phx_pmsh_file (ccp arg, ccp basedir, uint depth)
 {
@@ -305,12 +390,22 @@ static enumError extract_phx_pmsh_file (ccp arg, ccp basedir, uint depth)
 		return depth > 0 ? ERR_WARNING : ERROR0 (ERR_INVALID_DATA, "PMSH: no geometry decoded: %s\n", arg);
 	beside_source_dest_ext (glb, sizeof (glb), arg, ".glb");
 	pmsh_bind_textures (model, arg, depth);
+	{
+		char dir[PATH_MAX];
+		snprintf (dir, sizeof (dir), "%s", arg);
+		char *sl = strrchr (dir, '/');
+		if (sl)
+			*sl = 0;
+		else
+			snprintf (dir, sizeof (dir), ".");
+		pmsh_bind_skeleton (model, dir);
+	}
 	size_t tris = 0;
 	for (size_t i = 0; i < model->num_meshes; i++)
 		tris += model->meshes[i].num_vertices / 3;
 	if (verbose >= 0 || testmode)
-		fprintf (stdlog, "%s%sDECODE PMSH:%s (%zu submeshes, %zu triangles) -> GLB:%s\n", verbose > 0 ? "\n" : "",
-			testmode ? "WOULD " : "", arg, model->num_meshes, tris, glb);
+		fprintf (stdlog, "%s%sDECODE PMSH:%s (%zu submeshes, %zu triangles, %zu joints) -> GLB:%s\n",
+			verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, model->num_meshes, tris, model->num_joints, glb);
 	if (!testmode)
 		ExportModelToGLB (model, glb);
 	FreeModel (model);
