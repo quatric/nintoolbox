@@ -536,6 +536,7 @@
 #include "extract/mh2_mls.inc"
 #include "extract/mh2_grf.inc"
 #include "extract/mh2_strmanim.inc"
+#include "extract/mh2_mat.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
