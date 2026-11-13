@@ -505,6 +505,7 @@
 #include "extract/gcax_bank.inc"
 #include "extract/ipck.inc"
 #include "extract/tdns.inc"
+#include "extract/betp_trace.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
