@@ -35,8 +35,8 @@ static enumError extract_nekogrp_file (ccp arg, ccp basedir, uint depth)
 			ok = i + 1 < n && size[i] == size[i + 1] && size[i] > 1000 && size[i] < 0x40000000;
 		if (ok)
 		{
-			uint rate = rd_be32 (head + offs[0] + 8 < sizeof (head) ? head + offs[0] + 8 : head);
-			if (offs[0] + 12 > sizeof (head) || rate < 8000 || rate > 96000)
+			uint rate = (u64)offs[0] + 12 <= sizeof (head) ? rd_be32 (head + offs[0] + 8) : 0;
+			if (rate < 8000 || rate > 96000)
 				rate = 48000;
 			char dest[PATH_MAX];
 			beside_source_dest (dest, sizeof (dest), arg);

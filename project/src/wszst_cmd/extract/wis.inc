@@ -389,7 +389,7 @@ static void wis_skeleton (ccp arg, ccp dest, ccp basedir, uint nc, uint no, cons
 		}
 		if (tl + 400 > cap)
 			break;
-		tl += snprintf (t + tl, cap - tl, "%s %.40s id=%08x parent=%08x(%s) pos %.5g %.5g %.5g quat %.5g %.5g %.5g %.5g scale %.5g %.5g %.5g bbox %.5g %.5g %.5g %.5g %.5g %.5g\n", names[ty], (ccp)h + 0x54, id, par, pn, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[12], f[13], f[14], f[15], f[16], f[17], f[18]), nn++;
+		tl += snprintf (t + tl, cap - tl, "%s %.40s id=%08x parent=%08x(%s) pos %.5g %.5g %.5g quat %.5g %.5g %.5g %.5g scale %.5g %.5g %.5g bbox %.5g %.5g %.5g %.5g %.5g %.5g\n", names[ty], (ccp)h + 0x54, id, par, pn, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[12], f[13], f[14], f[15], f[16], f[17]), nn++;
 	}
 	if (nn)
 	{
