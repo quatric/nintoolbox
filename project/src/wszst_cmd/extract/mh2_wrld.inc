@@ -114,10 +114,17 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		uint dst[256], nd = 0;
 		for (size_t t = q + 4 + (size_t)cnt * vs; t + 16 <= tend && nd < 256; t += 4)
 		{
-			if (rd_be32 (c + t + 8) != 0x01000000 || (rd_be32 (c + t + 12) >> 8) != 0x150100)
+			const bool marked = rd_be32 (c + t + 8) == 0x01000000 && (rd_be32 (c + t + 12) >> 8) == 0x150100;
+			if (!marked && (rd_be32 (c + t + 8) || rd_be32 (c + t + 12)))
 				continue;
 			const size_t dl = base + rd_be32 (c + t) + 0x1c, dsz = rd_be32 (c + t + 4);
-			if (!dsz || dl + dsz > cs)
+			if (!dsz || dsz % 32 || dl + dsz > cs)
+				continue;
+			bool dup = false;
+			for (uint e = 0; e < nd; e++)
+				if (dls[e] == dl)
+					dup = true;
+			if (dup)
 				continue;
 			const uint stride = mh2w_dl_stride (c, dl, dsz, cnt);
 			if (!stride)
