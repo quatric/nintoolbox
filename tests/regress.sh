@@ -7383,6 +7383,7 @@ assert r > 200 and g < 60 and bl < 60, ("edit did not survive", r, g, bl)
   && cmp -s "$d/archive-a/same.romc" "$d/archive-b/same.romc"; then
     bok "romc same ROM -> identical encoded bytes"
   else bno "romc canonical encoding" "two encodes differ"; fi
+  rm -rf "$d"   # ~6 GB (BCSAR extract + two creates); left behind it fills /tmp after a few runs
 }
 t_byte_exact_encoders
 
@@ -12033,7 +12034,7 @@ PYE
     fok "Proteus SDASSETF REF@ chunk alignment"
   else fno "Proteus SDASSETF REF@ chunk alignment" "walk lost sync after REF@"; fi
 
-  # Nintendo AST ("STRM") still goes to the media pass-through; an unrelated ".ast" ("S10S" audio bank) must not abort xx
+  # Nintendo AST ("STRM") decodes to WAV; an unrelated ".ast" ("S10S" audio bank) must not abort xx
   mkdir -p "$d/ast_pt_test"
   python3 - "$d/ast_pt_test/n.ast" "$d/ast_pt_test/s.ast" <<'PYE' >/dev/null 2>&1
 import struct, sys, math
@@ -12043,10 +12044,9 @@ hdr = b'STRM' + struct.pack('>I', len(pcm) + 0x20) + struct.pack('>HHHH', 1, 16,
 open(sys.argv[1], 'wb').write(hdr + b'BLCK' + struct.pack('>I', len(pcm)) + bytes(0x18) + pcm)
 open(sys.argv[2], 'wb').write(b'S10S' + bytes([4, 0x36, 0xdb, 0]) + bytes(0x38) + bytes(range(256)) * 8)
 PYE
-  if command -v mobipeg >/dev/null 2>&1; then
-    "$B/wszst" xx "$d/ast_pt_test/n.ast" --overwrite >/dev/null 2>&1
-    [ -s "$d/ast_pt_test/n.d/n.wav" ] && fok "Nintendo AST (STRM) media pass-through" || fno "Nintendo AST (STRM) media pass-through" "no n.d/n.wav"
-  fi
+  # decoded natively (nintendo_ast.inc) into the usual "<file>.d", no mobipeg needed
+  "$B/wszst" xx "$d/ast_pt_test/n.ast" --overwrite >/dev/null 2>&1
+  [ -s "$d/ast_pt_test/n.ast.d/n.wav" ] && fok "Nintendo AST (STRM) PCM16 decode" || fno "Nintendo AST (STRM) PCM16 decode" "no n.ast.d/n.wav"
   "$B/wszst" xx "$d/ast_pt_test/s.ast" --overwrite >/dev/null 2>&1; rc=$?
   { [ $rc = 0 ] || [ $rc = 4 ]; } && ! grep -q . <("$B/wszst" xx "$d/ast_pt_test/s.ast" 2>&1 | grep -i "mobipeg") \
     && fok "Unrelated .ast (S10S) is not sent to mobipeg" || fno "Unrelated .ast (S10S) is not sent to mobipeg" "rc=$rc"

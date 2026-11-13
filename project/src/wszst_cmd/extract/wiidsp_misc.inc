@@ -58,6 +58,13 @@ static enumError extract_wiidsp_misc_file (ccp arg, ccp basedir, uint depth)
 	}
 	else if (sfx && sz > 0x80)
 	{
+		// XEXPORT of a header extract_sfx_file accepts is its job (decoded WAV via GENH)
+		sfx_info_t si;
+		if (export_count > 0 && sz <= UINT_MAX && GetSFXInfo (raw, (uint)sz, &si))
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
 		const u32 ds = rd_le32 (raw), hs = rd_le32 (raw + 4);
 		const uint codec = raw[0xc] | raw[0xd] << 8, ch = raw[0xe] | raw[0xf] << 8;
 		if (ds && hs >= 0x5c && (u64)ds + hs == sz && !codec && ch == 1 && rd_le32 (raw + 0x18) == 0x00100000 && !rd_le32 (raw + 0x1c))

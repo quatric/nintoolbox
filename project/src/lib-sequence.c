@@ -428,6 +428,14 @@ static void seq_code_region (const u8 *data, size_t size, u64 start, u32 base_of
 	*code_size = n;
 }
 
+// SSEQ: DATA chunk at 0x10 {"DATA", u32 chunk size, u32 code offset}. Retail files count the code offset
+// from the start of the file (0x1C); files from older wseqt builds stored it relative to the chunk (0x0C).
+static void sseq_code_region (const u8 *data, size_t size, const u8 **code, size_t *code_size)
+{
+	const u32 base_off = read_le32 (data + 0x18), sec_size = read_le32 (data + 0x14);
+	seq_code_region (data, size, 0x10, base_off >= 0x1c ? base_off - 0x10 : base_off, sec_size, false, code, code_size);
+}
+
 typedef struct
 {
 	bool has_if;
@@ -829,12 +837,7 @@ enumError DisassembleSequence (char **out_text, size_t *out_size, const u8 *data
 	else if (size >= 0x10 && !memcmp (data, "SSEQ", 4))
 	{
 		if (size >= 0x1C && !memcmp (data + 0x10, "DATA", 4))
-		{
-			u32 base_off = read_le32 (data + 0x10 + 8);
-			u32 sec_size = read_le32 (data + 0x10 + 4);
-			// SSEQ: the data pointer counts from the start of the file (not from the DATA chunk)
-			seq_code_region (data, size, 0, base_off, sec_size, false, &code, &code_size);
-		}
+			sseq_code_region (data, size, &code, &code_size);
 	}
 	else if (size >= 12 && !memcmp (data, "DATA", 4))
 	{
@@ -2146,7 +2149,7 @@ enumError AssembleSequence (
 
 		memcpy (out + 0x10, "DATA", 4);
 		write_le32 (out + 0x14, data_sec_size);
-		write_le32 (out + 0x18, 0x0000000C);
+		write_le32 (out + 0x18, 0x0000001C); // code offset from the start of the file, as in retail SSEQ
 		memcpy (out + 0x10 + 12, code, code_len);
 	}
 	else if (target_fmt == SEQ_FMT_FSEQ_BE || target_fmt == SEQ_FMT_FSEQ_LE)
@@ -3119,12 +3122,7 @@ enumError SequenceToMIDIFrom (u8 **out_midi, size_t *out_size, const u8 *seq_dat
 	else if (seq_size >= 0x10 && !memcmp (seq_data, "SSEQ", 4))
 	{
 		if (seq_size >= 0x1C && !memcmp (seq_data + 0x10, "DATA", 4))
-		{
-			u32 base_off = read_le32 (seq_data + 0x10 + 8);
-			u32 sec_size = read_le32 (seq_data + 0x10 + 4);
-			seq_code_region (
-				seq_data, seq_size, 0, base_off, sec_size, false, &code, &code_size);
-		}
+			sseq_code_region (seq_data, seq_size, &code, &code_size);
 	}
 	else if (seq_size >= 12 && !memcmp (seq_data, "DATA", 4))
 	{
