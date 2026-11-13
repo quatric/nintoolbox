@@ -56,14 +56,14 @@ static enumError extract_ubi_ban_file (ccp arg, ccp basedir, uint depth)
 			// Key data (stride 0x50 clips): per joint, in record order, a block of 2 x s16 per frame for the `a` frames of a joint whose first count is above 1 (the root), then 3 x s16 per
 			// frame for `b` frames, padded to an even number of s16 (ordinary joints end with two zero s16 first). The sizes add up to the file size for almost every clip, which is the
 			// check applied here; the values are written raw (smooth 16-bit samples, units not verified).
-			if (!err && stride == 0x50)
+			if (!err && (stride == 0x50 || stride == 0x4c))
 			{
-				const size_t kb = 0x58 + nb * stride;
+				const size_t kb = 0x58 + nb * stride, ko = stride == 0x50 ? 0x24 : 0x20;
 				size_t need = 0;
 				for (size_t i = 0; i < nb; i++)
 				{
-					const u8 *r = raw + 0x58 + i * stride + 0x20;
-					const size_t ka = rd_le32 (r + 4), kf = rd_le32 (r + 8);
+					const u8 *r = raw + 0x58 + i * stride;
+					const size_t ka = rd_le32 (r + ko), kf = rd_le32 (r + ko + 4);
 					size_t v = ka > 1 && kf > 1 ? 2 * ka + 3 * kf : ka > 1 ? 2 * ka + 4 : 3 * kf + 2;
 					need += (v + (v & 1)) * 2;
 				}
@@ -74,7 +74,7 @@ static enumError extract_ubi_ban_file (ccp arg, ccp basedir, uint depth)
 					for (size_t i = 0; i < nb; i++)
 					{
 						const u8 *r = raw + 0x58 + i * stride;
-						const size_t ka = rd_le32 (r + 0x24), kf = rd_le32 (r + 0x28);
+						const size_t ka = rd_le32 (r + ko), kf = rd_le32 (r + ko + 4);
 						size_t v = ka > 1 && kf > 1 ? 2 * ka + 3 * kf : ka > 1 ? 2 * ka + 4 : 3 * kf + 2;
 						v += v & 1;
 						if (ka > 1)
