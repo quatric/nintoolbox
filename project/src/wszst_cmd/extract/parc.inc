@@ -301,29 +301,33 @@ static bool pmsh_skel_has (u64 joint, u64 skel)
 	return false;
 }
 
+static void pmsh_skel_load (ccp dir)
+{
+	char tsv[PATH_MAX];
+	snprintf (tsv, sizeof (tsv), "%s/../skeletons.tsv", dir);
+	if (!strcmp (pmsh_skel.path, tsv))
+		return;
+	FREE (pmsh_skel.rows);
+	memset (&pmsh_skel, 0, sizeof (pmsh_skel));
+	snprintf (pmsh_skel.path, sizeof (pmsh_skel.path), "%s", tsv);
+	FILE *f = fopen (tsv, "r");
+	char line[128];
+	while (f && fgets (line, sizeof (line), f))
+	{
+		unsigned long long r[2];
+		if (line[0] != '#' && sscanf (line, "%16llx\t%16llx", r, r + 1) == 2)
+			pmsh_push (&pmsh_skel.rows, &pmsh_skel.n, &pmsh_skel.cap, (const u64 *)r, 2);
+	}
+	if (f)
+		fclose (f);
+}
+
 // Replace a skinned mesh's flat palette skeleton with the PSKS that defines all of its joints.
 static void pmsh_bind_skeleton (model_t *model, ccp dir)
 {
 	if (!model->num_joints)
 		return;
-	char tsv[PATH_MAX];
-	snprintf (tsv, sizeof (tsv), "%s/../skeletons.tsv", dir);
-	if (strcmp (pmsh_skel.path, tsv))
-	{
-		FREE (pmsh_skel.rows);
-		memset (&pmsh_skel, 0, sizeof (pmsh_skel));
-		snprintf (pmsh_skel.path, sizeof (pmsh_skel.path), "%s", tsv);
-		FILE *f = fopen (tsv, "r");
-		char line[128];
-		while (f && fgets (line, sizeof (line), f))
-		{
-			unsigned long long r[2];
-			if (line[0] != '#' && sscanf (line, "%16llx\t%16llx", r, r + 1) == 2)
-				pmsh_push (&pmsh_skel.rows, &pmsh_skel.n, &pmsh_skel.cap, (const u64 *)r, 2);
-		}
-		if (f)
-			fclose (f);
-	}
+	pmsh_skel_load (dir);
 	unsigned long long j0;
 	if (!pmsh_skel.n || sscanf (model->joints[0].name, "joint_%16llx", &j0) != 1)
 		return;
@@ -410,4 +414,160 @@ static enumError extract_phx_pmsh_file (ccp arg, ccp basedir, uint depth)
 		ExportModelToGLB (model, glb);
 	FreeModel (model);
 	return ERR_OK;
+}
+
+// phx PANM animation: "<id>.panm" -> "<id>.glb" holding the skeleton (the PSKS from skeletons.tsv
+// that has the most animated joints) and the clip.
+static enumError extract_phx_panm_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	if (!is_ext (arg, ".panm"))
+		return ERR_NOTHING_TO_DO;
+	u8 *d = 0;
+	size_t n = 0;
+	if (LoadFileAlloc (arg, 0, 0, &d, &n, 64u << 20, 2, 0, false))
+		return ERR_NOTHING_TO_DO;
+	if (!IsPANM (d, (uint)n))
+	{
+		FREE (d);
+		return ERR_NOTHING_TO_DO;
+	}
+	char dir[PATH_MAX], glb[PATH_MAX];
+	snprintf (dir, sizeof (dir), "%s", arg);
+	char *sl = strrchr (dir, '/');
+	if (sl)
+		*sl = 0;
+	else
+		snprintf (dir, sizeof (dir), ".");
+	u64 *tg = 0;
+	const uint nt = PANMTargets (d, (uint)n, &tg);
+	u64 best = 0;
+	uint best_n = 0;
+	pmsh_skel_load (dir);
+	for (uint t = 0; t < nt && t < 8 && pmsh_skel.n; t++)
+	{
+		// candidates: the skeletons of the first few targets
+		uint lo = 0, hi = pmsh_skel.n / 2;
+		while (lo < hi)
+		{
+			const uint mid = (lo + hi) / 2;
+			if (pmsh_skel.rows[2 * mid] < tg[t])
+				lo = mid + 1;
+			else
+				hi = mid;
+		}
+		for (uint i = lo; i < pmsh_skel.n / 2 && pmsh_skel.rows[2 * i] == tg[t]; i++)
+		{
+			const u64 sk = pmsh_skel.rows[2 * i + 1];
+			uint m = 0;
+			for (uint k = 0; k < nt; k++)
+				m += pmsh_skel_has (tg[k], sk);
+			if (m > best_n)
+				best_n = m, best = sk;
+		}
+	}
+	FREE (tg);
+	u8 *sk = 0;
+	size_t sk_n = 0;
+	if (best_n)
+	{
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/../psks/%016llx.psks", dir, (unsigned long long)best);
+		if (LoadFileAlloc (path, 0, 0, &sk, &sk_n, 16u << 20, 2, 0, false))
+			sk = 0;
+	}
+	char name[64];
+	const char *base = strrchr (arg, '/');
+	snprintf (name, sizeof (name), "%s", base ? base + 1 : arg);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	uint matched = 0;
+	model_t *model = DecodePANM (d, (uint)n, sk, (uint)sk_n, name, &matched);
+	if (model && sk && matched < nt / 2)
+	{
+		// the best skeleton covers too little: keep every channel on flat joints instead
+		FreeModel (model);
+		model = DecodePANM (d, (uint)n, 0, 0, name, &matched);
+		best_n = 0;
+	}
+	FREE (d);
+	FREE (sk);
+	if (!model)
+		return depth > 0 ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "PANM: no transform channels: %s\n", arg);
+	beside_source_dest_ext (glb, sizeof (glb), arg, ".glb");
+	if (verbose >= 0 || testmode)
+	{
+		fprintf (stdlog, "%s%sDECODE PANM:%s (%u channels, %zu joints", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, matched, model->num_joints);
+		if (best_n)
+			fprintf (stdlog, ", skeleton %016llx", (unsigned long long)best);
+		fprintf (stdlog, ") -> GLB:%s\n", glb);
+	}
+	if (!testmode)
+		ExportModelToGLB (model, glb);
+	FreeModel (model);
+	return ERR_OK;
+}
+
+// Kirby Air Riders "engine_bin" files: "startup.dat" (obfuscated MessagePack mount table) -> "startup.json",
+// "Bin/config.bin" beside a "Prism_SB" schema.bin -> "config.prism" (the deobfuscated Prism data).
+static enumError extract_phx_engine_bin_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir;
+	(void)depth;
+	ccp base = strrchr (arg, '/');
+	base = base ? base + 1 : arg;
+	const bool startup = !strcasecmp (base, "startup.dat"), config = !strcasecmp (base, "config.bin");
+	if (!startup && !config)
+		return ERR_NOTHING_TO_DO;
+	if (config)
+	{
+		char schema[PATH_MAX];
+		snprintf (schema, sizeof (schema), "%.*sschema.bin", (int)(base - arg), arg);
+		FILE *sf = fopen (schema, "rb");
+		char magic[8] = "";
+		const bool ok = sf && fread (magic, 1, 8, sf) == 8 && !memcmp (magic, "Prism_SB", 8);
+		if (sf)
+			fclose (sf);
+		if (!ok)
+			return ERR_NOTHING_TO_DO;
+	}
+	u8 *d = 0;
+	size_t n = 0;
+	if (LoadFileAlloc (arg, 0, 0, &d, &n, 64u << 20, 2, 0, false) || n < 2)
+	{
+		FREE (d);
+		return ERR_NOTHING_TO_DO;
+	}
+	u8 *dec = MALLOC (n);
+	const uint m = dec ? PhxDeobfuscate (dec, d, (uint)n) : 0;
+	FREE (d);
+	if (!m || (startup && !PhxMsgpackToJSON (0, dec, m)))
+	{
+		FREE (dec);
+		return ERR_NOTHING_TO_DO;
+	}
+	char out[PATH_MAX];
+	beside_source_dest_ext (out, sizeof (out), arg, startup ? ".json" : ".prism");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sDECODE PHX ENGINE_BIN:%s (%u bytes) -> %s:%s\n", verbose > 0 ? "\n" : "",
+			testmode ? "WOULD " : "", arg, m, startup ? "JSON" : "PRISM", out);
+	enumError err = ERR_OK;
+	if (!testmode)
+	{
+		FILE *f = fopen (out, startup ? "w" : "wb");
+		if (!f)
+			err = ERROR1 (ERR_CANT_CREATE, "Can't create file: %s\n", out);
+		else
+		{
+			if (startup)
+				PhxMsgpackToJSON (f, dec, m);
+			else
+				fwrite (dec, 1, m, f);
+			fclose (f);
+		}
+	}
+	FREE (dec);
+	return err;
 }

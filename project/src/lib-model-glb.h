@@ -338,6 +338,10 @@ typedef struct
 
 	// BRRES MDL0 metadata (see mdl0_meta_t); NULL for other formats.
 	mdl0_meta_t *mdl0_meta;
+
+	// Emit a glTF skin over all joints even without a skinned mesh, so importers build an
+	// armature for a skeleton-only animation file.
+	uint8_t skeleton_skin;
 } model_t;
 
 

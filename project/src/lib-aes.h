@@ -34,4 +34,7 @@ void AES128_CTR_Crypt (const uint8_t key[16], const uint8_t iv[16], uint8_t *dat
 // trailing partial block is left as is).
 void AES192_ECB_Decrypt (const uint8_t key[24], uint8_t *data, size_t size);
 
+// The AES inverse S-box (256 entries).
+const uint8_t *AES_InvSbox (void);
+
 #endif

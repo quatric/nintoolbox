@@ -974,9 +974,12 @@ bool IsPSKS (const u8 *data, uint size)
 
 // PSKS skeleton: f3.f1 = joints {f2 {u64 name hash}, f4 u16 parent index (0xffff = root),
 // f5 translation {x,y,z}, f6 rotation quaternion {x,y,z,w} (all zero = identity), f7 scale}.
-uint PMSHApplySkeleton (model_t *model, const u8 *d, uint n)
+// PSKS joints -> joint_t: name "joint_<hash>", parent, local TRS (rotate = XYZ Euler degrees, R = Rz Ry Rx)
+// and the absolute bind matrix with its inverse.
+static joint_t *psks_joints (const u8 *d, uint n, uint *count)
 {
-	if (!model || !model->num_joints || !IsPSKS (d, n))
+	*count = 0;
+	if (!IsPSKS (d, n))
 		return 0;
 	const uint sk = fb_ref (d, n, le32 (d), 3);
 	uint nj = 0;
@@ -984,10 +987,8 @@ uint PMSHApplySkeleton (model_t *model, const u8 *d, uint n)
 	if (!jv || !nj || nj > 4096)
 		return 0;
 	joint_t *js = CALLOC (nj, sizeof (*js));
-	int *remap = MALLOC (model->num_joints * sizeof (int));
-	uint matched = 0;
-	if (!js || !remap)
-		goto out;
+	if (!js)
+		return 0;
 	for (uint i = 0; i < nj; i++)
 	{
 		joint_t *j = js + i;
@@ -1017,13 +1018,39 @@ uint PMSHApplySkeleton (model_t *model, const u8 *d, uint n)
 			(float)(1 - 2 * (x * x + z * z)) * s[1], (float)(2 * (y * z - x * w)) * s[2], tr[1],
 			(float)(2 * (x * z - y * w)) * s[0], (float)(2 * (y * z + x * w)) * s[1],
 			(float)(1 - 2 * (x * x + y * y)) * s[2], tr[2] };
-		j->scale = (vec3_t){ 1, 1, 1 };
+		j->translate = (vec3_t){ tr[0], tr[1], tr[2] };
+		j->scale = (vec3_t){ s[0], s[1], s[2] };
+		const double r20 = 2 * (x * z - y * w), r21 = 2 * (y * z + x * w), r22 = 1 - 2 * (x * x + y * y),
+					 r10 = 2 * (x * y + z * w), r00 = 1 - 2 * (y * y + z * z);
+		if (fabs (r20) < 0.999999)
+			j->rotate = (vec3_t){ (float)(atan2 (r21, r22) * 180 / M_PI), (float)(asin (-r20) * 180 / M_PI),
+				(float)(atan2 (r10, r00) * 180 / M_PI) };
+		else
+		{
+			// gimbal lock (pitch +-90): fold the yaw into roll
+			const double r01 = 2 * (x * y - z * w), r02 = 2 * (x * z + y * w);
+			j->rotate = r20 < 0 ? (vec3_t){ (float)(atan2 (r01, r02) * 180 / M_PI), 90, 0 }
+								: (vec3_t){ (float)(atan2 (-r01, -r02) * 180 / M_PI), -90, 0 };
+		}
 		if (j->parent_idx >= 0)
 			pmsh_mul43 (j->bind, js[j->parent_idx].bind, local);
 		else
 			memcpy (j->bind, local, sizeof (local));
 		j->has_inverse_bind = pmsh_invert43 (j->inverse_bind, j->bind);
 	}
+	*count = nj;
+	return js;
+}
+
+uint PMSHApplySkeleton (model_t *model, const u8 *d, uint n)
+{
+	if (!model || !model->num_joints)
+		return 0;
+	uint nj = 0, matched = 0;
+	joint_t *js = psks_joints (d, n, &nj);
+	int *remap = js ? MALLOC (model->num_joints * sizeof (int)) : 0;
+	if (!js || !remap)
+		goto out;
 	for (uint p = 0; p < model->num_joints; p++)
 	{
 		remap[p] = -1;
@@ -1210,6 +1237,477 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 		return 0;
 	}
 	return model;
+}
+
+//-----------------------------------------------------------------------------
+// PANM animation (Main flatbuffer). root.f3 = {f1 u32 last frame, f2 f32 fps, f5 groups {f2 targets
+// {f1 {u64 target name hash}, f2 channels {f1 {u64 property hash}, f2 u8 value type, f3 u8 kind,
+// f4 u32 keys, f6 u32 offset, f7 u32 size}}}, f6 u32 blob file offset, f7 u32 blob size}.
+// Value type 1 is a transform: 10 floats {scale xyz, rotation xyzw, translation xyz}. Kind 2 stores
+// them as a constant; kind 3 is a quantized key stream:
+//   +0 u16 version, +2 u16 flags (1 scale, 2 uniform scale, 4 rotation, 8 translation, 16 flag bit),
+//   +4 u16 offset of the reference transform, +6 u16 bits per key, +8 u32 key data offset, +12 u32 keys,
+//   +16 9 x {f32 min, f32 max, u16 bits, pad} for scale xyz, rotation xyz, translation xyz.
+// Each key packs, LSB first, the present components (min + (max - min) * v / (2^bits - 1); a zero-width
+// component keeps the reference value), then for rotation a sign bit for w = +-sqrt(1 - x^2-y^2-z^2).
+
+bool IsPANM (const u8 *data, uint size)
+{
+	return data && size >= 0x20 && !memcmp (data + 4, "PANM", 4) && le32 (data) < size;
+}
+
+static u32 panm_bits (const u8 *b, uint bn, uint pos, uint bits)
+{
+	u64 v = 0;
+	for (uint k = 0; k < 5; k++)
+		if ((pos >> 3) + k < bn)
+			v |= (u64)b[(pos >> 3) + k] << (8 * k);
+	return (u32)(v >> (pos & 7)) & (u32)((1ull << bits) - 1);
+}
+
+static bool panm_sample (const u8 *b, uint bn, uint key, float out[10])
+{
+	if (bn < 16 + 9 * 16)
+		return false;
+	const uint flags = le16 (b + 2), ref = le16 (b + 4), bpk = le16 (b + 6);
+	if ((u64)ref + 40 > bn)
+		return false;
+	for (uint i = 0; i < 10; i++)
+		out[i] = lef4 (b + ref + 4 * i);
+	uint pos = bpk * key + le32 (b + 8) * 8;
+	float v;
+#define PANM_READ(rec, dst)                                                                                         \
+	do                                                                                                              \
+	{                                                                                                               \
+		const u8 *r_ = b + 16 + 16 * (rec);                                                                         \
+		const uint bits_ = le16 (r_ + 8);                                                                           \
+		if (bits_ && bits_ <= 32)                                                                                   \
+		{                                                                                                           \
+			v = (float)(lef4 (r_) + ((double)lef4 (r_ + 4) - lef4 (r_)) * panm_bits (b, bn, pos, bits_)          \
+					/ (double)((1ull << bits_) - 1));                                                               \
+			pos += bits_;                                                                                           \
+			dst = v;                                                                                                \
+		}                                                                                                           \
+	} while (0)
+	if (flags & 1)
+	{
+		if (flags & 2)
+		{
+			float u = out[0];
+			PANM_READ (0, u);
+			out[0] = out[1] = out[2] = u;
+		}
+		else
+			for (uint i = 0; i < 3; i++)
+				PANM_READ (i, out[i]);
+	}
+	if (flags & 4)
+		for (uint i = 0; i < 3; i++)
+			PANM_READ (3 + i, out[3 + i]);
+	if (flags & 8)
+		for (uint i = 0; i < 3; i++)
+			PANM_READ (6 + i, out[7 + i]);
+#undef PANM_READ
+	if (flags & 4)
+	{
+		const double x = out[3], y = out[4], z = out[5], w2 = 1 - (x * x + y * y + z * z);
+		double w = w2 > 0 ? sqrt (w2) : 0;
+		if (panm_bits (b, bn, pos, 1))
+			w = -w;
+		const double qn = sqrt (x * x + y * y + z * z + w * w);
+		if (qn > 1e-9)
+		{
+			out[3] = (float)(x / qn);
+			out[4] = (float)(y / qn);
+			out[5] = (float)(z / qn);
+			out[6] = (float)(w / qn);
+		}
+	}
+	return true;
+}
+
+typedef struct panm_chan_t
+{
+	u64 target;
+	uint kind, keys;
+	const u8 *b;
+	uint bn;
+} panm_chan_t;
+
+// Transform channels of a PANM; returns the count (array in *out), 0 when none.
+static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps)
+{
+	*out = 0;
+	if (!IsPANM (d, n))
+		return 0;
+	const uint a = fb_ref (d, n, le32 (d), 3);
+	if (!a)
+		return 0;
+	const uint fp = fb_field (d, n, a, 2, 4);
+	*fps = fp && lef4 (d + fp) > 0 && lef4 (d + fp) < 1000 ? lef4 (d + fp) : 30.0f;
+	const u32 blob = fb_u32 (d, n, a, 6, 0), blob_n = fb_u32 (d, n, a, 7, 0);
+	if ((u64)blob + blob_n > n)
+		return 0;
+	uint ng = 0, cnt = 0, cap = 0;
+	const uint gv = fb_vec (d, n, a, 5, &ng);
+	for (uint g = 0; gv && g < ng; g++)
+	{
+		const uint gt = fb_vec_table (d, n, gv, g);
+		uint nt = 0;
+		const uint tv = gt ? fb_vec (d, n, gt, 2, &nt) : 0;
+		for (uint t = 0; tv && t < nt; t++)
+		{
+			const uint tt = fb_vec_table (d, n, tv, t), nm = tt ? fb_ref (d, n, tt, 1) : 0;
+			const uint hp = nm ? fb_field (d, n, nm, 0, 8) : 0;
+			uint nc = 0;
+			const uint cv = tt ? fb_vec (d, n, tt, 2, &nc) : 0;
+			for (uint c = 0; hp && cv && c < nc; c++)
+			{
+				const uint ct = fb_vec_table (d, n, cv, c), tp = ct ? fb_field (d, n, ct, 2, 1) : 0;
+				const uint kp = ct ? fb_field (d, n, ct, 3, 1) : 0;
+				if (!tp || d[tp] != 1 || !kp)
+					continue;
+				const u32 off = fb_u32 (d, n, ct, 6, 0), sz = fb_u32 (d, n, ct, 7, 0);
+				if ((u64)off + sz > blob_n || sz < 40)
+					continue;
+				if (cnt == cap)
+				{
+					cap = cap ? cap * 2 : 64;
+					panm_chan_t *nn = REALLOC (*out, cap * sizeof (**out));
+					if (!nn)
+						return cnt;
+					*out = nn;
+				}
+				panm_chan_t *pc = *out + cnt++;
+				pc->target = le64 (d + hp);
+				pc->kind = d[kp];
+				pc->keys = d[kp] == 3 && sz >= 16 ? le32 (d + blob + off + 12) : 1;
+				pc->b = d + blob + off;
+				pc->bn = sz;
+				if (pc->kind == 3 && (sz < 16 + 9 * 16 || !pc->keys || pc->keys > 1u << 20))
+					cnt--;
+			}
+		}
+	}
+	if (!cnt)
+	{
+		FREE (*out);
+		*out = 0;
+	}
+	return cnt;
+}
+
+uint PANMTargets (const u8 *d, uint n, u64 **targets)
+{
+	panm_chan_t *ch = 0;
+	float fps;
+	const uint nc = panm_channels (d, n, &ch, &fps);
+	*targets = nc ? MALLOC (nc * sizeof (u64)) : 0;
+	uint k = 0;
+	for (uint i = 0; *targets && i < nc; i++)
+		(*targets)[k++] = ch[i].target;
+	FREE (ch);
+	return k;
+}
+
+model_t *DecodePANM (const u8 *d, uint n, const u8 *psks, uint psks_n, ccp name, uint *matched)
+{
+	*matched = 0;
+	panm_chan_t *ch = 0;
+	float fps = 30;
+	const uint nc = panm_channels (d, n, &ch, &fps);
+	if (!nc)
+		return 0;
+	model_t *model = CALLOC (1, sizeof (*model));
+	uint nj = 0;
+	joint_t *js = psks ? psks_joints (psks, psks_n, &nj) : 0;
+	if (!js)
+	{
+		// no skeleton: one flat joint per animated target
+		js = CALLOC (nc, sizeof (*js));
+		for (uint i = 0; js && i < nc; i++)
+		{
+			uint k = 0;
+			while (k < nj && strtoull (js[k].name + 6, 0, 16) != ch[i].target)
+				k++;
+			if (k < nj)
+				continue;
+			joint_t *j = js + nj++;
+			pmsh_joint_name (j->name, sizeof (j->name), ch[i].target);
+			j->parent_idx = -1;
+			j->scale = (vec3_t){ 1, 1, 1 };
+		}
+	}
+	model_anim_channel_t *ac = CALLOC ((size_t)nc * 3, sizeof (*ac));
+	if (!model || !js || !ac)
+		goto fail;
+	// a skin without a mesh makes importers build an armature; the binds stay so the rest pose is right
+	model->skeleton_skin = 1;
+	model->joints = js;
+	model->num_joints = nj;
+	js = 0;
+	model->animations = CALLOC (1, sizeof (*model->animations));
+	if (!model->animations)
+		goto fail;
+	model->num_animations = 1;
+	model_animation_t *an = model->animations;
+	snprintf (an->name, sizeof (an->name), "%s", name ? name : "panm");
+	an->channels = ac;
+	uint na = 0;
+	for (uint i = 0; i < nc; i++)
+	{
+		char jn[64];
+		pmsh_joint_name (jn, sizeof (jn), ch[i].target);
+		int node = -1;
+		for (uint k = 0; k < model->num_joints && node < 0; k++)
+			if (!strcmp (model->joints[k].name, jn))
+				node = (int)k;
+		if (node < 0)
+			continue;
+		(*matched)++;
+		const uint keys = ch[i].keys;
+		float *tm = MALLOC (keys * sizeof (float)), *tv = MALLOC (keys * 3 * sizeof (float)),
+			  *rv = MALLOC (keys * 4 * sizeof (float)), *sv = MALLOC (keys * 3 * sizeof (float));
+		float *t2 = MALLOC (keys * sizeof (float)), *t3 = MALLOC (keys * sizeof (float));
+		if (!tm || !tv || !rv || !sv || !t2 || !t3)
+		{
+			FREE (tm), FREE (tv), FREE (rv), FREE (sv), FREE (t2), FREE (t3);
+			continue;
+		}
+		for (uint k = 0; k < keys; k++)
+		{
+			float o[10];
+			if (ch[i].kind == 3)
+				panm_sample (ch[i].b, ch[i].bn, k, o);
+			else
+				for (uint c = 0; c < 10; c++)
+					o[c] = lef4 (ch[i].b + 4 * c);
+			tm[k] = t2[k] = t3[k] = k / fps;
+			memcpy (sv + 3 * k, o, 3 * sizeof (float));
+			memcpy (rv + 4 * k, o + 3, 4 * sizeof (float));
+			memcpy (tv + 3 * k, o + 7, 3 * sizeof (float));
+		}
+		ac[na++] = (model_anim_channel_t){ node, MODEL_ANIM_TRANSLATION, tm, tv, keys, 3 };
+		ac[na++] = (model_anim_channel_t){ node, MODEL_ANIM_ROTATION, t2, rv, keys, 4 };
+		ac[na++] = (model_anim_channel_t){ node, MODEL_ANIM_SCALE, t3, sv, keys, 3 };
+	}
+	an->num_channels = na;
+	FREE (ch);
+	if (!na)
+	{
+		FreeModel (model);
+		return 0;
+	}
+	return model;
+fail:
+	FREE (ch);
+	FREE (js);
+	if (model && !model->animations)
+		FREE (ac);
+	FreeModel (model);
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
+// Kirby Air Riders "engine_bin" obfuscation (startup.dat, Bin/config.bin): out[i] = InvSbox[in[i] ^ in[i+1]],
+// one byte shorter than the input. startup.dat then holds MessagePack values (mount table: directory ->
+// 128-bit digest, labels -> "engine_bin:/..." targets); config.bin holds "Prism" data for Bin/schema.bin.
+
+uint PhxDeobfuscate (u8 *out, const u8 *in, uint n)
+{
+	const u8 *t = AES_InvSbox ();
+	for (uint i = 0; i + 1 < n; i++)
+		out[i] = t[in[i] ^ in[i + 1]];
+	return n ? n - 1 : 0;
+}
+
+static bool mp_json (FILE *f, const u8 *d, uint n, uint *pos, uint depth)
+{
+#define MP_NEED(k) \
+	if (*pos + (k) > n) \
+		return false
+	if (depth > 64)
+		return false;
+	MP_NEED (1);
+	const u8 b = d[(*pos)++];
+	u64 len = 0;
+	uint kind; // 0 str, 1 bin, 2 array, 3 map, 4 ext
+	if (b <= 0x7f)
+	{
+		if (f)
+			fprintf (f, "%u", b);
+		return true;
+	}
+	if (b >= 0xe0)
+	{
+		if (f)
+			fprintf (f, "%d", (s8)b);
+		return true;
+	}
+	if ((b & 0xe0) == 0xa0)
+		kind = 0, len = b & 31;
+	else if ((b & 0xf0) == 0x90)
+		kind = 2, len = b & 15;
+	else if ((b & 0xf0) == 0x80)
+		kind = 3, len = b & 15;
+	else
+		switch (b)
+		{
+		case 0xc0:
+			if (f)
+				fputs ("null", f);
+			return true;
+		case 0xc2:
+		case 0xc3:
+			if (f)
+				fputs (b == 0xc3 ? "true" : "false", f);
+			return true;
+		case 0xc4: case 0xc5: case 0xc6: case 0xd9: case 0xda: case 0xdb:
+		{
+			const uint w = (b == 0xc4 || b == 0xd9) ? 1 : (b == 0xc5 || b == 0xda) ? 2 : 4;
+			MP_NEED (w);
+			len = w == 1 ? d[*pos] : w == 2 ? be16 (d + *pos) : be32 (d + *pos);
+			*pos += w;
+			kind = b >= 0xd9 ? 0 : 1;
+			break;
+		}
+		case 0xdc: case 0xdd: case 0xde: case 0xdf:
+		{
+			const uint w = (b == 0xdc || b == 0xde) ? 2 : 4;
+			MP_NEED (w);
+			len = w == 2 ? be16 (d + *pos) : be32 (d + *pos);
+			*pos += w;
+			kind = b <= 0xdd ? 2 : 3;
+			break;
+		}
+		case 0xca:
+			MP_NEED (4);
+			if (f)
+			{
+				const u32 u = be32 (d + *pos);
+				float v;
+				memcpy (&v, &u, 4);
+				fprintf (f, "%.9g", v);
+			}
+			*pos += 4;
+			return true;
+		case 0xcb:
+			MP_NEED (8);
+			if (f)
+			{
+				const u64 u = be64 (d + *pos);
+				double v;
+				memcpy (&v, &u, 8);
+				fprintf (f, "%.17g", v);
+			}
+			*pos += 8;
+			return true;
+		case 0xcc: case 0xcd: case 0xce: case 0xcf: case 0xd0: case 0xd1: case 0xd2: case 0xd3:
+		{
+			const uint w = 1u << (b & 3);
+			MP_NEED (w);
+			u64 u = 0;
+			for (uint k = 0; k < w; k++)
+				u = u << 8 | d[*pos + k];
+			*pos += w;
+			if (f)
+			{
+				if (b >= 0xd0)
+				{
+					const s64 sv = w == 8 ? (s64)u : (s64)(u ^ (1ull << (8 * w - 1))) - (s64)(1ull << (8 * w - 1));
+					fprintf (f, "%lld", (long long)sv);
+				}
+				else
+					fprintf (f, "%llu", (unsigned long long)u);
+			}
+			return true;
+		}
+		case 0xd4: case 0xd5: case 0xd6: case 0xd7: case 0xd8:
+			kind = 4, len = 1u << (b - 0xd4);
+			MP_NEED (1);
+			(*pos)++; // ext type
+			break;
+		case 0xc7: case 0xc8: case 0xc9:
+		{
+			const uint w = 1u << (b - 0xc7);
+			MP_NEED (w + 1);
+			len = w == 1 ? d[*pos] : w == 2 ? be16 (d + *pos) : be32 (d + *pos);
+			*pos += w + 1;
+			kind = 4;
+			break;
+		}
+		default:
+			return false;
+		}
+	if (kind <= 1 || kind == 4)
+	{
+		MP_NEED (len);
+		if (f)
+		{
+			fputc ('"', f);
+			for (u64 k = 0; k < len; k++)
+			{
+				const u8 c = d[*pos + k];
+				if (kind)
+					fprintf (f, "%02x", c);
+				else if (c == '"' || c == '\\')
+					fprintf (f, "\\%c", c);
+				else if (c < 0x20)
+					fprintf (f, "\\u%04x", c);
+				else
+					fputc (c, f);
+			}
+			fputc ('"', f);
+		}
+		*pos += (uint)len;
+		return true;
+	}
+	if (len > n)
+		return false;
+	if (f)
+		fputc (kind == 2 ? '[' : '{', f);
+	for (u64 k = 0; k < len; k++)
+	{
+		if (f && k)
+			fputs (", ", f);
+		if (!mp_json (f, d, n, pos, depth + 1))
+			return false;
+		if (kind == 3)
+		{
+			if (f)
+				fputs (": ", f);
+			if (!mp_json (f, d, n, pos, depth + 1))
+				return false;
+		}
+	}
+	if (f)
+		fputc (kind == 2 ? ']' : '}', f);
+	return true;
+#undef MP_NEED
+}
+
+bool PhxMsgpackToJSON (FILE *f, const u8 *d, uint n)
+{
+	// a sequence of top-level values -> JSON array; validate first, then write
+	uint pos = 0, cnt = 0;
+	while (pos < n)
+	{
+		if (!mp_json (0, d, n, &pos, 0))
+			return false;
+		cnt++;
+	}
+	if (!cnt || !f)
+		return cnt > 0;
+	fputs ("[\n  ", f);
+	pos = 0;
+	for (uint i = 0; pos < n; i++)
+	{
+		if (i)
+			fputs (",\n  ", f);
+		mp_json (f, d, n, &pos, 0);
+	}
+	fputs ("\n]\n", f);
+	return true;
 }
 
 //-----------------------------------------------------------------------------

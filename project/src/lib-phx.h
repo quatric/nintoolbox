@@ -30,6 +30,18 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 bool IsPSKS (const u8 *data, uint size);
 uint PMSHApplySkeleton (model_t *model, const u8 *psks, uint psks_size);
 
+// PANM animation (".panm"): transform channels keyed by joint-name hash -> glTF animation on the
+// PSKS skeleton's joints (or on flat joints, one per target, when PSKS is NULL). *matched counts the
+// channels that found their joint.
+bool IsPANM (const u8 *data, uint size);
+uint PANMTargets (const u8 *data, uint size, u64 **targets);
+model_t *DecodePANM (const u8 *data, uint size, const u8 *psks, uint psks_size, ccp name, uint *matched);
+
+// "engine_bin" obfuscation (startup.dat, Bin/config.bin): out[i] = AES InvSbox[in[i] ^ in[i+1]], n-1 bytes.
+uint PhxDeobfuscate (u8 *out, const u8 *in, uint size);
+// A sequence of MessagePack values as a JSON array; false (nothing written) when it does not parse.
+bool PhxMsgpackToJSON (FILE *f, const u8 *data, uint size);
+
 // Sygnus ".soundstream" (SOL-AVES sound engine, Kirby Air Riders): "SYGN" ... "STRM" header,
 // payload at 0x2c. Encrypted files (AES-192-ECB, key from the game) are decrypted in place.
 #define SYGNUS_PAYLOAD 0x2c

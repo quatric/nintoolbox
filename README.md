@@ -274,6 +274,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **NUSKTB** | `.nusktb` | *(text dump)* | *Super Smash Bros. Ultimate* |
 | **PERS** | `.pers` | *(raw payload)* | N64 |
 | **PMSH (phx)** | `.pmsh` + `.pmsh.gbuf` (from PARC) | **GLB** | *Kirby Air Riders* |
+| **PANM (phx)** | `.panm` (from PARC) | **GLB** (skeleton + animation) | *Kirby Air Riders* |
+| **engine_bin (phx)** | `startup.dat`, `Bin/config.bin` | **JSON** / Prism data | *Kirby Air Riders* |
 | **Phive collision** | `.bphsh`, `.bphsc` | **OBJ** (+ material JSON; water grids as 16-bit PNG) | *Splatoon 3*, *Mario Kart World* |
 | **SANIM** | `.sanim` | *(text dump)* | *Super Mario Strikers* |
 | **TTMODEL** | `.model` | **GLB** | *LEGO Star Wars: The Skywalker Saga* |

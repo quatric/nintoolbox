@@ -1420,6 +1420,8 @@ int ExportModelToGLB (const model_t *model, const char *out_glb_file)
 	for (size_t i = 0; i < model->num_meshes; i++)
 		if (dae_mesh_is_skinned (model, &model->meshes[i]))
 			any_skin = 1;
+	if (model->skeleton_skin)
+		any_skin = 1;
 
 	if (any_skin && model->num_joints > 0)
 	{

@@ -30,6 +30,14 @@ static const uint8_t sbox[256] = { 0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc
 static uint8_t inv_sbox[256];
 static bool inv_sbox_ready = false;
 
+static void build_inv_sbox (void);
+
+const uint8_t *AES_InvSbox (void)
+{
+	build_inv_sbox ();
+	return inv_sbox;
+}
+
 static void build_inv_sbox (void)
 {
 	if (inv_sbox_ready)

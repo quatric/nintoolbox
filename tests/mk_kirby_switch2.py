@@ -288,6 +288,68 @@ def psks_skeleton():
     return flatbuffer([(3, ("table", [(1, ("vec", joints))]))], b"PSKS")
 
 
+def aes_sbox():
+    sb, p, q = [0] * 256, 1, 1
+    while True:
+        p = p ^ ((p << 1) & 0xFF) ^ (0x1B if p & 0x80 else 0)
+        q ^= q << 1
+        q ^= q << 2
+        q ^= q << 4
+        q &= 0xFF
+        q ^= 0x09 if q & 0x80 else 0
+        x = q ^ (((q << 1) | (q >> 7)) & 0xFF) ^ (((q << 2) | (q >> 6)) & 0xFF) ^ (((q << 3) | (q >> 5)) & 0xFF) ^ (((q << 4) | (q >> 4)) & 0xFF)
+        sb[p] = x ^ 0x63
+        if p == 1:
+            break
+    sb[0] = 0x63
+    return sb
+
+
+def engine_bin_obfuscate(plain, first=0x5A):
+    """Kirby Air Riders startup.dat / config.bin: plain[i] = InvSbox[c[i] ^ c[i+1]]."""
+    sb, c = aes_sbox(), [first]
+    for b in plain:
+        c.append(c[-1] ^ sb[b])
+    return bytes(c)
+
+
+STARTUP_PLAIN = (b"\x01\x82\xa5Asset\xa40123\xa3Bin\xc3"
+                 b"\x92\x82\xa5Label\xa6config\xa6Target\xd9\x16engine_bin:/config.bin\xcd\x01\x00\xff")
+CONFIG_PLAIN = b"\x10Locale\x00Name\xa5ja_jp prism payload"
+
+
+PANM_ID = 0x6677889900AABBCC
+
+
+def panm_clip():
+    """PANM: tip joint keyed (2 keys: rotation y 0 -> sqrt(.5) and translation z 0 -> 2, 8 bits each,
+    then the w sign bit), root joint a constant transform (translation y = 1)."""
+    hdr = struct.pack("<HHHHII", 4, 4 | 8, 16 + 9 * 16, 17, 16 + 9 * 16 + 44, 2)
+    recs = b""
+    for i in range(9):
+        lo, hi, bits = (0.0, math.sqrt(0.5), 8) if i == 4 else (0.0, 2.0, 8) if i == 8 else (0.0, 0.0, 0)
+        recs += struct.pack("<ffHH", lo, hi, bits, 0) + bytes(4)
+    ref = struct.pack("<10f", 1, 1, 1, 0, 0, 0, 1, 0, 0, 1) + bytes(4)
+    keys = (0xFF | 0xFF << 8) << 17  # key 0 all zero, key 1: y = 255, tz = 255, sign 0
+    keyed = hdr + recs + ref + keys.to_bytes(5, "little")
+    const = struct.pack("<10f", 1, 1, 1, 0, 0, 0, 1, 0, 1, 0) + bytes(4)
+    blob = keyed + bytes(-len(keyed) % 16) + const
+
+    def chan(kind, keys, off, size):
+        return [(1, ("table", [(0, ("u64", 0x9490E9729494E5F5))])), (2, ("u8", 1)), (3, ("u8", kind)),
+                (4, ("u32", keys)), (6, ("u32", off)), (7, ("u32", size))]
+
+    def build(blob_off):
+        targets = [[(1, ("table", [(0, ("u64", JOINT_TIP))])), (2, ("vec", [chan(3, 2, 0, len(keyed))]))],
+                   [(1, ("table", [(0, ("u64", JOINT_ROOT))])), (2, ("vec", [chan(2, 1, len(blob) - len(const), len(const))]))]]
+        a = [(1, ("u32", 1)), (2, ("raw", struct.pack("<f", 60.0))), (5, ("vec", [[(1, ("u8", 1)), (2, ("vec", targets))]])),
+             (6, ("u32", blob_off)), (7, ("u32", len(blob)))]
+        return flatbuffer([(3, ("table", a))], b"PANM")
+    fb = build(0)
+    fb = build(len(fb) + (-len(fb) % 16))
+    return fb + bytes(-len(fb) % 16) + blob
+
+
 def pmsh_quad(skinned=False):
     """PMSH Main + GBuf: one 2-triangle quad (positions, unorm10 normals, half UVs, u16 indices).
     skinned: attribute 4 {u16 palette joint, u16 weight} x4 and the joint palette (geometry.f3),
@@ -373,6 +435,7 @@ def build_parc(outdir):
     l_smain = add(1, sk_main, False)
     l_sgbuf = add(0, sk_gbuf, False)
     l_psks = add(1, psks_skeleton(), False)
+    l_panm = add(0, panm_clip(), True)
 
     hashes = []
     for i, p in enumerate(packs):
@@ -391,6 +454,7 @@ def build_parc(outdir):
         (0x0A0B0C0D0E0F1011, [("HEAD", 0, l_mhead), ("GBuf", 0, l_mgbuf), ("Main", 0, l_mmain)]),
         (SKIN_MESH_ID, [("HEAD", 0, l_mhead), ("GBuf", 0, l_sgbuf), ("Main", 0, l_smain)]),
         (PSKS_ID, [("Main", 0, l_psks)]),
+        (PANM_ID, [("Main", 0, l_panm)]),
     ]
     recs = []
     for aid, blocks in assets:
@@ -508,6 +572,12 @@ def main(outdir):
     open(os.path.join(outdir, "fdg.dat"), "wb").write(xbin_fdg())
     build_parc(os.path.join(outdir, "Asset"))
     build_sygnus(outdir)
+    eb = os.path.join(outdir, "eb")
+    os.makedirs(os.path.join(eb, "Bin"), exist_ok=True)
+    open(os.path.join(eb, "startup.dat"), "wb").write(engine_bin_obfuscate(STARTUP_PLAIN))
+    open(os.path.join(eb, "Bin", "config.bin"), "wb").write(engine_bin_obfuscate(CONFIG_PLAIN, 0xC3))
+    open(os.path.join(eb, "Bin", "schema.bin"), "wb").write(b"Prism_SBg\0\0\0\3" + bytes(19))
+    open(os.path.join(eb, "config.plain"), "wb").write(CONFIG_PLAIN)
 
 
 if __name__ == "__main__":

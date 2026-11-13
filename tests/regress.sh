@@ -19212,11 +19212,45 @@ PYE
   else
     fno "phx PMSH skin" "wrong skin in $a/pmsh/0a0b0c0d0e0f1012.glb"
   fi
+  if python3 - "$a/panm/6677889900aabbcc.glb" <<'PYE' 2>/dev/null; then
+import json, struct, sys
+b = open(sys.argv[1], 'rb').read()
+jl = struct.unpack_from('<I', b, 12)[0]
+d = json.loads(b[20:20 + jl]); bn = b[28 + jl:]
+def acc(i):
+    a = d['accessors'][i]; v = d['bufferViews'][a['bufferView']]
+    n = {'SCALAR': 1, 'VEC3': 3, 'VEC4': 4}[a['type']]
+    return struct.unpack_from('<%df' % (a['count'] * n), bn, v.get('byteOffset', 0) + a.get('byteOffset', 0))
+assert [d['nodes'][j]['name'] for j in d['skins'][0]['joints']] == ['joint_1111aaaa2222bbbb', 'joint_3333cccc4444dddd']
+an = d['animations'][0]
+ch = {(d['nodes'][c['target']['node']]['name'], c['target']['path']): an['samplers'][c['sampler']] for c in an['channels']}
+s = ch[('joint_3333cccc4444dddd', 'rotation')]
+t = acc(s['input']); r = acc(s['output'])
+assert len(t) == 2 and abs(t[1] - 1 / 60) < 1e-6
+assert max(abs(x - y) for x, y in zip(r, [0, 0, 0, 1, 0, 0.70710678, 0, 0.70710678])) < 1e-4
+tz = acc(ch[('joint_3333cccc4444dddd', 'translation')]['output'])
+assert abs(tz[2]) < 1e-6 and abs(tz[5] - 2) < 1e-6
+assert list(acc(ch[('joint_1111aaaa2222bbbb', 'translation')]['output'])) == [0, 1, 0]
+PYE
+    fok "phx PANM animation (quantized transform keys + constant) -> GLB clip on the PSKS armature"
+  else
+    fno "phx PANM" "wrong or missing $a/panm/6677889900aabbcc.glb"
+  fi
   if python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 13 2 60 120 180 255 2>/dev/null \
      && python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 2 3 120 180 0 255 2>/dev/null; then
     fok "phx 3D PTEX (RGBA8 LUT, Orin block linear in z) -> slice strip PNG"
   else
     fno "phx 3D PTEX" "wrong texels in $a/ptex/2233445566778899.png"
+  fi
+  "$B/wszst" XX "$d/eb/startup.dat" "$d/eb/Bin/config.bin" --overwrite >/dev/null 2>&1
+  if python3 - "$d/eb/startup.json" <<'PYE' 2>/dev/null && cmp -s "$d/eb/Bin/config.prism" "$d/eb/config.plain"; then
+import json, sys
+assert json.load(open(sys.argv[1])) == [1, {"Asset": "0123", "Bin": True},
+    [{"Label": "config", "Target": "engine_bin:/config.bin"}, 256], -1]
+PYE
+    fok "Kirby Air Riders engine_bin (InvSbox byte chain): startup.dat MessagePack -> JSON, config.bin -> Prism data"
+  else
+    fno "phx engine_bin" "wrong $d/eb/startup.json or $d/eb/Bin/config.prism"
   fi
   "$B/wszst" XX "$d/plain.soundstream" "$d/enc.soundstream" "$d/sfx.psnd" --overwrite >/dev/null 2>&1
   if tail -c +45 "$d/plain.soundstream.d/plain.wav" 2>/dev/null | cmp -s - "$d/plain.pcm" \
