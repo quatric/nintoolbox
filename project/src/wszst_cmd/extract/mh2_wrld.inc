@@ -109,6 +109,45 @@ static uint mh2w_dl_stride (const u8 *c, size_t dl, size_t dsz, uint cnt)
 	return 0;
 }
 
+static uint mh2w_asz (uint f)
+{
+	return f == 3 ? 2 : f ? 1 : 0;
+}
+
+static float mh2w_uvv (const u8 *c, size_t uq, uint type, uint shift, bool sgn, uint i, uint k)
+{
+	const float sc = (float)(1u << shift);
+	if (type == 2)
+		return c[uq + 2 * (size_t)i + k] / sc;
+	if (type == 4)
+		return mh2inst_f (c + uq + 8 * (size_t)i + 4 * k, true) / sc;
+	const uint v = rd_be16 (c + uq + 4 * (size_t)i + 2 * k);
+	return (sgn ? (float)(s16)v : (float)v) / sc;
+}
+
+typedef struct
+{
+	uint n;
+	uint bone[8];
+	float w[8];
+} mh2w_sv_t;
+
+static void mh2w_sv_add (mh2w_sv_t *sv, uint cnt, const u8 *c, size_t data, const u8 *raw, uint bone, float w, bool replace)
+{
+	for (uint i = 0; i < cnt; i++)
+		if (!memcmp (c + data + 12 * (size_t)i, raw, 12))
+		{
+			if (replace)
+				sv[i].n = 0;
+			if (sv[i].n < 8)
+			{
+				sv[i].bone[sv[i].n] = bone;
+				sv[i].w[sv[i].n++] = w;
+			}
+			return;
+		}
+}
+
 static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 {
 	const bool isdff = is_ext (arg, ".dff");
@@ -123,6 +162,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 	}
 	sumo_buf_t b = { 0, 0, 0, true };
 	sumo_buf_t mt = { 0, 0, 0, true };
+	sumo_buf_t sk = { 0, 0, 0, true };
 	char stem[PATH_MAX];
 	{
 		const char *sl = strrchr (arg, '/');
@@ -186,6 +226,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		// A display list's material index (low half of its table entry) selects the texture.
 		ccp texn[64];
 		uint ntex = 0;
+		size_t rec = 0;
 		for (size_t p = 108; p + 4 <= cs && !ntex; p += 4)
 			if (rd_be32 (c + p) == base)
 			{
@@ -208,10 +249,13 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 					break;
 				}
 				ntex = good;
+				if (good)
+					rec = r;
 			}
 		const size_t tend = si + 1 < ns ? sq[si + 1] : lim;
-		size_t dls[256], dss[256];
-		uint dst[256], dmat[256], nd = 0;
+		size_t dls[256], dss[256], tfirst = 0;
+		uint mask = 0;
+		uint dst[256], dmat[256], dbone[256], nd = 0;
 		for (size_t t = q + 4 + (size_t)cnt * vs; t + 16 <= tend && nd < 256; t += 4)
 		{
 			const bool marked = rd_be32 (c + t + 8) == 0x01000000 && (rd_be32 (c + t + 12) >> 8) == 0x150100;
@@ -220,6 +264,12 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 			const size_t dl = base + rd_be32 (c + t) + 0x1c, dsz = rd_be32 (c + t + 4);
 			if (!dsz || dsz % 32 || dl + dsz > cs)
 				continue;
+			const bool firste = !tfirst;
+			if (firste)
+			{
+				tfirst = t;
+				mask = rd_be16 (c + t - 2);
+			}
 			bool dup = false;
 			for (uint e = 0; e < nd; e++)
 				if (dls[e] == dl)
@@ -231,7 +281,8 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				continue;
 			dls[nd] = dl;
 			dss[nd] = dsz;
-			dmat[nd] = marked ? rd_be16 (c + t + 14) : 0;
+			dmat[nd] = firste ? 0 : rd_be16 (c + t - 2);
+			dbone[nd] = c[t - 3];
 			dst[nd++] = stride;
 		}
 		uint al = 0;
@@ -279,17 +330,96 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				}
 			}
 		}
+		// The first display list entry's u16 (the 2 bytes before the entry) is the vertex descriptor: 2 bits per attribute (matrix index, position, normal, colour 0, colour 1, UV 0, UV 1, UV 2),
+		// 1 and 2 being a byte index and 3 a u16 index. The six u32 at sector + 0x1c are the offsets (from sector + 0x1c) of the stream headers {u32 data offset, u16 count, u16 type << 12 | shift << 8}.
+		const size_t p3 = base + 0x1c;
+		uint mf[8], moff[9], mstride = 0;
+		for (uint k = 0; k < 8; k++)
+		{
+			mf[k] = (mask >> (2 * k)) & 3;
+			moff[k] = mstride;
+			mstride += mh2w_asz (mf[k]);
+		}
+		moff[8] = mstride;
+		bool mok = nd && mstride && !mf[0] && mf[1] == 3;
+		for (uint d = 0; d < nd; d++)
+			if (dst[d] != mstride)
+				mok = false;
+		u8 *vcol = 0;
+		if (mok && mf[3] && p3 + 24 <= cs)
+		{
+			const size_t ch = p3 + rd_be32 (c + p3 + 4);
+			if (ch + 8 <= cs)
+			{
+				const size_t cd = p3 + rd_be32 (c + ch);
+				const uint cc = rd_be16 (c + ch + 4), ct = rd_be16 (c + ch + 6) >> 12;
+				if (cc && (ct == 2 || ct == 5) && cd + (size_t)cc * 4 <= cs && (vcol = CALLOC (cnt, 4)))
+				{
+					memset (vcol, 255, (size_t)cnt * 4);
+					for (uint d = 0; d < nd; d++)
+					{
+						size_t o = dls[d];
+						while (o < dls[d] + dss[d])
+						{
+							if (!c[o])
+							{
+								o++;
+								continue;
+							}
+							const uint n = rd_be16 (c + o + 1);
+							o += 3;
+							for (uint i = 0; i < n && o + (size_t)(i + 1) * mstride <= cs; i++)
+							{
+								const u8 *v = c + o + (size_t)i * mstride;
+								const uint pi = rd_be16 (v + moff[1]), ci = mf[3] == 3 ? rd_be16 (v + moff[3]) : v[moff[3]];
+								if (pi < cnt && ci < cc)
+								{
+									memcpy (vcol + 4 * (size_t)pi, c + cd + 4 * (size_t)ci, 3);
+									vcol[4 * (size_t)pi + 3] = ct == 5 ? c[cd + 4 * (size_t)ci + 3] : 255;
+								}
+							}
+							o += (size_t)n * mstride;
+						}
+					}
+				}
+			}
+		}
 		sumo_printf (&b, "o sector%04u_%08x\n", groups++, (uint)q);
 		for (uint i = 0; i < cnt; i++)
-			sumo_printf (&b, "v %g %g %g\n", mh2w_pos (c, q, vs, al, i, 0), mh2w_pos (c, q, vs, al, i, 1), mh2w_pos (c, q, vs, al, i, 2));
+			if (vcol)
+				sumo_printf (&b, "v %g %g %g %g %g %g\n", mh2w_pos (c, q, vs, al, i, 0), mh2w_pos (c, q, vs, al, i, 1), mh2w_pos (c, q, vs, al, i, 2), vcol[4 * (size_t)i] / 255.0f,
+					vcol[4 * (size_t)i + 1] / 255.0f, vcol[4 * (size_t)i + 2] / 255.0f);
+			else
+				sumo_printf (&b, "v %g %g %g\n", mh2w_pos (c, q, vs, al, i, 0), mh2w_pos (c, q, vs, al, i, 1), mh2w_pos (c, q, vs, al, i, 2));
 		const bool hasn = c[q + 2] != 0x40 && vs == 12;
 		if (hasn)
 			for (uint i = 0; i < cnt; i++)
 				sumo_printf (&b, "vn %g %g %g\n", mh2w_nrm (c, q, vs, al, i, 0), mh2w_nrm (c, q, vs, al, i, 1), mh2w_nrm (c, q, vs, al, i, 2));
 		// UV stream: {u16 count, 0x3n, 2} s16 pairs; chosen together with the byte offset of the UV index inside the vertices of the first display list
 		size_t uvq = 0;
-		uint uvcnt = 0, uvoff = 0, uvstride = 0;
-		if (nd)
+		uint uvcnt = 0, uvoff = 0, uvstride = 0, uvtype = 3, uvshift = 11;
+		bool uvsgn = true, uvbyte = false;
+		if (mok && mf[5] && p3 + 24 <= cs)
+		{
+			const size_t uh = p3 + rd_be32 (c + p3 + 8);
+			if (uh + 8 <= cs)
+			{
+				const size_t ud = p3 + rd_be32 (c + uh);
+				const uint uc = rd_be16 (c + uh + 4), uf = rd_be16 (c + uh + 6), ut = uf >> 12, usz = ut == 2 ? 2 : ut == 3 ? 4 : ut == 4 ? 8 : 0;
+				if (uc > 1 && usz && ud + (size_t)uc * usz <= cs)
+				{
+					uvq = ud;
+					uvcnt = uc;
+					uvoff = moff[5];
+					uvstride = mstride;
+					uvtype = ut;
+					uvshift = (uf >> 8) & 15;
+					uvsgn = false;
+					uvbyte = mf[5] != 3;
+				}
+			}
+		}
+		if (nd && !uvq)
 		{
 			double best = 0.3;
 			for (size_t uo = q + 4 + (size_t)cnt * vs; uo + 4 <= tend && uo + 4 <= cs; uo += 2)
@@ -307,13 +437,15 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 						uvcnt = ucnt;
 						uvoff = off;
 						uvstride = dst[0];
+						uvtype = 3;
+						uvshift = c[uo + 2] & 15;
 					}
 				}
 			}
 		}
 		if (uvq)
 			for (uint i = 0; i < uvcnt; i++)
-				sumo_printf (&b, "vt %g %g\n", (float)(s16)rd_be16 (c + uvq + 4 + 4 * (size_t)i) / (float)(1u << (c[uvq + 2] & 15)), 1.0f - (float)(s16)rd_be16 (c + uvq + 6 + 4 * (size_t)i) / (float)(1u << (c[uvq + 2] & 15)));
+				sumo_printf (&b, "vt %g %g\n", mh2w_uvv (c, uvq + (uvsgn ? 4 : 0), uvtype, uvshift, uvsgn, i, 0), 1.0f - mh2w_uvv (c, uvq + (uvsgn ? 4 : 0), uvtype, uvshift, uvsgn, i, 1));
 		for (uint d = 0; d < nd; d++)
 		{
 			size_t o = dls[d];
@@ -354,7 +486,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				for (uint i = 0; i < m; i++)
 				{
 					ix[i] = vtotal + 1 + rd_be16 (c + o + (size_t)i * stride);
-					iu[i] = uvq && stride == uvstride ? utotal + 1 + rd_be16 (c + o + (size_t)i * stride + uvoff) : 0;
+					iu[i] = uvq && stride == uvstride ? utotal + 1 + (uvbyte ? c[o + (size_t)i * stride + uvoff] : rd_be16 (c + o + (size_t)i * stride + uvoff)) : 0;
 				}
 				o += (size_t)n * stride;
 				if (op == 0x90)
@@ -377,6 +509,62 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				else
 					for (uint i = 0; i + 3 < m; i += 4)
 						mh2w_face (&b, hasn, ntotal - vtotal, 4, ix + i, iu + i);
+			}
+		}
+		FREE (vcol);
+		sumo_printf (&sk, "o sector%04u_%08x\n", groups - 1, (uint)q);
+		for (uint d = 0; d < nd; d++)
+			sumo_printf (&sk, "d %u bone %u material %u\n", d, dbone[d], dmat[d]);
+		if (rec && hasn && c[q + 2] != 0x40)
+		{
+			const size_t sp = rd_be32 (c + rec + 116), data = q + 8;
+			mh2w_sv_t *sv = sp >= 0x20 && sp + 32 <= cs ? CALLOC (cnt, sizeof (*sv)) : 0;
+			if (sv)
+			{
+				const uint n1 = rd_be16 (c + sp), n2 = rd_be16 (c + sp + 2), n3 = rd_be16 (c + sp + 4);
+				size_t p = sp + rd_be32 (c + sp + 8);
+				for (uint g = 0; g < n1 && p + 64 <= cs; g++, p += 64)
+				{
+					const size_t vd = sp + rd_be32 (c + p + 48) + c[p + 60];
+					const uint bone = rd_be16 (c + p + 56), n = rd_be16 (c + p + 58);
+					for (uint j = 0; j < n && vd + (size_t)(j + 1) * 12 <= cs; j++)
+						mh2w_sv_add (sv, cnt, c, data, c + vd + 12 * (size_t)j, bone, 1.0f, true);
+				}
+				p = sp + rd_be32 (c + sp + 12);
+				for (uint g = 0; g < n2 && p + 116 <= cs; g++, p += 116)
+				{
+					const size_t vd = sp + rd_be32 (c + p + 96) + c[p + 114], wd = sp + rd_be32 (c + p + 100);
+					const uint ba = rd_be16 (c + p + 108), bb = rd_be16 (c + p + 110), n = rd_be16 (c + p + 112);
+					for (uint j = 0; j < n && vd + (size_t)(j + 1) * 12 <= cs && wd + 2 * (size_t)(j + 1) <= cs; j++)
+					{
+						mh2w_sv_add (sv, cnt, c, data, c + vd + 12 * (size_t)j, ba, c[wd + 2 * (size_t)j] / 256.0f, false);
+						mh2w_sv_add (sv, cnt, c, data, c + vd + 12 * (size_t)j, bb, c[wd + 2 * (size_t)j + 1] / 256.0f, false);
+					}
+				}
+				p = sp + rd_be32 (c + sp + 16);
+				for (uint g = 0; g < n3 && p + 68 <= cs; g++, p += 68)
+				{
+					const size_t io = sp + rd_be32 (c + p + 52), wo = sp + rd_be32 (c + p + 60);
+					const uint bone = rd_be16 (c + p + 64), n = rd_be16 (c + p + 66);
+					for (uint j = 0; j < n && io + 2 * (size_t)(j + 1) <= cs && wo + (size_t)j < cs; j++)
+					{
+						const uint vi = rd_be16 (c + io + 2 * (size_t)j);
+						if (vi < cnt && sv[vi].n < 8)
+						{
+							sv[vi].bone[sv[vi].n] = bone;
+							sv[vi].w[sv[vi].n++] = c[wo + j] / 256.0f;
+						}
+					}
+				}
+				for (uint i = 0; i < cnt; i++)
+					if (sv[i].n)
+					{
+						sumo_printf (&sk, "w %u", i);
+						for (uint k = 0; k < sv[i].n; k++)
+							sumo_printf (&sk, " %u:%g", sv[i].bone[k], sv[i].w[k]);
+						sumo_printf (&sk, "\n");
+					}
+				FREE (sv);
 			}
 		}
 		vtotal += cnt;
@@ -428,9 +616,11 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		char name[PATH_MAX], mname[PATH_MAX];
 		snprintf (name, sizeof (name), "%s.obj", stem);
 		snprintf (mname, sizeof (mname), "%s.mtl", stem);
-		nintendo_sarc_entry_t *entries = CALLOC (2, sizeof (*entries));
+		nintendo_sarc_entry_t *entries = CALLOC (3, sizeof (*entries));
+		char sname[PATH_MAX];
+		snprintf (sname, sizeof (sname), "%s.skin.txt", stem);
 		if (entries && OwnedEntryAdd (entries, 0, name, (u8 *)b.p, (uint)b.n) && OwnedEntryAdd (entries, 1, mname, (u8 *)mt.p, (uint)mt.n))
-			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, 2);
+			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, sk.ok && sk.n && OwnedEntryAdd (entries, 2, sname, (u8 *)sk.p, (uint)sk.n) ? 3 : 2);
 		else
 			FREE (entries);
 	}
