@@ -522,6 +522,7 @@
 #include "extract/midway_fnt.inc"
 #include "extract/midway_spr.inc"
 #include "extract/ailive_lmc.inc"
+#include "extract/lua51_be.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
