@@ -196,7 +196,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			const u8 cmd = c[e];
 			if (!cmd)
 			{
-				if (++zeros > 32)
+				if (++zeros > 16)
 					break;
 				e++;
 				continue;
