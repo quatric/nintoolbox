@@ -314,6 +314,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_mh2_mls_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_mh2_grf_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_wavebatch_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
