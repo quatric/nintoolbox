@@ -16,16 +16,59 @@ static float mh2w_nrm (const u8 *c, size_t q, uint vs, uint al, uint i, int k)
 	return (float)(s16)rd_be16 (c + q + 4 + al + (size_t)vs * i + 6 + 2 * k) / (float)(1u << (c[q + 2] & 15));
 }
 
-// one face line; with normals every vertex is written as v//vn using the same index
-static void mh2w_face (sumo_buf_t *b, bool hasn, uint ntotal_minus_vtotal, uint n, const uint *v)
+// one face line: position index, optional UV index and optional normal index (the same as the position index) per vertex
+static void mh2w_face (sumo_buf_t *b, bool hasn, uint ntotal_minus_vtotal, uint n, const uint *v, const uint *u)
 {
 	sumo_printf (b, "f");
 	for (uint i = 0; i < n; i++)
-		if (hasn)
+	{
+		if (u && u[i])
+			sumo_printf (b, hasn ? " %u/%u/%u" : " %u/%u", v[i], u[i], v[i] + ntotal_minus_vtotal);
+		else if (hasn)
 			sumo_printf (b, " %u//%u", v[i], v[i] + ntotal_minus_vtotal);
 		else
 			sumo_printf (b, " %u", v[i]);
+	}
 	sumo_printf (b, "\n");
+}
+
+// mean UV distance between consecutive display list vertices of one display list, using the u16 UV index at byte offset uvoff of every vertex (-1 if an index is out of range)
+static double mh2w_uv_score (const u8 *c, size_t uq, uint ucnt, size_t dl, size_t dsz, uint stride, uint uvoff)
+{
+	double sum = 0;
+	uint npairs = 0;
+	for (size_t o = dl; o < dl + dsz && npairs < 20000;)
+	{
+		const u8 op = c[o];
+		if (!op)
+		{
+			o++;
+			continue;
+		}
+		const uint n = rd_be16 (c + o + 1);
+		o += 3;
+		uint prev = 0;
+		for (uint i = 0; i < n; i++)
+		{
+			const uint iu = rd_be16 (c + o + (size_t)i * stride + uvoff);
+			if (iu >= ucnt)
+				return -1;
+			if (i)
+			{
+				double e = 0;
+				for (int k = 0; k < 2; k++)
+				{
+					const double d = (double)(s16)rd_be16 (c + uq + 4 + 4 * (size_t)iu + 2 * k) - (s16)rd_be16 (c + uq + 4 + 4 * (size_t)prev + 2 * k);
+					e += d * d;
+				}
+				sum += sqrt (e) / (double)(1u << (c[uq + 2] & 15));
+				npairs++;
+			}
+			prev = iu;
+		}
+		o += (size_t)n * stride;
+	}
+	return npairs ? sum / npairs : -1;
 }
 
 // checks a display list (GX draws 0x80 quads, 0x90 triangles, 0x98 strips, 0xa0 fans; zero bytes are padding) whose vertices have a constant size; the first u16 of each vertex is a
@@ -121,7 +164,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		svs[ns++] = vs;
 		q += (size_t)cnt * vs;
 	}
-	uint vtotal = 0, ntotal = 0;
+	uint vtotal = 0, ntotal = 0, utotal = 0;
 	for (uint si = 0; si < ns; si++)
 	{
 		const size_t q = sq[si];
@@ -203,6 +246,34 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		if (hasn)
 			for (uint i = 0; i < cnt; i++)
 				sumo_printf (&b, "vn %g %g %g\n", mh2w_nrm (c, q, vs, al, i, 0), mh2w_nrm (c, q, vs, al, i, 1), mh2w_nrm (c, q, vs, al, i, 2));
+		// UV stream: {u16 count, 0x3n, 2} s16 pairs; chosen together with the byte offset of the UV index inside the vertices of the first display list
+		size_t uvq = 0;
+		uint uvcnt = 0, uvoff = 0, uvstride = 0;
+		if (nd)
+		{
+			double best = 0.3;
+			for (size_t uo = q + 4 + (size_t)cnt * vs; uo + 4 <= tend && uo + 4 <= cs; uo += 2)
+			{
+				const uint ucnt = rd_be16 (c + uo);
+				if (ucnt < 3 || (c[uo + 2] >> 4) != 3 || c[uo + 3] != 2 || uo + 4 + (size_t)ucnt * 4 > cs)
+					continue;
+				for (uint off = 2; off + 2 <= dst[0]; off++)
+				{
+					const double sc = mh2w_uv_score (c, uo, ucnt, dls[0], dss[0], dst[0], off);
+					if (sc >= 0 && sc < best)
+					{
+						best = sc;
+						uvq = uo;
+						uvcnt = ucnt;
+						uvoff = off;
+						uvstride = dst[0];
+					}
+				}
+			}
+		}
+		if (uvq)
+			for (uint i = 0; i < uvcnt; i++)
+				sumo_printf (&b, "vt %g %g\n", (float)(s16)rd_be16 (c + uvq + 4 + 4 * (size_t)i) / (float)(1u << (c[uvq + 2] & 15)), 1.0f - (float)(s16)rd_be16 (c + uvq + 6 + 4 * (size_t)i) / (float)(1u << (c[uvq + 2] & 15)));
 		for (uint d = 0; d < nd; d++)
 		{
 			size_t o = dls[d];
@@ -217,34 +288,40 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				}
 				const uint n = rd_be16 (c + o + 1);
 				o += 3;
-				uint ix[4096];
+				uint ix[4096], iu[4096];
 				const uint m = n < 4096 ? n : 4096;
 				for (uint i = 0; i < m; i++)
+				{
 					ix[i] = vtotal + 1 + rd_be16 (c + o + (size_t)i * stride);
+					iu[i] = uvq && stride == uvstride ? utotal + 1 + rd_be16 (c + o + (size_t)i * stride + uvoff) : 0;
+				}
 				o += (size_t)n * stride;
 				if (op == 0x90)
 					for (uint i = 0; i + 2 < m; i += 3)
-						mh2w_face (&b, hasn, ntotal - vtotal, 3, ix + i);
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, ix + i, iu + i);
 				else if (op == 0x98)
 					for (uint i = 0; i + 2 < m; i++)
 					{
 						const uint t3[3] = { ix[i], i & 1 ? ix[i + 2] : ix[i + 1], i & 1 ? ix[i + 1] : ix[i + 2] };
-						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3);
+						const uint u3[3] = { iu[i], i & 1 ? iu[i + 2] : iu[i + 1], i & 1 ? iu[i + 1] : iu[i + 2] };
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3, u3);
 					}
 				else if (op == 0xa0)
 					for (uint i = 1; i + 1 < m; i++)
 					{
 						const uint t3[3] = { ix[0], ix[i], ix[i + 1] };
-						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3);
+						const uint u3[3] = { iu[0], iu[i], iu[i + 1] };
+						mh2w_face (&b, hasn, ntotal - vtotal, 3, t3, u3);
 					}
 				else
 					for (uint i = 0; i + 3 < m; i += 4)
-						mh2w_face (&b, hasn, ntotal - vtotal, 4, ix + i);
+						mh2w_face (&b, hasn, ntotal - vtotal, 4, ix + i, iu + i);
 			}
 		}
 		vtotal += cnt;
 		if (hasn)
 			ntotal += cnt;
+		utotal += uvcnt;
 	}
 	u32 seen[512];
 	uint nseen = 0;
