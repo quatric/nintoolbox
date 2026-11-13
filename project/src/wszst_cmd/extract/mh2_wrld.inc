@@ -163,6 +163,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 	sumo_buf_t b = { 0, 0, 0, true };
 	sumo_buf_t mt = { 0, 0, 0, true };
 	sumo_buf_t sk = { 0, 0, 0, true };
+	sumo_buf_t bn = { 0, 0, 0, true };
 	char stem[PATH_MAX];
 	{
 		const char *sl = strrchr (arg, '/');
@@ -572,6 +573,52 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 			ntotal += cnt;
 		utotal += uvcnt;
 	}
+	// Character models: u32 at 0x20 is the first model header {u32 next (0x20 ends), ?, u32 bone block}; the bone block starts with the root frame pointer. A frame is
+	// {u32 id, u32 next sibling, u32 parent, u32 root, u32 first child, u32 ?, char name[40], two 4x4 float matrices (local, then identity)}; the walk takes the child before the sibling.
+	if (isdff)
+	{
+		size_t h = rd_be32 (c + 0x20);
+		for (uint mi = 0; h >= 0x24 && h + 12 <= cs && mi < 64; mi++)
+		{
+			const size_t nx = rd_be32 (c + h), bb = rd_be32 (c + h + 8);
+			sumo_printf (&bn, "model %u\n", mi);
+			if (bb >= 0x20 && bb + 20 <= cs)
+			{
+				size_t stack[512], seenb[512];
+				uint sp = 0, nb = 0;
+				stack[sp++] = rd_be32 (c + bb);
+				while (sp && nb < 512)
+				{
+					const size_t n = stack[--sp];
+					bool dupb = false;
+					for (uint k = 0; k < nb; k++)
+						if (seenb[k] == n)
+							dupb = true;
+					if (dupb || n < 0x20 || n + 192 > cs)
+						continue;
+					seenb[nb] = n;
+					sumo_printf (&bn, "bone %u offset %x id %u name %.40s sibling %x parent %x root %x child %x extra %x\n", nb, (uint)n, rd_be32 (c + n), (ccp)c + n + 24, rd_be32 (c + n + 4), rd_be32 (c + n + 8),
+						rd_be32 (c + n + 12), rd_be32 (c + n + 16), rd_be32 (c + n + 20));
+					for (uint m2 = 0; m2 < 2; m2++)
+					{
+						sumo_printf (&bn, "matrix");
+						for (uint k = 0; k < 16; k++)
+							sumo_printf (&bn, " %g", mh2inst_f (c + n + 64 + 64 * m2 + 4 * k, true));
+						sumo_printf (&bn, "\n");
+					}
+					nb++;
+					if (sp < 510)
+					{
+						stack[sp++] = rd_be32 (c + n + 4);
+						stack[sp++] = rd_be32 (c + n + 16);
+					}
+				}
+			}
+			if (nx == 0x20)
+				break;
+			h = nx;
+		}
+	}
 	u32 seen[512];
 	uint nseen = 0;
 	for (size_t o = 0x40; o + 16 <= lim; o += 4)
@@ -616,11 +663,20 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		char name[PATH_MAX], mname[PATH_MAX];
 		snprintf (name, sizeof (name), "%s.obj", stem);
 		snprintf (mname, sizeof (mname), "%s.mtl", stem);
-		nintendo_sarc_entry_t *entries = CALLOC (3, sizeof (*entries));
+		nintendo_sarc_entry_t *entries = CALLOC (4, sizeof (*entries));
+		char bname[PATH_MAX];
+		snprintf (bname, sizeof (bname), "%s.bones.txt", stem);
 		char sname[PATH_MAX];
 		snprintf (sname, sizeof (sname), "%s.skin.txt", stem);
 		if (entries && OwnedEntryAdd (entries, 0, name, (u8 *)b.p, (uint)b.n) && OwnedEntryAdd (entries, 1, mname, (u8 *)mt.p, (uint)mt.n))
-			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, sk.ok && sk.n && OwnedEntryAdd (entries, 2, sname, (u8 *)sk.p, (uint)sk.n) ? 3 : 2);
+		{
+			uint ne = 2;
+			if (sk.ok && sk.n && OwnedEntryAdd (entries, ne, sname, (u8 *)sk.p, (uint)sk.n))
+				ne++;
+			if (isdff && bn.ok && bn.n && OwnedEntryAdd (entries, ne, bname, (u8 *)bn.p, (uint)bn.n))
+				ne++;
+			err = write_owned_entries (arg, basedir, depth, isdff ? "MH2-DFF" : "MH2-WRLD", entries, ne);
+		}
 		else
 			FREE (entries);
 	}
