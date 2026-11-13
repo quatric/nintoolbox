@@ -1,7 +1,7 @@
 // SEGA "GRO3" model containers (Sakura Wars: So Long, My Love; ".gro3", usually inside ".urs" archives; little endian). A GRO3 is a chunk container (G3MD, HMDL/KFMD ...); the KFMD mesh
 // data is a PlayStation-2 style VIF packet stream: per strip a quadruple of UNPACK commands -- V4-32 (3 x f32 position + a flag word), V3-32 (normals as s32 / 32768), S-8 (one byte per
 // vertex) and V2-16 (texcoords / 4096) -- all with the same vertex count. Every such quadruple is exported as one triangle strip of "<name>.gro3.d/<name>.obj" in model space (the
-// bone/skin data are not applied).
+// bone/skin data are not applied). The ".hmdl" members of ".amf"/".urs" archives wrap the same KFMD stream and go through the same exporter.
 static float gro3_f32 (const u8 *p)
 {
 	const uint v = rd_le32 (p);
@@ -13,11 +13,11 @@ static float gro3_f32 (const u8 *p)
 static enumError extract_sega_gro3_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
-	if (!is_ext (arg, ".gro3"))
+	if (!is_ext (arg, ".gro3") && !is_ext (arg, ".hmdl"))
 		return ERR_NOTHING_TO_DO;
 	u8 *c = 0;
 	size_t cs = 0;
-	if (LoadFileAlloc (arg, 0, 0, &c, &cs, 0, 0, 0, false) || !c || cs < 0x100 || memcmp (c, "GRO3", 4))
+	if (LoadFileAlloc (arg, 0, 0, &c, &cs, 0, 0, 0, false) || !c || cs < 0x100 || (memcmp (c, "GRO3", 4) && memcmp (c, "HMDL", 4)))
 	{
 		FREE (c);
 		return ERR_NOTHING_TO_DO;
@@ -70,6 +70,31 @@ static enumError extract_sega_gro3_file (ccp arg, ccp basedir, uint depth)
 		nstrip++;
 		p = end - 4;
 	}
+	// Models without normals or texcoords store plain V4-32 position triples (3 vertices per UNPACK, 52 bytes apart): one triangle each.
+	if (!ntri && c)
+		for (size_t p = 0x10; p + 52 <= cs; p += 4)
+		{
+			if (c[p + 3] != 0x6c || c[p + 2] != 3 || p + 56 > cs || c[p + 52 + 3] != 0x6c || c[p + 52 + 2] != 3)
+				continue;
+			bool good = true;
+			for (uint i = 0; i < 9 && good; i++)
+			{
+				const float f = gro3_f32 (c + p + 4 + 16 * (i / 3) + 4 * (i % 3));
+				good = f > -1e5f && f < 1e5f;
+			}
+			if (!good)
+				continue;
+			for (uint i = 0; i < 3; i++)
+			{
+				const u8 *v = c + p + 4 + 16 * i;
+				sumo_printf (&b, "v %g %g %g\n", gro3_f32 (v), gro3_f32 (v + 4), gro3_f32 (v + 8));
+			}
+			sumo_printf (&b, "f %u %u %u\n", nv + 1, nv + 2, nv + 3);
+			nv += 3;
+			ntri++;
+			nstrip++;
+			p += 48;
+		}
 	FREE (c);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && b.n && ntri && b.n < 0xffffffffu)
