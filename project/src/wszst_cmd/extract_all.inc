@@ -523,6 +523,7 @@
 #include "extract/ea_gfn.inc"
 #include "extract/midway_fnt.inc"
 #include "extract/midway_spr.inc"
+#include "extract/midway_pha.inc"
 #include "extract/ailive_lmc.inc"
 #include "extract/lua51_be.inc"
 #include "extract/wavebatch.inc"
