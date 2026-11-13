@@ -184,13 +184,22 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			if (ds[i].attr == 11 && ds[i].ty == 2 && ds[i].stride == 4 && iuv == 99)
 				iuv = i;
 		}
-		// walk the display list (indexed XF loads 0x20/0x28/0x30/0x38 = 5 bytes and NOPs are skipped), collecting the highest index per descriptor and the draw commands
+		// walk the display list (indexed XF loads 0x20/0x28/0x30/0x38 = 5 bytes and NOPs are skipped), collecting the highest index per descriptor and the draw commands. Skinned meshes carry
+		// extra leading matrix-index bytes per vertex (position/texcoord matrix index), so the vertex stride is tried with 0..2 extra bytes
 		uint mx[8] = { 0 };
 		size_t e = dl;
-		uint ncmd = 0, zeros = 0;
+		uint ncmd = 0, zeros = 0, pre = 0;
+		const uint stride0 = stride;
 		size_t *draws = CALLOC (4096, sizeof (size_t));
 		if (!draws)
 			continue;
+		for (pre = 0; pre < 3; pre++)
+		{
+		stride = stride0 + pre;
+		memset (mx, 0, sizeof mx);
+		e = dl;
+		ncmd = 0;
+		zeros = 0;
 		while (e + 3 <= cs && ncmd < 4096)
 		{
 			const u8 cmd = c[e];
@@ -215,7 +224,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			uint cmx[8] = { 0 };
 			for (uint i = 0; i < cnt; i++)
 			{
-				size_t o = e + 3 + (size_t)i * stride;
+				size_t o = e + 3 + (size_t)i * stride + pre;
 				for (uint d = 0; d < nd; d++)
 				{
 					const uint v = ds[d].iw == 1 ? c[o] : rd_be16 (c + o);
@@ -245,6 +254,14 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 					mx[d] = cmx[d];
 			draws[ncmd++] = e;
 			e += 3 + (size_t)cnt * stride;
+		}
+		if (ncmd)
+			break;
+		}
+		if (!ncmd)
+		{
+			FREE (draws);
+			continue;
 		}
 		if (!ncmd || (size_t)ds[ipos].off + ((size_t)mx[ipos] + 1) * 12 > gs)
 		{
@@ -294,7 +311,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 						uint pv[3], tv[3], nvv[3];
 						for (uint k = 0; k < 3; k++)
 						{
-							size_t o = (size_t)qi[k] * stride;
+							size_t o = (size_t)qi[k] * stride + pre;
 							uint idx[8];
 							for (uint d = 0; d < nd; d++)
 							{
@@ -314,7 +331,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 					uint pv[3], tv[3], nvv[3];
 					for (uint k = 0; k < 3; k++)
 					{
-						size_t o = (size_t)ii[k] * stride;
+						size_t o = (size_t)ii[k] * stride + pre;
 						uint idx[8];
 						for (uint d = 0; d < nd; d++)
 						{
