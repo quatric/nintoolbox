@@ -305,6 +305,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ifp_anct_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_mh2_anpk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_mh2_inst_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

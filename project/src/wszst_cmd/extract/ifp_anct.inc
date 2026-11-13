@@ -1,9 +1,7 @@
-// Rockstar Leeds animation packages (Manhunt 2 ".ifp", after MH2Z unpacking; big endian): "ANCT" u32, "BLOC" {u32 length, block name}, then ANPK animation packs, each starting
-// "ANPK" u32 size, "NAME" {u32 length, animation name}, followed by DGAN/CPAN/SEQT keyframe data (not decoded). The block name and every animation name are written as a text list
-// "<name>.ifp.d/<name>.txt".
+// Rockstar Leeds animation packages (Manhunt 2 ".ifp", after MH2Z unpacking; big endian): "ANCT" u32 block count, then per block "BLOC" {u32 length, block name} and an "ANPK" pack of
+// animations (see mh2_anim.inc). Written into "<name>.ifp.d": "<name>.txt" lists the blocks and animations, and every animation's keyframes are decoded to "<block>/<animation>.csv".
 static enumError extract_ifp_anct_file (ccp arg, ccp basedir, uint depth)
 {
-	(void)depth;
 	if (!is_ext (arg, ".ifp"))
 		return ERR_NOTHING_TO_DO;
 	u8 *c = 0;
@@ -14,34 +12,57 @@ static enumError extract_ifp_anct_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	sumo_buf_t b = { 0, 0, 0, true };
-	const uint bl = rd_be32 (c + 12);
-	if (bl && bl < 128 && 16 + bl <= cs)
-		sumo_printf (&b, "block %.*s\n", (int)bl, (ccp)c + 16);
-	uint n = 0;
-	for (size_t p = 16; p + 16 < cs; p++)
+	nintendo_sarc_entry_t *entries = 0;
+	uint n = 0, cap = 0, nanim = 0;
+	const uint nblocks = rd_be32 (c + 4);
+	size_t p = 8;
+	for (uint k = 0; k < nblocks && p + 12 <= cs && !memcmp (c + p, "BLOC", 4); k++)
 	{
-		if (memcmp (c + p, "ANPK", 4) || memcmp (c + p + 8, "NAME", 4))
-			continue;
-		const uint nl = rd_be32 (c + p + 12);
-		if (!nl || nl > 120 || p + 16 + nl > cs)
-			continue;
-		sumo_printf (&b, "%.*s\n", (int)nl, (ccp)c + p + 16);
-		n++;
+		const uint bl = rd_be32 (c + p + 4);
+		if (!bl || bl > 120 || p + 8 + bl + 8 > cs)
+			break;
+		char blk[128];
+		snprintf (blk, sizeof blk, "%.*s", (int)bl, (ccp)c + p + 8);
+		sumo_printf (&b, "block %s\n", blk);
+		for (char *q = blk; *q; q++)
+			if (!isalnum ((u8)*q) && *q != '_' && *q != '-')
+				*q = '_';
+		p += 8 + bl;
+		char prefix[160];
+		snprintf (prefix, sizeof prefix, "%.100s/", blk);
+		const uint before = n;
+		const uint got = mh2anim_pack (&entries, &n, &cap, c, cs, &p, prefix);
+		nanim += got;
+		for (uint i = before; i < n; i++)
+			sumo_printf (&b, "  %s\n", entries[i].name);
+		if (!got)
+			break;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
-	if (b.ok && n && b.n < 0xffffffffu)
+	if (b.ok && nanim)
 	{
-		char dest[PATH_MAX], name[PATH_MAX];
-		beside_source_dest (dest, sizeof (dest), arg);
+		char name[PATH_MAX];
 		const char *sl = strrchr (arg, '/');
 		snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
 		char *dot = strrchr (name, '.');
 		if (dot)
 			strcpy (dot, ".txt");
-		if (verbose >= 0 || testmode)
-			fprintf (stdlog, "%s%sEXTRACT IFP-ANCT:%s (%u animations) -> %s/%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n, dest, name);
-		err = shade_write (arg, dest, basedir, name, (u8 *)b.p, (uint)b.n);
+		if (n == cap)
+		{
+			cap = cap ? 2 * cap : 64;
+			entries = REALLOC (entries, cap * sizeof (*entries));
+			if (entries)
+				memset (entries + n, 0, (cap - n) * sizeof (*entries));
+		}
+		if (entries && OwnedEntryAdd (entries, n, name, (u8 *)b.p, (uint)b.n))
+		{
+			n++;
+			err = write_owned_entries (arg, basedir, depth, "IFP-ANCT", entries, n);
+			entries = 0;
+		}
 	}
+	if (entries)
+		ResetOwnedEntries (entries, n);
 	FREE (b.p);
 	FREE (c);
 	return err;
