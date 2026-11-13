@@ -25,6 +25,14 @@ extern "C" int szs_decode_bc6
     return ok;
 }
 
+extern "C" int szs_decode_bc6_half
+    ( const uint8_t *src, uint32_t width, uint32_t height,
+      int is_signed, uint16_t *out )
+{
+    if (!src || !width || !height || !out) return 0;
+    return decode_bc6_half(src,width,height,is_signed,out);
+}
+
 extern "C" int szs_decode_bc7
     ( const uint8_t *src, uint32_t width, uint32_t height, uint8_t *rgba )
 {

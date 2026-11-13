@@ -11,6 +11,7 @@
 				|| !strcasecmp (src_ext, ".zstd")))
 		|| (size >= 4 && IsZSTD (data, size) > 0))
 	{
+		HintSourcePathZSTD (arg);
 		err = DecodeZSTD (&decoded, &decoded_size, data, size);
 		FREE (data);
 		if (err)

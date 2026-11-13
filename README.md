@@ -192,7 +192,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **NIF (Gamebryo 20.6, Wii)** | `.nif` | *Pocoyo Racing* |
 | **Nippon Ichi WIIIDARC** | `.dat` | *Phantom Brave: We Meet Again* |
 | **NLG DICT** | `.dict`, `.data` | *Federation Force*, *Luigi's Mansion 2/3*, *Strikers* |
-| **NUP** | `.nup` | Decrypted Switch / Switch 2 dumps (*Kirby and the Forgotten Land – Nintendo Switch 2 Edition*, *Kirby Air Riders*) |
+| **NUP** | `.nup` | Decrypted Switch / Switch 2 dumps (*Kirby and the Forgotten Land – Nintendo Switch 2 Edition*, *Kirby Air Riders*, *The Legend of Zelda: Ocarina of Time* (Switch 2)) |
 | **NXARC** | `.nxarc` | Switch titles |
 | **Okami DAT / T** | `.dat`, `.t` | *Okami* |
 | **Opoona SL01 / OPKG** | `.btl`, `.bin`, `.dat` | *Opoona* |
@@ -455,7 +455,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **SERZ texture groups** | `.TgWii` | Wii |
 | **Sonic TXAG TXD** | `.txd` | *Sonic and the Black Knight* |
 | **Super Fruit Fall TDW / MEE** | `.tdw`, `.mee` | *Super Fruit Fall* |
-| **TARB terrain tiles** | `.hght`, `.mate`, `.norm`, `.extm` | *Mario Kart World* |
+| **TARB terrain tiles** | `.hght`, `.mate`, `.norm`, `.extm` | *Mario Kart World*, *The Legend of Zelda: Ocarina of Time* (Switch 2) |
 | **CMB** | `.cmb` | *Ocarina of Time 3D*, *Majora's Mask 3D*, *Ever Oasis* |
 | **CTPK** | `.ctpk` | 3DS |
 | **CTXB** | `.ctxb` | *Ocarina of Time 3D*, *Majora's Mask 3D* |
@@ -530,7 +530,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **BFSAR / BFWAR / BFWAV** | `.bfsar`, `.bfwar`, `.bfwav` | Wii U / Switch |
 | **BRSAR / RBNK / RWAV** | `.brsar`, `.rbnk`, `.rwav` | Wii |
 | **BRSTM / BCSTM / BFSTM** | `.brstm`, `.bcstm`, `.bfstm` | Wii / 3DS / Wii U / Switch |
-| **BWAV** | `.bwav` | Switch |
+| **BWAV** | `.bwav` | Switch / Switch 2 (PCM16, DSP-ADPCM, Switch Opus) |
 | **Capcom MT Framework Wii sound event request** | `.qers` | Capcom MT Framework Wii titles |
 | **Capcom MT Framework Wii sound tables** | `.qrts`, `.qers` | Capcom MT Framework Wii titles |
 | **Capcom MT Framework Wii surround sound** | `.srnd` | Capcom MT Framework Wii titles |
@@ -648,7 +648,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | Format | Extensions | Games |
 | --- | --- | --- |
 | **AiLive LiveMove LMC** | `.lmc` | Wii |
-| **AINB AI node graph** | `.ainb` | *Splatoon 3*, *Tears of the Kingdom*, *Mario Kart World* |
+| **AINB AI node graph** | `.ainb` | *Splatoon 3*, *Tears of the Kingdom*, *Mario Kart World*, *The Legend of Zelda: Ocarina of Time* (Switch 2) |
+| **BFEVFL event flow** | `.bfevfl` | *The Legend of Zelda: Ocarina of Time* (Switch 2), *Tears of the Kingdom*-style event flows |
 | **AAMP** | `.aamp` | Wii U / Switch |
 | **AGL parameters (AAMP)** | `.baglenv`, `.baglsky`, `.bgsdw`, other `.bagl*` | Switch titles, *Mario Kart World* |
 | **Avalanche DICT** | — | *Disney's Bolt* |
@@ -726,7 +727,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **STRT** | — | *Unlimited Adventure/Cruise* |
 | **TDNS sound names** | `.bin` | Wii |
 | **Thrillville serialised objects** | `.prk`, `.tbp`, `.atr` | *Thrillville: Off the Rails* |
-| **TSCB** | `.tscb` | *Mario Kart World* |
+| **TSCB** | `.tscb` | *Mario Kart World*, *The Legend of Zelda: Ocarina of Time* (Switch 2) |
 | **Ubisoft Imagine LOC** | `.LOCV1.0` | *Beastly*, *Babysitting Party*, *Babyz* |
 | **Ubisoft LOC text** | `.loc` | Wii |
 | **VISLIST** | `.vis` | *Aqua Panic!*, *SPRay*, *Cyberbike*, other Eko Software games |
@@ -784,7 +785,7 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **WIS block-LZSS** | `.wis` | *Cabela's* Wii titles |
 | **Yay0 (SZP)** | `Yay0` | Nintendo 64 / GameCube |
 | **Yaz0 (SZS)** | `Yaz0` | GameCube / Wii / Switch |
-| **Zstandard (Zstd)** | `28 B5 2F FD` | Switch / F-Zero 99 |
+| **Zstandard (Zstd)** | `28 B5 2F FD` | Switch / F-Zero 99 / Switch 2 Zelda (`Pack/ZsDic.pack.zs` dictionaries) |
 
 ---
 

@@ -12,6 +12,11 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 	if (verbose >= 0 || testmode)
 		fprintf (stdlog, "%s%sEXTRACT SARC:%s (%u files) -> %s/\n", verbose > 0 ? "\n" : "",
 			testmode ? "WOULD " : "", arg, sarc.n_entries, dest);
+	// Members that differ only in case ("res/Master_Field.skybin" next to
+	// "res/master_field.skybin", Switch 2 Zelda GameScene.genvb) would overwrite each
+	// other on case-insensitive file systems: later ones get a ".dupN" suffix.
+	StringField_t seen;
+	InitializeStringField (&seen);
 	for (uint i = 0; !err && i < sarc.n_entries; i++)
 	{
 		ccp name = 0;
@@ -62,6 +67,20 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		}
 		if (testmode)
 			continue;
+		char dup_name[PATH_MAX], key[PATH_MAX];
+		for (uint n = 1;; n++)
+		{
+			snprintf (key, sizeof (key), "%s", name);
+			for (char *k = key; *k; k++)
+				*k = tolower ((u8)*k);
+			if (!FindStringField (&seen, key))
+				break;
+			const ccp sl = strrchr (name, '/'), dot = strrchr (sl ? sl : name, '.');
+			snprintf (dup_name, sizeof (dup_name), "%.*s.dup%u%s",
+				dot ? (int)(dot - name) : (int)strlen (name), name, n, dot ? dot : "");
+			name = dup_name;
+		}
+		InsertStringField (&seen, STRDUP (key), true);
 		char path[PATH_MAX];
 		snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", name);
 		File_t F;
@@ -72,6 +91,7 @@ static enumError extract_sarc_mem (ccp arg, ccp basedir, uint depth, const u8 *r
 		if (close_err > err)
 			err = close_err;
 	}
+	ResetStringField (&seen);
 	if (!err && !testmode)
 	{
 		enumError sub_err = extract_tree_complete (dest, depth + 1);

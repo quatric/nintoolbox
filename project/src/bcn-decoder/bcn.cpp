@@ -377,6 +377,10 @@ static uint8_t half_to_u8(uint16_t h) {
 	return f32_to_u8(fp16_ieee_to_fp32_value(h));
 }
 
+// When non-null decode_bc6_block() stores the raw half floats (r, g, b per texel)
+// here instead of tone mapped 8 bit colors.
+static uint16_t* s_bc6_half_out = nullptr;
+
 static void decode_bc6_block(const uint8_t* _src, uint32_t* _dst, bool _signed)
 {
 	BitReader bit(_src);
@@ -395,6 +399,8 @@ static void decode_bc6_block(const uint8_t* _src, uint32_t* _dst, bool _signed)
 		if (0 == s_bc6hModeInfo[mode].endpointBits)
 		{
 			memset(_dst, 0, 16 * 4);
+			if (s_bc6_half_out)
+				memset(s_bc6_half_out, 0, 16 * 3 * sizeof(uint16_t));
 			return;
 		}
 
@@ -786,9 +792,34 @@ static void decode_bc6_block(const uint8_t* _src, uint32_t* _dst, bool _signed)
 			uint16_t gg = finish_unquantize((epG[subsetIndex] * fca + epG[subsetIndex + 1] * fcb + 32) >> 6, _signed);
 			uint16_t bb = finish_unquantize((epB[subsetIndex] * fca + epB[subsetIndex + 1] * fcb + 32) >> 6, _signed);
 
+			if (s_bc6_half_out)
+			{
+				s_bc6_half_out[idx * 3 + 0] = rr;
+				s_bc6_half_out[idx * 3 + 1] = gg;
+				s_bc6_half_out[idx * 3 + 2] = bb;
+			}
 			_dst[idx] = color(half_to_u8(rr), half_to_u8(gg), half_to_u8(bb), 255);
 		}
 	}
+}
+
+// BC6H to half floats: WIDTH*HEIGHT*3 values (r, g, b) in 'out'.
+int decode_bc6_half(const uint8_t* data, uint32_t m_width, uint32_t m_height, int _signed, uint16_t* out) {
+	uint32_t blocks_x = (m_width + 3) / 4;
+	uint32_t blocks_y = (m_height + 3) / 4;
+	uint32_t buffer[16];
+	uint16_t half[16 * 3];
+	s_bc6_half_out = half;
+	for (uint32_t by = 0; by < blocks_y; by++) {
+		for (uint32_t bx = 0; bx < blocks_x; bx++, data += 16) {
+			decode_bc6_block(data, buffer, _signed != 0);
+			for (uint32_t y = 0; y < 4 && by * 4 + y < m_height; y++)
+				for (uint32_t x = 0; x < 4 && bx * 4 + x < m_width; x++)
+					memcpy(out + (((size_t)(by * 4 + y)) * m_width + bx * 4 + x) * 3, half + (y * 4 + x) * 3, 3 * sizeof(uint16_t));
+		}
+	}
+	s_bc6_half_out = nullptr;
+	return 1;
 }
 
 int decode_bc6(const uint8_t* data, uint32_t m_width, uint32_t m_height, uint32_t* image) {

@@ -30,6 +30,14 @@ enumError EncodeZSTD (
 
 enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint src_size);
 
+// Dictionary support (Zelda-style romfs *.zs files; frames name their
+// dictionary by ID).  HintSourcePathZSTD() searches the directories above
+// 'path' for Pack/ZsDic.pack.zs; the ZSDIC environment variable may point at
+// a ZsDic.pack(.zs), a SARC or a bare *.zsdic.
+bool RegisterDictZSTD (const void *dict, uint size);
+uint LoadDictFileZSTD (ccp path);
+void HintSourcePathZSTD (ccp path);
+
 enumError DecodeZSTDpart (
 	void *dest_buf, uint dest_size, uint *dest_written, const void *src, uint src_size);
 

@@ -19264,6 +19264,35 @@ PYE
 }
 t_kirby_switch2
 
+t_zelda_switch2(){
+  # Switch 2 Zelda (Tears-of-the-Kingdom engine): zstd dictionary pack (Pack/ZsDic.pack.zs, frames name a
+  # dictionary by ID), BFEVFL event flows, TARB R32F height tiles.
+  local d; d=$(mktemp -d /tmp/_r_zelda2.XXXXXX) || { fno "Zelda Switch 2 formats" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_zelda_switch2.py" "$d" >/dev/null 2>&1 || { fno "Zelda Switch 2 formats" "fixture generation failed"; rm -rf "$d"; return; }
+  "$B/wszst" XX "$d/Model/a.txt.zs" "$d/flow.bfevfl" "$d/hght.hght" --overwrite >/dev/null 2>&1
+  if cmp -s "$d/Model/a.txt" "$d/a.expect"; then
+    fok "zstd dictionary frames decoded with the romfs Pack/ZsDic.pack.zs dictionaries"
+  else
+    fno "zstd dictionary" "wrong or missing $d/Model/a.txt"
+  fi
+  if grep -q '^name: "flow_test"' "$d/flow.bfevfl.yml" 2>/dev/null \
+     && grep -q 'type: sub_flow_switch' "$d/flow.bfevfl.yml" \
+     && grep -q 'value: 9' "$d/flow.bfevfl.yml" \
+     && grep -q '"Label": "hi"' "$d/flow.bfevfl.yml" \
+     && grep -q '        -1: "Event3"' "$d/flow.bfevfl.yml"; then
+    fok "BFEVFL event flow -> YAML (actors, params, switch cases, return, sub flow switch)"
+  else
+    fno "BFEVFL" "unexpected $d/flow.bfevfl.yml"
+  fi
+  if python3 "$PWD_PROJECT/../tests/png16gray.py" "$d/hght.hght.png" 2>/dev/null | cmp -s - "$d/hght.expect"; then
+    fok "TARB R32F height tile -> 16 bit PNG"
+  else
+    fno "TARB R32F" "wrong samples in $d/hght.hght.png"
+  fi
+  rm -rf "$d"
+}
+t_zelda_switch2
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

@@ -5,6 +5,7 @@
 #include "lib-bntx.h"
 #include "lib-sbuf.h"
 #include "lib-zstd.h"
+#include "bcn-decoder/bcn_wrapper.h"
 #include <math.h>
 #include <png.h>
 #include <setjmp.h>
@@ -182,12 +183,27 @@ static float tera_f11 (uint v, uint mbits)
 	return ldexpf (1.0f + (float)m / (float)(1u << mbits), (int)e - 15);
 }
 
+// IEEE half to float.
+static float tera_half (uint h)
+{
+	const uint e = h >> 10 & 31, m = h & 0x3ff;
+	float f;
+	if (!e)
+		f = ldexpf ((float)m, -24);
+	else if (e == 31)
+		f = m ? 0.0f : 65504.0f;
+	else
+		f = ldexpf (1.0f + (float)m / 1024.0f, (int)e - 15);
+	return h & 0x8000 ? -f : f;
+}
+
 // Pixel layout of a channel-type quad (bytes 0x04 or 0x14 of the info block).
 typedef struct tera_fmt_t
 {
 	uint channels, bpc; // bytes per channel (1/2); 0 for packed formats
 	bool r11g11b10;
-	uint bc; // 0, or the BC variant (1 = BC1, 3 = BC3)
+	bool f32; // one 32 bit float channel (heights: 0..1 of the scene's height scale)
+	uint bc; // 0, or the BC variant (1 = BC1, 3 = BC3, 5 = BC5, 6 = BC6H unsigned)
 	uint bpt; // bytes per texel (or per 4x4 block for BC)
 } tera_fmt_t;
 
@@ -200,6 +216,8 @@ static bool tera_parse_fmt (const u8 *q, tera_fmt_t *f)
 		{
 		case 0x30: f->bc = 1, f->bpt = 8, f->channels = 4; return true;
 		case 0x34: f->bc = 3, f->bpt = 16, f->channels = 4; return true;
+		case 0xc6: f->bc = 5, f->bpt = 16, f->channels = 2; return true;
+		case 0xc8: f->bc = 6, f->bpt = 16, f->channels = 3; return true;
 		}
 		return false;
 	}
@@ -218,11 +236,14 @@ static bool tera_parse_fmt (const u8 *q, tera_fmt_t *f)
 			return false;
 	for (uint i = 0; i < n; i++)
 	{
-		const uint t = q[i] & 0x0f, bpc = t == 6 ? 1 : t == 9 ? 2 : 0;
+		const uint t = q[i] & 0x0f, bpc = t == 6 ? 1 : t == 9 ? 2 : t == 0x0b ? 4 : 0;
 		if (!bpc || (f->bpc && f->bpc != bpc))
 			return false;
 		f->bpc = bpc;
+		f->f32 = bpc == 4;
 	}
+	if (f->f32 && n != 1)
+		return false;
 	f->channels = n;
 	f->bpt = n * f->bpc;
 	return true;
@@ -231,7 +252,7 @@ static bool tera_parse_fmt (const u8 *q, tera_fmt_t *f)
 static const char *tera_fmt_name (const tera_fmt_t *f)
 {
 	static const char *names8[] = { "R8", "RG8", "RGB8", "RGBA8" }, *names16[] = { "R16", "RG16", "RGB16", "RGBA16" };
-	return f->bc == 1 ? "BC1" : f->bc == 3 ? "BC3" : f->r11g11b10 ? "R11G11B10F" : f->bpc == 2 ? names16[f->channels - 1] : names8[f->channels - 1];
+	return f->bc == 1 ? "BC1" : f->bc == 3 ? "BC3" : f->bc == 5 ? "BC5" : f->bc == 6 ? "BC6H" : f->r11g11b10 ? "R11G11B10F" : f->f32 ? "R32F" : f->bpc == 2 ? names16[f->channels - 1] : names8[f->channels - 1];
 }
 
 // Turns WIDTH*HEIGHT pixels of format F into the output image(s).
@@ -257,7 +278,25 @@ static enumError tera_export (const u8 *px, uint w, uint h, const tera_fmt_t *f,
 		return err;
 	}
 
-	const uint ch = f->bc ? 4 : f->channels, bpc = f->bc ? 1 : f->bpc;
+	if (f->f32)
+	{
+		// Heights are stored as floats of the 0..1 range of the scene's height scale: 16 bit PNG.
+		u16 *o = MALLOC (n * sizeof (u16));
+		if (!o)
+			return ERR_OUT_OF_MEMORY;
+		for (size_t i = 0; i < n; i++)
+		{
+			float v = t_lef32 (px + 4 * i);
+			v = v > 0.0f ? (v < 1.0f ? v : 1.0f) : 0.0f; // also maps NaN to 0
+			o[i] = (u16)lrintf (v * 65535.0f);
+		}
+		const enumError err = EncodePngMem ((u8 *)o, w, h, 1, 16, &img->main, &img->main_size);
+		FREE (o);
+		return err;
+	}
+
+	// BC5 is kept as two channels, BC1/BC3 are decoded to RGBA.
+	const uint ch = f->bc == 1 || f->bc == 3 ? 4 : f->channels, bpc = f->bc ? 1 : f->bpc;
 	if (ch == 1 || ch == 3)
 		return EncodePngMem (px, w, h, ch, 8 * bpc, &img->main, &img->main_size);
 
@@ -368,42 +407,102 @@ enumError DecodeTarb (const u8 *data, size_t size, bool normal_map, TeraImage_t 
 	}
 	else if (blk[2] && have_gf)
 	{
-		// The GPU block: mip 0, block linear (Orin GOBs, block height 1).
-		const uint bw = gf.bc ? 4 : 1;
-		u8 *lin = 0;
-		uint lin_size = 0;
-		if (BntxDeswizzleEx (&lin, &lin_size, blk[2], (uint)blk_size[2], grid, grid, bw, bw, gf.bpt, 0, 0, false, true) || !lin)
-			goto done;
-		if (gf.bc)
+		// The GPU block: block linear (Orin GOBs), one surface per array slice. The block height
+		// is the smallest one whose surface size equals the slice stride (Mario Kart World uses
+		// one GOB; Switch 2 Zelda tiles of 260 texels use 16).
+		uint slices = pl[3] ? pl[3] : 1;
+		if (slices > 16 || blk_size[2] % slices)
+			slices = 1;
+		const uint bw = gf.bc ? 4 : 1, nb = (grid + bw - 1) / bw;
+		const u64 pitch = ((u64)nb * gf.bpt + 63) & ~(u64)63;
+		const size_t stride = blk_size[2] / slices;
+		uint bhl = 0;
+		bool matched = false;
+		for (uint l = 0; l <= 4 && !matched; l++)
+			if (pitch * ((((u64)nb + (8u << l) - 1) / (8u << l)) * (8u << l)) == stride)
+				bhl = l, matched = true;
+		if (!matched && slices > 1)
+			slices = 1, bhl = 0;
+		const size_t sstride = slices == 1 ? blk_size[2] : stride;
+
+		const uint W = grid * slices;
+		const size_t npx = (size_t)W * grid;
+		const bool bc6 = gf.bc == 6;
+		float *fl = 0;
+		if (bc6)
+			fl = MALLOC (npx * 3 * sizeof (float));
+		else
+			px = MALLOC (npx * (gf.bc == 5 ? 2 : gf.bc ? 4 : gf.bpt));
+		if (!(bc6 ? (void *)fl : (void *)px))
 		{
-			const uint nbx = (grid + 3) / 4;
-			px = MALLOC (texels * 4);
-			if (!px)
+			err = ERR_OUT_OF_MEMORY;
+			goto done;
+		}
+
+		bool ok = true;
+		for (uint sl = 0; sl < slices && ok; sl++)
+		{
+			u8 *lin = 0;
+			uint lin_size = 0;
+			if (BntxDeswizzleEx (&lin, &lin_size, blk[2] + sl * sstride, (uint)sstride, grid, grid, bw, bw, gf.bpt, 0, bhl, false, true) || !lin)
 			{
-				FREE (lin);
-				err = ERR_OUT_OF_MEMORY;
-				goto done;
+				ok = false;
+				break;
 			}
-			for (uint by = 0; by < nbx; by++)
-				for (uint bx = 0; bx < nbx; bx++)
+			if (bc6)
+			{
+				u16 *h = MALLOC ((size_t)texels * 3 * sizeof (u16));
+				if (!h)
+					ok = false;
+				else
 				{
-					u8 tile[64];
-					const u8 *b = lin + ((size_t)by * nbx + bx) * gf.bpt;
-					if (gf.bc == 1)
-						decode_bc1_block (b, tile, true);
-					else
-						decode_bc3_block (b, tile);
-					for (uint y = 0; y < 4 && by * 4 + y < grid; y++)
-						for (uint x = 0; x < 4 && bx * 4 + x < grid; x++)
-							memcpy (px + (((size_t)(by * 4 + y)) * grid + bx * 4 + x) * 4, tile + (y * 4 + x) * 4, 4);
+					szs_decode_bc6_half (lin, grid, grid, 0, h);
+					for (uint y = 0; y < grid; y++)
+						for (uint x = 0; x < grid; x++)
+							for (uint c = 0; c < 3; c++)
+								fl[(((size_t)y * W) + sl * grid + x) * 3 + c] = tera_half (h[((size_t)y * grid + x) * 3 + c]);
+					FREE (h);
 				}
+			}
+			else if (gf.bc)
+			{
+				const uint obpt = gf.bc == 5 ? 2 : 4;
+				for (uint by = 0; by < nb; by++)
+					for (uint bx = 0; bx < nb; bx++)
+					{
+						u8 tile[64];
+						const u8 *b = lin + ((size_t)by * nb + bx) * gf.bpt;
+						if (gf.bc == 1)
+							decode_bc1_block (b, tile, true);
+						else if (gf.bc == 3)
+							decode_bc3_block (b, tile);
+						else
+							decode_bc5_block (b, tile);
+						for (uint y = 0; y < 4 && by * 4 + y < grid; y++)
+							for (uint x = 0; x < 4 && bx * 4 + x < grid; x++)
+								memcpy (px + (((size_t)(by * 4 + y)) * W + sl * grid + bx * 4 + x) * obpt, tile + (y * 4 + x) * 4, obpt);
+					}
+			}
+			else
+				for (uint y = 0; y < grid; y++)
+					memcpy (px + (((size_t)y * W) + sl * grid) * gf.bpt, lin + (size_t)y * grid * gf.bpt, (size_t)grid * gf.bpt);
 			FREE (lin);
 		}
+		if (!ok)
+		{
+			FREE (fl);
+			goto done;
+		}
+		if (bc6)
+		{
+			img->width = W, img->height = grid, img->hdr = true;
+			err = encode_hdr_mem (fl, W, grid, &img->main, &img->main_size);
+			FREE (fl);
+		}
 		else
-			px = lin;
-		err = tera_export (px, grid, grid, &gf, normal_map, img);
+			err = tera_export (px, W, grid, &gf, normal_map, img);
 		const uint mips = pl[0x19];
-		snprintf (img->desc, sizeof (img->desc), "%ux%u %s%s", grid, grid, tera_fmt_name (&gf), mips > 1 ? " (+mips)" : "");
+		snprintf (img->desc, sizeof (img->desc), "%ux%u %s%s%s", grid, grid, tera_fmt_name (&gf), slices > 1 ? ", slices side by side" : "", mips > 1 ? " (+mips)" : "");
 	}
 
 done:

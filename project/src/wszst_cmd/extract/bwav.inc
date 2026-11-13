@@ -1,8 +1,10 @@
 // Nintendo Switch BWAV ("BWAV", ".bwav"): decoded natively to "<name>.wav" beside the source (PCM16 and DSP-ADPCM, any channel count, loop points
 // kept in a 'smpl' chunk). Layout after vgmstream's bwav.c: "BWAV" BOM(0xFEFF) version crc prefetch u16 channels u16 (0x0e), then
-// one 0x4c byte record per channel from 0x10: codec u16 (0 PCM16, 1 DSP; 2 = Opus is left alone), pan u16, rate u32, total samples
+// one 0x4c byte record per channel from 0x10: codec u16 (0 PCM16, 1 DSP, 2 = Opus: a Switch Opus stream (0x80000001) at the start offset, repacked and decoded like a ".opus" file), pan u16, rate u32, total samples
 // u32, samples u32 (0x0c), 16 s16 DSP coefficients (0x10), start offset u32 (0x34), loop end s32 (0x3c, -1 = none), loop start
 // s32 (0x40), DSP history s16 x2 (0x46). Every channel's data is its own contiguous block starting at its start offset.
+static enumError switch_opus_decode_mem (ccp arg, ccp basedir, const u8 *raw, size_t sz, size_t base);
+
 static enumError extract_bwav_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -25,6 +27,13 @@ static enumError extract_bwav_file (ccp arg, ccp basedir, uint depth)
 			const u8 *c0 = raw + 0x10;
 			const uint codec = c0[0] | c0[1] << 8, rate = rd_le32 (c0 + 4), ns = rd_le32 (c0 + 0x0c);
 			const s32 loop_end = (s32)rd_le32 (c0 + 0x3c), loop_start = (s32)rd_le32 (c0 + 0x40);
+			if (codec == 2 && rd_le32 (c0 + 0x34) < sz)
+			{
+				// Switch 2 Zelda voice lines: the whole stream (all channels) sits in the first channel's block.
+				err = switch_opus_decode_mem (arg, basedir, raw, sz, rd_le32 (c0 + 0x34));
+				FREE (raw);
+				return err;
+			}
 			bool ok = codec <= 1 && rate && ns && ns < 0x4000000;
 			for (uint c = 1; ok && c < ch; c++)
 			{

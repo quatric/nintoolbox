@@ -10,10 +10,10 @@
 // Every tile layer (".hght", ".mate", ".norm", "*.extm") is a TARB file: a 0x14 byte header
 // ("TARB", version, header size, payload size, zstd size or 0) and a payload that starts with a
 // 0x34 byte info block:
-//   0x00 u16 BE grid side (texels, margins included)   0x02 u8 margin   0x03 u8 array count
-//   0x04 u8[4] per-channel type of the "data" block (6 = 8 bit, 9 = 16 bit, 08 08 07 = R11G11B10F)
+//   0x00 u16 BE grid side (texels, margins included)   0x02 u8 margin   0x03 u8 array slices (GPU block holds that many surfaces)
+//   0x04 u8[4] per-channel type of the "data" block (6 = 8 bit, 9 = 16 bit, 0b = 32 bit float, 08 08 07 = R11G11B10F)
 //   0x08 u8 flags (0x80: data block is delta packed)
-//   0x14 u8[4] format of the GPU block (as 0x04, or 0x80 xx xx code: 0x30 BC1, 0x34 BC3)
+//   0x14 u8[4] format of the GPU block (as 0x04, or 0x80 xx xx code: 0x30 BC1, 0x34 BC3, 0xc6 BC5, 0xc8 BC6H)
 //   0x19 u8 mip count
 //   0x1C/0x24/0x2C { s32 offset relative to the field, u32 size }: data, aux and GPU blocks.
 // The data block holds plain or delta packed pixels; the GPU block holds the same image (and its

@@ -539,6 +539,7 @@
 #include "extract/bphcl.inc"
 #include "extract/vtdb2.inc"
 #include "extract/baev.inc"
+#include "extract/bfevfl.inc"
 #include "extract/brstm_stream.inc"
 #include "extract/phive.inc"
 #include "extract/tera.inc"

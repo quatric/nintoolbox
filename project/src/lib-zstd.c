@@ -22,6 +22,247 @@ int IsZSTD (cvp data, uint size)
 	return -1;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////
+// Dictionary registry.  Zelda-style romfs trees (Tears of the Kingdom and its
+// Switch 2 successors) compress most *.zs files with one of a handful of
+// trained dictionaries stored in Pack/ZsDic.pack.zs (a SARC of *.zsdic
+// files).  A frame names its dictionary by ID, so decoding only needs the
+// registry to know every dictionary it might meet.
+
+typedef struct zs_dict_t
+{
+	u32 id;
+	u8 *data;
+	size_t size;
+	ZSTD_DDict *ddict;
+} zs_dict_t;
+
+static zs_dict_t *zs_dicts = 0;
+static uint zs_dict_n = 0, zs_dict_cap = 0;
+
+#define ZS_DICT_MAGIC 0xEC30A437u
+
+static zs_dict_t *FindDictZSTD (u32 id)
+{
+	for (uint i = 0; i < zs_dict_n; i++)
+		if (zs_dicts[i].id == id)
+			return zs_dicts + i;
+	return 0;
+}
+
+bool RegisterDictZSTD (const void *data, uint size)
+{
+	if (!data || size < 8 || le32 ((const u8 *)data) != ZS_DICT_MAGIC)
+		return false;
+
+	const u32 id = le32 ((const u8 *)data + 4);
+	if (!id || FindDictZSTD (id))
+		return false;
+
+	if (zs_dict_n == zs_dict_cap)
+	{
+		const uint ncap = zs_dict_cap ? zs_dict_cap * 2 : 8;
+		zs_dict_t *nd = REALLOC (zs_dicts, ncap * sizeof (*nd));
+		if (!nd)
+			return false;
+		zs_dicts = nd;
+		zs_dict_cap = ncap;
+	}
+
+	u8 *copy = MALLOC (size);
+	if (!copy)
+		return false;
+	memcpy (copy, data, size);
+
+	ZSTD_DDict *dd = ZSTD_createDDict (copy, size);
+	if (!dd)
+	{
+		FREE (copy);
+		return false;
+	}
+
+	zs_dict_t *d = zs_dicts + zs_dict_n++;
+	d->id = id;
+	d->data = copy;
+	d->size = size;
+	d->ddict = dd;
+	return true;
+}
+
+// Registers every dictionary found in a SARC (the decoded ZsDic.pack).
+static uint RegisterDictSarcZSTD (const u8 *d, uint size)
+{
+	if (size < 0x20 || memcmp (d, "SARC", 4) || memcmp (d + 0x14, "SFAT", 4))
+		return 0;
+
+	const bool be = be16 (d + 6) == 0xFEFF;
+	#define R16(p) (be ? be16 (p) : le16 (p))
+	#define R32(p) (be ? be32 (p) : le32 (p))
+	const u32 data_off = R32 (d + 0x0C);
+	const uint count = R16 (d + 0x1A);
+	if (0x20 + (u64)count * 16 > size)
+		return 0;
+
+	uint n = 0;
+	for (uint i = 0; i < count; i++)
+	{
+		const u8 *e = d + 0x20 + i * 16;
+		const u32 beg = R32 (e + 8), end = R32 (e + 12);
+		if (beg > end || (u64)data_off + end > size)
+			continue;
+		if (RegisterDictZSTD (d + data_off + beg, end - beg))
+			n++;
+	}
+	#undef R16
+	#undef R32
+	return n;
+}
+
+static bool ReadWholeFileZSTD (ccp path, u8 **out, uint *out_size)
+{
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return false;
+	fseek (f, 0, SEEK_END);
+	const long sz = ftell (f);
+	fseek (f, 0, SEEK_SET);
+	if (sz <= 0 || sz > 64 * 1024 * 1024)
+	{
+		fclose (f);
+		return false;
+	}
+	u8 *buf = MALLOC ((size_t)sz);
+	if (!buf || fread (buf, 1, (size_t)sz, f) != (size_t)sz)
+	{
+		FREE (buf);
+		fclose (f);
+		return false;
+	}
+	fclose (f);
+	*out = buf;
+	*out_size = (uint)sz;
+	return true;
+}
+
+// Loads dictionaries from a ZsDic.pack(.zs), a bare *.zsdic or a raw SARC.
+uint LoadDictFileZSTD (ccp path)
+{
+	u8 *buf = 0;
+	uint size = 0;
+	if (!path || !ReadWholeFileZSTD (path, &buf, &size))
+		return 0;
+
+	uint n = 0;
+	if (IsZSTD (buf, size) > 0)
+	{
+		// The pack itself is compressed without a dictionary.
+		u8 *dec = 0;
+		uint dec_n = 0;
+		if (!DecodeZSTD (&dec, &dec_n, buf, size) && dec)
+			n = RegisterDictSarcZSTD (dec, dec_n);
+		FREE (dec);
+	}
+	else if (!memcmp (buf, "SARC", 4))
+		n = RegisterDictSarcZSTD (buf, size);
+	else
+		n = RegisterDictZSTD (buf, size) ? 1 : 0;
+
+	FREE (buf);
+	return n;
+}
+
+static bool zs_env_done = false;
+
+static void LoadDictEnvZSTD (void)
+{
+	if (zs_env_done)
+		return;
+	zs_env_done = true;
+	ccp env = getenv ("ZSDIC");
+	if (env && *env)
+		LoadDictFileZSTD (env);
+}
+
+// Looks for Pack/ZsDic.pack.zs in the directories above 'path' (the file
+// about to be processed), so that a romfs tree on disk just works.
+void HintSourcePathZSTD (ccp path)
+{
+	LoadDictEnvZSTD ();
+	if (!path || !*path)
+		return;
+
+	static char last_dir[PATH_MAX];
+	char dir[PATH_MAX];
+	if (!realpath (path, dir))
+		snprintf (dir, sizeof (dir), "%s", path);
+
+	// Visit each directory above the file; remember the nearest dir we
+	// already searched so batches over one tree stay cheap.
+	char *slash = strrchr (dir, '/');
+	if (!slash)
+		return;
+	*slash = 0;
+	if (!strcmp (dir, last_dir))
+		return;
+	snprintf (last_dir, sizeof (last_dir), "%s", dir);
+
+	for (int depth = 0; depth < 24 && *dir; depth++)
+	{
+		static const ccp tail[] = { "/Pack/ZsDic.pack.zs", "/romfs/Pack/ZsDic.pack.zs", 0 };
+		for (const ccp *t = tail; *t; t++)
+		{
+			char cand[PATH_MAX + 32];
+			snprintf (cand, sizeof (cand), "%s%s", dir, *t);
+			struct stat st;
+			if (!stat (cand, &st) && S_ISREG (st.st_mode))
+			{
+				static char loaded[8][PATH_MAX + 32];
+				static uint nloaded = 0;
+				bool seen = false;
+				for (uint i = 0; i < nloaded; i++)
+					if (!strcmp (loaded[i], cand))
+						seen = true;
+				if (!seen)
+				{
+					if (nloaded < 8)
+						snprintf (loaded[nloaded++], sizeof (loaded[0]), "%s", cand);
+					LoadDictFileZSTD (cand);
+				}
+				return;
+			}
+		}
+		slash = strrchr (dir, '/');
+		if (!slash)
+			break;
+		*slash = 0;
+	}
+}
+
+static const ZSTD_DDict *DDictForFrameZSTD (const void *src, uint src_size, u32 *missing_id)
+{
+	const u32 id = ZSTD_getDictID_fromFrame (src, src_size);
+	if (missing_id)
+		*missing_id = 0;
+	if (!id)
+		return 0;
+	const zs_dict_t *d = FindDictZSTD (id);
+	if (d)
+		return d->ddict;
+	if (missing_id)
+		*missing_id = id;
+	return 0;
+}
+
+static ccp MissingDictMsgZSTD (u32 id, char *buf, uint size)
+{
+	snprintf (buf, size,
+		"frame needs zstd dictionary #%u (ZsDic.pack.zs not found above the input; "
+		"set ZSDIC=<path to ZsDic.pack.zs>)",
+		id);
+	return buf;
+}
+
 int CalcCompressionLevelZSTD (int compr_level)
 {
 	if (compr_level <= 0)
@@ -110,10 +351,26 @@ enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint s
 		if (!dest)
 			return ERR_OUT_OF_MEMORY;
 
-		size_t ret = ZSTD_decompress (dest, dst_cap, src, src_size);
+		u32 missing = 0;
+		const ZSTD_DDict *dd = DDictForFrameZSTD (src, src_size, &missing);
+		size_t ret;
+		if (dd)
+		{
+			ZSTD_DCtx *dc = ZSTD_createDCtx ();
+			ret = dc ? ZSTD_decompress_usingDDict (dc, dest, dst_cap, src, src_size, dd)
+				 : ZSTD_error_memory_allocation;
+			if (dc)
+				ZSTD_freeDCtx (dc);
+		}
+		else
+			ret = ZSTD_decompress (dest, dst_cap, src, src_size);
 		if (ZSTD_isError (ret))
 		{
 			FREE (dest);
+			char mb[256];
+			if (missing)
+				return ERROR0 (ERR_INVALID_DATA, "ZSTD decompression error: %s\n",
+					MissingDictMsgZSTD (missing, mb, sizeof (mb)));
 			return ERROR0 (
 				ERR_INVALID_DATA, "ZSTD decompression error: %s\n", ZSTD_getErrorName (ret));
 		}
@@ -134,6 +391,12 @@ enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint s
 	{
 		FREE (dest);
 		return ERR_OUT_OF_MEMORY;
+	}
+
+	{
+		const ZSTD_DDict *dd = DDictForFrameZSTD (src, src_size, 0);
+		if (dd)
+			ZSTD_DCtx_refDDict (dctx, dd);
 	}
 
 	ZSTD_inBuffer in = { src, src_size, 0 };
@@ -186,6 +449,12 @@ enumError DecodeZSTDpart (
 	ZSTD_DCtx *dctx = ZSTD_createDCtx ();
 	if (!dctx)
 		return ERR_OUT_OF_MEMORY;
+
+	{
+		const ZSTD_DDict *dd = DDictForFrameZSTD (src, src_size, 0);
+		if (dd)
+			ZSTD_DCtx_refDDict (dctx, dd);
+	}
 
 	ZSTD_inBuffer in = { src, src_size, 0 };
 	ZSTD_outBuffer out = { dest_buf, dest_size, 0 };
