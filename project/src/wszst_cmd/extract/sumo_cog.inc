@@ -227,6 +227,19 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			// a list written for another descriptor set (different vertex layout) reads as indices beyond the pools: stop there
 			if ((size_t)ds[ipos].off + ((size_t)cmx[ipos] + 1) * 12 > gs)
 				break;
+			if (cmx[ipos] > mx[ipos])
+			{
+				bool sane = true;
+				for (uint k = ncmd ? mx[ipos] + 1 : 0; k <= cmx[ipos] && sane; k++)
+					for (uint t = 0; t < 3; t++)
+					{
+						const float f = sumo_be_float (g + ds[ipos].off + 12 * k + 4 * t);
+						if (!(f > -1e5f && f < 1e5f))
+							sane = false;
+					}
+				if (!sane)
+					break;
+			}
 			for (uint d = 0; d < nd; d++)
 				if (cmx[d] > mx[d])
 					mx[d] = cmx[d];
