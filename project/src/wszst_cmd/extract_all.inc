@@ -512,6 +512,7 @@
 #include "extract/rockstar_gxt.inc"
 #include "extract/ubi_loc.inc"
 #include "extract/serz_tg.inc"
+#include "extract/serz_geo.inc"
 #include "extract/midway_wad.inc"
 #include "extract/midway_tim.inc"
 #include "extract/midway_asf.inc"
