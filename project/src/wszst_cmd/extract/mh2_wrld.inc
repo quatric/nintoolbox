@@ -71,47 +71,54 @@ static double mh2w_uv_score (const u8 *c, size_t uq, uint ucnt, size_t dl, size_
 	return npairs ? sum / npairs : -1;
 }
 
-// checks a display list (GX draws 0x80 quads, 0x90 triangles, 0x98 strips, 0xa0 fans; zero bytes are padding) whose vertices have a constant size; the first u16 of each vertex is a
-// position index below cnt. Returns the vertex size, or 0.
+// checks a display list (GX draws 0x80 quads, 0x90 triangles, 0x98 strips, 0xa0 fans; zero bytes are padding) whose vertices have a constant size; the position index (1 or 2 bytes at
+// poff) is below cnt
+static bool mh2w_dl_try (const u8 *c, size_t dl, size_t dsz, uint cnt, uint stride, uint poff, uint psz)
+{
+	if (poff + psz > stride)
+		return false;
+	size_t o = dl;
+	uint draws = 0;
+	while (o < dl + dsz)
+	{
+		const u8 op = c[o];
+		if (!op)
+		{
+			o++;
+			continue;
+		}
+		if (op != 0x80 && op != 0x90 && op != 0x98 && op != 0xa0)
+			break;
+		const uint n = rd_be16 (c + o + 1);
+		o += 3;
+		if (!n || o + (size_t)n * stride > dl + dsz)
+			return false;
+		for (uint i = 0; i < n; i++)
+			if ((psz == 2 ? rd_be16 (c + o + (size_t)i * stride + poff) : c[o + (size_t)i * stride + poff]) >= cnt)
+				return false;
+		o += (size_t)n * stride;
+		draws++;
+	}
+	return draws && o >= dl + dsz;
+}
+
+// legacy detection: the first u16 of each vertex is the position index. Returns the vertex size, or 0.
 static uint mh2w_dl_stride (const u8 *c, size_t dl, size_t dsz, uint cnt)
 {
 	for (uint stride = 2; stride <= 26; stride++)
-	{
-		size_t o = dl;
-		bool ok = true;
-		uint draws = 0;
-		while (o < dl + dsz && ok)
-		{
-			const u8 op = c[o];
-			if (!op)
-			{
-				o++;
-				continue;
-			}
-			if (op != 0x80 && op != 0x90 && op != 0x98 && op != 0xa0)
-				break;
-			const uint n = rd_be16 (c + o + 1);
-			o += 3;
-			if (!n || o + (size_t)n * stride > dl + dsz)
-			{
-				ok = false;
-				break;
-			}
-			for (uint i = 0; i < n; i++)
-				if (rd_be16 (c + o + (size_t)i * stride) >= cnt)
-					ok = false;
-			o += (size_t)n * stride;
-			draws++;
-		}
-		if (ok && draws && o >= dl + dsz)
+		if (mh2w_dl_try (c, dl, dsz, cnt, stride, 0, 2))
 			return stride;
-	}
 	return 0;
 }
 
 static uint mh2w_asz (uint f)
 {
 	return f == 3 ? 2 : f ? 1 : 0;
+}
+
+static uint mh2w_pidx (const u8 *v, uint poff, uint psz)
+{
+	return psz == 2 ? rd_be16 (v + poff) : v[poff];
 }
 
 static float mh2w_uvv (const u8 *c, size_t uq, uint type, uint shift, bool sgn, uint i, uint k)
@@ -254,10 +261,10 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 					rec = r;
 			}
 		const size_t tend = si + 1 < ns ? sq[si + 1] : lim;
-		size_t dls[256], dss[256], tfirst = 0;
-		uint mask = 0;
+		size_t dls[256], dss[256], ct[256], cdl[256], cds[256], tmask = 0;
+		uint mask = 0, nc = 0;
 		uint dst[256], dmat[256], dbone[256], nd = 0;
-		for (size_t t = q + 4 + (size_t)cnt * vs; t + 16 <= tend && nd < 256; t += 4)
+		for (size_t t = q + 4 + (size_t)cnt * vs; t + 16 <= tend && nc < 256; t += 4)
 		{
 			const bool marked = rd_be32 (c + t + 8) == 0x01000000 && (rd_be32 (c + t + 12) >> 8) == 0x150100;
 			if (!marked && (rd_be32 (c + t + 8) || rd_be32 (c + t + 12)))
@@ -265,27 +272,54 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 			const size_t dl = base + rd_be32 (c + t) + 0x1c, dsz = rd_be32 (c + t + 4);
 			if (!dsz || dsz % 32 || dl + dsz > cs)
 				continue;
-			const bool firste = !tfirst;
-			if (firste)
-			{
-				tfirst = t;
-				mask = rd_be16 (c + t - 2);
-			}
 			bool dup = false;
-			for (uint e = 0; e < nd; e++)
-				if (dls[e] == dl)
+			for (uint e = 0; e < nc; e++)
+				if (cdl[e] == dl)
 					dup = true;
 			if (dup)
 				continue;
-			const uint stride = mh2w_dl_stride (c, dl, dsz, cnt);
+			ct[nc] = t;
+			cdl[nc] = dl;
+			cds[nc++] = dsz;
+		}
+		// the vertex descriptor is the u16 two bytes before the first table entry, or before the empty entry preceding it (16 bytes earlier); it must agree with a display list
+		bool havemask = false;
+		uint mstride = 0, moff[9], mf[8];
+		for (uint k = 0; k < nc && k < 6 && !havemask; k++)
+			for (uint w = 0; w < 2 && !havemask; w++)
+			{
+				const uint m = rd_be16 (c + ct[k] - (w ? 18 : 2));
+				uint ms = 0;
+				for (uint f = 0; f < 8; f++)
+					ms += mh2w_asz ((m >> (2 * f)) & 3);
+				const uint f1 = (m >> 2) & 3;
+				if (ms < 2 || ms > 26 || (f1 != 2 && f1 != 3) || !mh2w_dl_try (c, cdl[k], cds[k], cnt, ms, mh2w_asz (m & 3), mh2w_asz (f1)))
+					continue;
+				mask = m;
+				havemask = true;
+				if (!w)
+					tmask = ct[k];
+			}
+		for (uint k = 0; k < 8; k++)
+		{
+			mf[k] = (mask >> (2 * k)) & 3;
+			moff[k] = mstride;
+			mstride += mh2w_asz (mf[k]);
+		}
+		moff[8] = mstride;
+		for (uint k = 0; k < nc && nd < 256; k++)
+		{
+			const uint stride = havemask ? (mh2w_dl_try (c, cdl[k], cds[k], cnt, mstride, moff[1], mh2w_asz (mf[1])) ? mstride : 0) : mh2w_dl_stride (c, cdl[k], cds[k], cnt);
 			if (!stride)
 				continue;
-			dls[nd] = dl;
-			dss[nd] = dsz;
-			dmat[nd] = firste ? 0 : rd_be16 (c + t - 2);
-			dbone[nd] = c[t - 3];
+			dls[nd] = cdl[k];
+			dss[nd] = cds[k];
+			dmat[nd] = ct[k] == tmask ? 0 : rd_be16 (c + ct[k] - 2);
+			dbone[nd] = c[ct[k] - 3];
 			dst[nd++] = stride;
 		}
+		const bool mok = havemask && nd;
+		const uint ppoff = mok ? moff[1] : 0, ppsz = mok ? mh2w_asz (mf[1]) : 2;
 		uint al = 0;
 		if (c[q + 2] != 0x40 && nd)
 		{
@@ -311,7 +345,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 						o += 3;
 						for (uint i = 0; i + 1 < n; i++)
 						{
-							const uint i0 = rd_be16 (c + o + (size_t)i * dst[d]), i1 = rd_be16 (c + o + (size_t)(i + 1) * dst[d]);
+							const uint i0 = mh2w_pidx (c + o + (size_t)i * dst[d], ppoff, ppsz), i1 = mh2w_pidx (c + o + (size_t)(i + 1) * dst[d], ppoff, ppsz);
 							double e = 0;
 							for (int k = 0; k < 3; k++)
 							{
@@ -334,18 +368,6 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		// The first display list entry's u16 (the 2 bytes before the entry) is the vertex descriptor: 2 bits per attribute (matrix index, position, normal, colour 0, colour 1, UV 0, UV 1, UV 2),
 		// 1 and 2 being a byte index and 3 a u16 index. The six u32 at sector + 0x1c are the offsets (from sector + 0x1c) of the stream headers {u32 data offset, u16 count, u16 type << 12 | shift << 8}.
 		const size_t p3 = base + 0x1c;
-		uint mf[8], moff[9], mstride = 0;
-		for (uint k = 0; k < 8; k++)
-		{
-			mf[k] = (mask >> (2 * k)) & 3;
-			moff[k] = mstride;
-			mstride += mh2w_asz (mf[k]);
-		}
-		moff[8] = mstride;
-		bool mok = nd && mstride && !mf[0] && mf[1] == 3;
-		for (uint d = 0; d < nd; d++)
-			if (dst[d] != mstride)
-				mok = false;
 		u8 *vcol = 0;
 		if (mok && mf[3] && p3 + 24 <= cs)
 		{
@@ -372,7 +394,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 							for (uint i = 0; i < n && o + (size_t)(i + 1) * mstride <= cs; i++)
 							{
 								const u8 *v = c + o + (size_t)i * mstride;
-								const uint pi = rd_be16 (v + moff[1]), ci = mf[3] == 3 ? rd_be16 (v + moff[3]) : v[moff[3]];
+								const uint pi = mh2w_pidx (v, moff[1], mh2w_asz (mf[1])), ci = mf[3] == 3 ? rd_be16 (v + moff[3]) : v[moff[3]];
 								if (pi < cnt && ci < cc)
 								{
 									memcpy (vcol + 4 * (size_t)pi, c + cd + 4 * (size_t)ci, 3);
@@ -486,7 +508,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 				const uint m = n < 4096 ? n : 4096;
 				for (uint i = 0; i < m; i++)
 				{
-					ix[i] = vtotal + 1 + rd_be16 (c + o + (size_t)i * stride);
+					ix[i] = vtotal + 1 + mh2w_pidx (c + o + (size_t)i * stride, ppoff, ppsz);
 					iu[i] = uvq && stride == uvstride ? utotal + 1 + (uvbyte ? c[o + (size_t)i * stride + uvoff] : rd_be16 (c + o + (size_t)i * stride + uvoff)) : 0;
 				}
 				o += (size_t)n * stride;
@@ -578,7 +600,7 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 	if (isdff)
 	{
 		size_t h = rd_be32 (c + 0x20);
-		for (uint mi = 0; h >= 0x24 && h + 12 <= cs && mi < 64; mi++)
+		for (uint mi = 0; h >= 0x24 && h + 12 <= cs && mi < 4096; mi++)
 		{
 			const size_t nx = rd_be32 (c + h), bb = rd_be32 (c + h + 8);
 			sumo_printf (&bn, "model %u\n", mi);
