@@ -53,6 +53,47 @@ static enumError extract_ubi_ban_file (ccp arg, ccp basedir, uint depth)
 			if (verbose >= 0 || testmode)
 				fprintf (stdlog, "%s%sEXTRACT UBI-BAN:%s (%zu bones) -> %s/%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nb, dest, name);
 			err = shade_write (arg, dest, basedir, name, (u8 *)txt, (uint)o);
+			// Key data (stride 0x50 clips): per joint, in record order, a block of 2 x s16 per frame for the `a` frames of a joint whose first count is above 1 (the root), then 3 x s16 per
+			// frame for `b` frames, padded to an even number of s16 (ordinary joints end with two zero s16 first). The sizes add up to the file size for almost every clip, which is the
+			// check applied here; the values are written raw (smooth 16-bit samples, units not verified).
+			if (!err && stride == 0x50)
+			{
+				const size_t kb = 0x58 + nb * stride;
+				size_t need = 0;
+				for (size_t i = 0; i < nb; i++)
+				{
+					const u8 *r = raw + 0x58 + i * stride + 0x20;
+					const size_t ka = rd_le32 (r + 4), kf = rd_le32 (r + 8);
+					size_t v = ka > 1 && kf > 1 ? 2 * ka + 3 * kf : ka > 1 ? 2 * ka + 4 : 3 * kf + 2;
+					need += (v + (v & 1)) * 2;
+				}
+				char *csv = need && kb + need == sz ? CALLOC (sz * 14 + 4096, 1) : 0;
+				if (csv)
+				{
+					size_t co = (size_t)sprintf (csv, "joint,track,frame,v0,v1,v2\n"), p = kb;
+					for (size_t i = 0; i < nb; i++)
+					{
+						const u8 *r = raw + 0x58 + i * stride;
+						const size_t ka = rd_le32 (r + 0x24), kf = rd_le32 (r + 0x28);
+						size_t v = ka > 1 && kf > 1 ? 2 * ka + 3 * kf : ka > 1 ? 2 * ka + 4 : 3 * kf + 2;
+						v += v & 1;
+						if (ka > 1)
+							for (size_t f = 0; f < ka; f++)
+								co += (size_t)sprintf (csv + co, "%.32s,a,%zu,%d,%d,\n", (ccp)r, f, (s16)rd_le16 (raw + p + 4 * f), (s16)rd_le16 (raw + p + 4 * f + 2));
+						const size_t rp = p + (ka > 1 ? 4 * ka : 0);
+						for (size_t f = 0; f < (ka > 1 && kf == 1 ? 1 : kf); f++)
+							co += (size_t)sprintf (csv + co, "%.32s,r,%zu,%d,%d,%d\n", (ccp)r, f, (s16)rd_le16 (raw + rp + 6 * f), (s16)rd_le16 (raw + rp + 6 * f + 2), (s16)rd_le16 (raw + rp + 6 * f + 4));
+						p += v * 2;
+					}
+					char cname[PATH_MAX];
+					snprintf (cname, sizeof (cname), "%s", name);
+					char *cd = strrchr (cname, '.');
+					if (cd)
+						strcpy (cd, ".keys.csv");
+					err = shade_write (arg, dest, basedir, cname, (u8 *)csv, (uint)co);
+					FREE (csv);
+				}
+			}
 			FREE (txt);
 		}
 	}
