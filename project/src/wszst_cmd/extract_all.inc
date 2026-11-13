@@ -518,6 +518,7 @@
 #include "extract/midway_txt.inc"
 #include "extract/midway_sfx.inc"
 #include "extract/rw_clump.inc"
+#include "extract/ea_gfn.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
