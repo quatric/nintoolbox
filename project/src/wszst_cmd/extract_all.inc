@@ -535,6 +535,7 @@
 #include "extract/mh2_inst.inc"
 #include "extract/mh2_col.inc"
 #include "extract/mh2_mls.inc"
+#include "extract/mh2_wrld.inc"
 #include "extract/mh2_grf.inc"
 #include "extract/mh2_strmanim.inc"
 #include "extract/mh2_mat.inc"
