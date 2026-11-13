@@ -514,6 +514,7 @@
 #include "extract/serz_tg.inc"
 #include "extract/midway_wad.inc"
 #include "extract/midway_tim.inc"
+#include "extract/midway_asf.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
