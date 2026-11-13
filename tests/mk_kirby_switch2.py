@@ -11,7 +11,8 @@ Writes:
   Asset/assets.cat         PARC catalog for two assets:
   Asset/assets_a000.dat      PDAT pack 0: a PTEX BODY (4x4 BC1, solid red) + a zstd "PSND" record
   Asset/assets_b000.dat      PDAT pack 1: the PTEX HEAD flatbuffer + a PMSH quad mesh (zero HEAD, Main, GBuf)
-                             and a 4x4x4 RGBA8 3D texture (colour LUT)
+                             and a 4x4x4 RGBA8 3D texture (colour LUT);
+                             a PMTR material + Pfab prefab binding the quad's slot to a green BC1 texture
   plain.soundstream        Sygnus stream: 2 ch, 600 samples of 4-bit ADPCM (one full + one short block)
   enc.soundstream          the same file AES-192-ECB encrypted as the game ships it
   sfx.psnd                 phx PSND record embedding a 1-channel ADPCM source (Sygnus ASRC bank)
@@ -192,7 +193,7 @@ def ptex_head(width, height, fmt, depth=1, dim=1):
 
 def flatbuffer(root_fields, ident):
     """Tiny forward-layout flatbuffer writer. A table is a list of (field, value) where value is
-    ("u32", n), ("u8", n), ("table", fields) or ("vec", [fields, ...])."""
+    ("u32", n), ("u8", n), ("u64", n), ("table", fields) or ("vec", [fields, ...])."""
     out = bytearray(8)
     out[4:8] = ident
 
@@ -205,6 +206,11 @@ def flatbuffer(root_fields, ident):
             if kind == "u8":
                 offs[f] = len(body)
                 body.append(val)
+            elif kind == "u64":
+                while len(body) % 4:
+                    body.append(0)
+                offs[f] = len(body)
+                body += struct.pack("<Q", val)
             else:
                 while len(body) % 4:
                     body.append(0)
@@ -239,6 +245,24 @@ def flatbuffer(root_fields, ident):
     return bytes(out)
 
 
+PMSH_SLOT = 0x829C063347186A20
+PMTR_ID, GREEN_TEX_ID, PFAB_ID = 0x38765C2F873169A0, 0x3344556677889900, 0x4455667788990011
+
+
+def pmtr_material():
+    """PMTR Main: f3.f2 texture refs {f1 asset id}: a missing 4x4 default first, then the colour map."""
+    refs = [[(1, ("u64", 0x758EC0BBF3212217))], [(1, ("u64", GREEN_TEX_ID))]]
+    return flatbuffer([(3, ("table", [(2, ("vec", refs))]))], b"PMTR")
+
+
+def pfab_prefab():
+    """Pfab: {u64 0x10, u64 offset of the slot hash, u64 material id} assigns a material to a slot."""
+    d = bytearray(b"Pfab" + struct.pack("<I", 4) + bytes(0x38))
+    d += struct.pack("<QQ", PMSH_SLOT, 0)  # slot hash at 0x40
+    d += struct.pack("<QQQ", 0x10, 0x40, PMTR_ID)
+    return bytes(d)
+
+
 def pmsh_quad():
     """PMSH Main + GBuf: one 2-triangle quad (positions, unorm10 normals, half UVs, u16 indices)."""
     pos = [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)]
@@ -259,7 +283,8 @@ def pmsh_quad():
     add(1, struct.pack("<4I", *[up] * 4))
     add(8, b"".join(struct.pack("<2e", p[0], p[2]) for p in pos), 2)
     add(40, struct.pack("<6H", 0, 2, 1, 0, 3, 2), 1)
-    geo = [(1, ("vec", streams)), (2, ("vec", [[(3, ("u32", 4)), (5, ("u32", 6))]])), (11, ("u32", len(gb)))]
+    geo = [(1, ("vec", streams)), (2, ("vec", [[(3, ("u32", 4)), (5, ("u32", 6))]])),
+           (4, ("vec", [[(0, ("u64", PMSH_SLOT))]])), (11, ("u32", len(gb)))]
     return flatbuffer([(3, ("table", geo))], b"PMSH"), bytes(gb)
 
 
@@ -301,6 +326,10 @@ def build_parc(outdir):
     l_snd = add(0, snd, True)
     l_lhead = add(1, ptex_head(4, 4, 0x01, depth=4, dim=2), False)
     l_lbody = add(0, ptex_lut_body(), False)
+    l_ghead = add(1, ptex_head(16, 16, 0x19), False)  # BC1 sRGB
+    l_gbody = add(0, bytes([0xE0, 0x07, 0xE0, 0x07, 0, 0, 0, 0]) * 64, False)  # every block solid green
+    l_pmtr = add(1, pmtr_material(), True)
+    l_pfab = add(1, pfab_prefab(), False)
     msh_main, msh_gbuf = pmsh_quad()
     l_mhead = add(1, bytes(12), False)
     l_mmain = add(1, msh_main, False)
@@ -317,6 +346,9 @@ def build_parc(outdir):
         (tex_id, [("HEAD", 0, l_head), ("BODY", 0, l_body)]),
         (snd_id, [("Main", 0, l_snd)]),
         (0x2233445566778899, [("HEAD", 0, l_lhead), ("BODY", 0, l_lbody)]),
+        (GREEN_TEX_ID, [("HEAD", 0, l_ghead), ("BODY", 0, l_gbody)]),
+        (PMTR_ID, [("Main", 0, l_pmtr)]),
+        (PFAB_ID, [("Main", 0, l_pfab)]),
         (0x0A0B0C0D0E0F1011, [("HEAD", 0, l_mhead), ("GBuf", 0, l_mgbuf), ("Main", 0, l_mmain)]),
     ]
     recs = []

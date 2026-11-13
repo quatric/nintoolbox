@@ -233,6 +233,24 @@ static void parc_open_packs (parc_ctx_t *c, ccp arg)
 	closedir (dh);
 }
 
+// Material binding collected while a PARC catalog is extracted (see phx_bind_* below).
+typedef struct phx_bind_t
+{
+	u64 *slot; // PMSH material-slot hashes
+	uint n_slot, cap_slot;
+	u64 *mat; // PMTR: {material id, first ref, ref count} triples
+	uint n_mat, cap_mat;
+	u64 *ref; // PMTR texture refs
+	uint n_ref, cap_ref;
+	u64 *tex; // PTEX: {id, width << 1 | srgb}
+	uint n_tex, cap_tex;
+	uint *pfab; // asset indexes of Pfab records
+	uint n_pfab, cap_pfab;
+} phx_bind_t;
+
+static void phx_bind_collect (phx_bind_t *b, ccp type, u64 id, uint asset, const u8 *d, uint n);
+static void phx_bind_finish (phx_bind_t *b, parc_ctx_t *c, ccp dest);
+
 enumError ExtractPARCArchive (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -270,6 +288,8 @@ enumError ExtractPARCArchive (ccp arg, ccp basedir, uint depth)
 	CreatePath (dest, true);
 
 	uint written = 0, failed = 0;
+	phx_bind_t bind;
+	memset (&bind, 0, sizeof (bind));
 	char made_types[64][8];
 	uint n_made = 0;
 	for (uint i = 0; i < c.pc.n_assets; i++)
@@ -336,6 +356,7 @@ enumError ExtractPARCArchive (ccp arg, ccp basedir, uint depth)
 				snprintf (made_types[n_made++], sizeof (made_types[0]), "%s", type);
 		}
 
+		phx_bind_collect (&bind, type, id, idx, c.buf, (uint)n);
 		snprintf (path, sizeof (path), "%s/%016llx.%s", tdir, (unsigned long long)id, type);
 		if (!parc_save (path, c.buf, (size_t)n))
 			failed++;
@@ -355,6 +376,7 @@ enumError ExtractPARCArchive (ccp arg, ccp basedir, uint depth)
 		if (verbose > 0 && !(written % 10000))
 			fprintf (stdlog, "  - %u/%u assets\n", written, c.pc.n_assets);
 	}
+	phx_bind_finish (&bind, &c, dest);
 	if (failed)
 		err = ERROR0 (ERR_WARNING, "PARC: %u blocks could not be read: %s\n", failed, arg);
 
@@ -983,4 +1005,226 @@ model_t *DecodePMSH (const u8 *main_d, uint main_n, const u8 *gbuf, uint gbuf_n)
 		return 0;
 	}
 	return model;
+}
+
+//-----------------------------------------------------------------------------
+// PARC material binding -> "<dest>/materials.tsv": slot hash, PMTR material, base-colour PTEX.
+// - PMSH Main: geometry.f4 = material-slot hashes.
+// - Pfab (model prefab, serialized object graph): a material assignment is {u64 ptr, u64 material
+//   id} where ptr is the absolute offset of the slot hash it applies to.
+// - PMTR Main: f3.f2 = texture refs {f1 asset id}. Sampler names are hashed, so the table lists
+//   base-colour candidates: sRGB textures wider than 8 px (slot 0 is a shared 4x4 default) in
+//   reference order, then linear ones; the PMSH extractor picks the first that decodes to a
+//   plausible colour map.
+
+static bool push_u64 (u64 **a, uint *n, uint *cap, const u64 *v, uint k)
+{
+	if (*n + k > *cap)
+	{
+		uint c = *cap ? *cap * 2 : 1024;
+		while (c < *n + k)
+			c *= 2;
+		u64 *na = REALLOC (*a, (size_t)c * sizeof (u64));
+		if (!na)
+			return false;
+		*a = na;
+		*cap = c;
+	}
+	memcpy (*a + *n, v, k * sizeof (u64));
+	*n += k;
+	return true;
+}
+
+static int cmp_u64 (const void *a, const void *b)
+{
+	const u64 x = *(const u64 *)a, y = *(const u64 *)b;
+	return x < y ? -1 : x > y;
+}
+
+static const u64 *find_u64 (const u64 *a, uint n, uint stride, u64 key)
+{
+	uint lo = 0, hi = n / stride;
+	while (lo < hi)
+	{
+		const uint mid = (lo + hi) / 2;
+		const u64 v = a[(size_t)mid * stride];
+		if (v == key)
+			return a + (size_t)mid * stride;
+		if (v < key)
+			lo = mid + 1;
+		else
+			hi = mid;
+	}
+	return 0;
+}
+
+static void phx_bind_collect (phx_bind_t *b, ccp type, u64 id, uint asset, const u8 *d, uint n)
+{
+	if (!strcmp (type, "pmsh"))
+	{
+		const uint geo = IsPMSH (d, n) ? fb_ref (d, n, le32 (d), 3) : 0;
+		uint cnt = 0;
+		const uint v = geo ? fb_vec (d, n, geo, 4, &cnt) : 0;
+		for (uint i = 0; v && i < cnt && i < 256; i++)
+		{
+			const uint t = fb_vec_table (d, n, v, i), hp = t ? fb_field (d, n, t, 0, 8) : 0;
+			if (hp)
+			{
+				const u64 h = le64 (d + hp);
+				push_u64 (&b->slot, &b->n_slot, &b->cap_slot, &h, 1);
+			}
+		}
+	}
+	else if (!strcmp (type, "pmtr"))
+	{
+		const uint m = n >= 8 ? fb_ref (d, n, le32 (d), 3) : 0;
+		uint cnt = 0;
+		const uint v = m ? fb_vec (d, n, m, 2, &cnt) : 0;
+		const u64 first = b->n_ref;
+		uint used = 0;
+		for (uint i = 0; v && i < cnt && i < 256; i++)
+		{
+			const uint t = fb_vec_table (d, n, v, i), ip = t ? fb_field (d, n, t, 1, 8) : 0;
+			const u64 r = ip ? le64 (d + ip) : ~(u64)0;
+			if (push_u64 (&b->ref, &b->n_ref, &b->cap_ref, &r, 1))
+				used++;
+		}
+		const u64 trip[3] = { id, first, used };
+		push_u64 (&b->mat, &b->n_mat, &b->cap_mat, trip, 3);
+	}
+	else if (!strcmp (type, "ptex"))
+	{
+		ptex_info_t pi;
+		if (ptex_info (d, n, &pi))
+		{
+			const ptex_fmt_t *f = ptex_format (pi.format);
+			const bool srgb = f && strstr (f->name, "SRGB");
+			const u64 pair[2] = { id, (u64)pi.width << 1 | srgb };
+			push_u64 (&b->tex, &b->n_tex, &b->cap_tex, pair, 2);
+		}
+	}
+	else if (!strcmp (type, "pfab"))
+	{
+		if (b->n_pfab == b->cap_pfab)
+		{
+			const uint c = b->cap_pfab ? b->cap_pfab * 2 : 256;
+			uint *np = REALLOC (b->pfab, c * sizeof (uint));
+			if (!np)
+				return;
+			b->pfab = np;
+			b->cap_pfab = c;
+		}
+		b->pfab[b->n_pfab++] = asset;
+	}
+}
+
+static int cmp_slot_seq (const void *a, const void *b)
+{
+	const u64 *x = a, *y = b;
+	return x[0] != y[0] ? (x[0] < y[0] ? -1 : 1) : x[1] != y[1] ? (x[1] < y[1] ? -1 : 1) : 0;
+}
+
+static int cmp_u64x3 (const void *a, const void *b)
+{
+	return cmp_u64 (a, b);
+}
+
+static int cmp_u64x2 (const void *a, const void *b)
+{
+	return cmp_u64 (a, b);
+}
+
+static void phx_bind_finish (phx_bind_t *b, parc_ctx_t *c, ccp dest)
+{
+	u64 *pairs = 0; // {slot, material}
+	uint n_pairs = 0, cap_pairs = 0;
+	if (!b->n_slot || !b->n_mat || !b->n_pfab)
+		goto out;
+	qsort (b->slot, b->n_slot, sizeof (u64), cmp_u64);
+	qsort (b->mat, b->n_mat / 3, 3 * sizeof (u64), cmp_u64x3);
+	qsort (b->tex, b->n_tex / 2, 2 * sizeof (u64), cmp_u64x2);
+
+	for (uint k = 0; k < b->n_pfab; k++)
+	{
+		uint nb = 0;
+		const u8 *rec = parc_record (&c->pc, b->pfab[k], &nb);
+		s64 n = -1;
+		for (uint bi = 0; rec && bi < nb; bi++)
+			if (!strncmp ((ccp)rec + 24 + bi * PARC_BLOCK_SIZE + 16, "Main", 4)
+				|| !strncmp ((ccp)rec + 24 + bi * PARC_BLOCK_SIZE + 16, "MAIN", 4))
+			{
+				n = parc_load (c, le64 (rec + 24 + bi * PARC_BLOCK_SIZE + 24));
+				break;
+			}
+		if (n < 16)
+			continue;
+		const u8 *d = c->buf;
+		for (size_t o = 8; o + 8 <= (size_t)n; o += 4)
+		{
+			const u64 mat = le64 (d + o);
+			if (!find_u64 (b->mat, b->n_mat, 3, mat))
+				continue;
+			const u64 p = le64 (d + o - 8);
+			if (p & 7 || p + 8 > (u64)n)
+				continue;
+			const u64 slot = le64 (d + p);
+			if (!find_u64 (b->slot, b->n_slot, 1, slot))
+				continue;
+			const u64 pr[2] = { slot, mat };
+			push_u64 (&pairs, &n_pairs, &cap_pairs, pr, 2);
+		}
+	}
+	if (!n_pairs)
+		goto out;
+	{
+		// by slot, first assignment wins (later ones are per-instance variants): sort {slot, seq, mat}
+		const uint np = n_pairs / 2;
+		u64 *tri = MALLOC ((size_t)np * 3 * sizeof (u64));
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/materials.tsv", dest);
+		FILE *f = tri ? fopen (path, "w") : 0;
+		if (!f)
+		{
+			FREE (tri);
+			goto out;
+		}
+		for (uint i = 0; i < np; i++)
+		{
+			tri[3 * i] = pairs[2 * i];
+			tri[3 * i + 1] = i;
+			tri[3 * i + 2] = pairs[2 * i + 1];
+		}
+		qsort (tri, np, 3 * sizeof (u64), cmp_slot_seq);
+		fprintf (f, "# slot\tmaterial\tbase_colour_candidates\n");
+		for (uint i = 0; i < np; i++)
+		{
+			if (i && tri[3 * i] == tri[3 * (i - 1)])
+				continue;
+			const u64 slot = tri[3 * i], mat = tri[3 * i + 2];
+			const u64 *m = find_u64 (b->mat, b->n_mat, 3, mat);
+			// candidates: sRGB textures wider than 8 px in reference order, then linear ones
+			fprintf (f, "%016llx\t%016llx\t", (unsigned long long)slot, (unsigned long long)mat);
+			uint nc = 0;
+			for (uint pass = 0; pass < 2; pass++)
+				for (u64 r = 0; m && r < m[2]; r++)
+				{
+					const u64 tid = b->ref[m[1] + r];
+					const u64 *t = find_u64 (b->tex, b->n_tex, 2, tid);
+					if (!t || (t[1] >> 1) <= 8 || (t[1] & 1) != (pass == 0))
+						continue;
+					fprintf (f, "%s%016llx", nc++ ? "," : "", (unsigned long long)tid);
+				}
+			fprintf (f, "%s\n", nc ? "" : "-");
+		}
+		fclose (f);
+		FREE (tri);
+	}
+out:
+	FREE (pairs);
+	FREE (b->slot);
+	FREE (b->mat);
+	FREE (b->ref);
+	FREE (b->tex);
+	FREE (b->pfab);
+	memset (b, 0, sizeof (*b));
 }

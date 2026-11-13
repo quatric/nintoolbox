@@ -19177,6 +19177,12 @@ PYE
   else
     fno "phx PMSH" "missing or wrong $a/pmsh/0a0b0c0d0e0f1011.glb"
   fi
+  if grep -q $'^829c063347186a20\t38765c2f873169a0\t3344556677889900$' "$a/materials.tsv" 2>/dev/null \
+     && [ "$(python3 "$GLTF_COUNT" "$a/pmsh/0a0b0c0d0e0f1011.glb" image 2>/dev/null)" = 1 ]; then
+    fok "phx Pfab slot -> PMTR material -> PTEX base colour, embedded in the PMSH GLB"
+  else
+    fno "phx material binding" "$a/materials.tsv or the GLB image is wrong"
+  fi
   if python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 13 2 60 120 180 255 2>/dev/null \
      && python3 "$PNGTOOL" pixel "$a/ptex/2233445566778899.png" 2 3 120 180 0 255 2>/dev/null; then
     fok "phx 3D PTEX (RGBA8 LUT, Orin block linear in z) -> slice strip PNG"
