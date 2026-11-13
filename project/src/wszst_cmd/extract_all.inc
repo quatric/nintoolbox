@@ -516,6 +516,7 @@
 #include "extract/midway_tim.inc"
 #include "extract/midway_asf.inc"
 #include "extract/midway_txt.inc"
+#include "extract/midway_sfx.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
