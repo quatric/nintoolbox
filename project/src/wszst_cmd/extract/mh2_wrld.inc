@@ -224,6 +224,34 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		svs[ns++] = vs;
 		q += (size_t)cnt * vs;
 	}
+	// Character models: the bone block's u32 at +20 heads a ring of object nodes {u32 next, ?, u32 frame, u32 mesh record}; the frame holds the object's name at +24
+	size_t mrec[1024], mmodel[1024];
+	char mname[1024][48];
+	uint nmesh = 0;
+	if (isdff)
+	{
+		size_t h = rd_be32 (c + 0x20);
+		for (uint mi = 0; h >= 0x24 && h + 12 <= cs && mi < 4096; mi++)
+		{
+			const size_t nx = rd_be32 (c + h), bb = rd_be32 (c + h + 8);
+			if (bb >= 0x20 && bb + 24 <= cs)
+			{
+				size_t n = rd_be32 (c + bb + 20);
+				for (uint k = 0; k < 256 && n != bb + 20 && n >= 0x20 && n + 16 <= cs && nmesh < 1024; k++)
+				{
+					const size_t fr = rd_be32 (c + n + 8);
+					mrec[nmesh] = rd_be32 (c + n + 12);
+					mmodel[nmesh] = mi;
+					snprintf (mname[nmesh], sizeof (mname[0]), "%s", fr >= 0x20 && fr + 64 <= cs ? (ccp)c + fr + 24 : "");
+					nmesh++;
+					n = rd_be32 (c + n);
+				}
+			}
+			if (nx == 0x20)
+				break;
+			h = nx;
+		}
+	}
 	uint vtotal = 0, ntotal = 0, utotal = 0;
 	for (uint si = 0; si < ns; si++)
 	{
@@ -536,6 +564,12 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		}
 		FREE (vcol);
 		sumo_printf (&sk, "o sector%04u_%08x\n", groups - 1, (uint)q);
+		for (uint k = 0; k < nmesh && rec; k++)
+			if (mrec[k] == rec)
+			{
+				sumo_printf (&sk, "mesh model %zu name %.40s record %x\n", mmodel[k], mname[k], (uint)rec);
+				break;
+			}
 		for (uint d = 0; d < nd; d++)
 			sumo_printf (&sk, "d %u bone %u material %u\n", d, dbone[d], dmat[d]);
 		if (rec && hasn && c[q + 2] != 0x40)
