@@ -283,6 +283,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **ZDAT** | `.zdat` | *Animal Crossing: Pocket Camp* |
 | **ZLARC** | `.zlarc` | *NES Remix*, *NES Remix 2*, *NES Remix Pack* |
 | **ZTAB** | `.ztab`, `.tab` | *Mario Golf: Toadstool Tour*, *Mario Power Tennis* |
+| **Manhunt 2 MH2Z** | `.txd`, `.bsp`, `.dff`, `.ifp` (zlib wrapped) | *Manhunt 2* |
 
 `Byte-Exact Roundtrip` = build → extract → rebuild reproduces the archive's bytes
 identically, so the writer's canonical layout is a fixed point of its own reader.
@@ -384,6 +385,8 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Ubisoft Imagine WIZ model** | `.wiz` | **OBJ** | *Beastly*, *Babyz* |
 | **Ubisoft SERZ geometry** | `.GeoWii` | **OBJ** | Wii |
 | **WMB** | `.wmb` | **GLB** | *Star Fox Zero* |
+| **SEGA GRO3** | `.gro3` | **OBJ** | *Sakura Wars: So Long, My Love* |
+| **Sumo COG / GOG** | `.cog`, `.gog` | **OBJ** | *Sonic & Sega All-Stars Racing*, *Virtua Tennis 2009* |
 
 `Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.
 
@@ -743,6 +746,9 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **XB** | `.xml` (binary) | *Mario Party 10* |
 | **XMB** | `.xmb` | *Super Smash Bros. for 3DS / Wii U*, *Super Smash Bros. Ultimate* |
 | **ZEN** | `.zen` | *Mercury Meltdown Revolution* |
+| **Manhunt 2 INST / COL / GRF / MLS** | `.inst`, `.col`, `.grf`, `.mls` | *Manhunt 2* |
+| **Manhunt 2 material table / streamed animation index** | `mat_wii.bin`, `strmanim_wii.bin` | *Manhunt 2* |
+| **Rockstar Leeds IFP (ANCT / ANPK)** | `.ifp` | *Manhunt 2* |
 
 `Byte-Exact Roundtrip` = encode → semantic text → re-encode reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regress.sh`. BRLYT/BRLAN canonical fixed point and semantic roundtrips are validated against retail Wii layouts.
 
