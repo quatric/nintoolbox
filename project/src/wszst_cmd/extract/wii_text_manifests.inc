@@ -79,7 +79,7 @@ static enumError extract_wii_text_manifest_file (ccp arg, ccp basedir, uint dept
 	enumError err = def->dec (f, raw, sz, sz);
 	fflush (f);
 	long flen = fseek (f, 0, SEEK_END) ? -1 : ftell (f);
-	if (flen > 0 && !fseek (f, 0, SEEK_SET) && (buf = (char *)malloc ((size_t)flen)) != 0)
+	if (flen > 0 && !fseek (f, 0, SEEK_SET) && (buf = (char *)MALLOC ((size_t)flen)) != 0)
 		blen = fread (buf, 1, (size_t)flen, f);
 	fclose (f);
 #else
