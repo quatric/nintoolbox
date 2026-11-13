@@ -196,7 +196,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			const u8 cmd = c[e];
 			if (!cmd)
 			{
-				if (++zeros > 16)
+				if (++zeros > 32)
 					break;
 				e++;
 				continue;
@@ -212,6 +212,7 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 			const uint cnt = rd_be16 (c + e + 1);
 			if (!cnt || e + 3 + (size_t)cnt * stride > cs)
 				break;
+			uint cmx[8] = { 0 };
 			for (uint i = 0; i < cnt; i++)
 			{
 				size_t o = e + 3 + (size_t)i * stride;
@@ -219,10 +220,16 @@ static enumError extract_sumo_cog_file (ccp arg, ccp basedir, uint depth)
 				{
 					const uint v = ds[d].iw == 1 ? c[o] : rd_be16 (c + o);
 					o += ds[d].iw;
-					if (v > mx[d])
-						mx[d] = v;
+					if (v > cmx[d])
+						cmx[d] = v;
 				}
 			}
+			// a list written for another descriptor set (different vertex layout) reads as indices beyond the pools: stop there
+			if ((size_t)ds[ipos].off + ((size_t)cmx[ipos] + 1) * 12 > gs)
+				break;
+			for (uint d = 0; d < nd; d++)
+				if (cmx[d] > mx[d])
+					mx[d] = cmx[d];
 			draws[ncmd++] = e;
 			e += 3 + (size_t)cnt * stride;
 		}
