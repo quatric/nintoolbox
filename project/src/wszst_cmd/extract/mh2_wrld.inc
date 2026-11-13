@@ -23,8 +23,12 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		bmin[k] = mh2inst_f (c + 0x30 + 4 * k, true) - 5.0f;
 		bmax[k] = mh2inst_f (c + 0x40 + 4 * k, true) + 5.0f;
 	}
-	// Sector position streams: {u16 count, 0x40 (f32), 3 (xyz)} followed by count x 12 bytes.
-	for (size_t q = 0x40; q + 4 <= lim; q += 4)
+	// Sector position streams: {u16 count, 0x40 (f32), 3 (xyz)} followed by count x 12 bytes. The sector's display lists are listed by 16-byte table entries
+	// {u32 offset from the sector start (stream header - 0x38), u32 size, u32 0x01000000, u32 0x150100nn}; a display list starts 0x1c bytes after its offset and holds GX draws
+	// (0x80 quads, 0x90 triangles, 0x98 strips, 0xa0 fans) of vertices made of 5 big-endian u16 indices, the first one a position.
+	size_t sq[512];
+	uint scnt[512], ns = 0;
+	for (size_t q = 0x40; q + 4 <= lim && ns < 512; q += 4)
 	{
 		const uint cnt = rd_be16 (c + q);
 		if (cnt < 3 || c[q + 2] != 0x40 || c[q + 3] != 3 || q + 4 + (size_t)cnt * 12 > cs)
@@ -42,9 +46,93 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 			}
 		if (!good || nonzero < cnt)
 			continue;
+		sq[ns] = q;
+		scnt[ns++] = cnt;
+		q += 4 + (size_t)cnt * 12 - 4;
+	}
+	uint vtotal = 0;
+	for (uint si = 0; si < ns; si++)
+	{
+		const size_t q = sq[si];
+		const uint cnt = scnt[si];
 		sumo_printf (&b, "o sector%04u_%08x\n", groups++, (uint)q);
 		for (uint i = 0; i < cnt; i++)
 			sumo_printf (&b, "v %g %g %g\n", mh2inst_f (c + q + 4 + 12 * i, true), mh2inst_f (c + q + 8 + 12 * i, true), mh2inst_f (c + q + 12 + 12 * i, true));
+		const size_t base = q - 0x38;
+		const size_t tend = si + 1 < ns ? sq[si + 1] : lim;
+		for (size_t t = q + 4 + (size_t)cnt * 12; t + 16 <= tend; t += 4)
+		{
+			if (rd_be32 (c + t + 8) != 0x01000000 || (rd_be32 (c + t + 12) >> 8) != 0x150100)
+				continue;
+			const size_t dl = base + rd_be32 (c + t) + 0x1c, dsz = rd_be32 (c + t + 4);
+			if (!dsz || dl + dsz > cs)
+				continue;
+			for (uint stride = 2; stride <= 24; stride += 2)
+			{
+				size_t o = dl;
+				bool ok = true;
+				uint tris = 0;
+				while (o < dl + dsz && ok)
+				{
+					const u8 op = c[o];
+					if (!op)
+					{
+						o++;
+						continue;
+					}
+					if (op != 0x80 && op != 0x90 && op != 0x98 && op != 0xa0)
+					{
+						ok = false;
+						break;
+					}
+					const uint n = rd_be16 (c + o + 1);
+					o += 3;
+					if (!n || o + (size_t)n * stride > dl + dsz)
+					{
+						ok = false;
+						break;
+					}
+					for (uint i = 0; i < n; i++)
+						if (rd_be16 (c + o + (size_t)i * stride) >= cnt)
+							ok = false;
+					o += (size_t)n * stride;
+					tris += op == 0x90 ? n / 3 : op == 0x80 ? n / 4 * 2 : n - 2;
+				}
+				if (!ok || !tris)
+					continue;
+				o = dl;
+				while (o < dl + dsz)
+				{
+					const u8 op = c[o];
+					if (!op)
+					{
+						o++;
+						continue;
+					}
+					const uint n = rd_be16 (c + o + 1);
+					o += 3;
+					uint ix[4096];
+					const uint m = n < 4096 ? n : 4096;
+					for (uint i = 0; i < m; i++)
+						ix[i] = vtotal + 1 + rd_be16 (c + o + (size_t)i * stride);
+					o += (size_t)n * stride;
+					if (op == 0x90)
+						for (uint i = 0; i + 2 < m; i += 3)
+							sumo_printf (&b, "f %u %u %u\n", ix[i], ix[i + 1], ix[i + 2]);
+					else if (op == 0x98)
+						for (uint i = 0; i + 2 < m; i++)
+							sumo_printf (&b, i & 1 ? "f %u %u %u\n" : "f %u %u %u\n", ix[i], i & 1 ? ix[i + 2] : ix[i + 1], i & 1 ? ix[i + 1] : ix[i + 2]);
+					else if (op == 0xa0)
+						for (uint i = 1; i + 1 < m; i++)
+							sumo_printf (&b, "f %u %u %u\n", ix[0], ix[i], ix[i + 1]);
+					else
+						for (uint i = 0; i + 3 < m; i += 4)
+							sumo_printf (&b, "f %u %u %u %u\n", ix[i], ix[i + 1], ix[i + 2], ix[i + 3]);
+				}
+				break;
+			}
+		}
+		vtotal += cnt;
 	}
 	u32 seen[512];
 	uint nseen = 0;
