@@ -1,7 +1,7 @@
 static enumError extract_atb_file (ccp arg, ccp basedir, uint depth)
 {
-	// Grip .res animation sections share the header shape of the magic-less ATB
-	if (is_ext (arg, ".banm"))
+	// Grip .res animation sections share the header shape of the magic-less ATB (as do Sumo .cog object graphs)
+	if (is_ext (arg, ".banm") || is_ext (arg, ".cog"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t raw_size = 0;

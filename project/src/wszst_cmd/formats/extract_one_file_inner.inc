@@ -1,5 +1,7 @@
 static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 {
+	// Zelda-style romfs *.zs frames need the trained dictionaries of Pack/ZsDic.pack.zs.
+	HintSourcePathZSTD (arg);
 	if (is_ho_asset_name (arg))
 	{
 		const enumError terr = extract_ho_texture_file (arg, basedir, depth);
@@ -289,6 +291,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_iois_str_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_sumo_cog_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_wavebatch_file (arg, basedir, depth);

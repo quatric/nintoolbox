@@ -527,6 +527,7 @@
 #include "extract/ailive_lmc.inc"
 #include "extract/lua51_be.inc"
 #include "extract/iois_str.inc"
+#include "extract/sumo_cog.inc"
 #include "extract/wavebatch.inc"
 #include "extract/idsp_ie.inc"
 #include "extract/nxof_nxms.inc"
