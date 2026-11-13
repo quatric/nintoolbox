@@ -23,6 +23,29 @@ static enumError extract_mh2_wrld_file (ccp arg, ccp basedir, uint depth)
 		bmin[k] = mh2inst_f (c + 0x30 + 4 * k, true) - 5.0f;
 		bmax[k] = mh2inst_f (c + 0x40 + 4 * k, true) + 5.0f;
 	}
+	// Sector position streams: {u16 count, 0x40 (f32), 3 (xyz)} followed by count x 12 bytes.
+	for (size_t q = 0x40; q + 4 <= lim; q += 4)
+	{
+		const uint cnt = rd_be16 (c + q);
+		if (cnt < 3 || c[q + 2] != 0x40 || c[q + 3] != 3 || q + 4 + (size_t)cnt * 12 > cs)
+			continue;
+		bool good = true;
+		uint nonzero = 0;
+		for (uint i = 0; i < cnt && good; i++)
+			for (int k = 0; k < 3 && good; k++)
+			{
+				const float f = mh2inst_f (c + q + 4 + 12 * i + 4 * k, true);
+				if (!(f >= bmin[k] && f <= bmax[k]))
+					good = false;
+				if (f != 0.0f)
+					nonzero++;
+			}
+		if (!good || nonzero < cnt)
+			continue;
+		sumo_printf (&b, "o sector%04u_%08x\n", groups++, (uint)q);
+		for (uint i = 0; i < cnt; i++)
+			sumo_printf (&b, "v %g %g %g\n", mh2inst_f (c + q + 4 + 12 * i, true), mh2inst_f (c + q + 8 + 12 * i, true), mh2inst_f (c + q + 12 + 12 * i, true));
+	}
 	u32 seen[512];
 	uint nseen = 0;
 	for (size_t o = 0x40; o + 16 <= lim; o += 4)
