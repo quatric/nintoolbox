@@ -125,3 +125,83 @@ static enumError extract_midway_pha_file (ccp arg, ccp basedir, uint depth)
 	FREE (raw);
 	return err;
 }
+
+// Midway physics hulls (".phm", members of TNA Impact! ".WAD" packs; big endian): a header whose float bounding box (min at 0x20, max at 0x30, w = 0) is followed at 0x44 by
+// {u32 vertex count, u32 vertex offset, u32 0, u32 descriptor offset, u32 ~index count, u32 index offset}. Vertices are 20-byte records {u16 ?, s16 x, y, z, ...} running to the end of
+// the file; the u16 index list sits right before them. The positions are fixed-point with a per-file scale (1/1023, 1/255, 1/32767 ... of the header box), recovered here by fitting the
+// extent of the vertices to the header box (it matches to 4 digits on LOCKERRM, VEGAS and CHAIR). The index list mixes triangles with quads stored as (b, c, a, d) for the four consecutive
+// vertices a..a+3, which become triangles (a, b, c) and (b, c, d). Written as "<name>.phm.d/mesh.obj".
+static enumError extract_midway_phm_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".phm"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	const size_t nv = sz > 0x60 ? rd_be32 (raw + 0x44) : 0, vo = sz > 0x60 ? rd_be32 (raw + 0x48) : 0, io = sz > 0x60 ? rd_be32 (raw + 0x58) : 0;
+	if (sz > 0x60 && nv > 3 && nv < 0x100000 && vo + 20 * nv <= sz && io >= 0x40 && io + 12 <= vo && !((vo - io) & 1))
+	{
+		const size_t ni = (vo - io) / 2;
+		float hb[6];
+		bool ok = true;
+		for (uint k = 0; k < 6; k++)
+		{
+			const u32 w = rd_be32 (raw + 0x20 + 16 * (k / 3) + 4 * (k % 3));
+			memcpy (hb + k, &w, 4);
+			ok = ok && isfinite (hb[k]);
+		}
+		int lo[3] = { 32767, 32767, 32767 }, hi[3] = { -32768, -32768, -32768 };
+		for (size_t i = 0; ok && i < nv; i++)
+			for (uint k = 0; k < 3; k++)
+			{
+				const int c = (s16)rd_be16 (raw + vo + 4 + 20 * i + 2 * k);
+				lo[k] = c < lo[k] ? c : lo[k];
+				hi[k] = c > hi[k] ? c : hi[k];
+			}
+		double scale = 0.0;
+		for (uint k = 0; ok && k < 3; k++)
+			if (hi[k] > lo[k] && (hb[3 + k] - hb[k]) / (hi[k] - lo[k]) > scale)
+				scale = (hb[3 + k] - hb[k]) / (hi[k] - lo[k]);
+		ok = ok && scale > 0.0;
+		for (size_t i = 0; ok && i < ni; i++)
+			ok = rd_be16 (raw + io + 2 * i) < nv;
+		if (ok)
+		{
+			sumo_buf_t b = { 0, 0, 0, true };
+			char dest[PATH_MAX];
+			beside_source_dest (dest, sizeof (dest), arg);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sEXTRACT MIDWAY-PHM:%s (%zu vertices) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nv, dest);
+			for (size_t i = 0; i < nv; i++)
+			{
+				const u8 *v = raw + vo + 4 + 20 * i;
+				sumo_printf (&b, "v %g %g %g\n", (s16)rd_be16 (v) * scale, (s16)rd_be16 (v + 2) * scale, (s16)rd_be16 (v + 4) * scale);
+			}
+			for (size_t p = 0; p + 3 <= ni;)
+			{
+				const size_t i0 = rd_be16 (raw + io + 2 * p), i1 = rd_be16 (raw + io + 2 * p + 2), i2 = rd_be16 (raw + io + 2 * p + 4);
+				if (p + 4 <= ni && i0 == i2 + 1 && i1 == i2 + 2 && rd_be16 (raw + io + 2 * p + 6) == i2 + 3)
+				{
+					sumo_printf (&b, "f %zu %zu %zu\nf %zu %zu %zu\n", i0 + 1, i1 + 1, i2 + 1, i1 + 1, i2 + 1, i2 + 4);
+					p += 4;
+				}
+				else
+				{
+					if (i0 != i1 && i1 != i2 && i0 != i2)
+						sumo_printf (&b, "f %zu %zu %zu\n", i0 + 1, i1 + 1, i2 + 1);
+					p += 3;
+				}
+			}
+			err = b.ok && b.p && b.n < 0xffffffffu ? shade_write (arg, dest, basedir, "mesh.obj", (u8 *)b.p, (uint)b.n) : ERR_NOTHING_TO_DO;
+			FREE (b.p);
+		}
+	}
+	FREE (raw);
+	return err;
+}
