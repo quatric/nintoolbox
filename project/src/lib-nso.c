@@ -3,6 +3,7 @@
 #include "lib-archive-util.h"
 #include "lib-sha256.h"
 #include "lz4.h"
+#include "lib-zstd.h"
 #include <string.h>
 
 bool IsNSO (const u8 *data, size_t size)
@@ -63,14 +64,23 @@ static enumError DecompressAndSaveSegment (ccp dest_file, const u8 *data, size_t
 	if (!out_buf)
 		return ERR_OUT_OF_MEMORY;
 
-	if (is_compressed)
+	if (is_compressed && IsZBIC (data + file_offset, comp_size))
+	{
+		// Switch 2 "main" modules: zstd frames with binary interpolative table headers (magic "ZBIC")
+		if (DecodeZBICbuf (out_buf, decomp_size, data + file_offset, comp_size))
+		{
+			FREE (out_buf);
+			return ERROR0 (ERR_INVALID_DATA, "NSO: ZBIC segment of %u bytes failed to decompress: %s\n", decomp_size, dest_file);
+		}
+	}
+	else if (is_compressed)
 	{
 		int res = LZ4_decompress_safe (
 			(const char *)(data + file_offset), (char *)out_buf, (int)comp_size, (int)decomp_size);
 		if (res < 0 || (u32)res != decomp_size)
 		{
 			FREE (out_buf);
-			return ERR_INVALID_DATA;
+			return ERROR0 (ERR_INVALID_DATA, "NSO: LZ4 segment of %u bytes failed to decompress: %s\n", decomp_size, dest_file);
 		}
 	}
 	else

@@ -19303,6 +19303,20 @@ t_zelda_switch2(){
 }
 t_zelda_switch2
 
+t_zbic_nso(){
+  # Switch 2 "main" NSO: segments are ZBIC frames (zstd whose FSE table headers use binary interpolative coding)
+  local d; d=$(mktemp -d /tmp/_r_zbic.XXXXXX) || { fno "ZBIC NSO" "mktemp failed"; return; }
+  python3 "$PWD_PROJECT/../tests/mk_zbic_nso.py" "$d" >/dev/null 2>&1 || { fno "ZBIC NSO" "fixture generation failed"; rm -rf "$d"; return; }
+  "$B/wszst" XX "$d/main.nso" --overwrite >/dev/null 2>&1
+  if cmp -s "$d/main.nso.d/text.bin" "$d/text.expect" && cmp -s "$d/main.nso.d/rodata.bin" "$d/ro.expect"; then
+    fok "Switch 2 NSO with a ZBIC text segment (binary interpolative FSE tables) extracts bit-exactly"
+  else
+    fno "ZBIC NSO" "wrong or missing $d/main.nso.d/text.bin"
+  fi
+  rm -rf "$d"
+}
+t_zbic_nso
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

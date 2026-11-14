@@ -193,6 +193,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **Nippon Ichi WIIIDARC** | `.dat` | *Phantom Brave: We Meet Again* |
 | **NLG DICT** | `.dict`, `.data` | *Federation Force*, *Luigi's Mansion 2/3*, *Strikers* |
 | **NUP** | `.nup` | Decrypted Switch / Switch 2 dumps (*Kirby and the Forgotten Land – Nintendo Switch 2 Edition*, *Kirby Air Riders*, *The Legend of Zelda: Ocarina of Time* (Switch 2)) |
+| **NSO** (Switch executable) | `.nso`, `main` | Switch / Switch 2 titles, including *The Legend of Zelda: Ocarina of Time* (Switch 2) whose `main` uses ZBIC segments |
 | **NXARC** | `.nxarc` | Switch titles |
 | **Okami DAT / T** | `.dat`, `.t` | *Okami* |
 | **Opoona SL01 / OPKG** | `.btl`, `.bin`, `.dat` | *Opoona* |

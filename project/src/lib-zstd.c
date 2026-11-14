@@ -24,6 +24,32 @@ int IsZSTD (cvp data, uint size)
 
 
 //////////////////////////////////////////////////////////////////////////////
+// ZBIC (see lib-zstd.h).  libzstd/zstd.c carries the table reader; it is switched on only while a ZBIC frame is decoded.
+
+extern int ZSTD_nintoolbox_zbic;
+
+bool IsZBIC (cvp data, uint size)
+{
+	return data && size >= 6 && le32 ((const u8 *)data) == ZBIC_MAGIC_LE;
+}
+
+enumError DecodeZBICbuf (void *dest, uint dest_size, const void *src, uint src_size)
+{
+	if (!IsZBIC (src, src_size))
+		return ERR_INVALID_DATA;
+	u8 *tmp = MALLOC (src_size);
+	if (!tmp)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (tmp, src, src_size);
+	tmp[0] = 0x28, tmp[1] = 0xB5, tmp[2] = 0x2F, tmp[3] = 0xFD;
+	ZSTD_nintoolbox_zbic = 1;
+	const size_t ret = ZSTD_decompress (dest, dest_size, tmp, src_size);
+	ZSTD_nintoolbox_zbic = 0;
+	FREE (tmp);
+	return !ZSTD_isError (ret) && ret == dest_size ? ERR_OK : ERR_INVALID_DATA;
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // Dictionary registry.  Zelda-style romfs trees (Tears of the Kingdom and its
 // Switch 2 successors) compress most *.zs files with one of a handful of
 // trained dictionaries stored in Pack/ZsDic.pack.zs (a SARC of *.zsdic

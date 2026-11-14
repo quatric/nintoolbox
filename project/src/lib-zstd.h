@@ -30,6 +30,13 @@ enumError EncodeZSTD (
 
 enumError DecodeZSTD (u8 **dest_ptr, uint *dest_written, const void *src, uint src_size);
 
+// ZBIC: zstd with binary-interpolative FSE table headers, used by the segments of Switch 2 "main" NSO files;
+// the frame magic is "ZBIC" (0x4349425A) instead of the zstd magic.
+#define ZBIC_MAGIC_LE 0x4349425Au
+bool IsZBIC (cvp data, uint size);
+// decode exactly 'dest_size' bytes into 'dest'; ERR_OK or ERR_INVALID_DATA
+enumError DecodeZBICbuf (void *dest, uint dest_size, const void *src, uint src_size);
+
 // Dictionary support (Zelda-style romfs *.zs files; frames name their
 // dictionary by ID).  HintSourcePathZSTD() searches the directories above
 // 'path' for Pack/ZsDic.pack.zs; the ZSDIC environment variable may point at

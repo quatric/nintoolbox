@@ -3454,10 +3454,88 @@ BMI2_TARGET_ATTRIBUTE static size_t FSE_readNCount_body_bmi2(
 }
 #endif
 
+
+/* ---- nintoolbox addition: ZBIC support -------------------------------------------------------------
+ * ZBIC is zstd with the normalized-count headers (FSE tables of sequences and Huffman weights) stored with binary
+ * interpolative coding instead of the FSE_writeNCount bit layout.  It is used for the segments of Nintendo Switch 2
+ * "main" NSO files (frame magic "ZBIC" instead of 28 B5 2F FD).  Everything else is plain zstd.  The reader below
+ * follows the format as implemented by kinnay/zbic (https://github.com/kinnay/zbic, GPL-2.0).  It is only used while
+ * ZSTD_nintoolbox_zbic is non-zero, so ordinary frames are unaffected. */
+int ZSTD_nintoolbox_zbic = 0;
+
+static void ZBIC_nodes(int lo, int hi, int nodes[][3], int* n)
+{
+    if (hi - lo < 2) return;
+    {   int const mid = (lo + hi) / 2;
+        nodes[*n][0] = mid; nodes[*n][1] = lo; nodes[*n][2] = hi; (*n)++;
+        ZBIC_nodes(mid, hi, nodes, n);
+        ZBIC_nodes(lo, mid, nodes, n);
+    }
+}
+
+static size_t ZBIC_readNCount(short* normalizedCounter, unsigned* maxSVPtr, unsigned* tableLogPtr,
+                              const void* headerBuffer, size_t hbSize)
+{
+    const BYTE* const ip = (const BYTE*)headerBuffer;
+    unsigned b0, R0, useLow, charNum, N, tableLog, remaining, k;
+    unsigned long long X, E, C, l;
+    unsigned R;
+    unsigned counter[72];
+    int nodes[72][3], nNodes = 0, i;
+    unsigned long long charLast;
+    if (hbSize < 2) return ERROR(srcSize_wrong);
+    b0 = ip[0]; R0 = b0 & 0x7F; useLow = b0 >> 7;
+    if (R0 + 1 >= hbSize) return ERROR(corruption_detected);
+    R = R0;
+#define ZBIC_REFILL(v) do { while (R != 0 && (v) < (1ULL << 40)) { (v) = ip[R] | ((v) << 8); R--; } } while (0)
+    X = 0; ZBIC_REFILL(X);
+    charNum = (unsigned)(X % 52) + 1;
+    E = X / 52; ZBIC_REFILL(E);
+    tableLog = (unsigned)(E % 8) + 5;
+    C = E / 8; ZBIC_REFILL(C);
+    remaining = 1u << tableLog;
+    charLast = useLow ? (unsigned long long)charNum + (C % remaining) + 2 : (C % remaining) + 1;
+    l = C / remaining; ZBIC_REFILL(l);
+    if (charNum > *maxSVPtr) return ERROR(maxSymbolValue_tooSmall);
+    N = 1; while (N <= charNum) N <<= 1;
+    ZSTD_memset(counter, 0, sizeof(counter));
+    counter[N] = (unsigned)charLast;
+    ZBIC_nodes(0, (int)N, nodes, &nNodes);
+    nodes[nNodes][0] = 0; nodes[nNodes][1] = 0; nodes[nNodes][2] = 1; nNodes++;
+    for (i = 0; i < nNodes; i++) {
+        int const mid = nodes[i][0], lo = nodes[i][1], hi = nodes[i][2];
+        unsigned const fLo = counter[lo], fHi = counter[hi];
+        if (fLo == fHi) {
+            int j; for (j = lo + 1; j < hi; j++) counter[j] = fLo;
+        } else {
+            unsigned long long span; if (fHi < fLo) return ERROR(corruption_detected);
+            span = (unsigned long long)fHi - fLo + 1;
+            counter[mid] = (unsigned)(l % span) + fLo;
+            l /= span; ZBIC_REFILL(l);
+        }
+    }
+    ZSTD_memset(normalizedCounter, 0, (*maxSVPtr + 1) * sizeof(normalizedCounter[0]));
+    {   unsigned prev = 0;
+        for (k = 0; k <= charNum; k++) {
+            unsigned const cum = counter[k + 1];
+            int const cnt = (int)(cum - prev) - (int)useLow;
+            normalizedCounter[k] = (short)cnt;
+            remaining -= (unsigned)(cnt < 0 ? -cnt : cnt);
+            prev = cum;
+        }
+    }
+    if (remaining != 0 || R != 0) return ERROR(corruption_detected);
+    *maxSVPtr = charNum; *tableLogPtr = tableLog;
+    return (size_t)R0 + 1;
+#undef ZBIC_REFILL
+}
+/* ---- end of nintoolbox addition ---- */
+
 size_t FSE_readNCount_bmi2(
         short* normalizedCounter, unsigned* maxSVPtr, unsigned* tableLogPtr,
         const void* headerBuffer, size_t hbSize, int bmi2)
 {
+    if (ZSTD_nintoolbox_zbic) return ZBIC_readNCount(normalizedCounter, maxSVPtr, tableLogPtr, headerBuffer, hbSize);
 #if DYNAMIC_BMI2
     if (bmi2) {
         return FSE_readNCount_body_bmi2(normalizedCounter, maxSVPtr, tableLogPtr, headerBuffer, hbSize);
