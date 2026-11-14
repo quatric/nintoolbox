@@ -340,6 +340,7 @@
 #include "extract/toshi_ttl.inc"
 #include "extract/toshi_tkl.inc"
 #include "extract/toshi_trz.inc"
+#include "extract/toshi_tso.inc"
 #include "extract/fbc.inc"
 #include "extract/pub.inc"
 #include "extract/rez.inc"
