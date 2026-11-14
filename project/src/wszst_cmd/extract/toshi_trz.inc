@@ -1,4 +1,4 @@
-// Blue Tongue Toshi property trees (".trz", Nickelodeon Barnyard Wii): a TSFB container whose decompressed section holds a PBProperties tree (OpenBarnyard
+// Blue Tongue Toshi property trees (".trz" and the "Main"-only ".trb" files, Nickelodeon Barnyard Wii): a TSFB container whose decompressed section holds a PBProperties tree (OpenBarnyard
 // Toshi/Source/Plugins/PPropertyParser/PBProperties.h). All pointers are section offsets (big endian): PBProperties {parent, PBProperty *props, u32 count}; PBProperty {name ptr,
 // value ptr} (8 bytes each); the name is a pointer to a PBPropertyName {char *}, or directly the NUL-terminated string; PBPropertyValue {u32 type (0 int, 1 u32, 2 float, 3 bool,
 // 4 properties, 5 property name, 6 array, 7 string, 8 locale string index), u32 value}; PBPropertyValueArray {PBPropertyValue *values, u32 count}. Written as a YAML-style listing
@@ -167,7 +167,8 @@ static enumError extract_toshi_trz_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
 	(void)depth;
-	if (!is_ext (arg, ".trz"))
+	const bool trb_ext = is_ext (arg, ".trb");
+	if (!trb_ext && !is_ext (arg, ".trz"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t raw_size = 0;
@@ -180,6 +181,14 @@ static enumError extract_toshi_trz_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
+	// plain .trb files only qualify when their "Main" symbol is a property tree (the others are models, terrain, sound tables ...)
+	const s64 mainsym = ToshiSymbol (&trb, "Main");
+	if (trb_ext && mainsym < 0)
+	{
+		ResetToshiTrb (&trb);
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
 	const u32 ns = trb.symb_size >= 4 ? rd_be32 (trb.symb) : 0;
 	for (u32 i = 0; i < ns && i < 4096 && err == ERR_NOTHING_TO_DO; i++)
 	{
@@ -187,6 +196,8 @@ static enumError extract_toshi_trz_file (ccp arg, ccp basedir, uint depth)
 			break;
 		const u8 *e = trb.symb + 4 + 12 * i;
 		const u32 off = rd_be32 (e + 8);
+		if (trb_ext && (s64)off != mainsym)
+			continue;
 		// dry run into the null device to validate, then write for real
 		FILE *tf = fopen ("/dev/null", "w");
 		if (!tf)
