@@ -160,6 +160,7 @@
 #include "extract/pikmin_key.inc"
 #include "extract/pikmin_anm.inc"
 #include "extract/pikmin_seq.inc"
+#include "extract/pikmin_jam.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
