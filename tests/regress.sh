@@ -9506,7 +9506,7 @@ with open(sys.argv[1], "wb") as f:
   mkdir -p "$d/mscf_test"
   if python3 "$PWD_PROJECT/../tests/mk_mscf.py" "$d/mscf_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/mscf_test/t.bin" --overwrite >/dev/null 2>&1 \
-    && [ "$(cat "$d/mscf_test/t.d/item.txt")" = "mscf cabinet member" ] \
+    && [ "$(cat "$d/mscf_test/t.bin.d/item.txt")" = "mscf cabinet member" ] \
     && fok "MSCF cabinet extracts by magic" \
     || fno "MSCF cabinet" "failed to extract synthetic t.bin"
   else
@@ -10035,9 +10035,9 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
   # Microsoft Cabinet (stored + multi-block MSZIP)
   mkdir -p "$d/mscab_test"
   if python3 "$PWD_PROJECT/../tests/mk_mscab.py" "$d/mscab_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/mscab_test/stored.cab" "$d/mscab_test/mszip.cab" --overwrite >/dev/null 2>&1 \
-    && grep -q 'hello world, stored cabinet' "$d/mscab_test/stored.cab.d/a/one.txt" \
-    && cmp -s "$d/mscab_test/mszip.cab.d/dir/big.bin" "$d/mscab_test/expect.bin" \
+    "$B/wszst" x "$d/mscab_test/stored.bin" "$d/mscab_test/mszip.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q 'hello world, stored cabinet' "$d/mscab_test/stored.bin.d/a/one.txt" \
+    && cmp -s "$d/mscab_test/mszip.bin.d/dir/big.bin" "$d/mscab_test/expect.dat" \
     && fok "Microsoft Cabinet (stored, MSZIP) extracts" \
     || fno "Microsoft Cabinet" "failed to extract synthetic cabinets"
   else

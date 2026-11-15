@@ -808,7 +808,6 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 | **Custom Binary Containers** | Arbitrary formats | **`QuickBMS`** (`--bms=<script.bms>`) | Direct execution of QuickBMS extraction scripts |
 | **DSP-ADPCM Audio Streams** | `.brstm`, `.bcstm`, `.bfstm`, `.bns`, `.btsnd`, `.ast`, `.dsp` | **`mobipeg`** | Bit-exact Nintendo THP ADPCM coefficient search & stream encoding |
 | **Flash SWF Files** | `.swf` | **`ffdec`** (bundled; `--with-ffdec`) | Decompile ActionScript 1/2/3 and extract shapes, images, sounds, fonts, and binary assets via JPEXS Free Flash Decompiler |
-| **Microsoft Cabinet (MSCF)** | `.cab`, `.bin`, `.dat` (matched by `MSCF` magic) | **`7z`** / **`7zz`** / **`7za`** (`--with-7z`) | CAB packs unpacked in place, e.g. *Tales of Symphonia: Dawn of the New World* item/character `.bin` files |
 | **Mobiclip Video & Cutscenes** | `.mo`, `.mods`, `.moflex`, `.MOC`, `.MOD` | **`mobipeg`** (`--with-mobipeg`) / **`ffmpeg`** | Nintendo DS / 3DS / Wii Mobiclip video decoding to MP4 |
 | **Nintendo 3DS Containers** | `.3ds`, `.cci`, `.cxi`, `.cfa`, `.cia`, `.app` | **`ctrtool`** (bundled) / **`makerom`** (`--with-ctrtool`) | NCCH/NCSD partition extraction, ExeFS/RomFS unpacking & CIA installation packages |
 | **Nintendo DS / DSi ROMs** | `.nds`, `.srl`, `.dsi` | **`ndstool`** (`--with-ndstool`) | Nitro ROM header, banner, arm9/arm7 binary & NitroFS extraction/rebuild |
