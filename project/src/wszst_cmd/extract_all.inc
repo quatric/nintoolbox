@@ -174,6 +174,7 @@
 #include "extract/ai00.inc"
 #include "extract/ohasuta.inc"
 #include "extract/csvd.inc"
+#include "extract/bcabchunks.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
