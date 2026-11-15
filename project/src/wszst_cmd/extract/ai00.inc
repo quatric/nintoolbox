@@ -1,4 +1,4 @@
-// "ai00" AI parameter table (One Piece Unlimited Adventure / Cruise, Wii: ai/ace_prm.bin), big-endian:
+// "ai00" / "aicd" AI parameter and condition tables (One Piece Unlimited Adventure / Cruise, Wii: ai/ace_prm.bin), big-endian:
 //   {"ai00", u32 version (3), u32 ...} followed by u32 words (ints or floats). The record layout and the field names
 //   are not known, so the words are written unnamed (floats where the value looks like one) to "<file>.json".
 static enumError extract_ai00_file (ccp arg, ccp basedir, uint depth)
@@ -14,7 +14,7 @@ static enumError extract_ai00_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	if (sz < 0x20 || (sz & 3) || memcmp (raw, "ai00", 4) || rd_be32 (raw + 4) > 0xff)
+	if (sz < 0x20 || (sz & 3) || (memcmp (raw, "ai00", 4) && memcmp (raw, "aicd", 4)) || rd_be32 (raw + 4) > 0xff)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -24,7 +24,7 @@ static enumError extract_ai00_file (ccp arg, ccp basedir, uint depth)
 	c.d = raw;
 	c.sz = sz;
 	c.ok = true;
-	pcr_emit (&c, "{\n  \"format\": \"ai00\",\n  \"version\": %u,\n  \"words\": [", rd_be32 (raw + 4));
+	pcr_emit (&c, "{\n  \"format\": \"%.4s\",\n  \"version\": %u,\n  \"words\": [", (const char *)raw, rd_be32 (raw + 4));
 	for (size_t i = 8; i + 4 <= sz; i += 4)
 	{
 		const u32 w = rd_be32 (raw + i);
