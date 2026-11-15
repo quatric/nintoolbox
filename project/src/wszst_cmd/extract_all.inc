@@ -280,6 +280,7 @@
 #include "extract/bgst3.inc"
 #include "extract/ubibao.inc"
 #include "extract/jaudiobaa.inc"
+#include "extract/pikmin_bx.inc"
 #include "extract/jaudio_aaf.inc"
 #include "extract/sts.inc"
 #include "extract/petzozzy.inc"

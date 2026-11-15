@@ -98,6 +98,95 @@ static u8 *jaudio_make_wav (const s16 *pcm, size_t frames, uint rate, size_t *ou
 	return wav;
 }
 
+// Writes every wave of one WSYS (at W in RAW) found in its ".aw" files next to ARG as "wsys<ID>/<aw>/<nnnn>.wav".
+static void jaudio_wsys_waves (ccp arg, const u8 *raw, size_t sz, size_t w, uint id,
+	nintendo_sarc_entry_t **entries, size_t *n, size_t *cap)
+{
+	char name[96];
+		if (w + 0x18 > sz || memcmp (raw + w, "WSYS", 4))
+			return;
+		const size_t winf = w + rd_be32 (raw + w + 0x10);
+		if (winf + 8 > sz || memcmp (raw + winf, "WINF", 4))
+			return;
+		const uint groups = rd_be32 (raw + winf + 4);
+		if (groups > 4096 || winf + 8 + 4 * (size_t)groups > sz)
+			return;
+		for (uint g = 0; g < groups; g++)
+		{
+			const size_t go = w + rd_be32 (raw + winf + 8 + 4 * (size_t)g);
+			if (go + 0x74 > sz)
+				continue;
+			char awname[0x71];
+			memcpy (awname, raw + go, 0x70);
+			awname[0x70] = 0;
+			const uint nw = rd_be32 (raw + go + 0x70);
+			if (!awname[0] || strchr (awname, '/') || nw > 100000 || go + 0x74 + 4 * (size_t)nw > sz)
+				continue;
+			char awpath[PATH_MAX];
+			if (!jaudio_find_aw (arg, awname, awpath, sizeof (awpath)))
+				continue;
+			u8 *aw = 0;
+			size_t aws = 0;
+			if (LoadFileAlloc (awpath, 0, 0, &aw, &aws, 0, 0, 0, false) || !aw)
+			{
+				FREE (aw);
+				continue;
+			}
+			char stem[0x71];
+			snprintf (stem, sizeof (stem), "%s", awname);
+			char *dot = strrchr (stem, '.');
+			if (dot)
+				*dot = 0;
+			for (uint k = 0; k < nw; k++)
+			{
+				const size_t eo = w + rd_be32 (raw + go + 0x74 + 4 * (size_t)k);
+				if (eo + 0x20 > sz)
+					continue;
+				const uint fmt = raw[eo + 1];
+				u32 rate_bits = rd_be32 (raw + eo + 4);
+				float rate_f;
+				memcpy (&rate_f, &rate_bits, 4);
+				const u32 aoff = rd_be32 (raw + eo + 8), asize = rd_be32 (raw + eo + 0xc), samples = rd_be32 (raw + eo + 0x1c);
+				if (rate_f < 1000 || rate_f > 200000 || aoff > aws || asize > aws - aoff || !samples || samples > 0x4000000)
+					continue;
+				s16 *pcm = MALLOC ((size_t)samples * 2 + 64);
+				size_t frames = 0;
+				if (!pcm)
+					continue;
+				if (fmt == 0 || fmt == 1)
+					frames = jaudio_decode_afc (aw + aoff, asize, fmt, pcm, samples);
+				else if (fmt == 2)
+					for (; frames < asize && frames < samples; frames++)
+						pcm[frames] = (s16)((int8_t)aw[aoff + frames] * 256);
+				else if (fmt == 3)
+					for (; frames * 2 + 2 <= asize && frames < samples; frames++)
+						pcm[frames] = (s16)rd_be16 (aw + aoff + frames * 2);
+				size_t wsize = 0;
+				u8 *wav = frames ? jaudio_make_wav (pcm, frames, (uint)(rate_f + 0.5f), &wsize) : 0;
+				FREE (pcm);
+				if (!wav)
+					continue;
+				if ((*n) + 1 >= (*cap))
+				{
+					(*cap) *= 2;
+					nintendo_sarc_entry_t *ne = REALLOC ((*entries), (*cap) * sizeof (*(*entries)));
+					if (!ne)
+					{
+						FREE (wav);
+						break;
+					}
+					memset (ne + (*cap) / 2, 0, (*cap) / 2 * sizeof (*ne));
+					(*entries) = ne;
+				}
+				snprintf (name, sizeof (name), "wsys%u/%s/%04u.wav", id, stem, k);
+				if (OwnedEntryAdd ((*entries), (*n), name, wav, wsize))
+					(*n)++;
+				FREE (wav);
+			}
+			FREE (aw);
+		}
+	}
+
 static enumError extract_jaudiobaa_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".baa"))
@@ -197,89 +286,7 @@ static enumError extract_jaudiobaa_file (ccp arg, ccp basedir, uint depth)
 		if (recs[r].tag != 0x77732020)
 			continue;
 		nws++;
-		const size_t w = recs[r].b;
-		if (w + 0x18 > sz || memcmp (raw + w, "WSYS", 4))
-			continue;
-		const size_t winf = w + rd_be32 (raw + w + 0x10);
-		if (winf + 8 > sz || memcmp (raw + winf, "WINF", 4))
-			continue;
-		const uint groups = rd_be32 (raw + winf + 4);
-		if (groups > 4096 || winf + 8 + 4 * (size_t)groups > sz)
-			continue;
-		for (uint g = 0; g < groups; g++)
-		{
-			const size_t go = w + rd_be32 (raw + winf + 8 + 4 * (size_t)g);
-			if (go + 0x74 > sz)
-				continue;
-			char awname[0x71];
-			memcpy (awname, raw + go, 0x70);
-			awname[0x70] = 0;
-			const uint nw = rd_be32 (raw + go + 0x70);
-			if (!awname[0] || strchr (awname, '/') || nw > 100000 || go + 0x74 + 4 * (size_t)nw > sz)
-				continue;
-			char awpath[PATH_MAX];
-			if (!jaudio_find_aw (arg, awname, awpath, sizeof (awpath)))
-				continue;
-			u8 *aw = 0;
-			size_t aws = 0;
-			if (LoadFileAlloc (awpath, 0, 0, &aw, &aws, 0, 0, 0, false) || !aw)
-			{
-				FREE (aw);
-				continue;
-			}
-			char stem[0x71];
-			snprintf (stem, sizeof (stem), "%s", awname);
-			char *dot = strrchr (stem, '.');
-			if (dot)
-				*dot = 0;
-			for (uint k = 0; k < nw; k++)
-			{
-				const size_t eo = w + rd_be32 (raw + go + 0x74 + 4 * (size_t)k);
-				if (eo + 0x20 > sz)
-					continue;
-				const uint fmt = raw[eo + 1];
-				u32 rate_bits = rd_be32 (raw + eo + 4);
-				float rate_f;
-				memcpy (&rate_f, &rate_bits, 4);
-				const u32 aoff = rd_be32 (raw + eo + 8), asize = rd_be32 (raw + eo + 0xc), samples = rd_be32 (raw + eo + 0x1c);
-				if (rate_f < 1000 || rate_f > 200000 || aoff > aws || asize > aws - aoff || !samples || samples > 0x4000000)
-					continue;
-				s16 *pcm = MALLOC ((size_t)samples * 2 + 64);
-				size_t frames = 0;
-				if (!pcm)
-					continue;
-				if (fmt == 0 || fmt == 1)
-					frames = jaudio_decode_afc (aw + aoff, asize, fmt, pcm, samples);
-				else if (fmt == 2)
-					for (; frames < asize && frames < samples; frames++)
-						pcm[frames] = (s16)((int8_t)aw[aoff + frames] * 256);
-				else if (fmt == 3)
-					for (; frames * 2 + 2 <= asize && frames < samples; frames++)
-						pcm[frames] = (s16)rd_be16 (aw + aoff + frames * 2);
-				size_t wsize = 0;
-				u8 *wav = frames ? jaudio_make_wav (pcm, frames, (uint)(rate_f + 0.5f), &wsize) : 0;
-				FREE (pcm);
-				if (!wav)
-					continue;
-				if (n + 1 >= cap)
-				{
-					cap *= 2;
-					nintendo_sarc_entry_t *ne = REALLOC (entries, cap * sizeof (*entries));
-					if (!ne)
-					{
-						FREE (wav);
-						break;
-					}
-					memset (ne + cap / 2, 0, cap / 2 * sizeof (*ne));
-					entries = ne;
-				}
-				snprintf (name, sizeof (name), "wsys%u/%s/%04u.wav", recs[r].a, stem, k);
-				if (OwnedEntryAdd (entries, n, name, wav, wsize))
-					n++;
-				FREE (wav);
-			}
-			FREE (aw);
-		}
+		jaudio_wsys_waves (arg, raw, sz, recs[r].b, recs[r].a, &entries, &n, &cap);
 	}
 	FREE (raw);
 	if (!n)
