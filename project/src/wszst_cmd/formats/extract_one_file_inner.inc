@@ -1204,6 +1204,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ai00_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_ohasuta_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_pikmin_parm_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
