@@ -431,7 +431,6 @@
 #include "extract/gfmotion.inc"
 #include "extract/gf1motion.inc"
 #include "extract/scribvec.inc"
-#include "extract/mscab.inc"
 #include "extract/chnk.inc"
 #include "extract/magma_fat.inc"
 #include "extract/define_extract_voice.inc"

@@ -21,10 +21,6 @@ bool IsCingWpf (const u8 *head, size_t head_size, u64 file_size)
 	if (!memcmp (head, "WPF\x01", 4))
 		return false;
 
-	// Microsoft Cabinet files are handled by the MSCF extractor
-	if (!memcmp (head, "MSCF", 4))
-		return false;
-
 	// Speed 2 "DC2" models
 	if (!memcmp (head, "DC2\0", 4))
 		return false;

@@ -10044,18 +10044,6 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "HDPK schema" "mk_hdpk.py failed"
   fi
 
-  # Microsoft Cabinet (stored + multi-block MSZIP)
-  mkdir -p "$d/mscab_test"
-  if python3 "$PWD_PROJECT/../tests/mk_mscab.py" "$d/mscab_test" >/dev/null 2>&1; then
-    "$B/wszst" x "$d/mscab_test/stored.cab" "$d/mscab_test/mszip.cab" --overwrite >/dev/null 2>&1 \
-    && grep -q 'hello world, stored cabinet' "$d/mscab_test/stored.cab.d/a/one.txt" \
-    && cmp -s "$d/mscab_test/mszip.cab.d/dir/big.bin" "$d/mscab_test/expect.bin" \
-    && fok "Microsoft Cabinet (stored, MSZIP) extracts" \
-    || fno "Microsoft Cabinet" "failed to extract synthetic cabinets"
-  else
-    fno "Microsoft Cabinet" "mk_mscab.py failed"
-  fi
-
   # Opoona SL01 (LZO1X) wrapper, OPKG packages, blanked-magic / TPLE textures
   mkdir -p "$d/opkg_test"
   if python3 "$PWD_PROJECT/../tests/mk_opoonapkg.py" "$d/opkg_test" >/dev/null 2>&1; then
