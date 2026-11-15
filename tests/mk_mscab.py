@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Synthetic Microsoft Cabinets: stored.bin (type 0) and mszip.bin (type 1,
+# Synthetic Microsoft Cabinets: stored.cab (type 0) and mszip.cab (type 1,
 # two CFDATA blocks so the 32 KiB deflate dictionary carry-over is exercised).
 import struct, sys, os, zlib
 
@@ -17,7 +17,7 @@ def cab(files, blocks, ctype):
 
 out = sys.argv[1]
 p1 = b'hello world, stored cabinet\n' * 3
-open(os.path.join(out, 'stored.bin'), 'wb').write(
+open(os.path.join(out, 'stored.cab'), 'wb').write(
     cab([('a/one.txt', len(p1), 0)], [(p1, len(p1))], 0))
 
 blk1 = bytes((i * 7) & 0xff for i in range(32768))
@@ -30,6 +30,6 @@ for b in (blk1, blk2):
     comp.append((b'CK' + c.compress(b) + c.flush(), len(b)))
     dict_ += b
 allb = blk1 + blk2
-open(os.path.join(out, 'mszip.bin'), 'wb').write(
+open(os.path.join(out, 'mszip.cab'), 'wb').write(
     cab([('dir\\big.bin', len(allb), 0)], comp, 1))
-open(os.path.join(out, 'expect.dat'), 'wb').write(allb)
+open(os.path.join(out, 'expect.bin'), 'wb').write(allb)
