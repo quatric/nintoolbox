@@ -88,6 +88,7 @@
 #include "extract/unityfs.inc"
 #include "extract/mph.inc"
 #include "extract/pikmin_mod.inc"
+#include "extract/granny.inc"
 #include "extract/blpkg.inc"
 #include "extract/goliath.inc"
 #include "extract/twl.inc"
