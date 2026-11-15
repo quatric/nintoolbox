@@ -1,4 +1,4 @@
-// Pikmin 1 ".key" animation tables (tekikeys/*.key; zen AnimMgr::read / AnimInfo::doread in the decompilation):
+// Pikmin 1 ".key" animation tables (the per-model "*.bin" animation lists use the same layout and are accepted too) (tekikeys/*.key; zen AnimMgr::read / AnimInfo::doread in the decompilation):
 // {s32 version, s32 count}, a tagged parameter list ({u24 id, u8 size} + value, -1 ends), then per animation a
 // length-prefixed name, its tagged parameters ("p00" flags, "spd" speed), the anim key frames, the info keys
 // (version >= 1) and the event keys. Written as "<name>.key.json".
@@ -6,7 +6,7 @@ static enumError extract_pikmin_key_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
 	(void)depth;
-	if (!is_ext (arg, ".key"))
+	if (!is_ext (arg, ".key") && !is_ext (arg, ".bin"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
