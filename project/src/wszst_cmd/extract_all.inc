@@ -286,6 +286,7 @@
 #include "extract/dcf.inc"
 #include "extract/kcs.inc"
 #include "extract/basaraui.inc"
+#include "extract/hdpk.inc"
 #include "extract/kromemdl.inc"
 #include "extract/krvglc.inc"
 #include "extract/rkv2.inc"

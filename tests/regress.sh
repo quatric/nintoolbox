@@ -10032,6 +10032,18 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Scribblenauts vector" "mk_scribvec.py failed"
   fi
 
+  # Nintendo Channel HDPK schema -> strings.txt
+  mkdir -p "$d/hdpk_test"
+  if python3 "$PWD_PROJECT/../tests/mk_hdpk.py" "$d/hdpk_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/hdpk_test/h.bin" --overwrite >/dev/null 2>&1 \
+    && grep -q 'CHECKDATA' "$d/hdpk_test/h.bin.d/strings.txt" \
+    && grep -q 'col' "$d/hdpk_test/h.bin.d/strings.txt" \
+    && fok "HDPK schema lists its names" \
+    || fno "HDPK schema" "failed to list synthetic h.bin"
+  else
+    fno "HDPK schema" "mk_hdpk.py failed"
+  fi
+
   # Microsoft Cabinet (stored + multi-block MSZIP)
   mkdir -p "$d/mscab_test"
   if python3 "$PWD_PROJECT/../tests/mk_mscab.py" "$d/mscab_test" >/dev/null 2>&1; then
