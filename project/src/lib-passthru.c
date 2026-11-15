@@ -52,7 +52,6 @@ ccp opt_with_hactool = 0; // --with-hactool=path|name
 ccp opt_with_hacbrewpack = 0; // --with-hacbrewpack=path|name
 ccp opt_with_bms = 0; // --with-bms=path|--bms=path
 ccp opt_with_mobipeg = 0; // --with-mobipeg=path|name
-ccp opt_video_format = 0; // --video-format=list of extra encodings
 ccp opt_midi_format = 0; // --midi-format=wav|flac
 ccp opt_with_7z = 0; // --with-7z=path|name
 ccp opt_with_nsz = 0; // --with-nsz=path|name
@@ -518,62 +517,6 @@ static bool is_frame_alternate_stereo (ccp mobipeg, ccp src)
 	return alt;
 }
 
-// Extra encodings requested with --video-format, written next to the .mp4
-// preview. Each one is a separate mobipeg run; a failure only warns.
-static void passthru_extra_formats (ccp tool, ccp src, ccp stage, ccp base_leaf)
-{
-	if (!opt_video_format || !*opt_video_format)
-		return;
-	char list[256];
-	snprintf (list, sizeof (list), ",%s,", opt_video_format);
-	for (char *c = list; *c; c++)
-		*c = tolower ((u8)*c);
-	const bool all = strstr (list, ",all,") != 0;
-	static const struct
-	{
-		ccp name, ext;
-		ccp a[12]; // codec arguments between "-i src" and the output
-	} fmt[] = {
-		{ "mkv", "mkv", { "-c:v", "ffv1", "-c:a", "flac", 0 } },
-		{ "avi", "avi", { "-c:v", "mjpeg", "-q:v", "2", "-c:a", "pcm_s16le", 0 } },
-		{ "gif", "gif", { "-an", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", 0 } },
-		{ "wav", "wav", { "-vn", "-c:a", "pcm_s16le", 0 } },
-		{ "flac", "flac", { "-vn", "-c:a", "flac", 0 } },
-		{ "png", 0, { "-an", 0 } },
-	};
-	for (uint i = 0; i < sizeof (fmt) / sizeof (*fmt); i++)
-	{
-		char key[16];
-		snprintf (key, sizeof (key), ",%s,", fmt[i].name);
-		if (!all && !strstr (list, key))
-			continue;
-		char out[PATH_MAX];
-		if (fmt[i].ext)
-			snprintf (out, sizeof (out), "%s/%s.%s", stage, base_leaf, fmt[i].ext);
-		else
-		{
-			snprintf (out, sizeof (out), "%s/%s.frames", stage, base_leaf);
-			if (CreatePath (out, true))
-				continue;
-			snprintf (out, sizeof (out), "%s/%s.frames/%%05d.png", stage, base_leaf);
-		}
-		char *argv[24];
-		uint n = 0;
-		argv[n++] = (char *)tool;
-		argv[n++] = "-i";
-		argv[n++] = (char *)src;
-		for (uint k = 0; fmt[i].a[k]; k++)
-			argv[n++] = (char *)fmt[i].a[k];
-		argv[n++] = "-y";
-		argv[n++] = out;
-		argv[n] = 0;
-		if (run_program (argv))
-			fprintf (stdlog, "WARNING: %s encoding of %s failed (no matching stream?)\n", fmt[i].name, src);
-		else if (fmt[i].ext)
-			StampFileMtime (out, src);
-	}
-}
-
 static enumError passthru_media (
 	ccp src, ccp basedir, ccp stage, char *staged_dir, uint staged_dir_size, bool is_audio)
 {
@@ -672,11 +615,7 @@ static enumError passthru_media (
 		StampFileMtime (out_right, src);
 	}
 	else
-	{
 		StampFileMtime (out_file, src);
-		if (!is_audio)
-			passthru_extra_formats (tool_copy, src, stage, base_leaf);
-	}
 
 	snprintf (staged_dir, staged_dir_size, "%s", stage);
 	return ERR_OK;

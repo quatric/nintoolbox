@@ -2132,18 +2132,6 @@
 		" directories of the environment variable @'PATH'@."
 		" Default is the name @'mobipeg'@." },
 
-  { T_OPT_GP,	"VIDEO_FORMAT",	"video-format|videoformat|mobiclip-format",
-		"list",
-		"Write additional encodings next to the @'.mp4'@ preview whenever a"
-		" Mobiclip, THP, Bink or other video file is decoded through"
-		" {mobipeg}. The list is comma separated; known names are:"
-		" @'mkv'@ (lossless FFV1 video + FLAC audio), @'avi'@ (Motion JPEG +"
-		" PCM), @'gif'@ (animated, no audio), @'png'@ (frame sequence in"
-		" @'<name>.frames/'@), @'wav'@ and @'flac'@ (audio track only) and"
-		" @'all'@. The @'.mp4'@ preview is always written. Formats the video"
-		" does not support (e.g. audio of a silent file) are skipped with a"
-		" warning. Stereoscopic 3D Moflex keeps its left/right @'.mp4'@ pair." },
-
   { T_OPT_GP,	"MIDI_PRESET",	"midi-preset|midipreset",
 		"list",
 		"Force the instrument of single MIDI channels when a converted MIDI is"
