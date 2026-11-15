@@ -1,5 +1,6 @@
-// Pikmin 1 ".anm" animation bundles (StdSystem::loadBundle in the decompilation): {s32 count}, then per entry
-// {s32 type (2 = DCA, 3 = DCK), s32 size, s32 name length, name, size bytes}. Entries are written under their stored
+// Pikmin 1 ".anm" animation bundles and ".bun" texture / effect bundles (StdSystem::loadBundle in the decompilation):
+// {s32 count}, then per entry {s32 type (0 binary, 1 texture, 2 DCA, 3 DCK), s32 size, s32 name length, name, size bytes}.
+// ".bun" entries keep their stored directory paths. Entries are written under their stored
 // names (".dca" / ".dck" motion data), each with a "<name>.json" dump of its channels (see pikmin_dc_json).
 // DCA / DCK motion data (AnimDca::read / AnimDck::read): {joints, frames}, three float blocks (scale, rotation in
 // degrees, translation; each u32 count + floats) and per joint {group, parent} + 9 channel records {entries, offset
@@ -86,7 +87,8 @@ static char *pikmin_dc_json (const u8 *d, size_t sz, bool dck, size_t *out_len)
 
 static enumError extract_pikmin_anm_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".anm"))
+	const bool is_bun = is_ext (arg, ".bun");
+	if (!is_bun && !is_ext (arg, ".anm"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
@@ -137,8 +139,10 @@ static enumError extract_pikmin_anm_file (ccp arg, ccp basedir, uint depth)
 		char name[300];
 		snprintf (name, sizeof (name), "%.*s", (int)nl, (ccp)raw + p + 12);
 		for (char *q = name; *q; q++)
-			if (*q == '/' || *q == '\\')
+			if (*q == '\\' || (*q == '/' && !is_bun))
 				*q = '_';
+		if (is_bun && (name[0] == '/' || strstr (name, "..")))
+			snprintf (name, sizeof (name), "%04u.bin", i);
 		if (!name[0])
 			snprintf (name, sizeof (name), "%04u.bin", i);
 		if (OwnedEntryAdd (entries, n, name, raw + p + 12 + nl, size))
@@ -164,5 +168,5 @@ static enumError extract_pikmin_anm_file (ccp arg, ccp basedir, uint depth)
 		FREE (entries);
 		return ERR_NOTHING_TO_DO;
 	}
-	return write_owned_entries (arg, basedir, depth, "PIKMIN-ANM", entries, n);
+	return write_owned_entries (arg, basedir, depth, is_bun ? "PIKMIN-BUN" : "PIKMIN-ANM", entries, n);
 }
