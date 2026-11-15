@@ -31,6 +31,7 @@ typedef struct jam_track_t
 	int transpose;
 	int parent;
 	int midi_ch;
+	int child[16];
 	int note_active[8];
 	u32 note_off_tick[8];
 	int last_prog;
@@ -43,7 +44,9 @@ typedef struct jam_vm_t
 {
 	const u8 *d;
 	u32 sz;
-	jam_track_t t[17];
+	jam_track_t t[48];
+	int ntracks;
+	int next_ch;
 	jam_ev_t *ev;
 	size_t nev, cap;
 	u32 tick;
@@ -55,7 +58,7 @@ typedef struct jam_vm_t
 	bool bad;
 	int sel;
 	bool usedport;
-	u32 opened[17];
+	u32 opened[48];
 	bool capped;
 } jam_vm_t;
 
@@ -232,33 +235,42 @@ static void jam_cmd (jam_vm_t *v, int ti, u8 cmd, u16 mask)
 	case 0xc1:
 	case 0xc2:
 	{
-		const int idx = (arg[0] & 15) + 1;
 		const int pi = cmd == 0xc2 && t->parent >= 0 ? t->parent : ti;
-		const int slot = (int)(arg[0] & 15) + 1;
-		(void)idx;
-		(void)pi;
-		if (slot > 16 || arg[1] >= v->sz)
+		const int idx = (int)(arg[0] & 15);
+		if (arg[1] >= v->sz)
 			break;
+		int slot = v->t[pi].child[idx] - 1;
+		if (slot < 0)
+		{
+			if (v->ntracks >= 48)
+				break;
+			slot = v->ntracks++;
+			v->t[pi].child[idx] = slot + 1;
+			if (v->next_ch == 9)
+				v->next_ch++;
+			v->t[slot].midi_ch = v->next_ch++ & 15;
+		}
 		jam_track_t *c = v->t + slot;
 		if (v->opened[slot] == arg[1] + 1)
 			v->stop = true; // the same child is started again: the song restarts
 		v->opened[slot] = arg[1] + 1;
 		if (c->active)
 			jam_close (v, slot);
+		const int keep_ch = c->midi_ch;
+		int kids[16];
+		memcpy (kids, c->child, sizeof (kids));
 		memset (c, 0, sizeof (*c));
+		memcpy (c->child, kids, sizeof (kids));
+		c->midi_ch = keep_ch;
 		c->active = true;
 		c->pc = arg[1];
-		c->parent = ti;
-		c->midi_ch = slot < 9 ? slot : slot + 1;
-		if (c->midi_ch > 15)
-			c->midi_ch = 15;
+		c->parent = pi;
 		c->last_prog = -1;
 		for (int i = 0; i < 8; i++)
 		{
 			c->note_active[i] = -1;
 			c->note_off_tick[i] = 0xffffffffu;
 		}
-		c->transpose = 0;
 		break;
 	}
 	case 0xc3:
@@ -729,9 +741,11 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 	v->timebase = 120;
 	v->bpm = 120;
 	v->t[0].active = true;
+	v->ntracks = 1;
+	v->next_ch = 1;
 	v->t[0].parent = -1;
 	v->t[0].last_prog = -1;
-	for (int t = 0; t < 17; t++)
+	for (int t = 0; t < 48; t++)
 		for (int i = 0; i < 8; i++)
 		{
 			v->t[t].note_active[i] = -1;
@@ -741,7 +755,7 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 	for (; !v->stop && v->tick < 4000000 && secs < 600.0; v->tick++)
 	{
 		bool any = false;
-		for (int i = 0; i < 17; i++)
+		for (int i = 0; i < 48; i++)
 			if (v->t[i].active)
 			{
 				any = true;
@@ -750,7 +764,7 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 		if (!any)
 			break;
 		bool all_looped = true;
-		for (int i = 0; i < 17; i++)
+		for (int i = 0; i < 48; i++)
 			if (v->t[i].active && !v->t[i].looped)
 				all_looped = false;
 		if (all_looped)
@@ -758,11 +772,11 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 		secs += 60.0 / ((double)v->bpm * v->timebase);
 	}
 	v->capped = secs >= 600.0 || v->tick >= 4000000;
-	for (int i = 0; i < 17; i++)
+	for (int i = 0; i < 48; i++)
 		jam_close (v, i);
 	// build the MIDI file
 	qsort (v->ev, v->nev, sizeof (*v->ev), jam_ev_cmp);
-	int used[17] = { 0 };
+	int used[48] = { 0 };
 	uint nnotes = 0;
 	for (size_t i = 0; i < v->nev; i++)
 	{
@@ -781,7 +795,7 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 		{
 			u8 *p = out;
 			int ntr = 1;
-			for (int i = 0; i < 17; i++)
+			for (int i = 0; i < 48; i++)
 				ntr += used[i];
 			memcpy (p, "MThd\0\0\0\6\0\1", 10);
 			p += 10;
@@ -827,7 +841,7 @@ static u8 *jam_render (const u8 *raw, size_t sz, int sel, uint *notes_out, bool 
 			hdr[5] = (u8)(len >> 16);
 			hdr[6] = (u8)(len >> 8);
 			hdr[7] = (u8)len;
-			for (int t = 0; t < 17; t++)
+			for (int t = 0; t < 48; t++)
 			{
 				if (!used[t])
 					continue;
