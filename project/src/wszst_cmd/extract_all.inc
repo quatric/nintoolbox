@@ -170,6 +170,7 @@
 #include "extract/nlcm.inc"
 #include "extract/frhd.inc"
 #include "extract/kss_wave.inc"
+#include "extract/gff0.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
