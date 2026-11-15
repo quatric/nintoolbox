@@ -246,6 +246,7 @@
 #include "extract/sonicone.inc"
 #include "extract/txag.inc"
 #include "extract/gvrs.inc"
+#include "extract/gncp.inc"
 #include "extract/climaxarc.inc"
 #include "extract/ftex.inc"
 #include "extract/pbin.inc"

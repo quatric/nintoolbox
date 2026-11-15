@@ -14600,6 +14600,28 @@ assert b.getpixel((0, 0)) == (255, 0, 0), b.getpixel((0, 0))
     fno "Sonic GVRs" "failed to extract synthetic t.GVRs"
   fi
 
+  # Sonic Team .gncp GUI package: layout part followed by back-to-back GVR textures
+  mkdir -p "$d/gncp_test"
+  python3 -c '
+import struct
+def gvr(px):
+    body = struct.pack(">H", px) * 64
+    return b"GCIX" + b"\x00"*12 + b"GVRT" + struct.pack("<I", 8 + len(body)) + b"\x00\x00" + struct.pack(">BBHH", 0, 4, 8, 8) + body
+layout = b"CPAF" + struct.pack(">I", 0x60) + b"NGIF" + b"\x00" * 0x54
+open("'"$d"'/gncp_test/t.gncp", "wb").write(layout + gvr(0x07E0) + gvr(0x001F))
+'
+  if "$B/wszst" xx "$d/gncp_test/t.gncp" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image
+a = Image.open("'"$d"'/gncp_test/t.gncp.d/tex000.gvr.png"); b = Image.open("'"$d"'/gncp_test/t.gncp.d/tex001.gvr.png")
+assert a.getpixel((0, 0)) == (0, 255, 0), a.getpixel((0, 0))
+assert b.getpixel((0, 0)) == (0, 0, 255), b.getpixel((0, 0))
+' 2>/dev/null; then
+    fok "Sonic .gncp package textures extract and decode"
+  else
+    fno "Sonic gncp" "failed to extract synthetic t.gncp"
+  fi
+
   # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
   mkdir -p "$d/dsb_test"
   python3 -c '
