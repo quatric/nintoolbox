@@ -56,7 +56,7 @@ enumError DecodeGVR_RGBA (
 		|| (size_t)width * height > UINT_MAX / 4)
 		return ERR_INVALID_DATA;
 	const bool indexed = format == 8 || format == 9;
-	if ((flags & 0x03) || (flags & 8 ? !indexed : indexed)) // mipmaps need a level; palettes only for CI4 / CI8 with an inline palette
+	if ((flags & 0x02) || (flags & 8 ? !indexed : indexed)) // the base level comes first, so a mipmap chain (flag 1) is simply ignored; palettes only for CI4 / CI8 with an inline palette (an external palette, flag 2, needs a .gvp)
 		return ERR_INVALID_DATA;
 
 	u8 *rgba = MALLOC ((size_t)width * height * 4);

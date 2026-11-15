@@ -14552,6 +14552,29 @@ assert im.getpixel((0, 0)) == (0, 255, 0), f"expected green, got {im.getpixel((0
     fno "Sega GVR Texture" "failed to decode .gvr sample";
   fi
 
+  # GVR with the mipmap flag set: the base level is decoded, the chain is skipped
+  mkdir -p "$d/gvr_mip_test"
+  python3 -c '
+import struct
+w, h = 8, 8
+hdr = b"GCIX" + b"\x00"*12 + b"GVRT" + b"\x00"*6 + struct.pack(">BBHH", 1, 4, w, h)
+base = struct.pack(">H", 0x07E0) * (w * h)
+mip = struct.pack(">H", 0xF800) * 16 # 4x4 level, red, must be ignored
+with open("'"$d"'/gvr_mip_test/m.gvr", "wb") as f:
+    f.write(hdr + base + mip)
+'
+  if "$B/wimgt" DECODE "$d/gvr_mip_test/m.gvr" --dest "$d/gvr_mip_test/out.png" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image
+im = Image.open("'"$d"'/gvr_mip_test/out.png")
+assert im.size == (8, 8), im.size
+assert im.getpixel((0, 0)) == (0, 255, 0), im.getpixel((0, 0))
+' 2>/dev/null; then
+    fok "GVR with mipmap chain decodes the base level"
+  else
+    fno "GVR mipmap" "failed to decode mipmapped .gvr";
+  fi
+
   # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
   mkdir -p "$d/dsb_test"
   python3 -c '
