@@ -66,6 +66,40 @@ static size_t parm_record_end (const u8 *raw, size_t sz, size_t p)
 	return e + 16;
 }
 
+// pelAnim style record: 4 character id, up to four plain words (0, -1, a small count), then a tagged list
+static bool parm_tag_at (const u8 *raw, size_t sz, size_t p)
+{
+	if (p + 4 > sz)
+		return false;
+	for (int k = 0; k < 3; k++)
+	{
+		const u8 c = raw[p + k];
+		if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+			return false;
+	}
+	return true;
+}
+
+static size_t parm_word_record (const u8 *raw, size_t sz, size_t p, uint *nwords)
+{
+	if (p + 8 > sz)
+		return 0;
+	for (int k = 0; k < 4; k++)
+		if (raw[p + k] < 0x20 || raw[p + k] > 0x7e)
+			return 0;
+	size_t q = p + 4;
+	uint n = 0;
+	while (n < 4 && q + 4 <= sz && !parm_tag_at (raw, sz, q))
+	{
+		q += 4;
+		n++;
+	}
+	if (!n || n > 3)
+		return 0;
+	*nwords = n;
+	return parm_list_end (raw, sz, q);
+}
+
 // Writes the list at p as a JSON object; returns the offset behind it.
 static size_t parm_emit_list (pcr_ctx_t *c, const u8 *raw, size_t p)
 {
@@ -154,15 +188,16 @@ static enumError extract_pikmin_parm_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	static const size_t prefixes[4] = { 0, 4, 16, 4 };
+	static const size_t prefixes[5] = { 0, 4, 16, 4, 4 };
 	size_t prefix = 0, nlists = 0;
-	bool records = false;
-	for (int k = 0; k < 4 && !nlists; k++)
+	bool records = false, wordrecs = false;
+	for (int k = 0; k < 5 && !nlists; k++)
 	{
 		size_t p = prefixes[k], cnt = 0;
 		while (p < sz)
 		{
-			const size_t e = k == 3 ? parm_record_end (raw, sz, p) : parm_list_end (raw, sz, p);
+			uint nw = 0;
+			const size_t e = k == 4 ? parm_word_record (raw, sz, p, &nw) : k == 3 ? parm_record_end (raw, sz, p) : parm_list_end (raw, sz, p);
 			if (!e)
 				break;
 			p = e;
@@ -173,6 +208,7 @@ static enumError extract_pikmin_parm_file (ccp arg, ccp basedir, uint depth)
 			prefix = prefixes[k];
 			nlists = cnt;
 			records = k == 3;
+			wordrecs = k == 4;
 		}
 	}
 	if (!nlists)
@@ -195,7 +231,20 @@ static enumError extract_pikmin_parm_file (ccp arg, ccp basedir, uint depth)
 		for (size_t i = 0; i < nlists; i++)
 		{
 			pcr_emit (&c, "%s\n", i ? "," : "");
-			if (records)
+			if (wordrecs)
+			{
+				uint nw = 0;
+				parm_word_record (raw, sz, p, &nw);
+				pcr_emit (&c, "{\"id\": ");
+				parm_emit_str (&c, raw + p, 4);
+				pcr_emit (&c, ", \"words\": [");
+				for (uint k = 0; k < nw; k++)
+					pcr_emit (&c, "%s%d", k ? ", " : "", (int)(s32)rd_be32 (raw + p + 4 + 4 * k));
+				pcr_emit (&c, "], \"params\": ");
+				p = parm_emit_list (&c, raw, p + 4 + 4 * nw);
+				pcr_emit (&c, "}");
+			}
+			else if (records)
 			{
 				pcr_emit (&c, "{\"params\": ");
 				p = parm_emit_list (&c, raw, p);
