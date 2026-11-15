@@ -14575,6 +14575,31 @@ assert im.getpixel((0, 0)) == (0, 255, 0), im.getpixel((0, 0))
     fno "GVR mipmap" "failed to decode mipmapped .gvr";
   fi
 
+  # Sonic Team .GVRs texture set (two named, mipmapped GVRs) -> .gvr -> PNG
+  mkdir -p "$d/gvrs_test"
+  python3 -c '
+import struct
+def gvr(px):
+    body = struct.pack(">H", px) * 64 + struct.pack(">H", 0) * 16
+    return b"GCIX" + b"\x00"*12 + b"GVRT" + struct.pack("<I", 8 + len(body)) + b"\x00\x00" + struct.pack(">BBHH", 1, 4, 8, 8) + body
+a, b = gvr(0x07E0), gvr(0xF800)
+off0 = 4 + 8 + len(b"one\0two\0")
+off1 = off0 + len(a)
+hdr = struct.pack(">HHII", 2, 0, off0, off1) + b"one\0two\0"
+open("'"$d"'/gvrs_test/t.GVRs", "wb").write(hdr + a + b)
+'
+  if "$B/wszst" xx "$d/gvrs_test/t.GVRs" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+from PIL import Image
+a = Image.open("'"$d"'/gvrs_test/t.GVRs.d/one.gvr.png"); b = Image.open("'"$d"'/gvrs_test/t.GVRs.d/two.gvr.png")
+assert a.size == (8, 8) and a.getpixel((0, 0)) == (0, 255, 0), a.getpixel((0, 0))
+assert b.getpixel((0, 0)) == (255, 0, 0), b.getpixel((0, 0))
+' 2>/dev/null; then
+    fok "Sonic .GVRs texture set splits and decodes"
+  else
+    fno "Sonic GVRs" "failed to extract synthetic t.GVRs"
+  fi
+
   # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
   mkdir -p "$d/dsb_test"
   python3 -c '
