@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Pikmin 1 .mod models, after the projectPiki/pikmin decompilation (CC0).
 #include "lib-pikmin.h"
+#include "lib-excite.h"
+#include "lib-image.h"
 #include "lib-std.h"
 #include <math.h>
 #include <stdio.h>
@@ -136,6 +138,128 @@ static void compute_world (pk_t *pk)
 	}
 }
 
+
+// ---- materials / textures -------------------------------------------------
+
+typedef struct
+{
+	uint tex_off, tex_count, attr_off, attr_count, mat_off, mat_count, tev_count;
+} pk_mat_chunks_t;
+
+static bool skip_anim (const u8 *d, uint size, uint *p, uint key_bytes)
+{
+	if (*p + 4 > size)
+		return false;
+	const uint n = rd_be32 (d + *p);
+	*p += 4;
+	if (n > 100000 || (size_t)n * key_bytes > size - *p)
+		return false;
+	*p += n * key_bytes;
+	return true;
+}
+
+#define SKIP(n) do { if ((size_t)(n) > size - *p) return false; *p += (n); } while (0)
+
+static bool skip_tev (const u8 *d, uint size, uint *p)
+{
+	for (int i = 0; i < 3; i++)
+	{
+		SKIP (8 + 4 + 4);
+		if (!skip_anim (d, size, p, 40) || !skip_anim (d, size, p, 16))
+			return false;
+	}
+	SKIP (16);
+	if (*p + 4 > size)
+		return false;
+	const uint n = rd_be32 (d + *p);
+	*p += 4;
+	if (n > 64)
+		return false;
+	SKIP (n * 32);
+	return true;
+}
+
+// Walks one material, returning the texture attribute index it uses (-1 none).
+static bool walk_material (const u8 *d, uint size, uint *p, int *attr, uint *flags)
+{
+	if (*p + 12 > size)
+		return false;
+	*flags = rd_be32 (d + *p);
+	*attr = (int)rd_be32 (d + *p + 4);
+	*p += 12;
+	if (!(*flags & 1))
+		return true;
+	SKIP (4 + 4 + 4 + 4);
+	if (!skip_anim (d, size, p, 40) || !skip_anim (d, size, p, 16))
+		return false;
+	SKIP (8 + 16);
+	SKIP (4 + 12);
+	if (*p + 4 > size)
+		return false;
+	const uint ngen = rd_be32 (d + *p);
+	*p += 4;
+	if (ngen > 64)
+		return false;
+	SKIP (ngen * 4);
+	if (*p + 4 > size)
+		return false;
+	const uint ntd = rd_be32 (d + *p);
+	*p += 4;
+	if (ntd > 64)
+		return false;
+	for (uint i = 0; i < ntd; i++)
+	{
+		if (*p + 4 > size)
+			return false;
+		if (i == 0)
+			*attr = (int)rd_be32 (d + *p);
+		SKIP (52);
+		for (int k = 0; k < 3; k++)
+			if (!skip_anim (d, size, p, 40))
+				return false;
+	}
+	return true;
+}
+
+// Parses the material chunk into attr[mat_count]/mflags[mat_count]; false when the layout does not add up.
+static bool walk_materials (const u8 *d, uint size, const pk_mat_chunks_t *c, int *attr, uint *mflags)
+{
+	uint p = c->mat_off + 0x20;
+	for (uint i = 0; i < c->tev_count; i++)
+		if (!skip_tev (d, size, &p))
+			return false;
+	for (uint i = 0; i < c->mat_count; i++)
+		if (!walk_material (d, size, &p, attr + i, mflags + i))
+			return false;
+	return true;
+}
+
+// Writes texture IDX (of the texture chunk) as PNG.
+static bool save_texture (const u8 *d, uint size, const pk_mat_chunks_t *c, uint idx, ccp path)
+{
+	uint p = c->tex_off + 0x20;
+	for (uint i = 0; i <= idx && i < c->tex_count; i++)
+	{
+		if (p + 0x20 > size)
+			return false;
+		const uint w = rs (d + p), h = rs (d + p + 2), fmt = rd_be32 (d + p + 4), dsz = rd_be32 (d + p + 0x1c);
+		if (dsz > size - p - 0x20)
+			return false;
+		if (i == idx)
+		{
+			static const u8 gx[8] = { 4, 0xe, 5, 0, 1, 2, 3, 6 };
+			if (fmt > 7 || !w || !h)
+				return false;
+			u8 *rgba = 0;
+			if (DecodeGXTexture_RGBA (&rgba, w, h, gx[fmt], d + p + 0x20, dsz, 0, 0, 0) || !rgba)
+				return false;
+			return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, path, 0, true) == ERR_OK;
+		}
+		p += 0x20 + dsz;
+	}
+	return false;
+}
+
 typedef struct { vec3_t *p, *n; vec2_t *t; size_t cnt, cap; } tri_acc_t;
 
 static bool acc_push (tri_acc_t *a, vec3_t p, vec3_t n, vec2_t t)
@@ -256,7 +380,7 @@ static bool decode_dl (pk_t *pk, tri_acc_t *acc, const u8 *dl, uint len, uint fl
 	return true;
 }
 
-static model_t *parse (const u8 *d, uint size)
+static model_t *parse (const u8 *d, uint size, ccp out_dir, ccp stem)
 {
 	pk_t pk;
 	memset (&pk, 0, sizeof (pk));
@@ -265,6 +389,8 @@ static model_t *parse (const u8 *d, uint size)
 	uint off = 0;
 	u32 type, len;
 	uint mesh_chunk = 0, joint_chunk = 0;
+	pk_mat_chunks_t mc;
+	memset (&mc, 0, sizeof (mc));
 	int have_env = 0;
 	const u8 *env = 0;
 	while (next_chunk (d, size, &off, &type, &len) && type != 0xffff)
@@ -288,6 +414,16 @@ static model_t *parse (const u8 *d, uint size)
 		case 0x18:
 			if ((size_t)cnt * 8 <= avail) { pk.ntex = cnt; pk.tex = data; }
 			break;
+		case 0x20:
+			mc.tex_off = off; mc.tex_count = cnt;
+			break;
+		case 0x22:
+			mc.attr_off = off; mc.attr_count = cnt;
+			break;
+		case 0x30:
+			mc.mat_off = off; mc.mat_count = cnt;
+			mc.tev_count = len >= 8 ? rd_be32 (body + 4) : 0;
+			break;
 		case 0x41:
 			pk.nenv = cnt; env = data; have_env = 1;
 			break;
@@ -305,6 +441,9 @@ static model_t *parse (const u8 *d, uint size)
 	if (!pk.vtx || !mesh_chunk || pk.mesh_count > 4096 || pk.njoint > 4096)
 		return 0;
 
+	int *mesh_mat = calloc ((pk.mesh_count ? pk.mesh_count : 1), sizeof (int));
+	for (uint i = 0; i < pk.mesh_count; i++)
+		mesh_mat[i] = -1;
 	pk.joints = calloc (pk.njoint ? pk.njoint : 1, sizeof (*pk.joints));
 	pk.world = calloc (pk.njoint ? pk.njoint : 1, sizeof (*pk.world));
 	if (!pk.joints || !pk.world)
@@ -322,9 +461,15 @@ static model_t *parse (const u8 *d, uint size)
 			j->rot = (vec3_t){ rf (d + p + 0x30), rf (d + p + 0x34), rf (d + p + 0x38) };
 			j->trans = (vec3_t){ rf (d + p + 0x3c), rf (d + p + 0x40), rf (d + p + 0x44) };
 			const uint np = rd_be32 (d + p + 0x48);
-			p += 0x4c + np * 4;
-			if (np > 4096)
+			if (np > 4096 || p + 0x4c + (size_t)np * 4 > size)
 				goto fail;
+			for (uint k = 0; k < np; k++)
+			{
+				const uint mi = rs (d + p + 0x4c + k * 4 + 2);
+				if (mi < pk.mesh_count && mesh_mat[mi] < 0)
+					mesh_mat[mi] = (int)rs (d + p + 0x4c + k * 4);
+			}
+			p += 0x4c + np * 4;
 		}
 	}
 	compute_world (&pk);
@@ -332,6 +477,21 @@ static model_t *parse (const u8 *d, uint size)
 	model_t *model = calloc (1, sizeof (*model));
 	if (!model)
 		goto fail;
+	int *mat_attr = 0, *matmap = 0;
+	uint *mat_flags = 0;
+	bool mats_ok = false;
+	if (out_dir && mc.mat_count && mc.mat_count < 4096 && mc.tex_off && mc.attr_off)
+	{
+		mat_attr = calloc (mc.mat_count, sizeof (int));
+		mat_flags = calloc (mc.mat_count, sizeof (uint));
+		matmap = calloc (mc.mat_count, sizeof (int));
+		if (mat_attr && mat_flags && matmap)
+		{
+			for (uint i = 0; i < mc.mat_count; i++)
+				matmap[i] = -1;
+			mats_ok = walk_materials (d, size, &mc, mat_attr, mat_flags);
+		}
+	}
 	uint p = mesh_chunk + 0x20;
 	for (uint mi = 0; mi < pk.mesh_count; mi++)
 	{
@@ -391,6 +551,41 @@ static model_t *parse (const u8 *d, uint size)
 				m->vertices = calloc (acc.cnt, sizeof (vertex_t));
 				m->num_vertices = acc.cnt;
 				m->material_idx = -1;
+				const int pm = mesh_mat[mi];
+				if (mats_ok && pm >= 0 && (uint)pm < mc.mat_count)
+				{
+					if (matmap[pm] == -1)
+					{
+						matmap[pm] = -2; // no texture unless proven otherwise
+						const int at = mat_attr[pm];
+						char tname[64], tpath[PATH_MAX];
+						if (at >= 0 && (uint)at < mc.attr_count)
+						{
+							const uint ti = rs (d + mc.attr_off + 0x20 + (uint)at * 12);
+							snprintf (tname, sizeof (tname), "%s_t%u.png", stem, ti);
+							snprintf (tpath, sizeof (tpath), "%s/%s", out_dir, tname);
+							if (save_texture (d, size, &mc, ti, tpath))
+							{
+								material_t *gm = realloc (model->materials, (model->num_materials + 1) * sizeof (*gm));
+								if (gm)
+								{
+									model->materials = gm;
+									material_t *mt = gm + model->num_materials;
+									memset (mt, 0, sizeof (*mt));
+									snprintf (mt->name, sizeof (mt->name), "mat%d", pm);
+									snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", tname);
+									mt->num_textures = 1;
+									mt->wrap_s[0] = mt->wrap_t[0] = 1;
+									mt->min_filter[0] = mt->mag_filter[0] = 1;
+									mt->diffuse[0] = mt->diffuse[1] = mt->diffuse[2] = mt->diffuse[3] = 1.0f;
+									mt->has_alpha = (mat_flags[pm] & 0x600) != 0;
+									matmap[pm] = (int)model->num_materials++;
+								}
+							}
+						}
+					}
+					m->material_idx = matmap[pm] >= 0 ? matmap[pm] : -1;
+				}
 				for (size_t i = 0; i < acc.cnt; i++)
 				{
 					vertex_t *v = m->vertices + i;
@@ -407,6 +602,7 @@ static model_t *parse (const u8 *d, uint size)
 		if (bad)
 			break;
 	}
+	free (mat_attr); free (mat_flags); free (matmap); free (mesh_mat);
 	free (pk.joints);
 	free (pk.world);
 	if (!model->num_meshes)
@@ -416,6 +612,7 @@ static model_t *parse (const u8 *d, uint size)
 	}
 	return model;
 fail:
+	free (mesh_mat);
 	free (pk.joints);
 	free (pk.world);
 	return 0;
@@ -425,7 +622,20 @@ enumError DecodePikminMod (const u8 *data, uint size, ccp out_path)
 {
 	if (!data || !out_path)
 		return ERR_INVALID_DATA;
-	model_t *model = parse (data, size);
+	char dir[PATH_MAX], stem[64];
+	snprintf (dir, sizeof (dir), "%s", out_path);
+	char *slash = strrchr (dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		snprintf (dir, sizeof (dir), ".");
+	ccp base = strrchr (out_path, '/');
+	base = base ? base + 1 : out_path;
+	snprintf (stem, sizeof (stem), "%s", base);
+	char *dot = strrchr (stem, '.');
+	if (dot)
+		*dot = 0;
+	model_t *model = parse (data, size, dir, stem);
 	if (!model)
 		return ERR_INVALID_DATA;
 	const int rc = ExportModelToGLB (model, out_path);
