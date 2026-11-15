@@ -321,7 +321,16 @@ static bool g_val (gfile_t *g, int sec, u32 off, const gdef_t *m, int depth, gv_
 				out->items[i].num = rd_be32 (base + off);
 		}
 		return true;
-	case 5: case 6: case 22: case 21:
+	case 5: // variant reference {type ptr, object ptr}
+	{
+		int ts, ds;
+		u32 to, dof;
+		const gtype_t *t = g_ptr (g, sec, off, &ts, &to) ? g_type (g, ts, to) : 0;
+		if (!t || !g_ptr (g, sec, off + 4, &ds, &dof))
+			return !g->bad;
+		return g_obj (g, ds, dof, t, depth + 1, out);
+	}
+	case 6: case 22: case 21:
 		return true;
 	}
 	// scalar arrays
@@ -721,6 +730,93 @@ enumError DecodeGrannyBE (const u8 *data, uint size, ccp out_path)
 done:
 	if (model)
 		FreeModel (model);
+	gv_free (&root);
+	g_close (&g);
+	return err;
+}
+
+static void json_out (FILE *f, const gv_t *v, int indent)
+{
+	switch (v->kind)
+	{
+	case GV_NULL: fputs ("null", f); break;
+	case GV_INT: fprintf (f, "%.0f", v->num); break;
+	case GV_FLOAT:
+		if (isfinite (v->num))
+			fprintf (f, "%.9g", v->num);
+		else
+			fputs ("null", f);
+		break;
+	case GV_STR:
+		fputc ('"', f);
+		for (const u8 *q = (const u8 *)v->str; *q; q++)
+		{
+			if (*q == '"' || *q == '\\')
+				fprintf (f, "\\%c", *q);
+			else if (*q < 0x20 || *q >= 0x7f)
+				fprintf (f, "\\u%04x", *q);
+			else
+				fputc (*q, f);
+		}
+		fputc ('"', f);
+		break;
+	case GV_ARR:
+	{
+		bool simple = true;
+		for (size_t i = 0; i < v->n && simple; i++)
+			simple = v->items[i].kind == GV_INT || v->items[i].kind == GV_FLOAT;
+		fputc ('[', f);
+		for (size_t i = 0; i < v->n; i++)
+		{
+			if (!simple)
+				fprintf (f, "%s\n%*s", i ? "," : "", indent + 2, "");
+			else if (i)
+				fputs (", ", f);
+			json_out (f, v->items + i, indent + 2);
+		}
+		if (!simple && v->n)
+			fprintf (f, "\n%*s", indent, "");
+		fputc (']', f);
+		break;
+	}
+	case GV_OBJ:
+		fputc ('{', f);
+		for (size_t i = 0; i < v->n; i++)
+		{
+			fprintf (f, "%s\n%*s\"%s\": ", i ? "," : "", indent + 2, "", v->keys[i]);
+			json_out (f, v->items + i, indent + 2);
+		}
+		if (v->n)
+			fprintf (f, "\n%*s", indent, "");
+		fputc ('}', f);
+		break;
+	}
+}
+
+enumError DumpGrannyBEJson (const u8 *data, uint size, ccp out_path)
+{
+	gfile_t g;
+	if (!out_path || !g_open (&g, data, size))
+	{
+		g_close (&g);
+		return ERR_INVALID_DATA;
+	}
+	const gtype_t *rt = g_type (&g, (int)rd_be32 (data + 0x34), rd_be32 (data + 0x38));
+	gv_t root;
+	memset (&root, 0, sizeof (root));
+	enumError err = ERR_INVALID_DATA;
+	if (rt && g_obj (&g, (int)rd_be32 (data + 0x3c), rd_be32 (data + 0x40), rt, 0, &root) && !g.bad)
+	{
+		FILE *f = fopen (out_path, "wb");
+		if (f)
+		{
+			json_out (f, &root, 0);
+			fputc ('\n', f);
+			err = fclose (f) == 0 ? ERR_OK : ERR_WRITE_FAILED;
+		}
+		else
+			err = ERR_CANT_CREATE;
+	}
 	gv_free (&root);
 	g_close (&g);
 	return err;

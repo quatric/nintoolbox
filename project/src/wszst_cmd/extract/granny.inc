@@ -25,7 +25,19 @@ static enumError extract_granny_file (ccp arg, ccp basedir, uint depth)
 		fprintf (stdlog, "WOULD EXTRACT MODEL:%s -> GLB:%s\n", arg, dest);
 		return ERR_OK;
 	}
-	const enumError err = DecodeGrannyBE (raw, raw_size, dest);
+	enumError err = DecodeGrannyBE (raw, raw_size, dest);
+	if (err == ERR_INVALID_DATA)
+	{
+		// no meshes (animation / skeleton only): dump the object tree as JSON instead
+		beside_source_dest_ext (dest, sizeof (dest), arg, ".json");
+		err = DumpGrannyBEJson (raw, raw_size, dest);
+		FREE (raw);
+		if (err > ERR_WARNING)
+			return err == ERR_INVALID_DATA ? ERR_NOTHING_TO_DO : err;
+		if (verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT GRANNY:%s -> JSON:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+		return ERR_OK;
+	}
 	FREE (raw);
 	if (err > ERR_WARNING)
 		return err;

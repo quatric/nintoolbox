@@ -17,4 +17,7 @@ enumError DecodeGrannyBE (const u8 *data, uint size, ccp out_path);
 bool IsPetVetWiiTexture (const u8 *data, uint size);
 enumError DecodePetVetWiiTexture (const u8 *data, uint size, ccp png_path);
 
+// Generic JSON dump of the whole object tree (used for animation-only files).
+enumError DumpGrannyBEJson (const u8 *data, uint size, ccp out_path);
+
 #endif
