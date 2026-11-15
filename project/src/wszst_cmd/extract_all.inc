@@ -182,6 +182,7 @@
 #include "extract/v1b.inc"
 #include "extract/bgdt.inc"
 #include "extract/ssrt.inc"
+#include "extract/atcd.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
