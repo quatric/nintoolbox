@@ -9959,6 +9959,18 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "FBND bundle" "mk_fbnd.py failed"
   fi
 
+  # NLCM index (Rune Factory Frontier): {size, 0, offset, 0} entries into the sibling data file
+  mkdir -p "$d/nlcm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_nlcm.py" "$d/nlcm_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/nlcm_test/T.bin" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/nlcm_test/T.bin.d/00001.bin" | tr -d ' ')" = "3003" ] \
+    && [ "$(head -c 10 "$d/nlcm_test/T.bin.d/00000.bin")" = "hellohello" ] \
+    && fok "NLCM index carves its data file" \
+    || fno "NLCM index" "failed to extract synthetic T.bin"
+  else
+    fno "NLCM index" "mk_nlcm.py failed"
+  fi
+
   # Atlus .pak (0x100 headers, 0x40 alignment, LZ10 members, duplicate names)
   mkdir -p "$d/atluspak_test"
   if python3 "$PWD_PROJECT/../tests/mk_atluspak.py" "$d/atluspak_test" >/dev/null 2>&1; then
