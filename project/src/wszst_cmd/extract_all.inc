@@ -184,6 +184,7 @@
 #include "extract/ssrt.inc"
 #include "extract/atcd.inc"
 #include "extract/eqimgset.inc"
+#include "extract/wscshot.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
