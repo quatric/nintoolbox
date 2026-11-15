@@ -2136,6 +2136,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_scribvec_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_mscab_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_mtmrl_manifest (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
