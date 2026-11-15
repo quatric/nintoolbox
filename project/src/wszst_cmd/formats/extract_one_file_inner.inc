@@ -1180,6 +1180,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_vt_worldtour_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_pikmin_teki_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_pikmin_anm_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
