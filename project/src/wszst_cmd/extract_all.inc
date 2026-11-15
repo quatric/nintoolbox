@@ -179,6 +179,7 @@
 #include "extract/vtanim.inc"
 #include "extract/omom.inc"
 #include "extract/adev.inc"
+#include "extract/v1b.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
