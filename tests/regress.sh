@@ -14651,6 +14651,39 @@ open("'"$d"'/sonicex_test/plain.ngif", "wb").write(plain)
     fno "Sonic _Ex" "failed to extract synthetic _Ex001"
   fi
 
+  # Pikmin 1 .mod: one triangle display list -> glb
+  mkdir -p "$d/pikmin_mod_test"
+  python3 -c '
+import struct
+def pad(b): return b + b"\x00" * (-len(b) % 32)
+def chunk(t, body): body = pad(body); return struct.pack(">II", t, len(body) - 0) + body
+def counted(t, n, data): return chunk(t, pad(struct.pack(">I", n))[:0x18] + data)
+f = lambda *a: struct.pack(">%df" % len(a), *a)
+hdr = struct.pack(">II", 0, 0x18) + b"\x00" * 0x18
+vtx = counted(0x10, 3, f(0,0,0, 1,0,0, 0,1,0))
+nrm = counted(0x11, 1, f(0,0,1))
+dl = bytes([0x90, 0, 3]) + b"".join(struct.pack(">HH", i, 0) for i in range(3))
+mesh_body = struct.pack(">III", 0, 0, 1) + struct.pack(">I", 0) + struct.pack(">I", 1)
+mesh_body += struct.pack(">III", 0x01000000, 1, len(dl))
+mesh_body = pad(mesh_body) + dl
+mesh_body = pad(struct.pack(">I", 1)) [:0x18] + mesh_body
+mesh = chunk(0x50, mesh_body)
+end = struct.pack(">II", 0xffff, 0x18) + b"\x00" * 0x18
+open("'"$d"'/pikmin_mod_test/tri.mod", "wb").write(hdr + vtx + nrm + mesh + end)
+'
+  if "$B/wszst" xx "$d/pikmin_mod_test/tri.mod" --overwrite >/dev/null 2>&1 \
+  && python3 -c '
+import json,struct,sys
+d = open("'"$d"'/pikmin_mod_test/tri.glb", "rb").read()
+j = json.loads(d[20:20 + struct.unpack("<I", d[12:16])[0]])
+a = j["accessors"][j["meshes"][0]["primitives"][0]["attributes"]["POSITION"]]
+sys.exit(0 if a["count"] == 3 and a["max"][:2] == [1.0, 1.0] else 1)
+'; then
+    fok "Pikmin 1 .mod model converts to glb"
+  else
+    fno "Pikmin mod" "failed to convert synthetic tri.mod"
+  fi
+
   # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
   mkdir -p "$d/dsb_test"
   python3 -c '
