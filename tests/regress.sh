@@ -14622,6 +14622,35 @@ assert b.getpixel((0, 0)) == (0, 0, 255), b.getpixel((0, 0))
     fno "Sonic gncp" "failed to extract synthetic t.gncp"
   fi
 
+  # Sonic Team _Ex pack: one "compress v1.0" (zero-ring LZSS) member and one raw member
+  mkdir -p "$d/sonicex_test"
+  python3 -c '
+import struct
+plain = b"NGIF" + b"\x18\x00\x00\x00" + b"\x00" * 16 + b"end"
+# one literal-run token (ctrl 0xff) then a zero-ring match: ring[0xfe8..] is zero
+# ctrl 0b11011111: 5 literals, 1 zero-ring match (6 zero bytes), 2 literals
+stream = bytearray([0b11011111]) + plain[:5] + bytes([0xe8, 0xf3]) + plain[11:13]
+rest = plain[13:]
+# remaining bytes as literals, 8 per control byte
+for i in range(0, len(rest), 8):
+    chunk = rest[i:i + 8]
+    stream += bytes([(1 << len(chunk)) - 1]) + chunk
+member0 = b"compress v1.0\x00" + struct.pack("<H", 0x40) + struct.pack("<I", len(plain)) + bytes(stream)
+raw1 = b"RAWDATA!"
+table_end = (12 + 8 + 0x1f) & ~0x1f
+hdr = struct.pack(">IBBBBI", 1, 2, 0, 0, 0, 0x68) + struct.pack(">II", table_end, table_end + len(member0))
+hdr += b"\x00" * (table_end - len(hdr))
+open("'"$d"'/sonicex_test/_Ex001", "wb").write(hdr + member0 + raw1)
+open("'"$d"'/sonicex_test/plain.ngif", "wb").write(plain)
+'
+  if "$B/wszst" x "$d/sonicex_test/_Ex001" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/sonicex_test/_Ex001.d/00.ngif" "$d/sonicex_test/plain.ngif" \
+  && [ "$(cat "$d/sonicex_test/_Ex001.d/01.bin")" = "RAWDATA!" ]; then
+    fok "Sonic _Ex pack decodes compress v1.0 members"
+  else
+    fno "Sonic _Ex" "failed to extract synthetic _Ex001"
+  fi
+
   # Animal Crossing DS Menu Texture (.bin / TXTR DSB) test
   mkdir -p "$d/dsb_test"
   python3 -c '
