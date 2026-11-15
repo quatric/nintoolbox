@@ -167,6 +167,7 @@
 #include "extract/pikmin_parm.inc"
 #include "extract/pikmin_cam.inc"
 #include "extract/env0.inc"
+#include "extract/nlcm.inc"
 #include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
