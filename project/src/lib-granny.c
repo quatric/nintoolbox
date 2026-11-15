@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Granny 2 .gr2 reader (big-endian, 32-bit pointers, uncompressed sections).
 #include "lib-granny.h"
+#include "lib-excite.h"
+#include "lib-image.h"
 #include "lib-model-glb.h"
 #include "lib-std.h"
 #include <math.h>
@@ -468,6 +470,80 @@ static void stem_of (const char *path, char *out, size_t sz)
 		*dot = 0;
 }
 
+
+// Pet Vet ".wii" textures: magic 12 B9 B0 A1, u8 0x65, u8 alpha flag, u16 width, u16 height, u8 format (2 RGB565,
+// 3 RGB5A3, 5 CMPR), u8 bits per pixel, 7 more header bytes, GX tiled pixels from 0x13.
+bool IsPetVetWiiTexture (const u8 *d, uint size)
+{
+	if (!d || size < 0x14 || memcmp (d, "\x12\xb9\xb0\xa1", 4))
+		return false;
+	const uint w = rd_be16 (d + 6), h = rd_be16 (d + 8), f = d[10];
+	const size_t need = f == 5 ? (size_t)w * h / 2 : (size_t)w * h * 2;
+	return w && h && w <= 4096 && h <= 4096 && (f == 2 || f == 3 || f == 5) && size >= 0x13 + need;
+}
+
+enumError DecodePetVetWiiTexture (const u8 *d, uint size, ccp png_path)
+{
+	if (!IsPetVetWiiTexture (d, size))
+		return ERR_INVALID_DATA;
+	const uint w = rd_be16 (d + 6), h = rd_be16 (d + 8), f = d[10];
+	const size_t need = f == 5 ? (size_t)w * h / 2 : (size_t)w * h * 2;
+	u8 *rgba = 0;
+	if (DecodeGXTexture_RGBA (&rgba, w, h, f == 5 ? 14 : f == 3 ? 5 : 4, d + 0x13, (uint)need, 0, 0, 0) || !rgba)
+		return ERR_INVALID_DATA;
+	return SaveDecodedRGBAToPNG (rgba, w, h, &be_func, png_path, 0, true);
+}
+
+static bool file_exists (const char *p)
+{
+	FILE *f = fopen (p, "rb");
+	if (f)
+		fclose (f);
+	return f != 0;
+}
+
+// Finds <dir>/<stem>.png, decoding <dir>_textures/<stem>.wii (any letter case of the stem) when needed.
+static bool find_pet_vet_png (const char *dir, const char *stem, char *png_name, size_t pn)
+{
+	char lower[64], path[PATH_MAX];
+	snprintf (lower, sizeof (lower), "%s", stem);
+	for (char *q = lower; *q; q++)
+		if (*q >= 'A' && *q <= 'Z')
+			*q += 32;
+	snprintf (png_name, pn, "%s.png", stem);
+	snprintf (path, sizeof (path), "%s/%s", dir, png_name);
+	if (file_exists (path))
+		return true;
+	static const char *const sub[] = { "%s_textures/%s.wii", "%s/../textures/%s.wii", "%s/%s.wii" };
+	for (uint i = 0; i < 3; i++)
+		for (int pass = 0; pass < 2; pass++)
+		{
+			char src[PATH_MAX];
+			snprintf (src, sizeof (src), sub[i], dir, pass ? lower : stem);
+			if (!file_exists (src))
+				continue;
+			FILE *f = fopen (src, "rb");
+			if (!f)
+				continue;
+			fseek (f, 0, SEEK_END);
+			const long n = ftell (f);
+			fseek (f, 0, SEEK_SET);
+			u8 *buf = n > 0 && n < 0x4000000 ? calloc (1, n) : 0;
+			bool ok = buf && fread (buf, 1, n, f) == (size_t)n;
+			fclose (f);
+			if (ok)
+			{
+				snprintf (png_name, pn, "%s.png", lower);
+				snprintf (path, sizeof (path), "%s/%s", dir, png_name);
+				ok = DecodePetVetWiiTexture (buf, (uint)n, path) == ERR_OK;
+			}
+			free (buf);
+			if (ok)
+				return true;
+		}
+	return false;
+}
+
 static const char *material_texture (const gv_t *mat)
 {
 	// diffuse map's texture file name, else the material's own texture
@@ -626,18 +702,15 @@ enumError DecodeGrannyBE (const u8 *data, uint size, ccp out_path)
 					{
 						char stem[64], png[PATH_MAX];
 						stem_of (tex, stem, sizeof (stem));
-						snprintf (png, sizeof (png), "%s/%s.png", dir, stem);
-						FILE *f = fopen (png, "rb");
-						if (f)
+						if (find_pet_vet_png (dir, stem, png, sizeof (png)))
 						{
-							fclose (f);
-							snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s.png", stem);
+							snprintf (mt->textures[0], sizeof (mt->textures[0]), "%s", png);
 							mt->num_textures = 1;
 							mt->wrap_s[0] = mt->wrap_t[0] = 1;
 							mt->min_filter[0] = mt->mag_filter[0] = 1;
 						}
 					}
-					m->material_idx = (int)model->num_materials++;
+										m->material_idx = (int)model->num_materials++;
 				}
 			}
 		}

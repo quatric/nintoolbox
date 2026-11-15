@@ -14,4 +14,7 @@ bool IsGrannyBE (const u8 *data, uint size);
 // OUT_PATH.
 enumError DecodeGrannyBE (const u8 *data, uint size, ccp out_path);
 
+bool IsPetVetWiiTexture (const u8 *data, uint size);
+enumError DecodePetVetWiiTexture (const u8 *data, uint size, ccp png_path);
+
 #endif

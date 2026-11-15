@@ -89,6 +89,7 @@
 #include "extract/mph.inc"
 #include "extract/pikmin_mod.inc"
 #include "extract/granny.inc"
+#include "extract/petvet_wii.inc"
 #include "extract/blpkg.inc"
 #include "extract/goliath.inc"
 #include "extract/twl.inc"
