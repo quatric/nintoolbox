@@ -449,6 +449,8 @@ static enumError decode_image_if_possible (ccp arg)
 		is_image = true;
 	else if (fform == FF_TEX || is_ext (arg, ".tex0"))
 		is_image = true;
+	else if (is_ext (arg, ".bti") && n_head >= 0x20 && head[0] <= 0x0e && rd_be16 (head + 2) && rd_be16 (head + 4))
+		is_image = true; // GC/Wii BTI (Pikmin, Wind Waker, Mario Sunshine ...)
 	else if (fform == FF_NTTF || nfmt.type == NFMT_NTTF || is_ext (arg, ".nttf")
 		|| is_ext (arg, ".bnttf") || strstr (arg, "/nttf/")
 		|| (have_stat && IsNTTF (head, (uint)st_probe.st_size)))
