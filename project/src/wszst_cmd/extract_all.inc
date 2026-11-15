@@ -157,6 +157,7 @@
 #include "extract/pikmin_pcr.inc"
 #include "extract/pikmin_key.inc"
 #include "extract/pikmin_anm.inc"
+#include "extract/pikmin_blo.inc"
 #include "extract/wiiarcimg.inc"
 #include "extract/opoona.inc"
 #include "extract/spr2df.inc"
