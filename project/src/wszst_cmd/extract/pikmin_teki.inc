@@ -6,7 +6,7 @@
 // 8 x 4 character IDs, the int parameters, the float parameters}. Names come from TekiIntParams / TekiFloatParams
 // (20 ints, 50 floats). Enemy specific subclasses append extra values to both lists; the split between the two lists
 // is found by looking for the first float-like word (Life) after the 20 named ints, and extras are written as
-// "extra_int_N" / "extra_float_N". Only layouts of version 9 and newer are written (older ones differ); output is
+// "extra_int_N" / "extra_float_N". Version 8 files store floats 0..39 and 50.. only; older versions are not written; output is
 // "<name>.bin.json".
 static const char *const teki_int_names[20] = {
 	"CorpseType",
@@ -102,18 +102,20 @@ static enumError extract_pikmin_teki_file (ccp arg, ccp basedir, uint depth)
 	}
 	const int ver = sz >= 4 ? (int)rd_be32 (raw) : 0;
 	const uint nw = (uint)(sz / 4);
-	if (sz % 4 || ver < 9 || ver > 11 || nw < 9 + 70)
+	if (sz % 4 || ver < 8 || ver > 11 || nw < 9 + (ver == 8 ? 60 : 70))
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 	const u8 *w = raw + 36;
 	const uint nparam = nw - 9;
+	// version 8 stores floats 0..39 and 50.. only (the four-character range 40..49 keeps its defaults)
+	const uint nfmin = ver == 8 ? 40 : 50;
 	// number of int parameters: 20 named plus the leading extras that do not look like floats
 	uint ni = 20;
-	while (ni < nparam - 50 && teki_small_int (rd_be32 (w + 4 * ni)))
+	while (ni < nparam - nfmin && teki_small_int (rd_be32 (w + 4 * ni)))
 		ni++;
-	if (ni > nparam - 50)
+	if (ni > nparam - nfmin)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
@@ -143,10 +145,11 @@ static enumError extract_pikmin_teki_file (ccp arg, ccp basedir, uint depth)
 	for (uint i = 0; i < nparam - ni; i++)
 	{
 		char nm[40];
-		if (i < 50)
-			snprintf (nm, sizeof (nm), "%s", teki_float_names[i]);
+		const uint fi = ver == 8 && i >= 40 ? i + 10 : i;
+		if (fi < 50)
+			snprintf (nm, sizeof (nm), "%s", teki_float_names[fi]);
 		else
-			snprintf (nm, sizeof (nm), "extra_float_%u", i - 50);
+			snprintf (nm, sizeof (nm), "extra_float_%u", fi - 50);
 		const u32 bits = rd_be32 (w + 4 * (ni + i));
 		float f;
 		memcpy (&f, &bits, 4);
