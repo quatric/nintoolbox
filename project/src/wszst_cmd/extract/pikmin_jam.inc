@@ -417,8 +417,19 @@ static void jam_reg_write (jam_vm_t *v, int ti, u8 cb)
 	}
 	const u8 ri = (u8)jam_rd (v, t, 1);
 	(void)shift_n;
+	u32 tbase = 0;
 	if (op == 0xa)
-		jam_rd (v, t, 1); // table base register (not supported)
+	{
+		// table base: 32 bit register pairs 0x28.. alias the register pairs 0x10:0x11, 0x12:0x13, ...
+		const u8 br = (u8)jam_rd (v, t, 1);
+		if (br >= 0x28 && br <= 0x2b)
+		{
+			const int q = 0x10 + (br - 0x28) * 2;
+			tbase = (u32)t->reg[q] << 16 | t->reg[q + 1];
+		}
+		else
+			tbase = jam_regval (t, br);
+	}
 	s32 nv = 0;
 	switch (sel)
 	{
@@ -444,6 +455,20 @@ static void jam_reg_write (jam_vm_t *v, int ti, u8 cb)
 	case 0x40: nv = old | nv; break;
 	case 0x50: nv = old ^ nv; break;
 	case 0x60: nv = -old; break;
+	case 0xa:
+	{
+		const u32 idx = (u32)(u16)nv;
+		u32 a = 0, r = 0;
+		switch (shift_n)
+		{
+		case 4: a = tbase + idx; if (a + 1 <= v->sz) r = v->d[a]; break;
+		case 5: a = tbase + idx * 2; if (a + 2 <= v->sz) r = (u32)(v->d[a] << 8 | v->d[a + 1]); break;
+		case 6: a = tbase + idx * 3; if (a + 3 <= v->sz) r = (u32)(v->d[a] << 16 | v->d[a + 1] << 8 | v->d[a + 2]); break;
+		default: a = tbase + idx * 4; if (a + 4 <= v->sz) r = rd_be32 (v->d + a); break;
+		}
+		nv = (s16)r;
+		break;
+	}
 	case 0x90: nv = (u16)nv ? (s32)(((u32)v->tick * 2654435761u >> 8) % (u16)nv) : 0; break;
 	default: break;
 	}
