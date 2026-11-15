@@ -231,6 +231,7 @@ wszst xx <source> [--dest <dir>] [--auto] [--overwrite] [delegation options]
 - External tool delegation paths:
   - `--with-wit=<path>`: Custom path to `wit` (Wii/GameCube disc extraction).
   - `--with-mobipeg=<path>`: Custom path to `mobipeg` (MobiClip & DSP-ADPCM processing).
+- `--video-format=<list>` (alias `--mobiclip-format`): extra encodings written next to the `.mp4` preview when a Mobiclip, THP, Bink or other video is decoded through `mobipeg`. Comma separated: `mkv` (lossless FFV1 + FLAC), `avi` (Motion JPEG + PCM), `gif`, `png` (frame sequence in `<name>.frames/`), `wav` / `flac` (audio track only), `all`. The MP4 is always written; formats the file cannot provide (e.g. audio of a silent video) are skipped with a warning.
   - `--with-ndstool=<path>`: Custom path to `ndstool` (Nintendo DS ROM extraction).
   - `--with-ctrtool=<path>`: Custom path to `ctrtool` (Nintendo 3DS CIA/NCCH/RomFS extraction). A build of `ctrtool` ships alongside the other binaries (vendored under `project/third_party/ctrtool`), so this is only needed to override it.
   - `--with-hactool=<path>`: Custom path to `hactool` (Nintendo Switch NCA/PFS0 extraction).

@@ -634,6 +634,10 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_WITH_MOBIPEG:
 				opt_with_mobipeg = optarg;
 				break;
+
+			case GO_VIDEO_FORMAT:
+				opt_video_format = optarg;
+				break;
 			case GO_MIDI_PRESET:
 				g_midi_preset_spec = optarg;
 				break;
