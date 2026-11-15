@@ -1162,6 +1162,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pikmin_key_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_pikmin_anm_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_pikmin_mod_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
