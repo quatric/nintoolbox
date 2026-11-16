@@ -371,6 +371,7 @@
 #include "extract/fst.inc"
 #include "extract/konamiafs.inc"
 #include "extract/racres.inc"
+#include "extract/wiidir.inc"
 #include "extract/rev.inc"
 #include "extract/gct.inc"
 #include "extract/asobo_bitmap.inc"
