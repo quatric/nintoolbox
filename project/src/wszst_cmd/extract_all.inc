@@ -550,6 +550,7 @@
 #include "extract/ctxtext.inc"
 #include "extract/gcaxmpb.inc"
 #include "extract/carcpack.inc"
+#include "extract/swfres.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
