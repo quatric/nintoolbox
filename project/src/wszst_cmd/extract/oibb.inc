@@ -3,7 +3,7 @@
 // {u32 object size, u32 pixel bytes, u32 (pointer, ignored), u32 width, u32 height, u32 1, u32 GX format (9 = C8,
 // 8 = C4, 6 = RGBA8), u32 1, u32 palette bytes, ...}; the object is 0x40 header + palette (RGB5A3, 256 / 16
 // entries) + GX tiles (C8 8x4, C4 8x8, RGBA8 4x4, width/height padded to the tile size), size = 0x40 + palette +
-// pixel bytes. Every texture is written as "tex_NNNN_<w>x<h>.png"; other objects are not decoded.
+// pixel bytes. Embedded RIFF/WAVE files are carved out as "snd_NNNN.wav". Every texture is written as "tex_NNNN_<w>x<h>.png"; other objects are not decoded.
 static enumError extract_oibb_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".pak"))
@@ -55,6 +55,29 @@ static enumError extract_oibb_file (ccp arg, ccp basedir, uint depth)
 			n++;
 		o += osz - 4;
 	}
+	// embedded little-endian RIFF/WAVE files (sounds.pak: complete PCM wave files inside the object image)
+	uint nw = 0;
+	for (size_t o = 0x20; !testmode && o + 44 <= sz; o += 4)
+	{
+		if (memcmp (raw + o, "RIFF", 4) || memcmp (raw + o + 8, "WAVEfmt ", 8))
+			continue;
+		const u64 tot = (u64)rd_le32 (raw + o + 4) + 8;
+		if (tot < 44 || o + tot > sz)
+			continue;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%ssnd_%04u.wav", dest, basedir ? basedir : "", nw);
+		if (n == 0 && nw == 0 && verbose >= 0)
+			fprintf (stdlog, "%sEXTRACT OIBB:%s -> %s/\n", verbose > 0 ? "\n" : "", arg, dest);
+		File_t F;
+		enumError e2 = CreateFileOpt (&F, true, path, false, arg);
+		if (F.f && fwrite (raw + o, 1, tot, F.f) != tot)
+			e2 = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", (uint)tot, path);
+		ResetFile (&F, opt_preserve);
+		if (!e2)
+			nw++;
+		o += (size_t)tot - 4;
+	}
+	n += nw;
 	FREE (raw);
 	return n ? ERR_OK : ERR_NOTHING_TO_DO;
 }
