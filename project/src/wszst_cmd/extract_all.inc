@@ -570,6 +570,8 @@
 #include "extract/iois_str.inc"
 #include "extract/glacier_tex.inc"
 #include "extract/glacier_whd.inc"
+#include "extract/glacier_loc.inc"
+#include "extract/glacier_prm.inc"
 #include "extract/sumo_cog.inc"
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"

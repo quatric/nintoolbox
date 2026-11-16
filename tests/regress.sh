@@ -9969,6 +9969,28 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Glacier WHD" "mk_glacier_whd.py failed"
   fi
 
+  # IO Interactive Glacier .LOC localisation tree -> strings.tsv
+  mkdir -p "$d/glacierloc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_loc.py" "$d/glacierloc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/glacierloc_test/t.LOC" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_loc.py" check "$d/glacierloc_test" >/dev/null 2>&1 \
+    && fok "Glacier .LOC localisation tree converts to strings.tsv" \
+    || fno "Glacier LOC" "failed to convert synthetic t.LOC"
+  else
+    fno "Glacier LOC" "mk_glacier_loc.py failed"
+  fi
+
+  # IO Interactive Glacier .prm model container -> model.obj
+  mkdir -p "$d/glacierprm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_prm.py" "$d/glacierprm_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glacierprm_test/t.prm" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_prm.py" check "$d/glacierprm_test" >/dev/null 2>&1 \
+    && fok "Glacier .prm meshes export to model.obj (positions, UV /512, normals)" \
+    || fno "Glacier PRM" "failed to convert synthetic t.prm"
+  else
+    fno "Glacier PRM" "mk_glacier_prm.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
