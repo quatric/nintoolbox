@@ -37,6 +37,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pakb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Capcom "MTHP" single-frame backgrounds: strict header, claim before the loose sniffers.
+	err = extract_mthpstill_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_hbmmbd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

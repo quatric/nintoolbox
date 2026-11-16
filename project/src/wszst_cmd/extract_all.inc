@@ -617,4 +617,5 @@
 #include "extract/hbmmbd.inc"
 #include "extract/bgzjpeg.inc"
 #include "extract/acbivt.inc"
+#include "extract/mthpstill.inc"
 #include "extract/vaps.inc"
