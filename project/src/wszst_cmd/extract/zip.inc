@@ -36,8 +36,13 @@ static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 	const u8 *eocd = 0;
 	for (size_t pos = raw_size >= 22 ? raw_size - 22 : 0; raw_size >= 22 && pos >= begin; pos--)
 	{
+		// IO Interactive scene packs (Mini Ninjas) append a 22-byte "enuR" record (central
+		// directory offset at +16) after the EOCD.
 		if (!memcmp (raw + pos, "PK\x05\x06", 4)
-			&& pos + 22 + zip_le16 (raw + pos + 20) == raw_size)
+			&& (pos + 22 + zip_le16 (raw + pos + 20) == raw_size
+				|| (pos + 44 == raw_size && !zip_le16 (raw + pos + 20)
+					&& !memcmp (raw + pos + 22, "enuR", 4)
+					&& zip_le32 (raw + pos + 38) == zip_le32 (raw + pos + 16))))
 		{
 			eocd = raw + pos;
 			break;

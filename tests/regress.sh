@@ -9947,6 +9947,28 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "NGCSD02 stream" "mk_ngcsd.py failed"
   fi
 
+  # IO Interactive Glacier .TEX bank inside an IOI scene .zip ("enuR" trailer, 4 bytes after each deflate stream)
+  mkdir -p "$d/glaciertex_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_tex.py" "$d/glaciertex_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glaciertex_test/t.zip" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_tex.py" check "$d/glaciertex_test" >/dev/null 2>&1 \
+    && fok "Glacier .TEX bank in an IOI zip decodes to PNG (RGB5A3, DXT1, PALN)" \
+    || fno "Glacier TEX" "failed to decode synthetic t.zip"
+  else
+    fno "Glacier TEX" "mk_glacier_tex.py failed"
+  fi
+
+  # IO Interactive Glacier sound bank (.WHD records + .WAV data: PCM, mono and stereo DSP-ADPCM, streamed record skipped)
+  mkdir -p "$d/glacierwhd_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_whd.py" "$d/glacierwhd_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glacierwhd_test/t.WHD" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_whd.py" check "$d/glacierwhd_test" >/dev/null 2>&1 \
+    && fok "Glacier .WHD/.WAV sound bank decodes to WAV (PCM, mono and stereo DSP)" \
+    || fno "Glacier WHD" "failed to decode synthetic t.WHD"
+  else
+    fno "Glacier WHD" "mk_glacier_whd.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then

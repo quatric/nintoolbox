@@ -54,7 +54,9 @@ enumError DecodeZIPMember (
 			break;
 		}
 	} while (status != Z_STREAM_END);
-	if (!err && (total != size || stream.avail_in || crc != expected_crc))
+	// IO Interactive packs (Mini Ninjas) leave 4 bytes after the end of each deflate stream; the
+	// CRC still covers the data.
+	if (!err && (total != size || stream.avail_in > 4 || crc != expected_crc))
 		err = ERR_INVALID_DATA;
 	inflateEnd (&stream);
 	return err;

@@ -569,6 +569,8 @@ reproduces the file's bytes. Exercised by `t_byte_fixed_points()` in `tests/regr
 | **Inevitable IDSP** | `.idsp` | *Defender* |
 | **Infernal ITL** | `.itl`, `.ds2` | *MX vs. ATV Untamed* |
 | **IOI IOISNDSTREAM** | `.str` | Wii |
+| **IOI Glacier texture bank** | `.TEX` (in the scene `.zip` packs) | Wii |
+| **IOI Glacier sound bank** | `.WHD` + `.WAV` | Wii |
 | **ISH + ISD** | `.ish`, `.isd` | GameCube |
 | **JAudio AAF** | `.aaf`, `.aw` | GameCube |
 | **Konami VAS** | `.vas` | *Jikkyou Powerful Pro Yakyuu*, *MLB Power Pros* |
