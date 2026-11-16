@@ -110,11 +110,11 @@ enumError PrintErrorArg (
 	ccp func, ccp file, unsigned int line, int syserr, enumError err_code, ccp format, va_list arg);
 
 enumError PrintError (ccp func, ccp file, unsigned int line, int syserr, enumError err_code,
-	ccp format, ...) __attribute__ ((__format__ (__printf__, 6, 7)));
+	ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 6, 7)));
 
 struct File_t;
 enumError PrintErrorFile (ccp func, ccp file, uint line, struct File_t *F, int syserr,
-	enumError err_code, ccp format, ...) __attribute__ ((__format__ (__printf__, 7, 8)));
+	enumError err_code, ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 7, 8)));
 
 enumError PrintErrorStat (enumError err, int verbose, ccp cmdname);
 
@@ -203,7 +203,7 @@ void HexDiff16 (FILE *f, int indent, u64 addr, const void *data1, size_t count1,
 
 typedef int (*PrintDebugFunc) (ccp format, // format string
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 1, 2)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -309,15 +309,15 @@ extern ccp TRACE_PREFIX; // never NULL
 extern FILE *TRACE_FILE;
 extern FILE *MEM_LOG_FILE;
 
-void TRACE_FUNC (ccp format, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+void TRACE_FUNC (ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 void TRACE_ARG_FUNC (ccp format, va_list arg);
 
-void PRINT_FUNC (ccp format, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+void PRINT_FUNC (ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 void PRINT_ARG_FUNC (ccp format, va_list arg);
 
 void BINGO_FUNC (ccp func, int line, ccp src);
 
-void WAIT_FUNC (ccp format, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+void WAIT_FUNC (ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 void WAIT_ARG_FUNC (ccp format, va_list arg);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -696,7 +696,7 @@ void *dclib_memdup2 (ccp, ccp, uint, cvp s1, size_t l1, cvp s2, size_t l2);
 void *dclib_memdup3 (ccp, ccp, uint, cvp s1, size_t l1, cvp s2, size_t l2, cvp s3, size_t l3);
 void *dclib_allocdup (ccp, ccp, uint, cvp src, size_t copylen);
 char *dclib_printdup (ccp, ccp, uint, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 4, 5)));
+	__attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 #else
 void *dclib_calloc (size_t nmemb, size_t size);
 void *dclib_malloc (size_t size);
@@ -708,7 +708,7 @@ void *dclib_memdup (cvp src, size_t copylen);
 void *dclib_memdup2 (cvp s1, size_t l1, cvp s2, size_t l2);
 void *dclib_memdup3 (cvp s1, size_t l1, cvp s2, size_t l2, cvp s3, size_t l3);
 void *dclib_allocdup (cvp src, size_t copylen);
-char *dclib_printdup (ccp format, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+char *dclib_printdup (ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 #endif
 
 uint trace_test_alloc (ccp, ccp, uint, const void *ptr, bool hexdump);
@@ -724,7 +724,7 @@ void *trace_memdup2 (ccp, ccp, uint, cvp s1, size_t l1, cvp s2, size_t l2);
 void *trace_memdup3 (ccp, ccp, uint, cvp s1, size_t l1, cvp s2, size_t l2, cvp s3, size_t l3);
 void *trace_allocdup (ccp, ccp, uint, cvp src, size_t copylen);
 char *trace_printdup (ccp, ccp, uint, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 4, 5)));
+	__attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 #if TRACE_ALLOC_MODE > 2
 void InitializeTraceAlloc (void);

@@ -235,7 +235,7 @@ enumError PrintQueryMYSQL (MySql_t *my, // valid struct
 	LogLevelMYSQL loglevel, // log level for mysql errors and queries
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //-----------------------------------------------------------------------------
 // multi queries
@@ -252,7 +252,7 @@ enumError PrintMultiQueryMYSQL (MySql_t *my, // valid struct
 	LogLevelMYSQL loglevel, // log level for mysql errors and queries
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //-----------------------------------------------------------------------------
 // temp buffer for small results as optimization
@@ -299,7 +299,7 @@ mem_t PrintFetchScalarMYSQL (
 	LogLevelMYSQL loglevel, // log level for mysql errors and queries
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 s64 PrintFetchIntMYSQL (MySql_t *my, // valid struct
 	LogLevelMYSQL loglevel, // log level for mysql errors and queries
@@ -307,7 +307,7 @@ s64 PrintFetchIntMYSQL (MySql_t *my, // valid struct
 	s64 return_default, // return this value on non existent result
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 5, 6)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 5, 6)));
 
 u64 PrintFetchUIntMYSQL (MySql_t *my, // valid struct
 	LogLevelMYSQL loglevel, // log level for mysql errors and queries
@@ -315,7 +315,7 @@ u64 PrintFetchUIntMYSQL (MySql_t *my, // valid struct
 	u64 return_default, // return this value on non existent result
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 5, 6)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 5, 6)));
 
 //-----------------------------------------------------------------------------
 // fetch single row
@@ -483,7 +483,7 @@ void PrintStatusMYSQL (MySqlStatus_t *stat, // valid struct
 	int stat_code, // error status to assign
 	ccp format, // format string for vsnprintf()
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

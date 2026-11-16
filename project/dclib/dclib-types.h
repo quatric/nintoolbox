@@ -44,6 +44,17 @@
 #include <stdint.h>
 #include <ctype.h>
 
+// printf-style format attribute archetype. On MinGW the plain "printf" archetype means msvcrt's
+// printf (no %zu / %lld); built with __USE_MINGW_ANSI_STDIO the headers name the C99 family in
+// __MINGW_PRINTF_FORMAT.
+#ifndef NTB_PRINTF
+ #ifdef __MINGW_PRINTF_FORMAT
+  #define NTB_PRINTF __MINGW_PRINTF_FORMAT
+ #else
+  #define NTB_PRINTF printf
+ #endif
+#endif
+
 #ifndef WIN_DCLIB
 #include <stdint.h>
 #endif

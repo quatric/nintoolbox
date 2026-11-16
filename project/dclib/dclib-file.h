@@ -89,7 +89,7 @@ int PrintLogTimestamp (LogFile_t *lf);
 
 int PutLogFile (LogFile_t *lf, ccp text, int text_len);
 int PrintArgLogFile (LogFile_t *lf, ccp format, va_list arg);
-int PrintLogFile (LogFile_t *lf, ccp format, ...) __attribute__ ((__format__ (__printf__, 2, 3)));
+int PrintLogFile (LogFile_t *lf, ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 //-----------------------------------------------------------------------------
 
@@ -721,7 +721,7 @@ typedef struct TraceLog_t
 bool OpenTraceLog (TraceLog_t *tl);
 bool TraceLogText (TraceLog_t *tl, ccp text);
 bool TraceLogPrint (TraceLog_t *tl, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+	__attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1505,7 +1505,7 @@ int PrintScriptVars (PrintScript_t *ps, // valid control struct
 	uint mode, // bit field: 1=open var, 2:close var
 	ccp format, // format of message
 	... // arguments
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

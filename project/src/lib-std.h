@@ -47,10 +47,12 @@
 // printf-style format attribute for the project's own formatting helpers. On MinGW the plain
 // "printf" archetype means msvcrt's printf (no %zu); with __USE_MINGW_ANSI_STDIO the headers
 // name the C99 family in __MINGW_PRINTF_FORMAT.
+#ifndef NTB_PRINTF
 #ifdef __MINGW_PRINTF_FORMAT
 #define NTB_PRINTF __MINGW_PRINTF_FORMAT
 #else
 #define NTB_PRINTF printf
+#endif
 #endif
 
 #include <sys/stat.h>
@@ -1139,7 +1141,7 @@ bool PatchFileClass (file_format_t fform, // not FF_UNKNOWN: check file type
 
 extern int patch_action_log_disabled;
 bool PATCH_ACTION_LOG (ccp action, ccp object, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 3, 4)));
+	__attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -2537,7 +2539,7 @@ bool PrepareExtract (
 	int mode, // convert filename: <0=to lower, >0=to upper
 	ccp format, // format of filename
 	... // arguments
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 ///////////////////////////////////////////////////////////////////////////////
 // [[CheckMode_t]]

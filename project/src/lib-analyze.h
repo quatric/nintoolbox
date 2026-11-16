@@ -70,7 +70,7 @@ void PrintFooterAP (analyze_param_t *ap, // valid structure
 	u_usec_t duration_usec, // 0 or duration of analysis
 	ccp warn_format, // NULL or format for warn message
 	... // arguments for 'warn_format'
-	) __attribute__ ((__format__ (__printf__, 4, 5)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

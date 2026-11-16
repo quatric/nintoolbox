@@ -1692,7 +1692,7 @@ enumError CheckWarnSI (ScanInfo_t *si, // valid data
 enumError WarnIgnoreSI (ScanInfo_t *si, // valid data
 	ccp format, // NULL or format of text before 'line ignored'
 	... // arguments for 'format'
-	) __attribute__ ((__format__ (__printf__, 2, 3)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 //-----------------------------------------------------------------------------
 // find first EOT|LF|CR|NUL

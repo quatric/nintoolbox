@@ -1699,7 +1699,7 @@ static void add_ref_string (struct brsub_iterator_t *it, // iterator struct with
 
 	ccp format, // format string for info
 	... // arguments for 'format'
-	) __attribute__ ((__format__ (__printf__, 4, 5)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 //-----------------------------------------------------------------------------
 

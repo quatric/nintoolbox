@@ -1844,7 +1844,7 @@ char *PrintCircBuf (
 
 	ccp format, // format string for vsnprintf()
 	... // arguments for 'format'
-	) __attribute__ ((__format__ (__printf__, 1, 2)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 
 char *AllocCircBuf (
 	// Never returns NULL. Call FreeString(RESULT) to free possible alloced memory.
@@ -2760,7 +2760,7 @@ void PrintLines (FILE *f, // valid output stream
 	ccp prefix, // NULL or prefix for each line
 	ccp format, // format string for vsnprintf()
 	... // arguments for 'vsnprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 6, 7)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 6, 7)));
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -2826,7 +2826,7 @@ uint PrintColoredLines (
 	ccp eol, // End-Of-Line text. If NULL -> LF
 	ccp format, // format string for vsnprintf()
 	... // arguments for 'vsnprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 7, 8)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 7, 8)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -6379,7 +6379,7 @@ int PrintMultiColumn (const MultiColumn_t *mc);
 
 exmem_key_t *PutLineMC (MultiColumn_t *mc, uint opt, ccp key, ccp value, CopyMode_t cm_value);
 exmem_key_t *PrintLineMC (MultiColumn_t *mc, uint opt, ccp key, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 4, 5)));
+	__attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -7121,7 +7121,7 @@ void LogGrowBuffer (FILE *f, // output file
 	const GrowBuffer_t *gb, // valid grow-buffer
 	ccp format, // format string for vfprintf()
 	... // arguments for 'vfprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 4, 5)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 //-----------------------------------------------------------------------------
 
@@ -7218,7 +7218,7 @@ uint PrintGrowBuffer (
 	GrowBuffer_t *gb, // valid grow-buffer object
 	ccp format, // format string for vfprintf()
 	... // arguments for 'vsnprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 2, 3)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 //-----------------------------------------------------------------------------
 
@@ -7353,7 +7353,7 @@ void Sha1SizeBin2B64 (sha1_size_b64_t b64, cvp bin);
 ///////////////////////////////////////////////////////////////////////////////
 
 static uint snprintfS (char *buf, size_t size, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 3, 4)));
+	__attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 static inline uint snprintfS (char *buf, size_t size, ccp format, ...)
 {
@@ -7366,7 +7366,7 @@ static inline uint snprintfS (char *buf, size_t size, ccp format, ...)
 }
 
 static char *snprintfE (char *buf, char *end, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 3, 4)));
+	__attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 static inline char *snprintfE (char *buf, char *end, ccp format, ...)
 {

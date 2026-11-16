@@ -483,7 +483,7 @@ static bool petz_smsh (const u8 *d, size_t sz, size_t p, model_t *model, uint in
 					if (mi < rd_be32 (bp))
 						pnode[total + i] = (int)rd_be16 (bp + 4 + 2 * mi);
 				}
-				u32 w[8];
+				u32 w[8] = { 0 };
 				for (uint k = 0; k < 8 && 4 * k + 5 <= vsz; k++)
 					w[k] = rd_be32 (v + 4 * k);
 				memcpy (&pos[total + i].x, &w[0], 4);

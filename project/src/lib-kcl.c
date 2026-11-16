@@ -7769,7 +7769,7 @@ static void print_check_error (check_kcl_t *chk, // valid data structure
 	ccp format, // format of message
 	... // arguments
 
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 static void print_check_error (check_kcl_t *chk, // valid data structure
 	CheckMode_t print_mode, // NULL | CMOD_WARNING | CMOD_HINT | CMOD_INFO

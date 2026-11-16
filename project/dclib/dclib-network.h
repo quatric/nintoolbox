@@ -1214,7 +1214,7 @@ void LogTCPStream (FILE *f, // output file
 	int recurse, // >0: print stream list, >1: print buffer status
 	ccp format, // format string for vfprintf()
 	... // arguments for 'vfprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 5, 6)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 5, 6)));
 
 //-----------------------------------------------------------------------------
 
@@ -1276,7 +1276,7 @@ int PrintDirectTCPStream (
 	bool flush_output, // true: try to flush out-buf before
 	ccp format, // format string for vfprintf()
 	... // arguments for 'vfprintf(...,format,...)'
-	) __attribute__ ((__format__ (__printf__, 3, 4)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //-----------------------------------------------------------------------------
 
@@ -1286,7 +1286,7 @@ int PrintBinary1TCPStream (TCPStream_t *ts, // NULL or destination
 	uint bin_size, // size of binary data
 	ccp format, // NULL or format string with final ';'
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 5, 6)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 5, 6)));
 
 int PrintBinary2TCPStream (TCPStream_t *ts, // NULL or destination
 	ccp cmd, // command name
@@ -1296,7 +1296,7 @@ int PrintBinary2TCPStream (TCPStream_t *ts, // NULL or destination
 	uint bin2_size, // size of binary data
 	ccp format, // NULL or format string with final ';'
 	... // parameters for 'format'
-	) __attribute__ ((__format__ (__printf__, 7, 8)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 7, 8)));
 
 //-----------------------------------------------------------------------------
 
@@ -1419,7 +1419,7 @@ void LogTCPHandler (FILE *f, // output file
 	int recurse, // >0: print stream list, >1: print buffer status
 	ccp format, // format string for vfprintf()
 	... // arguments for 'vfprintf(format,...)'
-	) __attribute__ ((__format__ (__printf__, 5, 6)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 5, 6)));
 
 //-----------------------------------------------------------------------------
 

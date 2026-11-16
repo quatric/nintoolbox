@@ -1183,7 +1183,7 @@ void ScanSlotTranslation (ParamField_t *translate, le_distrib_t *ld, ccp fname, 
 
 void ScanOptLeDefine (ccp arg);
 
-void PrintDistribHead (ccp format, ...) __attribute__ ((__format__ (__printf__, 1, 2)));
+void PrintDistribHead (ccp format, ...) __attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

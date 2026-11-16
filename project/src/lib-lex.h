@@ -679,7 +679,7 @@ void AddSectionsLEX (
 	struct szs_file_t *szs, struct szs_norm_t *norm, const struct szs_have_t *have);
 
 bool LEX_ACTION_LOG (bool is_patch, const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+	__attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

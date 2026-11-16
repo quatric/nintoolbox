@@ -118,7 +118,7 @@ static inline void EGG__Heap__free (void *memoryspace, void *EGG__Heap)
 #define LEDebugReport(...) PRINT_FUNC (__VA_ARGS__)
 
 #if 0
-void LEDebugReport ( ccp format, ... ) __attribute__ ((__format__(__printf__,3,4)));
+void LEDebugReport ( ccp format, ... ) __attribute__ ((__format__(NTB_PRINTF,3,4)));
 
 void LEDebugReport ( ccp format, ... )
 {

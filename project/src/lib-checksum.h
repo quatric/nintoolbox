@@ -91,7 +91,7 @@ extern ParamField_t szs_cache;
 ///////////////////////////////////////////////////////////////////////////////
 
 void LogCacheActivity (ccp keyword, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+	__attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 static inline bool IsSZSCacheEnabled ()
 {

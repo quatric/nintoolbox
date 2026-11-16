@@ -6010,7 +6010,7 @@ static void print_check_error (check_kmp_t *chk, // valid data structure
 	ccp format, // format of message
 	... // arguments
 
-	) __attribute__ ((__format__ (__printf__, 6, 7)));
+	) __attribute__ ((__format__ (NTB_PRINTF, 6, 7)));
 
 static void print_check_error (check_kmp_t *chk, // valid data structure
 	CheckMode_t print_mode, // NULL | CMOD_INFO|CMOD_HINT|CMOD_WARNING

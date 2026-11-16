@@ -6089,7 +6089,7 @@ void DumpStateTable (FILE *f, // valid output file
 ///////////////////////////////////////////////////////////////////////////////
 
 static void print_scs_name (FILE *f, int fw, int use_tab, ccp format, ...)
-	__attribute__ ((__format__ (__printf__, 4, 5)));
+	__attribute__ ((__format__ (NTB_PRINTF, 4, 5)));
 
 static void print_scs_name (FILE *f, int fw, int use_tab, ccp format, ...)
 {

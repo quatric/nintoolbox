@@ -1136,7 +1136,7 @@ float SpeedMod2float (u16 hex);
 
 struct kmp_t;
 bool KMP_ACTION_LOG (const struct kmp_t *kmp, bool is_patch, const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 3, 4)));
+	__attribute__ ((__format__ (NTB_PRINTF, 3, 4)));
 
 //
 ///////////////////////////////////////////////////////////////////////////////

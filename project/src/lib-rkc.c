@@ -44,7 +44,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 static bool RKC_ACTION_LOG (const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 1, 2)));
+	__attribute__ ((__format__ (NTB_PRINTF, 1, 2)));
 
 static bool RKC_ACTION_LOG (const char *format, ...)
 {

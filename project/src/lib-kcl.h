@@ -698,7 +698,7 @@ kcl_flag_t *CreatePatchFlagKCL (
 );
 
 bool KCL_ACTION_LOG (const kcl_t *kcl, const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+	__attribute__ ((__format__ (NTB_PRINTF, 2, 3)));
 
 ///////////////////////////////////////////////////////////////////////////////
 
