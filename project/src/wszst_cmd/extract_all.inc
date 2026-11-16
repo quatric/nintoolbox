@@ -369,6 +369,7 @@
 #include "extract/spt.inc"
 #include "extract/pwbundle.inc"
 #include "extract/fst.inc"
+#include "extract/konamiafs.inc"
 #include "extract/rev.inc"
 #include "extract/gct.inc"
 #include "extract/asobo_bitmap.inc"
