@@ -549,6 +549,7 @@
 #include "extract/gemslang.inc"
 #include "extract/ctxtext.inc"
 #include "extract/gcaxmpb.inc"
+#include "extract/carcpack.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
