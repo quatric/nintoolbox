@@ -375,6 +375,7 @@
 #include "extract/faafz.inc"
 #include "extract/strtbl.inc"
 #include "extract/nifclassic.inc"
+#include "extract/nffont.inc"
 #include "extract/rev.inc"
 #include "extract/gct.inc"
 #include "extract/asobo_bitmap.inc"
