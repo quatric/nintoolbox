@@ -610,4 +610,5 @@
 #include "extract/uocc.inc"
 #include "extract/tdxs.inc"
 #include "extract/nodamemsf.inc"
+#include "extract/kbbe.inc"
 #include "extract/vaps.inc"
