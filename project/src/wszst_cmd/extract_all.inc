@@ -608,4 +608,5 @@
 #include "extract/monstersong.inc"
 #include "extract/ascsyn.inc"
 #include "extract/uocc.inc"
+#include "extract/tdxs.inc"
 #include "extract/vaps.inc"
