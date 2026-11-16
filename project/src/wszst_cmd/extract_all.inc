@@ -535,6 +535,7 @@
 #include "extract/astpcm.inc"
 #include "clhca.h"
 #include "extract/hca.inc"
+#include "extract/pmspac.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"
