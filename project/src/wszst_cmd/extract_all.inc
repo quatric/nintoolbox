@@ -618,4 +618,5 @@
 #include "extract/bgzjpeg.inc"
 #include "extract/acbivt.inc"
 #include "extract/mthpstill.inc"
+#include "extract/smsgvr.inc"
 #include "extract/vaps.inc"
