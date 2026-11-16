@@ -558,6 +558,7 @@
 #include "extract/vddbstr.inc"
 #include "extract/vliblib.inc"
 #include "extract/eatpcm.inc"
+#include "extract/iswsdsp.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
