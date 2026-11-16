@@ -607,3 +607,4 @@
 #include "extract/rbnk.inc"
 #include "extract/monstersong.inc"
 #include "extract/ascsyn.inc"
+#include "extract/vaps.inc"
