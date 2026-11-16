@@ -541,6 +541,7 @@
 #include "extract/dspbnk.inc"
 #include "extract/dspstr.inc"
 #include "extract/lngtab.inc"
+#include "extract/pwkbdg.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"
