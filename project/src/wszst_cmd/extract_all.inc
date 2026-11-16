@@ -619,6 +619,7 @@
 #include "extract/acbivt.inc"
 #include "extract/mthpstill.inc"
 #include "extract/vtb.inc"
+#include "extract/msgp.inc"
 #include "extract/onz.inc"
 #include "extract/sumosbn.inc"
 #include "extract/smsgvr.inc"
