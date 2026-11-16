@@ -680,3 +680,5 @@
 #include "extract/mcttext.inc"
 #include "extract/hbmpack.inc"
 #include "extract/sgcaudio.inc"
+#include "extract/btxdlg.inc"
+#include "extract/a2tex.inc"
