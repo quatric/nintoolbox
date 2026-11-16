@@ -557,6 +557,7 @@
 #include "extract/raw5a3.inc"
 #include "extract/vddbstr.inc"
 #include "extract/vliblib.inc"
+#include "extract/eatpcm.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
