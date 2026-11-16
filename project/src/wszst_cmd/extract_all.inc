@@ -616,4 +616,5 @@
 #include "extract/mamapkb.inc"
 #include "extract/hbmmbd.inc"
 #include "extract/bgzjpeg.inc"
+#include "extract/acbivt.inc"
 #include "extract/vaps.inc"
