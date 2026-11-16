@@ -614,4 +614,5 @@
 #include "extract/mde1.inc"
 #include "extract/sukebanevent.inc"
 #include "extract/mamapkb.inc"
+#include "extract/hbmmbd.inc"
 #include "extract/vaps.inc"
