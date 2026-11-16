@@ -544,6 +544,7 @@
 #include "extract/pwkbdg.inc"
 #include "extract/pwkvm.inc"
 #include "extract/torquedso.inc"
+#include "extract/afbfsb.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"
