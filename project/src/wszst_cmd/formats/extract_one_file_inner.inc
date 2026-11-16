@@ -40,6 +40,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_hbmmbd_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_bgzjpeg_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	// Mama ".pkb" packs have a strict count/record layout; claim them before the loose sniffers.
 	err = extract_mamapkb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
