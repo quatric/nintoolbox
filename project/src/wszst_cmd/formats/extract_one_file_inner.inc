@@ -55,6 +55,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_gamedatafat_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_aig_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_midwaysec_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
