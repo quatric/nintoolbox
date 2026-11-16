@@ -612,4 +612,5 @@
 #include "extract/nodamemsf.inc"
 #include "extract/kbbe.inc"
 #include "extract/mde1.inc"
+#include "extract/sukebanevent.inc"
 #include "extract/vaps.inc"
