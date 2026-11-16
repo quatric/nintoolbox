@@ -609,4 +609,5 @@
 #include "extract/ascsyn.inc"
 #include "extract/uocc.inc"
 #include "extract/tdxs.inc"
+#include "extract/nodamemsf.inc"
 #include "extract/vaps.inc"
