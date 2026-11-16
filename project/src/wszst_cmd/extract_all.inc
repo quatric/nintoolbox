@@ -562,6 +562,7 @@
 #include "extract/tenchupack.inc"
 #include "extract/bmsgtext.inc"
 #include "extract/ffxsysm.inc"
+#include "extract/pixtpl.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
