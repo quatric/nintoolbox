@@ -1,7 +1,7 @@
 // Cooking / Babysitting Mama (Wii, Office Create) "pack/*.pkb" resource packs, big-endian:
 //   8 identical u32 counts (the member count), then count * 0x40-byte records {u32 offset, u32 size, u32 kind (1 = U8 archive, 2 = BRRES), u32 0,
 //   char name[48]}; the first payload starts after the table (aligned) and the members follow back to back (with alignment gaps).
-// Members are written as "<name>.arc" / "<name>.brres" ("~<n>" before the extension for repeated names) and extracted recursively.
+// Names may contain a sub folder ("stage/st0009"). Members are written as "<name>.arc" / "<name>.brres" ("~<n>" before the extension for repeated names) and extracted recursively.
 static enumError extract_mamapkb_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!is_ext (arg, ".pkb"))
@@ -27,7 +27,7 @@ static enumError extract_mamapkb_file (ccp arg, ccp basedir, uint depth)
 		if (o < 0x20 + (u64)n * 0x40 || o + s > sz || (kind != 1 && kind != 2) || rd_be32 (r + 12) || !r[16] || r[63])
 			good = false;
 		for (uint k = 16; good && k < 64 && r[k]; k++)
-			if (r[k] < 0x20 || r[k] > 0x7e || r[k] == '/' || r[k] == '\\')
+			if (r[k] < 0x20 || r[k] > 0x7e || r[k] == '\\' || (r[k] == '.' && r[k + 1] == '.') || (r[k] == '/' && (k == 16 || r[k + 1] == '/')))
 				good = false;
 	}
 	if (good)

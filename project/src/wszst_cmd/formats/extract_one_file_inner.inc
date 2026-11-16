@@ -37,14 +37,15 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pakb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// Mama ".pkb" packs have a strict count/record layout; claim them before the loose sniffers.
+	err = extract_mamapkb_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_vaps_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	// Sukeban "event.dat" name lists have a strict 34-byte record layout; claim them before the loose .dat sniffers.
 	err = extract_sukebanevent_file (arg, basedir, depth);
-	if (err != ERR_NOTHING_TO_DO)
-		return err;
-	err = extract_mamapkb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_pdat_file (arg, basedir, depth);
