@@ -155,6 +155,7 @@
 #include "extract/pdabra.inc"
 #include "extract/threedf.inc"
 #include "extract/shade.inc"
+#include "extract/cricsb.inc"
 #include "extract/pikmin_txe.inc"
 #include "extract/pikmin_pcr.inc"
 #include "extract/pikmin_key.inc"

@@ -1,5 +1,5 @@
 // "ALIG" GX textures (Shonen Jump's One Piece: Unlimited Adventure, Wii: "material/*.aig"): a 0x40 byte header {"ALIG", u16 LE 0x0102, 2 pad bytes,
-// char format[4] ("GIA4" = IA4, "G5A3" = RGB5A3, "G565" = RGB565, "GC32" = RGBA8, "GCCP" = CMPR), u32 0, u16 LE width, u16 LE height, u32 LE 1, u32 LE 0x10,
+// char format[4] ("GIA4" = IA4, "G5A3" = RGB5A3, "G565" = RGB565, "GC32" = RGBA8, "GCCP" / "GACC" = CMPR), u32 0, u16 LE width, u16 LE height, u32 LE 1, u32 LE 0x10,
 // u32 LE 0x40, u32 BE level-0 data size, ...} followed by the GX tiled pixel data (mip levels follow level 0). Level 0 is written as "<name>.png".
 static enumError extract_aig_file (ccp arg, ccp basedir, uint depth)
 {
@@ -13,7 +13,7 @@ static enumError extract_aig_file (ccp arg, ccp basedir, uint depth)
 	enumError err = ERR_NOTHING_TO_DO;
 	if (sz > 0x40 && !memcmp (raw, "ALIG", 4) && raw[8] == 'G')
 	{
-		static const struct { const char *tag; uint fmt; } fm[] = { { "GIA4", 2 }, { "G5A3", 5 }, { "G565", 4 }, { "GC32", 6 }, { "GCCP", 14 } };
+		static const struct { const char *tag; uint fmt; } fm[] = { { "GIA4", 2 }, { "G5A3", 5 }, { "G565", 4 }, { "GC32", 6 }, { "GCCP", 14 }, { "GACC", 14 } };
 		uint fmt = 99;
 		for (uint i = 0; i < sizeof (fm) / sizeof (fm[0]); i++)
 			if (!memcmp (raw + 8, fm[i].tag, 4))
