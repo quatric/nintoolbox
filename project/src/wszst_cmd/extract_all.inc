@@ -533,6 +533,7 @@
 #include "extract/sygnus.inc"
 #include "extract/nintendo_ast.inc"
 #include "extract/astpcm.inc"
+#include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"
 #include "extract/nintendo_afc.inc"
