@@ -1,6 +1,6 @@
 static enumError extract_cpk_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".cpk"))
+	if (!is_ext (arg, ".cpk") && !is_ext (arg, ".awb"))	// ".awb": CRI streaming archives of ADX2 titles (CPK container, ITOC only)
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;

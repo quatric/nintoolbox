@@ -359,6 +359,12 @@ static bool cpk_utf_cell (
 			if (rp + 4 > rend)
 				return false;
 			return true;
+		case 0xb: // data blob: *NUM = (offset << 32 | size), offset relative to the data pool
+			if (rp + 8 > rend)
+				return false;
+			if (num)
+				*num = (u64)rd_be32 (rp) << 32 | rd_be32 (rp + 4);
+			return true;
 		case 0xa:
 		{
 			if (rp + 4 > rend)
@@ -588,6 +594,120 @@ enumError DecodeCRILAYLA (u8 **dest, uint *dest_size, const u8 *src, uint src_si
 	return ERR_OK;
 }
 
+
+//--- ITOC (ID only) archives -------------------------------------------------
+// CRI "streamfiles" archives (.awb / .cpk of ADX2 titles) have no TOC: an ITOC packet lists
+// {ID, FileSize, ExtractSize} in the nested tables FilesL (16 bit sizes) and FilesH (32 bit sizes);
+// the files follow ContentOffset in ascending ID order, each padded to Align.
+
+typedef struct cpk_itoc_ent_t
+{
+	u32 id, fsize, esize;
+} cpk_itoc_ent_t;
+
+static int cpk_itoc_cmp (const void *a, const void *b)
+{
+	const u32 x = ((const cpk_itoc_ent_t *)a)->id, y = ((const cpk_itoc_ent_t *)b)->id;
+	return x < y ? -1 : x > y;
+}
+
+static uint cpk_itoc_table (const cpk_utf_t *t, uint tsize, ccp name, bool high, cpk_itoc_ent_t *ent, uint n, uint cap)
+{
+	uint c;
+	if (!cpk_utf_find (t, tsize, name, &c))
+		return n;
+	u64 blob = 0;
+	if (!cpk_utf_cell (t, tsize, 0, c, &blob, 0))
+		return n;
+	const u64 doff = (blob >> 32) + 8 + rd_be32 (t->payload + 8 + 8), dlen = blob & 0xffffffff;
+	if (dlen < 32 || doff + dlen > tsize)
+		return n;
+	cpk_utf_t in;
+	if (!cpk_utf_parse (&in, t->payload + doff, (uint)dlen))
+		return n;
+	uint ci = 0, cs = 0, ce = 0;
+	if (cpk_utf_find (&in, (uint)dlen, "ID", &ci) && cpk_utf_find (&in, (uint)dlen, "FileSize", &cs) && cpk_utf_find (&in, (uint)dlen, "ExtractSize", &ce))
+		for (uint r = 0; r < in.n_rows && n < cap; r++)
+		{
+			u64 id = 0, fs = 0, es = 0;
+			if (cpk_utf_cell (&in, (uint)dlen, r, ci, &id, 0) && cpk_utf_cell (&in, (uint)dlen, r, cs, &fs, 0) && cpk_utf_cell (&in, (uint)dlen, r, ce, &es, 0))
+				ent[n].id = (u32)id, ent[n].fsize = (u32)fs, ent[n].esize = (u32)es, n++;
+		}
+	(void)high;
+	cpk_utf_free (&in);
+	return n;
+}
+
+static enumError cpk_scan_itoc (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size, const cpk_utf_t *hdr, uint hsize, u64 itoc_off, u64 content_off, u64 align)
+{
+	const u8 *ip = 0;
+	uint isz = 0;
+	if (itoc_off >= size || !cpk_packet (data, size, (uint)itoc_off, "ITOC", &ip, &isz))
+		return EINVAL;
+	(void)hdr;
+	(void)hsize;
+	cpk_utf_t it;
+	if (!cpk_utf_parse (&it, ip, isz))
+		return EINVAL;
+	cpk_itoc_ent_t *ent = CALLOC (CPK_MAX_ENTRIES, sizeof (*ent));
+	if (!ent)
+	{
+		cpk_utf_free (&it);
+		return ERR_CANT_CREATE;
+	}
+	uint n = 0;
+	n = cpk_itoc_table (&it, isz, "FilesL", false, ent, n, CPK_MAX_ENTRIES);
+	n = cpk_itoc_table (&it, isz, "FilesH", true, ent, n, CPK_MAX_ENTRIES);
+	if (!n)
+	{
+		n = cpk_itoc_table (&it, isz, "DataL", false, ent, n, CPK_MAX_ENTRIES);
+		n = cpk_itoc_table (&it, isz, "DataH", true, ent, n, CPK_MAX_ENTRIES);
+	}
+	cpk_utf_free (&it);
+	if (!n)
+	{
+		FREE (ent);
+		return EINVAL;
+	}
+	qsort (ent, n, sizeof (*ent), cpk_itoc_cmp);
+	nintendo_sarc_entry_t *out = CALLOC (n, sizeof (*out));
+	if (!out)
+	{
+		FREE (ent);
+		return ERR_CANT_CREATE;
+	}
+	u64 off = content_off;
+	uint cnt = 0;
+	for (uint i = 0; i < n; i++)
+	{
+		const u64 fs = ent[i].fsize;
+		if (fs && off + fs <= size)
+		{
+			char name[64];
+			ccp ext = "bin";
+			if (fs > 0x20 && data[off] == 0x80 && data[off + 1] == 0)
+				ext = "adx";
+			else if (fs > 0x20 && (!memcmp (data + off, "HCA", 4) || !memcmp (data + off, "\xc8\xc3\xc1\x00", 4)))
+				ext = "hca";
+			snprintf (name, sizeof (name), "%05u.%s", ent[i].id, ext);
+			if (OwnedEntryAdd (out, cnt, name, data + off, (uint)fs))
+				cnt++;
+		}
+		off += fs;
+		if (align > 1 && off % align)
+			off += align - off % align;
+	}
+	FREE (ent);
+	if (!cnt)
+	{
+		FREE (out);
+		return EINVAL;
+	}
+	*entries = out;
+	*n_entries = cnt;
+	return ERR_OK;
+}
+
 //--- archive scan ------------------------------------------------------------
 
 enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size)
@@ -614,10 +734,7 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	(void)has_etoc;
 	u64 toc_off = 0, content_off = 0, files = 0, align = 2048;
 	if (has_toc && !cpk_utf_cell (&hdr, cpk_size, 0, c_toc, &toc_off, 0))
-	{
-		cpk_utf_free (&hdr);
-		return EINVAL;
-	}
+		toc_off = (u64)-1; // column present but not stored (ITOC-only archives)
 	if (has_content)
 		cpk_utf_cell (&hdr, cpk_size, 0, c_content, &content_off, 0);
 	if (has_files)
@@ -626,9 +743,14 @@ enumError ScanCPK (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		cpk_utf_cell (&hdr, cpk_size, 0, c_align, &align, 0);
 	if (!has_toc || toc_off == (u64)-1 || toc_off > size)
 	{
-		// No TOC (ITOC-only layouts have no path names to recover).
+		// No TOC: ITOC-only layouts have no path names, the members are named by ID.
+		uint c_itoc = 0;
+		u64 itoc_off = 0;
+		enumError ie = EINVAL;
+		if (cpk_utf_find (&hdr, cpk_size, "ItocOffset", &c_itoc) && cpk_utf_cell (&hdr, cpk_size, 0, c_itoc, &itoc_off, 0) && has_content)
+			ie = cpk_scan_itoc (entries, n_entries, data, size, &hdr, cpk_size, itoc_off, content_off, align && align <= (1u << 20) ? align : 2048);
 		cpk_utf_free (&hdr);
-		return EINVAL;
+		return ie;
 	}
 	if (!files || files > CPK_MAX_ENTRIES)
 	{
