@@ -606,3 +606,4 @@
 #include "extract/midi_render.inc"
 #include "extract/rbnk.inc"
 #include "extract/monstersong.inc"
+#include "extract/ascsyn.inc"
