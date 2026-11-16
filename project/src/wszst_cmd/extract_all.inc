@@ -552,6 +552,7 @@
 #include "extract/carcpack.inc"
 #include "extract/swfres.inc"
 #include "extract/vetdata.inc"
+#include "extract/puzzler.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
