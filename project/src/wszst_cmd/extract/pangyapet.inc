@@ -5,7 +5,8 @@
 // (3 << 16 normal, 5 << 16 texcoord)}, "prm" primitives, found by tracing the game's MESH loader in Ghidra). A 0x20 byte primitive is {.., u16 index count
 // (+6), u16 vertex count (+8), u16 vertex stride (+0xa), u16 0x98 (GX triangle strip, +0xc), u16 triangle count (+0xe), u16 index buffer (+0x10, 0xffff =
 // none), u16 vertex buffer (+0x12)}. Positions come from the usage-0 element, normals from usage 3, texcoords from the first usage-5 element.
-// Skinned meshes (no "ved") use fixed 33 byte vertices {u8 bone, float3 position, float3 normal, float2 texcoord}.
+// Skinned meshes (no "ved") use fixed 33 byte vertices {u8 bone, float3 position, float3 normal, float2 texcoord}; ball models (no "ved", 28 byte primitives)
+// use 32 byte vertices {float3 position, float3 normal, float2 texcoord}.
 // Written as "model.obj" (one object per primitive; node transforms and skinning are not applied, textures are not linked) plus, for rigged
 // models, "skeleton.txt" (bone names from the BONE chunk, parents from "mdl", local matrices from "trns").
 // skeleton of a rigged model: "BONE" name table {u16 count (+0xc), entries {u32 name offset, u16 index, u16 length} from +0x10}; "mdl" 32 byte nodes
@@ -108,12 +109,12 @@ static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 		}
 		// skinned meshes have no "ved": fixed 33 byte vertices {u8 bone, float3 position, float3 normal, float2 texcoord}
 		const bool fixed33 = !has[4];
-		if (!has[0] || !has[1] || !has[5] || ch[1][1] != 12 || ch[5][1] != 0x20 || (!fixed33 && ch[4][1] != 12))
+		if (!has[0] || !has[1] || !has[5] || ch[1][1] != 12 || (ch[5][1] != 0x20 && !(fixed33 && ch[5][1] == 0x1c)) || (!fixed33 && ch[4][1] != 12))
 			goto done;
 		// vertex elements
 		int opos = -1, onrm = -1, ouv = -1;
 		if (fixed33)
-			opos = 1, onrm = 13, ouv = 25;
+			opos = 1, onrm = 13, ouv = 25;		// per primitive below: a 32 byte stride means {float3 position, float3 normal, float2 texcoord} (balls)
 		for (uint k = 0; !fixed33 && k < ch[4][0] && k < 16; k++)
 		{
 			const u8 *e = raw + B + ch[4][2] + 12 * (size_t)k;
@@ -153,13 +154,22 @@ static enumError extract_pangyapet_file (ccp arg, ccp basedir, uint depth)
 			goto bad;
 		for (uint k = 0; k < ch[5][0] && ok; k++)
 		{
-			const u8 *pr = raw + B + ch[5][2] + 32 * (size_t)k;
-			if (B + ch[5][2] + 32 * (size_t)(k + 1) > sz)
+			const u8 *pr = raw + B + ch[5][2] + (size_t)ch[5][1] * k;
+			if (B + ch[5][2] + (size_t)ch[5][1] * (k + 1) > sz)
 				goto bad;
 			uint ic = rd_be16 (pr + 6);
 			const uint vc = rd_be16 (pr + 8), st = rd_be16 (pr + 10), cmd = rd_be16 (pr + 12), ii = rd_be16 (pr + 0x10),
 				   vi = rd_be16 (pr + 0x12);
-			if (!vc || !st || cmd != 0x98 || vi >= ch[1][0] || (int)st < opos + 12 || (fixed33 && st != 33))
+			if (fixed33)
+			{
+				if (st == 33)
+					opos = 1, onrm = 13, ouv = 25;
+				else if (st == 32)
+					opos = 0, onrm = 12, ouv = 24;
+				else
+					goto bad;
+			}
+			if (!vc || !st || cmd != 0x98 || vi >= ch[1][0] || (int)st < opos + 12)
 				goto bad;
 			const u8 *vh = raw + B + ch[1][2] + 12 * (size_t)vi;
 			if (B + ch[1][2] + 12 * (size_t)(vi + 1) > sz)
