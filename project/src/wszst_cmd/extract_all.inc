@@ -546,6 +546,7 @@
 #include "extract/torquedso.inc"
 #include "extract/afbfsb.inc"
 #include "extract/stptext.inc"
+#include "extract/gemslang.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
 #include "extract/hal_ssm.inc"
