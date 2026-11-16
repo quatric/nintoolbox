@@ -560,6 +560,7 @@
 #include "extract/eatpcm.inc"
 #include "extract/iswsdsp.inc"
 #include "extract/tenchupack.inc"
+#include "extract/bmsgtext.inc"
 #include "extract/wiiasset.inc"
 #include "extract/dctdict.inc"
 #include "extract/btsnd.inc"
