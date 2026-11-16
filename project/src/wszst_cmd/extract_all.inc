@@ -619,6 +619,7 @@
 #include "extract/acbivt.inc"
 #include "extract/mthpstill.inc"
 #include "extract/vtb.inc"
+#include "extract/apx.inc"
 #include "extract/aig.inc"
 #include "extract/gamedatafat.inc"
 #include "extract/pahpac.inc"
