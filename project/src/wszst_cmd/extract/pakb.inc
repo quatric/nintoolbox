@@ -2,7 +2,9 @@
 // records {u32 name hash, u32 offset, u32 size}; payloads follow back to back from 8 + count * 12.
 // Members are stored (THP movies, U8 archives, "MINA"/"GE"/"func" data, ...) and written as
 // "<hash>.<ext>" with the extension taken from the payload magic. The archive is far above the in-memory
-// limit, so members are streamed one at a time.
+// limit, so members are streamed one at a time. The last member is a name table of {u32 hash, u32 length, name}
+// records (sorted by hash, ~63% of the members); named members are written under their real name ("~<n>" before the
+// extension for repeated hashes), the others keep the hash name.
 static ccp pakb_ext (const u8 *h, uint sz, char *buf, uint buf_sz)
 {
 	if (sz >= 4 && !memcmp (h, "THP\0", 4))
@@ -70,6 +72,20 @@ static enumError extract_pakb_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	// name table: the last member, accepted only when it parses as plain {hash, length, ASCII name} records
+	u8 *nt = 0;
+	size_t nt_sz = 0;
+	{
+		const u64 no = rd_be32 (tab + (size_t)(cnt - 1) * 12 + 4), ns = rd_be32 (tab + (size_t)(cnt - 1) * 12 + 8);
+		if (cnt > 1 && ns >= 8 && ns <= 0x1000000 && (nt = MALLOC (ns)) != 0)
+		{
+			if (fseeko (f, (off_t)no, SEEK_SET) || fread (nt, 1, ns, f) != ns || rd_be32 (nt + 4) == 0)
+				FREE (nt);
+			else
+				nt_sz = ns;
+		}
+	}
+
 	char dest[PATH_MAX];
 	beside_source_dest (dest, sizeof (dest), arg);
 	if (verbose >= 0 || testmode)
@@ -89,8 +105,48 @@ static enumError extract_pakb_file (ccp arg, ccp basedir, uint depth)
 		}
 		char extbuf[8];
 		char path[PATH_MAX];
-		snprintf (path, sizeof (path), "%s/%s%08x_%05u.%s", dest, basedir ? basedir : "", hash, i,
-			pakb_ext (buf, s, extbuf, sizeof (extbuf)));
+		char nm[0x110];
+		nm[0] = 0;
+		for (size_t p = 0; nt && p + 8 <= nt_sz;)
+		{
+			const u32 h = rd_be32 (nt + p), l = rd_be32 (nt + p + 4);
+			if (!l || l >= sizeof (nm) || p + 8 + l > nt_sz)
+				break;
+			if (h == hash)
+			{
+				bool good = true;
+				for (u32 k = 0; k < l; k++)
+					if (nt[p + 8 + k] < 0x20 || nt[p + 8 + k] > 0x7e || nt[p + 8 + k] == '/' || nt[p + 8 + k] == '\\')
+						good = false;
+				if (good)
+				{
+					memcpy (nm, nt + p + 8, l);
+					nm[l] = 0;
+				}
+				break;
+			}
+			p += 8 + l;
+		}
+		if (nm[0])
+		{
+			uint dup = 0;
+			for (u32 j = 0; j < i; j++)
+				if (rd_be32 (tab + j * 12) == hash)
+					dup++;
+			char *dot = strrchr (nm, '.');
+			char ext[0x40] = "";
+			if (dup && dot && strlen (dot) < sizeof (ext))
+			{
+				snprintf (ext, sizeof (ext), "%s", dot);
+				*dot = 0;
+			}
+			if (dup)
+				snprintf (nm + strlen (nm), sizeof (nm) - strlen (nm), "~%u%s", dup, ext);
+			snprintf (path, sizeof (path), "%s/%s%s", dest, basedir ? basedir : "", nm);
+		}
+		else
+			snprintf (path, sizeof (path), "%s/%s%08x_%05u.%s", dest, basedir ? basedir : "", hash, i,
+				pakb_ext (buf, s, extbuf, sizeof (extbuf)));
 		File_t F;
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && s && fwrite (buf, 1, s, F.f) != s)
@@ -99,6 +155,7 @@ static enumError extract_pakb_file (ccp arg, ccp basedir, uint depth)
 		FREE (buf);
 	}
 	FREE (tab);
+	FREE (nt);
 	fclose (f);
 	if (!err && !testmode)
 	{
