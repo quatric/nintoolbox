@@ -169,6 +169,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_mbbtbl_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_mcttext_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_raw5a3_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

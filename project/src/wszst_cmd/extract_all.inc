@@ -677,3 +677,4 @@
 #include "extract/smsgvr.inc"
 #include "extract/midwaysec.inc"
 #include "extract/vaps.inc"
+#include "extract/mcttext.inc"
