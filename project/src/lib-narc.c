@@ -30,7 +30,7 @@ enumError ScanNARC (narc_t *narc, const u8 *data, size_t size)
 		return ERR_INVALID_DATA;
 
 	u16 bom = rd_le16 (data + 4);
-	bool is_le = (bom == 0xFFFE || !memcmp (data, "CRAN", 4));
+	bool is_le = (bom == 0xFFFE || (!memcmp (data, "CRAN", 4) && bom != 0xFEFF));
 	narc->raw = data;
 	narc->raw_size = size;
 	narc->is_le = is_le;
