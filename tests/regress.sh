@@ -8974,7 +8974,8 @@ with open(sys.argv[1], "wb") as f:
   fi
 
   # Blitz .rev, 2009 resource layout (iCarly): CI8/RGB565 and CI4/RGB5A3 textures with explicit
-  # palette/pixel offsets, and a static actor with the shifted node layout and 0x18-byte batches.
+  # palette/pixel offsets, a static actor with the shifted node layout and a two-primitive
+  # 0x18-byte batch, and a soft-skinned actor (matrix loads, 10-byte vertices).
   mkdir -p "$d/rev09_test"
   if python3 "$PWD_PROJECT/../tests/mk_rev2009.py" "$d/rev09_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/rev09_test/blitz09.rev" --dest "$d/rev09_test/out" --overwrite >/dev/null 2>&1 \
@@ -8982,9 +8983,11 @@ with open(sys.argv[1], "wb") as f:
     && python3 "$PNGTOOL" pixel "$d/rev09_test/out/t_ci8.png" 1 0 0 0 255 255 2>/dev/null \
     && python3 "$PNGTOOL" pixel "$d/rev09_test/out/t_ci4.png" 0 0 255 0 0 255 2>/dev/null \
     && python3 "$PNGTOOL" pixel "$d/rev09_test/out/t_ci4.png" 1 0 0 0 0 0 2>/dev/null \
-    && g=$(python3 "$GLTF_COUNT" "$d/rev09_test/out/tri_m.glb" geometry 2>/dev/null || true) \
+    && g=$(python3 "$GLTF_COUNT" "$d/rev09_test/out/tri_m.glb" tris 2>/dev/null || true) \
+    && [ "${g:-0}" -eq 2 ] 2>/dev/null \
+    && g=$(python3 "$GLTF_COUNT" "$d/rev09_test/out/skin_m.glb" tris 2>/dev/null || true) \
     && [ "${g:-0}" -eq 1 ] 2>/dev/null \
-    && fok "Blitz .rev 2009 layout -> CI8/CI4 texture PNGs + actor GLB" \
+    && fok "Blitz .rev 2009 layout -> CI8/CI4 texture PNGs + static/skinned actor GLBs" \
     || fno "Blitz .rev 2009 layout" "failed to convert synthetic 2009-layout resources"
   else
     fno "Blitz .rev 2009 layout" "mk_rev2009.py failed"

@@ -466,7 +466,11 @@ typedef struct
 	u32 pos, nrm, tex, clr, dl, tab, batches, nbatches, prims, pstride, nrm_stride;
 	bl_mat_t mat;
 	const char *name;
-	uint bstride, b_np, b_crc; // batch record size and the prim-count / texture-CRC fields
+	// 2009 layout: 0x18-byte batch records {u16 prim count, u16, u32, u32 texture list, u32 texture
+	// count, u32 texture CRC, u32}, the old ones are 16 bytes {u32 prim count, u32 texture CRC,
+	// ...}
+	bool v09;
+	uint vpre; // bytes before each vertex's u16 position index (skin matrix slots)
 } bl_src_t;
 
 typedef struct
@@ -578,15 +582,15 @@ static bool bl_add_src (bl_ctx_t *c, const bl_src_t *s)
 {
 	const u8 *d = c->d;
 	if (!s->nbatches || s->nbatches > 4096 || !s->dl || !s->tab || !s->batches || !s->prims
-		|| !s->pos || !s->bstride || !bl_range (c, s->batches, (u64)s->nbatches * s->bstride))
+		|| !s->pos || !bl_range (c, s->batches, (u64)s->nbatches * (s->v09 ? 0x18 : 16)))
 		return false;
 
 	uint pi = 0;
 	for (uint b = 0; b < s->nbatches; b++)
 	{
-		const u8 *bp = d + s->batches + (u64)b * s->bstride;
-		const uint np = rd_be32 (bp + s->b_np);
-		const u32 crc = rd_be32 (bp + s->b_crc);
+		const u8 *bp = d + s->batches + (u64)b * (s->v09 ? 0x18 : 16);
+		const uint np = s->v09 ? rev_be16 (bp) : rd_be32 (bp);
+		const u32 crc = rd_be32 (bp + (s->v09 ? 0x10 : 4));
 		bl_corners_t cor = { 0, 0, 0 };
 		bool ok = true;
 		uint maxp = 0, maxn = 0, maxt = 0;
@@ -606,13 +610,17 @@ static bool bl_add_src (bl_ctx_t *c, const bl_src_t *s)
 				break;
 			}
 			const u8 *q = d + s->dl + off, *end = q + len;
+			// skinned lists load their matrix palette first (GX 0x20/0x28/0x30 + u32)
+			while (q + 5 <= end && (*q == 0x20 || *q == 0x28 || *q == 0x30))
+				q += 5;
 			while (q < end && !*q)
 				q++;
 			if (q + 3 > end)
 				continue;
 			const uint op = *q & 0xf8, n = rev_be16 (q + 1);
 			q += 3;
-			if (!n || (u64)(end - q) < (u64)n * 8 || (op != 0x98 && op != 0x90 && op != 0xa0))
+			const uint vs = 8 + s->vpre;
+			if (!n || (u64)(end - q) < (u64)n * vs || (op != 0x98 && op != 0x90 && op != 0xa0))
 				continue;
 			bl_corner_t *v = MALLOC (n * sizeof (*v));
 			if (!v)
@@ -620,12 +628,12 @@ static bool bl_add_src (bl_ctx_t *c, const bl_src_t *s)
 				ok = false;
 				break;
 			}
-			for (uint i = 0; i < n; i++, q += 8)
+			for (uint i = 0; i < n; i++, q += vs)
 			{
 				// indices: position, normal, colour, texcoord
-				v[i].p = rev_be16 (q);
-				v[i].n = rev_be16 (q + 2);
-				v[i].t = rev_be16 (q + 6);
+				v[i].p = rev_be16 (q + s->vpre);
+				v[i].n = rev_be16 (q + s->vpre + 2);
+				v[i].t = rev_be16 (q + s->vpre + 6);
 				if (v[i].p > maxp)
 					maxp = v[i].p;
 				if (v[i].n > maxn)
@@ -747,7 +755,7 @@ static void bl_walk (bl_ctx_t *c, u32 node, const bl_mat_t *parent, uint *count,
 			bl_src_t s = { rd_be32 (m + 0x50), rd_be32 (m + 0x54), rd_be32 (m + 0x58),
 				rd_be32 (m + 0x5c), rd_be32 (m + 0x60), rd_be32 (m + 0x68), rd_be32 (m + 0x0c),
 				rd_be32 (m + 0x08), rd_be32 (m + 0x10), 8, (flags & 0x100) ? 9u : 3u, world, 0,
-				sh ? 0x18u : 16u, sh ? 0x0cu : 0u, sh ? 0x10u : 4u };
+				sh != 0, 0 };
 			char name[32];
 			snprintf (name, sizeof (name), "Node%u", rd_be32 (d + n + 0x74 + sh));
 			s.name = name;
@@ -776,14 +784,17 @@ model_t *ParseBlitzActor (const u8 *d, uint size, BlitzTexNameFunc texname, void
 
 	if (rd_be32 (d + 0xa4) & 1)
 	{
-		// soft skinned: mesh data lives in the actor header (bind pose only). The 2009 layout
-		// (iCarly) prefixes every vertex with two matrix indices and loads a matrix palette per
-		// display list, but its batch records cover only part of the lists; left undecoded.
-		if (!c.sh && (rev_be16 (d + 0x52) & 2))
+		// soft skinned: mesh data lives in the actor header, positions in bind pose model space.
+		// The 2009 layout (iCarly) loads a matrix palette (blended envelopes, not bones) at the
+		// start of each display list, prefixes every vertex with two matrix slot bytes (position,
+		// texture) and uses 26-byte primitive records {u8 kind, u8, u16 vertices, u16, u16
+		// matrix[10]}; the bind pose is exported, the palette ignored.
+		if (rev_be16 (d + 0x52) & 2)
 		{
 			const bl_src_t s = { rd_be32 (d + 0x60), rd_be32 (d + 0x64), rd_be32 (d + 0x68),
 				rd_be32 (d + 0x6c), rd_be32 (d + 0x58), rd_be32 (d + 0x54), rd_be32 (d + 0x2c),
-				rd_be32 (d + 0x28), rd_be32 (d + 0x30), 18, 3, ident, "Skin", 16, 0, 4 };
+				rd_be32 (d + 0x28), rd_be32 (d + 0x30), c.sh ? 26u : 18u, 3, ident, "Skin",
+				c.sh != 0, c.sh ? 2u : 0u };
 			any = bl_add_src (&c, &s);
 		}
 	}

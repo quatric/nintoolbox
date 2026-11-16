@@ -34,6 +34,10 @@ def count_glb(path, kind):
         return len(doc.get('images', []))
     if kind == 'triangles':
         return sum(len(m.get('primitives', [])) for m in doc.get('meshes', []))
+    if kind == 'tris':  # real triangle count (index or position accessor count / 3)
+        acc = doc.get('accessors', [])
+        return sum(acc[p['indices'] if 'indices' in p else p['attributes']['POSITION']]['count'] // 3
+                   for m in doc.get('meshes', []) for p in m.get('primitives', []))
     if kind == 'skins':
         return len(doc.get('skins', []))
     if kind == 'joints':
