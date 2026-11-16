@@ -250,7 +250,7 @@ static enumError extract_jaudiobaa_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_OUT_OF_MEMORY;
 	}
-	uint nws = 0, nbnk = 0, nbsc = 0;
+	uint nbnk = 0, nbsc = 0;
 	for (uint r = 0; r < nrec; r++)
 	{
 		char name[96];
@@ -285,7 +285,6 @@ static enumError extract_jaudiobaa_file (ccp arg, ccp basedir, uint depth)
 		}
 		if (recs[r].tag != 0x77732020)
 			continue;
-		nws++;
 		jaudio_wsys_waves (arg, raw, sz, recs[r].b, recs[r].a, &entries, &n, &cap);
 	}
 	FREE (raw);

@@ -25,7 +25,7 @@ permissions:
 # there is no Docker host available here to try them on.
 #
 # Windows (build-windows/build-gui-windows) builds with a native MinGW-w64
-# toolchain (MSYS2's mingw64 environment) instead of Cygwin. Cygwin's runtime
+# toolchain (MSYS2's ucrt64 environment) instead of Cygwin. Cygwin's runtime
 # does low-level tricks (fixed-address memory mapping for its POSIX heap/fork
 # emulation, SEH-based signal delivery) that Windows' x64 emulator (used to
 # run x86_64 binaries on Windows-on-ARM) doesn't faithfully replicate --
@@ -58,7 +58,7 @@ jobs:
             cross_prefix: arm-linux-gnueabihf-
             cross: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Add foreign dpkg architecture
         if: matrix.foreign_arch != ''
@@ -140,13 +140,13 @@ jobs:
           mkdir -p dist/${{ matrix.target }}
           cp project/bin/* dist/${{ matrix.target }}/ 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-${{ matrix.target }}
           path: dist/${{ matrix.target }}
           if-no-files-found: error
 
-  # Windows is built with a native MinGW-w64 toolchain (via MSYS2's mingw64
+  # Windows is built with a native MinGW-w64 toolchain (via MSYS2's ucrt64
   # environment) instead of Cygwin. Cygwin's runtime does low-level tricks
   # (fixed-address memory mapping for its POSIX heap/fork emulation,
   # SEH-based signal delivery) that Windows' x64 emulator (used to run
@@ -166,16 +166,16 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-ncurses
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-libpng
+            mingw-w64-ucrt-x86_64-ncurses
             make
       - name: Build
         # See the Linux job's Build step for why -o (--assume-old) is used
@@ -189,9 +189,9 @@ jobs:
         # dev packages this toolchain install doesn't provide. Skip both
         # rather than provision them blind.
         #
-        # No PRE= cross-prefix and no MINGW_LIBS: MSYS2's mingw64 shell's
+        # No PRE= cross-prefix and no MINGW_LIBS: MSYS2's ucrt64 shell's
         # own gcc/g++ already target x86_64-w64-mingw32 natively, and
-        # mingw-w64-x86_64-zlib/-libpng install straight into that shell's
+        # mingw-w64-ucrt-x86_64-zlib/-libpng install straight into that shell's
         # standard include/lib search path.
         run: |
           cd "${GITHUB_WORKSPACE}/project"
@@ -211,7 +211,7 @@ jobs:
           mkdir -p dist/windows-x86_64
           cp project/bin/*.exe dist/windows-x86_64/ 2>/dev/null || true
           ls "${GITHUB_WORKSPACE}/dist/windows-x86_64"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-windows-x86_64
           path: dist/windows-x86_64
@@ -236,7 +236,7 @@ jobs:
     name: macos-universal
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install native (arm64) dependencies
         run: brew install cmake libpng ncurses
@@ -255,7 +255,7 @@ jobs:
       # changes needed.
       - name: Cache x86_64 libpng build
         id: cache-x86-libpng
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/libpng-x86_64-install
           key: x86_64-libpng-1.6.58-macos14-v1
@@ -320,7 +320,7 @@ jobs:
           cp project/third_party/keys.txt dist/macos-universal/keys.txt
           cp -Rp project/third_party/wiiu_keys dist/macos-universal/wiiu_keys
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-macos-universal
           path: dist/macos-universal
@@ -335,20 +335,20 @@ jobs:
     needs: build-macos-universal
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: nintoolbox-macos-universal
           path: artifact
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '10.0.x'
 
       # wszst shells out to external passthrough companion tools: wit (disc/DS/WAD),
       # mobipeg (video/audio transcoding), sharpii (Wii WADs), nsz (Switch NSZ/XCZ),
@@ -460,11 +460,12 @@ jobs:
           if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
             ( set -e
               cd /tmp/sharpii-src
+              sed -i.bak 's/net7\.0/net10.0/' Sharpii.csproj
               dotnet publish -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true
               dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true
               lipo -create \
-                bin/Release/net7.0/osx-arm64/publish/Sharpii \
-                bin/Release/net7.0/osx-x64/publish/Sharpii \
+                bin/Release/net10.0/osx-arm64/publish/Sharpii \
+                bin/Release/net10.0/osx-x64/publish/Sharpii \
                 -output "$GITHUB_WORKSPACE/extra_tools/sharpii"
             ) || echo "::warning::sharpii source build failed -- skipping"
           fi
@@ -647,7 +648,7 @@ jobs:
           # of every bundled binary.
           cd pyinst_dist && zip -ry -q ../dist/gui-macos-universal/nintoolbox-macos-universal.zip nintoolbox.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-gui-macos-universal
           path: dist/gui-macos-universal
@@ -668,30 +669,30 @@ jobs:
     needs: build-windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: nintoolbox-windows-x86_64
           path: artifact
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '10.0.x'
 
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-ncurses
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-libpng
+            mingw-w64-ucrt-x86_64-ncurses
             autoconf
             automake
             libtool
@@ -700,13 +701,13 @@ jobs:
             unzip
 
       # Companion tools that are plain C/C++ and build fine under the same
-      # native MinGW-w64 toolchain (via MSYS2's mingw64 environment)
+      # native MinGW-w64 toolchain (via MSYS2's ucrt64 environment)
       # build-windows already uses for wszst itself -- see that job's
       # comment for why MinGW replaced Cygwin here. mbedtls/libblz for
       # makerom are vendored+built by its own Makefile via `make deps`, same
       # as the macOS job. autoconf/automake/libtool above are MSYS2 base
       # packages (ndstool's ./autogen.sh needs them), separate from the
-      # mingw-w64-x86_64-toolchain packages that provide gcc/g++/make itself.
+      # mingw-w64-ucrt-x86_64-toolchain packages that provide gcc/g++/make itself.
       - name: Fetch and build companion passthrough tools for bundling (best-effort)
         shell: msys2 {0}
         run: |
@@ -749,7 +750,7 @@ jobs:
           # its Makefile auto-detects Windows_NT and otherwise tries to
           # cross-compile with an i686-w64-mingw32-* prefixed toolchain that
           # doesn't exist under this name here; GNU mode uses plain gcc/g++,
-          # which in this MSYS2 mingw64 shell IS the mingw-w64 toolchain, so
+          # which in this MSYS2 ucrt64 shell IS the mingw-w64 toolchain, so
           # this already produces a native mingw .exe with zero source
           # changes. Its own `ar` (used internally by its deps step) also
           # already resolves to the correct mingw-w64 ar in this shell, so no
@@ -764,7 +765,7 @@ jobs:
           # mingw-port), not upstream PAK-VIN/wud2app-macOS: upstream calls
           # POSIX two-arg mkdir(path,mode), which MinGW's headers don't
           # declare; the fork patches that one call. Plain C otherwise, no
-          # further flags needed under the native mingw64 toolchain.
+          # further flags needed under the native ucrt64 toolchain.
           if git clone --depth 1 -b mingw-port https://github.com/quatric/wud2app-macOS.git "$TMP/wud2app-src" 2>/dev/null; then
             (cd "$TMP/wud2app-src" && gcc -Wall -Wextra -O3 main.c wudparts.c rijndael.c sha1.c -o "$GITHUB_WORKSPACE/extra_tools/wud2app.exe") || \
               echo "::warning::wud2app source build failed -- skipping"
@@ -853,8 +854,9 @@ jobs:
           mkdir -p "$TMP"
           if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git "$TMP/sharpii-src" 2>/dev/null; then
             (cd "$TMP/sharpii-src" && \
+              sed -i.bak 's/net7\.0/net10.0/' Sharpii.csproj && \
               dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true && \
-              cp bin/Release/net7.0/win-x64/publish/Sharpii.exe "$GITHUB_WORKSPACE/extra_tools/sharpii.exe") || \
+              cp bin/Release/net10.0/win-x64/publish/Sharpii.exe "$GITHUB_WORKSPACE/extra_tools/sharpii.exe") || \
               echo "::warning::sharpii source build failed -- skipping"
           fi
 
@@ -909,7 +911,7 @@ jobs:
           cd pyinst_dist && 7z a -r -bd ../dist/gui-windows-x86_64/nintoolbox-windows-x86_64.zip nintoolbox >/dev/null 2>&1 || \
             (cd .. && cd dist/gui-windows-x86_64 && powershell -Command "Compress-Archive -Path '../../pyinst_dist/nintoolbox' -DestinationPath 'nintoolbox-windows-x86_64.zip'")
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-gui-windows-x86_64
           path: dist/gui-windows-x86_64
@@ -920,20 +922,20 @@ jobs:
     needs: build-linux
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: nintoolbox-linux-x86_64
           path: artifact
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install Tk (tkinter's runtime library) and native build deps
         run: |
@@ -975,8 +977,9 @@ jobs:
           # 3. sharpii (TheShadowEevee/Sharpii-NetCore)
           if git clone --depth 1 https://github.com/TheShadowEevee/Sharpii-NetCore.git /tmp/sharpii-src 2>/dev/null; then
             (cd /tmp/sharpii-src && \
+              sed -i.bak 's/net7\.0/net10.0/' Sharpii.csproj && \
               dotnet publish -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true && \
-              cp bin/Release/net7.0/linux-x64/publish/Sharpii "$GITHUB_WORKSPACE/extra_tools/sharpii") || \
+              cp bin/Release/net10.0/linux-x64/publish/Sharpii "$GITHUB_WORKSPACE/extra_tools/sharpii") || \
               echo "::warning::sharpii source build failed -- skipping"
           fi
 
@@ -1106,7 +1109,7 @@ jobs:
           chmod +x pyinst_dist/nintoolbox/install.sh
           cd pyinst_dist && tar -czf ../dist/gui-linux-x86_64/nintoolbox-linux-x86_64.tar.gz nintoolbox
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nintoolbox-gui-linux-x86_64
           path: dist/gui-linux-x86_64
@@ -1125,8 +1128,8 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           path: dist
       - name: Create source archive

@@ -358,11 +358,28 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 			if (search_folder_lookup && search_folders && search_path_lookup && search_path_indices
 				&& search_paths)
 			{
-				fread (search_folder_lookup, sizeof (hash_to_index_t), folder_cnt, f_arc);
-				fread (search_folders, sizeof (search_list_entry_t), folder_cnt, f_arc);
-				fread (search_path_lookup, sizeof (hash_to_index_t), pidx_cnt, f_arc);
-				fread (search_path_indices, sizeof (u32), pidx_cnt, f_arc);
-				fread (search_paths, sizeof (search_list_entry_t), path_cnt, f_arc);
+				// The search tables are optional: drop them all if any is truncated.
+				if (fread (search_folder_lookup, sizeof (hash_to_index_t), folder_cnt, f_arc)
+						!= folder_cnt
+					|| fread (search_folders, sizeof (search_list_entry_t), folder_cnt, f_arc)
+						!= folder_cnt
+					|| fread (search_path_lookup, sizeof (hash_to_index_t), pidx_cnt, f_arc)
+						!= pidx_cnt
+					|| fread (search_path_indices, sizeof (u32), pidx_cnt, f_arc) != pidx_cnt
+					|| fread (search_paths, sizeof (search_list_entry_t), path_cnt, f_arc)
+						!= path_cnt)
+				{
+					FREE (search_folder_lookup);
+					FREE (search_folders);
+					FREE (search_path_lookup);
+					FREE (search_path_indices);
+					FREE (search_paths);
+					search_folder_lookup = 0;
+					search_folders = 0;
+					search_path_lookup = 0;
+					search_path_indices = 0;
+					search_paths = 0;
+				}
 			}
 		}
 	}
@@ -428,20 +445,27 @@ enumError ExtractSmashARC (ccp arg, ccp basedir, uint depth)
 		return ERR_CANT_CREATE;
 	}
 
-	// Read DirectoryList
-	fread (dirs, sizeof (dir_list_v1_t), fs_hdr.folder_count, f_arc);
-
-	// Read DirectoryOffset
-	fread (dir_offsets, sizeof (dir_offset_v1_t), total_dir_offsets, f_arc);
-
-	// Skip HashFolderCount
-	fseeko (f_arc, (off_t)(8 * fs_hdr.hash_folder_count), SEEK_CUR);
-
-	// Read FileInformationV1
-	fread (file_infos, sizeof (file_info_v1_t), total_file_infos, f_arc);
-
-	// Read SubFileInfo
-	fread (sub_files, sizeof (sub_file_info_v1_t), total_sub_files, f_arc);
+	// DirectoryList, DirectoryOffset, (skipped) HashFolderCount, FileInformationV1, SubFileInfo
+	if (fread (dirs, sizeof (dir_list_v1_t), fs_hdr.folder_count, f_arc) != fs_hdr.folder_count
+		|| fread (dir_offsets, sizeof (dir_offset_v1_t), total_dir_offsets, f_arc)
+			!= total_dir_offsets
+		|| fseeko (f_arc, (off_t)(8 * fs_hdr.hash_folder_count), SEEK_CUR)
+		|| fread (file_infos, sizeof (file_info_v1_t), total_file_infos, f_arc) != total_file_infos
+		|| fread (sub_files, sizeof (sub_file_info_v1_t), total_sub_files, f_arc)
+			!= total_sub_files)
+	{
+		FREE (dirs);
+		FREE (dir_offsets);
+		FREE (file_infos);
+		FREE (sub_files);
+		FREE (search_folder_lookup);
+		FREE (search_folders);
+		FREE (search_path_lookup);
+		FREE (search_path_indices);
+		FREE (search_paths);
+		fclose (f_arc);
+		return ERR_READ_FAILED;
+	}
 
 	// Extraction phase:
 	// Iterate through every directory and its associated files

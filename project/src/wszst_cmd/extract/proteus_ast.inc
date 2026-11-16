@@ -33,7 +33,15 @@ static int proteus_texture_cb (const SpookyAstTexture_t *t, void *vctx)
 		return 1;
 	}
 	u8 *p = tpl;
-#define PUT32(v) do { const uint v_ = (v); *p++ = v_ >> 24; *p++ = v_ >> 16; *p++ = v_ >> 8; *p++ = v_; } while (0)
+#define PUT32(v)                                                                                   \
+	do                                                                                             \
+	{                                                                                              \
+		const uint v_ = (v);                                                                       \
+		*p++ = (u8)(v_ >> 24);                                                                     \
+		*p++ = (u8)(v_ >> 16);                                                                     \
+		*p++ = (u8)(v_ >> 8);                                                                      \
+		*p++ = (u8)v_;                                                                             \
+	} while (0)
 	PUT32 (0x0020af30); PUT32 (1); PUT32 (0x0c);
 	PUT32 (0x14); PUT32 (pal ? 0x30 : 0);
 	*p++ = t->height >> 8; *p++ = t->height; *p++ = t->width >> 8; *p++ = t->width;

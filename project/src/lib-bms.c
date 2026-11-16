@@ -272,6 +272,8 @@ static void set_var (bms_ctx_t *ctx, const char *name, int64_t value)
 static void set_str_var (bms_ctx_t *ctx, const char *name, const char *s)
 {
 	var_t *v = find_var (ctx, name, true);
+	if (!v)
+		return; // variable table full
 	strncpy (v->sval, s, sizeof (v->sval) - 1);
 	v->sval[sizeof (v->sval) - 1] = 0;
 	v->is_str = true;

@@ -31,7 +31,15 @@ static enumError wiitex_write_png (ccp dir, uint index, const u8 *rec, const u8 
 	if (!tpl)
 		return ERR_OUT_OF_MEMORY;
 	u8 *p = tpl;
-#define PUT32(v) do { const uint v_ = (v); *p++ = v_ >> 24; *p++ = v_ >> 16; *p++ = v_ >> 8; *p++ = v_; } while (0)
+#define PUT32(v)                                                                                   \
+	do                                                                                             \
+	{                                                                                              \
+		const uint v_ = (v);                                                                       \
+		*p++ = (u8)(v_ >> 24);                                                                     \
+		*p++ = (u8)(v_ >> 16);                                                                     \
+		*p++ = (u8)(v_ >> 8);                                                                      \
+		*p++ = (u8)v_;                                                                             \
+	} while (0)
 	PUT32 (0x0020af30); PUT32 (1); PUT32 (0x0c);
 	PUT32 (0x14); PUT32 (0);
 	*p++ = h >> 8; *p++ = h; *p++ = w >> 8; *p++ = w;
@@ -59,7 +67,15 @@ static enumError wiitex_write_raw (ccp png, uint w, uint h, uint fmt, const u8 *
 	if (!tpl)
 		return ERR_OUT_OF_MEMORY;
 	u8 *p = tpl;
-#define PUT32(v) do { const uint v_ = (v); *p++ = v_ >> 24; *p++ = v_ >> 16; *p++ = v_ >> 8; *p++ = v_; } while (0)
+#define PUT32(v)                                                                                   \
+	do                                                                                             \
+	{                                                                                              \
+		const uint v_ = (v);                                                                       \
+		*p++ = (u8)(v_ >> 24);                                                                     \
+		*p++ = (u8)(v_ >> 16);                                                                     \
+		*p++ = (u8)(v_ >> 8);                                                                      \
+		*p++ = (u8)v_;                                                                             \
+	} while (0)
 	PUT32 (0x0020af30); PUT32 (1); PUT32 (0x0c);
 	PUT32 (0x14); PUT32 (0);
 	*p++ = h >> 8; *p++ = h; *p++ = w >> 8; *p++ = w;

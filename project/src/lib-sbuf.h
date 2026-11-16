@@ -50,7 +50,8 @@ static inline void sb_puts (sbuf_t *b, const char *s)
 	sb_write (b, s, strlen (s));
 }
 
-static void sb_printf (sbuf_t *b, const char *fmt, ...) __attribute__ ((format (printf, 2, 3), unused));
+static void sb_printf (sbuf_t *b, const char *fmt, ...)
+	__attribute__ ((format (NTB_PRINTF, 2, 3), unused));
 static void sb_printf (sbuf_t *b, const char *fmt, ...)
 {
 	if (b->fail)

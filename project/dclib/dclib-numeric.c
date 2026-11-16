@@ -3460,6 +3460,54 @@ ccp PrintRefTimeUTC (
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// strftime() wrapper: the Windows CRT knows neither the C99/POSIX %F and %T nor %e and %k, so
+// expand them to their portable equivalents first (%e and %k lose only the blank padding).
+static size_t dc_strftime (char *buf, size_t size, ccp format, const struct tm *tm)
+{
+#ifdef _WIN32
+	char fmt[256];
+	size_t o = 0;
+	for (ccp f = format; *f && o + 12 < sizeof (fmt); f++)
+	{
+		ccp rep = 0;
+		if (*f == '%' && f[1])
+			switch (f[1])
+			{
+				case 'F':
+					rep = "%Y-%m-%d";
+					break;
+				case 'T':
+					rep = "%H:%M:%S";
+					break;
+				case 'e':
+					rep = "%d";
+					break;
+				case 'k':
+					rep = "%H";
+					break;
+			}
+		if (rep)
+		{
+			const size_t l = strlen (rep);
+			memcpy (fmt + o, rep, l);
+			o += l;
+			f++;
+		}
+		else
+		{
+			if (*f == '%' && f[1])
+				fmt[o++] = *f++;
+			fmt[o++] = *f;
+		}
+	}
+	fmt[o] = 0;
+	format = fmt;
+#endif
+	return tm ? strftime (buf, size, format, tm) : 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 ccp PrintTimeByFormat (
 	// returns temporary buffer by GetCircBuf();
 
@@ -3470,7 +3518,7 @@ ccp PrintTimeByFormat (
 	char buf[100];
 	const time_t reftime = tim ? tim : time (0);
 	struct tm *tm = localtime (&reftime);
-	const uint len = strftime (buf, sizeof (buf), format, tm);
+	const uint len = (uint)dc_strftime (buf, sizeof (buf), format, tm);
 	return CopyCircBuf (buf, len + 1);
 }
 
@@ -3486,7 +3534,7 @@ ccp PrintTimeByFormatUTC (
 	char buf[100];
 	const time_t reftime = tim ? tim : time (0);
 	struct tm *tm = gmtime (&reftime);
-	const uint len = strftime (buf, sizeof (buf), format, tm);
+	const uint len = (uint)dc_strftime (buf, sizeof (buf), format, tm);
 	return CopyCircBuf (buf, len + 1);
 }
 
@@ -3503,7 +3551,7 @@ ccp PrintNSecByFormat (
 {
 	char buf[100];
 	struct tm *tm = localtime (&tim);
-	const uint len = strftime (buf, sizeof (buf), format, tm);
+	const uint len = (uint)dc_strftime (buf, sizeof (buf), format, tm);
 	char *at = strchr (buf, '@');
 	if (at)
 	{
@@ -3530,7 +3578,7 @@ ccp PrintNSecByFormatUTC (
 {
 	char buf[100];
 	struct tm *tm = gmtime (&tim);
-	const uint len = strftime (buf, sizeof (buf), format, tm);
+	const uint len = (uint)dc_strftime (buf, sizeof (buf), format, tm);
 	char *at = strchr (buf, '@');
 	if (at)
 	{

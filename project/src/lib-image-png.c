@@ -111,8 +111,8 @@ static void png_read_func (png_structp png_ptr, png_bytep dest, png_size_t size)
 		errno = 0;
 	}
 
-	if (size > 0)
-		fread (dest, 1, size, pinfo->file->f);
+	if (size > 0 && fread (dest, 1, size, pinfo->file->f) != size)
+		png_error (png_ptr, "unexpected end of PNG file");
 }
 
 //

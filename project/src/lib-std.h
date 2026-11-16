@@ -42,6 +42,16 @@
 
 #include "version.h"
 #include "dclib-types.h"
+#include <stdio.h>
+
+// printf-style format attribute for the project's own formatting helpers. On MinGW the plain
+// "printf" archetype means msvcrt's printf (no %zu); with __USE_MINGW_ANSI_STDIO the headers
+// name the C99 family in __MINGW_PRINTF_FORMAT.
+#ifdef __MINGW_PRINTF_FORMAT
+#define NTB_PRINTF __MINGW_PRINTF_FORMAT
+#else
+#define NTB_PRINTF printf
+#endif
 
 #include <sys/stat.h>
 #include <ctype.h>

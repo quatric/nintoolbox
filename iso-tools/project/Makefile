@@ -342,11 +342,10 @@ ifeq ($(SYSTEM),mac)
   CFLAGS	+= -Wno-typedef-redefinition -Wno-gnu-variable-sized-type-not-at-end
   CFLAGS	+= -Wno-address-of-packed-member
   LDFLAGS	+= -L/opt/homebrew/lib -L/usr/local/lib
-  # Apple's new linker (Xcode 15+) rejects the under-aligned data emitted for
-  # some dclib tables; the classic linker still accepts them.
-  ifeq ($(shell uname -m),arm64)
-    LDFLAGS	+= -Wl,-ld_classic
-  endif
+  # Apple's new linker gives large common symbols a huge alignment and then
+  # rejects the segment layout; -ld_classic is deprecated (and gone in newer
+  # Xcode), so keep such data out of __common instead.
+  CFLAGS	+= -fno-common
 else
   LDFLAGS	+= -static-libgcc
 endif

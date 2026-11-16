@@ -1442,7 +1442,8 @@ int main_wrapper (int argc, char **argv)
 				case C_HARDLINKS:
 					if (!quiet)
 						printf ("CREATE HARDLINK %s\n", dest);
-					link (mypath, dest);
+					if (link (mypath, dest))
+						ERROR1 (ERR_CANT_CREATE, "Can't create hard link: %s\n", dest);
 					break;
 
 				case C_SOFTLINKS:
@@ -1457,7 +1458,8 @@ int main_wrapper (int argc, char **argv)
 					// Makefile, only wired up for cygwin/mac targets), so
 					// it's simply a no-op here rather than adding that.
 #else
-					symlink (srcname, dest);
+					if (symlink (srcname, dest))
+						ERROR1 (ERR_CANT_CREATE, "Can't create soft link: %s\n", dest);
 #endif
 					break;
 

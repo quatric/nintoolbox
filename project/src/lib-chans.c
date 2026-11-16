@@ -43,7 +43,7 @@ static void csb_grow (chans_sb_t *s, size_t extra)
 }
 
 static void csb_printf (chans_sb_t *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__attribute__ ((format (NTB_PRINTF, 2, 3)));
 
 static void csb_printf (chans_sb_t *s, const char *fmt, ...)
 {

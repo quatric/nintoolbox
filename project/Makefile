@@ -149,6 +149,10 @@ DEFINES1	+= -DUIOPT_INDEX_SIZE=400	# define max number of options (default 0x100
 CFLAGS		+= -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/liblz4
 CFLAGS		+= -std=gnu99 -D_GNU_SOURCE -fomit-frame-pointer -fno-strict-aliasing -funroll-loops
 CFLAGS		+= -Wall -Wno-parentheses -Wno-unused-function
+# No tentative-definition commons: Apple clang still emits them, and ld then gives large
+# ones 32 KiB alignment ("reducing alignment of section __DATA,__common"). GCC >= 10 already
+# defaults to this, so the Linux builds prove there are no duplicate definitions.
+CFLAGS		+= -fno-common
 CFLAGS		+= -Wno-deprecated-declarations
 CFLAGS		+= $(DCLIB_CFLAGS)
 CFLAGS		+= -O3 -Isrc -I$(UI) -I.
@@ -201,6 +205,9 @@ ifeq ($(SYSTEM),mingw64)
  # x86_64-w64-mingw32 (mingw-w64 ships neither); see setup.sh's mingw64
  # case. -static-libgcc/-static-libstdc++ keep the .exe from depending on
  # libgcc_s_seh-1.dll / libstdc++-6.dll at runtime.
+ # MinGW's default msvcrt printf has no %zu / %lld: use mingw-w64's C99 stdio so the
+ # size_t formats used throughout print correctly instead of shifting the arguments.
+ CFLAGS	+= -D__USE_MINGW_ANSI_STDIO=1
  ifneq ($(MINGW_LIBS),)
   CFLAGS	+= -I$(MINGW_LIBS)/include
   LDFLAGS	+= -L$(MINGW_LIBS)/lib
@@ -269,7 +276,8 @@ else
   endif
   SENTRY_LIBDIR := $(SENTRY_DIR)/$(SENTRY_BUILD_DIR)
   ifeq ($(SYSTEM),mac)
-    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl -lz
+    # -lz comes with $(LIBPNG); listing it twice makes ld64 warn on every link.
+    SENTRY_LIBS := $(SENTRY_LIBDIR)/libsentry.a -lcurl
   else
     # On Linux, sentry's inproc backend uses a vendored libunwind for stack
     # unwinding (vendor/libunwind, CMake target "unwind"). CMake only links

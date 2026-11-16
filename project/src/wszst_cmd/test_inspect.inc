@@ -1998,7 +1998,7 @@ static enumError cmd_sha1 ()
 				{
 					struct tm *tm = localtime (&szs.fatt.mtime.tv_sec);
 					char timbuf[40];
-					strftime (timbuf, sizeof (timbuf), "%F %T ", tm);
+					strftime (timbuf, sizeof (timbuf), "%Y-%m-%d %H:%M:%S ", tm);
 					fputs (timbuf, stdout);
 				}
 				if (long_count)

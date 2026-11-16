@@ -69,7 +69,7 @@ static void nsb_puts (nsmbw_sb_t *s, const char *str)
 }
 
 static void nsb_printf (nsmbw_sb_t *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__attribute__ ((format (NTB_PRINTF, 2, 3)));
 
 static void nsb_printf (nsmbw_sb_t *s, const char *fmt, ...)
 {

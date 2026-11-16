@@ -42,7 +42,7 @@ enumError ParseXCIHeader (xci_header_t *hdr, const u8 *data, size_t size)
 	hdr->magic = rd_le32 (h + 0x00);
 	hdr->rom_area_start_page = rd_le32 (h + 0x04);
 	hdr->backup_area_start_page = rd_le32 (h + 0x08);
-	hdr->key_index = h + 0x0C ? *(h + 0x0C) : 0;
+	hdr->key_index = h[0x0C];
 	hdr->rom_size = h[0x0D];
 	hdr->version = h[0x0E];
 	hdr->flags = h[0x0F];

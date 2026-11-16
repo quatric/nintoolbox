@@ -11,33 +11,79 @@ static long retro_lzo1x (const u8 *ip0, size_t n, u8 *op0, size_t cap)
 {
  const u8*ip=ip0,*ie=ip0+n; u8*op=op0,*oe=op0+cap; size_t t; const u8*m;
 #define NEED(k) if((size_t)(ie-ip)<(size_t)(k)) goto err
-#define OUT(k) if((size_t)(oe-op)<(size_t)(k)) goto err
+#undef ROOM
+#define ROOM(k)                                                                                    \
+ if ((size_t)(oe - op) < (size_t)(k))                                                              \
+ goto err
  NEED(1); t=*ip;
- if(t>17){ip++;t-=17; if(t<4) goto match_next; NEED(t);OUT(t);memcpy(op,ip,t);op+=t;ip+=t; goto first_lit;}
+ if (t > 17)
+ {
+	 ip++;
+	 t -= 17;
+	 if (t < 4)
+		 goto match_next;
+	 NEED (t);
+	 ROOM (t);
+	 memcpy (op, ip, t);
+	 op += t;
+	 ip += t;
+	 goto first_lit;
+ }
  for(;;){
   NEED(1); t=*ip++;
   if(t>=16) goto match;
   if(t==0){ for(;;){NEED(1); if(*ip) break; t+=255;ip++;} t+=15+*ip++; }
-  t+=3; NEED(t);OUT(t);memcpy(op,ip,t);op+=t;ip+=t;
+  t += 3;
+  NEED (t);
+  ROOM (t);
+  memcpy (op, ip, t);
+  op += t;
+  ip += t;
  first_lit:
   NEED(1); t=*ip++;
   if(t>=16) goto match;
   NEED(1); if((size_t)(op-op0)<(size_t)(1+0x800+(t>>2)+(*ip<<2))) goto err;
-  m=op-(1+0x800)-(t>>2)-(*ip++<<2); OUT(3); op[0]=m[0];op[1]=m[1];op[2]=m[2];op+=3; goto match_done;
+  m = op - (1 + 0x800) - (t >> 2) - (*ip++ << 2);
+  ROOM (3);
+  op[0] = m[0];
+  op[1] = m[1];
+  op[2] = m[2];
+  op += 3;
+  goto match_done;
  match:
   for(;;){
   if(t>=64){ NEED(1); m=op-1-((t>>2)&7)-(*ip++<<3); t=(t>>5)-1+0; }
   else if(t>=32){ t&=31; if(!t){for(;;){NEED(1); if(*ip) break; t+=255;ip++;} t+=31+*ip++;} NEED(2); m=op-1-((ip[0]>>2)+(ip[1]<<6)); ip+=2; }
   else if(t>=16){ m=op-((t&8)<<11); t&=7; if(!t){for(;;){NEED(1); if(*ip) break; t+=255;ip++;} t+=7+*ip++;} NEED(2); m-=(ip[0]>>2)+(ip[1]<<6); ip+=2; if(m==op) goto done; m-=0x4000; }
-  else { NEED(1); m=op-1-(t>>2)-(*ip++<<2); if(m<op0||m>=op) goto err; OUT(2); op[0]=m[0];op[1]=m[1];op+=2; goto match_done; }
+  else
+  {
+	  NEED (1);
+	  m = op - 1 - (t >> 2) - (*ip++ << 2);
+	  if (m < op0 || m >= op)
+		  goto err;
+	  ROOM (2);
+	  op[0] = m[0];
+	  op[1] = m[1];
+	  op += 2;
+	  goto match_done;
+  }
   if(m<op0||m>=op) goto err;
-  t+=2; OUT(t); while(t--) *op++=*m++;
+  t += 2;
+  ROOM (t);
+  while (t--)
+	  *op++ = *m++;
   goto match_done;
   }
  match_done:
   NEED(0); t=ip[-2]&3; if(!t) continue;
  match_next:
-  NEED(t+1);OUT(t);memcpy(op,ip,t);op+=t;ip+=t; t=*ip++; goto match;
+	 NEED (t + 1);
+	 ROOM (t);
+	 memcpy (op, ip, t);
+	 op += t;
+	 ip += t;
+	 t = *ip++;
+	 goto match;
  }
 done: return op-op0;
 err: return -1;
@@ -119,13 +165,12 @@ static enumError extract_retropak_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	size_t so[8] = {0}, ss[8] = {0}, pos = (0x44 + 8 * (size_t)ns + 0x3f) & ~(size_t)0x3f;
+	size_t ss[8] = { 0 }, pos = (0x44 + 8 * (size_t)ns + 0x3f) & ~(size_t)0x3f;
 	const u8 *strg = 0, *rshd = 0, *data = 0;
 	size_t strg_n = 0, rshd_n = 0, data_n = 0;
 	for (uint i = 0; i < ns; i++)
 	{
 		ss[i] = rd_be32 (raw + 0x48 + 8 * (size_t)i);
-		so[i] = pos;
 		if (pos > sz || ss[i] > sz - pos)
 		{
 			FREE (raw);

@@ -66,7 +66,8 @@ static void ksb_puts (kp_sb_t *s, const char *str)
 	}
 }
 
-static void ksb_printf (kp_sb_t *s, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+static void ksb_printf (kp_sb_t *s, const char *fmt, ...)
+	__attribute__ ((format (NTB_PRINTF, 2, 3)));
 
 static void ksb_printf (kp_sb_t *s, const char *fmt, ...)
 {

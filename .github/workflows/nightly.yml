@@ -32,7 +32,7 @@ jobs:
       release: ${{ steps.decide.outputs.release }}
       tag: ${{ steps.decide.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - id: decide
@@ -66,8 +66,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.gate.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
         with:
           path: dist
       - name: Package each target

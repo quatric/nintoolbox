@@ -13,6 +13,11 @@
 #include "phive-tables.inc"
 #include <stdio.h>
 #include <math.h>
+#ifdef __MINGW_PRINTF_FORMAT
+#define PHIVE_PRINTF __MINGW_PRINTF_FORMAT
+#else
+#define PHIVE_PRINTF printf
+#endif
 
 #define PHIVE_COUNT(a) ((uint)(sizeof (a) / sizeof ((a)[0])))
 
@@ -37,7 +42,8 @@ typedef struct sbuf_t
 	bool fail;
 } sbuf_t;
 
-static void sb_printf (sbuf_t *b, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
+static void sb_printf (sbuf_t *b, const char *fmt, ...)
+	__attribute__ ((format (PHIVE_PRINTF, 2, 3)));
 static void sb_printf (sbuf_t *b, const char *fmt, ...)
 {
 	if (b->fail)

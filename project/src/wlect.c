@@ -930,7 +930,7 @@ static enumError cmd_timestamp ()
 						const uint size = sig.len - (equal - sig.ptr);
 						memset (equal, 0, size);
 						struct tm *tm = gmtime (&timestamp);
-						strftime (equal, size, "%F %T", tm);
+						strftime (equal, size, "%Y-%m-%d %H:%M:%S", tm);
 					}
 				}
 			}
