@@ -98,7 +98,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **BIGF** | `.big` | Electronic Arts Wii titles |
 | **BIGFILE TOC/DAT (DKAP)** | `BIGFILEn.TOC` + `.DAT` | *Totally Spies! Totally Party* |
 | **Bj engine** | `.tx1`/`.tx2`, `.mtm`, `.bsi`, `.bsm` | *Super Karts* |
-| **Blitz REV** | `.rev`, `.gcp` | *The House of the Dead: Overkill* |
+| **Blitz REV** | `.rev`, `.gcp` | *The House of the Dead: Overkill*, *iCarly* |
 | **Blue Castle BIG** | `.big`, `.dspi` | *The Bigs*, *The Bigs 2* |
 | **Blue Tongue TRB** | `.trb` | *de Blob 2* |
 | **BNS Archive** | `.bns` | *Samurai Warriors 3* |

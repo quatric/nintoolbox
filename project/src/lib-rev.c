@@ -266,10 +266,62 @@ static bool rev_ovk_tex (const u8 *d, uint size, uint *w, uint *h, uint *gx, uin
 	return (u64)0x60 + *pal_count * 2 + bytes <= size;
 }
 
+// The 2009 builds (iCarly) keep the 0x20-byte resource header {u32 0, u32 type (0 = texture), u32
+// name CRC, u32 total size} and follow it with u16 width / height @0x24 / 0x26, u16 format @0x28,
+// u8 mipmap count @0x2c, u8 frame count @0x2d, u32 texels of one frame's mip chain @0x34 and
+// resource-relative u32 offsets @0x3c (palette, 0 = none), @0x40 (pixels, 0x60) and @0x44 (end).
+// The format codes are the bUploadTexture ones above plus 8 (23 RGBA8, 24 RGB5A3, 25/26 CI8 and
+// 27/28 CI4 with an RGB565/RGB5A3 palette, 29 CMPR, 31 RGB565); 35 is not in the old table and only
+// used by "indwarp" distortion maps, read as IA8. Animated textures store their frames one after
+// another (sharing the palette); the first frame's base level is decoded.
+typedef struct
+{
+	uint w, h, img, pal;
+	rev_texfmt_t f;
+} rev_v3_tex_t;
+
+static bool rev_v3_tex (const u8 *d, uint size, rev_v3_tex_t *t)
+{
+	if (!d || size < 0x80 || rd_be32 (d) || rd_be32 (d + 4) || rd_be32 (d + 12) != size)
+		return false;
+	t->w = rev_be16 (d + 0x24);
+	t->h = rev_be16 (d + 0x26);
+	const uint fmt = rev_be16 (d + 0x28);
+	if (!t->w || !t->h || t->w > 2048 || t->h > 2048 || (t->w & (t->w - 1)) || (t->h & (t->h - 1))
+		|| !d[0x2c] || !d[0x2d] || rd_be32 (d + 0x34) < t->w * t->h
+		|| rd_be32 (d + 0x34) > t->w * t->h * 2)
+		return false;
+	if (fmt == 35)
+		t->f = (rev_texfmt_t) { 3, 0, 0 };
+	else if (fmt < 8 || !rev_texfmt (fmt - 8, &t->f))
+		return false;
+	t->img = rd_be32 (d + 0x40);
+	t->pal = rd_be32 (d + 0x3c);
+	const u32 end = rd_be32 (d + 0x44);
+	if (t->img < 0x60 || end > size || t->img >= end)
+		return false;
+	const uint bits = t->f.gx == 6					   ? 32
+		: t->f.gx == 3 || t->f.gx == 4 || t->f.gx == 5 ? 16
+		: t->f.gx == 1 || t->f.gx == 9				   ? 8
+													   : 4;
+	const uint bw = bits == 4 ? 8 : bits == 8 ? 8 : 4, bh = bits == 4 ? 8 : 4;
+	const u64 need = (u64)((t->w + bw - 1) / bw * bw) * ((t->h + bh - 1) / bh * bh) * bits / 8;
+	const u32 limit = t->pal > t->img ? t->pal : end;
+	if (t->img + need > limit)
+		return false;
+	if (!t->f.pal_count)
+		return true;
+	return t->pal >= 0x60 && (t->pal >= t->img + need || t->pal + t->f.pal_count * 2u <= t->img)
+		&& (u64)t->pal + t->f.pal_count * 2u <= size;
+}
+
 bool IsBlitzTexture (const u8 *d, uint size)
 {
 	uint ow, oh, ogx, opc;
 	if (rev_ovk_tex (d, size, &ow, &oh, &ogx, &opc))
+		return true;
+	rev_v3_tex_t v3;
+	if (rev_v3_tex (d, size, &v3))
 		return true;
 	if (!d || size < 0xa0)
 		return false;
@@ -303,6 +355,18 @@ enumError DecodeBlitzTexture (u8 **rgba, uint *width, uint *height, const u8 *d,
 			}
 			return e2;
 		}
+		rev_v3_tex_t v3;
+		if (rev_v3_tex (d, size, &v3))
+		{
+			const enumError e3 = DecodeGXTexture_RGBA (rgba, v3.w, v3.h, v3.f.gx, d + v3.img,
+				size - v3.img, v3.f.pal_count ? d + v3.pal : 0, v3.f.pal_count, v3.f.pal_fmt);
+			if (!e3)
+			{
+				*width = v3.w;
+				*height = v3.h;
+			}
+			return e3;
+		}
 	}
 	if (!IsBlitzTexture (d, size))
 		return ERR_NOTHING_TO_DO;
@@ -327,15 +391,26 @@ enumError DecodeBlitzTexture (u8 **rgba, uint *width, uint *height, const u8 *d,
 #define BL_NODE_SIZE 0x134
 #define BL_MAX_NODES 4096
 
-bool IsBlitzActor (const u8 *d, uint size)
+// Node layout shift: the 2009 builds (iCarly) insert 16 bytes after the scale vector, moving every
+// node field from +0x70 on (type, index, mesh, sibling/parent/child links) up by 0x10. Returns
+// 0 or 0x10, or -1 if this is not an actor.
+static int bl_node_shift (const u8 *d, uint size)
 {
 	if (!d || size < 0x140 || rd_be32 (d) || rd_be32 (d + 4) != 0x100)
-		return false;
+		return -1;
 	const u32 root = rd_be32 (d + 0xa0);
-	if (root < 0x100 || (u64)root + BL_NODE_SIZE > size)
-		return false;
-	const uint type = d[root + 0x70];
-	return type >= 1 && type <= 7;
+	if (root < 0x100)
+		return -1;
+	for (uint sh = 0; sh <= 0x10; sh += 0x10)
+		if ((u64)root + BL_NODE_SIZE + sh <= size && d[root + 0x70 + sh] >= 1
+			&& d[root + 0x70 + sh] <= 7)
+			return (int)sh;
+	return -1;
+}
+
+bool IsBlitzActor (const u8 *d, uint size)
+{
+	return bl_node_shift (d, size) >= 0;
 }
 
 // Row-major 3x4 affine.
@@ -391,6 +466,7 @@ typedef struct
 	u32 pos, nrm, tex, clr, dl, tab, batches, nbatches, prims, pstride, nrm_stride;
 	bl_mat_t mat;
 	const char *name;
+	uint bstride, b_np, b_crc; // batch record size and the prim-count / texture-CRC fields
 } bl_src_t;
 
 typedef struct
@@ -458,6 +534,7 @@ typedef struct
 	BlitzTexNameFunc texname;
 	void *ctx;
 	u32 *mat_crc; // parallel to model->materials
+	uint sh; // node layout shift, see bl_node_shift()
 } bl_ctx_t;
 
 static int bl_material (bl_ctx_t *c, u32 crc)
@@ -501,15 +578,15 @@ static bool bl_add_src (bl_ctx_t *c, const bl_src_t *s)
 {
 	const u8 *d = c->d;
 	if (!s->nbatches || s->nbatches > 4096 || !s->dl || !s->tab || !s->batches || !s->prims
-		|| !s->pos || !bl_range (c, s->batches, (u64)s->nbatches * 16))
+		|| !s->pos || !s->bstride || !bl_range (c, s->batches, (u64)s->nbatches * s->bstride))
 		return false;
 
 	uint pi = 0;
 	for (uint b = 0; b < s->nbatches; b++)
 	{
-		const u8 *bp = d + s->batches + (u64)b * 16;
-		const uint np = rd_be32 (bp);
-		const u32 crc = rd_be32 (bp + 4);
+		const u8 *bp = d + s->batches + (u64)b * s->bstride;
+		const uint np = rd_be32 (bp + s->b_np);
+		const u32 crc = rd_be32 (bp + s->b_crc);
 		bl_corners_t cor = { 0, 0, 0 };
 		bool ok = true;
 		uint maxp = 0, maxn = 0, maxt = 0;
@@ -656,52 +733,57 @@ static void bl_walk (bl_ctx_t *c, u32 node, const bl_mat_t *parent, uint *count,
 {
 	const u8 *d = c->d;
 	const u32 first = node;
-	for (u32 n = node; n && (u64)n + BL_NODE_SIZE <= c->size; n = rd_be32 (d + n + 0x110))
+	const uint sh = c->sh;
+	for (u32 n = node; n && (u64)n + BL_NODE_SIZE + sh <= c->size; n = rd_be32 (d + n + 0x110 + sh))
 	{
 		if (++*count > BL_MAX_NODES)
 			return;
 		const bl_mat_t local = bl_local (d + n);
 		const bl_mat_t world = bl_mul (parent, &local);
-		if (d[n + 0x70] == 2)
+		if (d[n + 0x70 + sh] == 2)
 		{
-			const u8 *m = d + n + 0x80;
+			const u8 *m = d + n + 0x80 + sh;
 			const u32 flags = rd_be32 (m + 0x4c);
 			bl_src_t s = { rd_be32 (m + 0x50), rd_be32 (m + 0x54), rd_be32 (m + 0x58),
 				rd_be32 (m + 0x5c), rd_be32 (m + 0x60), rd_be32 (m + 0x68), rd_be32 (m + 0x0c),
-				rd_be32 (m + 0x08), rd_be32 (m + 0x10), 8, (flags & 0x100) ? 9u : 3u, world, 0 };
+				rd_be32 (m + 0x08), rd_be32 (m + 0x10), 8, (flags & 0x100) ? 9u : 3u, world, 0,
+				sh ? 0x18u : 16u, sh ? 0x0cu : 0u, sh ? 0x10u : 4u };
 			char name[32];
-			snprintf (name, sizeof (name), "Node%u", rd_be32 (d + n + 0x74));
+			snprintf (name, sizeof (name), "Node%u", rd_be32 (d + n + 0x74 + sh));
 			s.name = name;
 			if ((flags & 0x10) && rd_be32 (m) && bl_add_src (c, &s))
 				*any = true;
 		}
-		const u32 child = rd_be32 (d + n + 0x11c);
+		const u32 child = rd_be32 (d + n + 0x11c + sh);
 		if (child)
 			bl_walk (c, child, &world, count, any);
-		if (rd_be32 (d + n + 0x110) == first)
+		if (rd_be32 (d + n + 0x110 + sh) == first)
 			break;
 	}
 }
 
 model_t *ParseBlitzActor (const u8 *d, uint size, BlitzTexNameFunc texname, void *ctx)
 {
-	if (!IsBlitzActor (d, size))
+	const int sh = bl_node_shift (d, size);
+	if (sh < 0)
 		return 0;
 	model_t *model = CALLOC (1, sizeof (*model));
 	if (!model)
 		return 0;
-	bl_ctx_t c = { model, d, size, texname, ctx, 0 };
+	bl_ctx_t c = { model, d, size, texname, ctx, 0, (uint)sh };
 	bool any = false;
 	static const bl_mat_t ident = { { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 } };
 
 	if (rd_be32 (d + 0xa4) & 1)
 	{
-		// soft skinned: mesh data lives in the actor header (bind pose only)
-		if (rev_be16 (d + 0x52) & 2)
+		// soft skinned: mesh data lives in the actor header (bind pose only). The 2009 layout
+		// (iCarly) prefixes every vertex with two matrix indices and loads a matrix palette per
+		// display list, but its batch records cover only part of the lists; left undecoded.
+		if (!c.sh && (rev_be16 (d + 0x52) & 2))
 		{
 			const bl_src_t s = { rd_be32 (d + 0x60), rd_be32 (d + 0x64), rd_be32 (d + 0x68),
 				rd_be32 (d + 0x6c), rd_be32 (d + 0x58), rd_be32 (d + 0x54), rd_be32 (d + 0x2c),
-				rd_be32 (d + 0x28), rd_be32 (d + 0x30), 18, 3, ident, "Skin" };
+				rd_be32 (d + 0x28), rd_be32 (d + 0x30), 18, 3, ident, "Skin", 16, 0, 4 };
 			any = bl_add_src (&c, &s);
 		}
 	}
