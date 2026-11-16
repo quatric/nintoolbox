@@ -63,15 +63,105 @@ enum
 
 static const u8 thor_sig[8] = { 0x01, 0, 0, 0, 0, 0, 0, 0x02 };
 
+// Layout "v3" (Happy Feet, Wii; header bytes 03 02 02 xx): the 0x40..0x840 area is a table of 256 8-byte BE hash
+// buckets {u32 count, u32 list_offset} (empty = {0, 0xFFFFFFFF}); each list holds count 8-byte BE {u32 id,
+// u32 offset} entries. No sizes are stored: a member runs up to the next higher offset (or the end of the file).
+// Members are mostly 0xABABABAB-enveloped resources, and many are nested v3 packages.
+enum
+{
+	THOR3_BUCKETS = 256,
+	THOR3_TABLE_END = THOR_HEADER_SIZE + THOR3_BUCKETS * 8,
+};
+
+static bool IsThor3Pkg (const u8 *data, size_t size)
+{
+	if (!data || size < THOR3_TABLE_END + 8 || data[0] != 3 || data[1] != 2 || data[2] != 2)
+		return false;
+	uint used = 0;
+	for (uint b = 0; b < THOR3_BUCKETS; b++)
+	{
+		const u32 cnt = rd_be32 (data + THOR_HEADER_SIZE + b * 8);
+		const u32 off = rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4);
+		if (!cnt && off == 0xFFFFFFFF)
+			continue;
+		if (!cnt || off < THOR3_TABLE_END || off > size || (u64)off + (u64)cnt * 8 > size)
+			return false;
+		for (u32 i = 0; i < cnt; i++)
+		{
+			const u32 eo = rd_be32 (data + off + (size_t)i * 8 + 4);
+			if (eo >= size && eo < 0xFFFFFF00u) // 0xFFFFFFxx marks an unresolved (external) reference
+				return false;
+		}
+		used++;
+	}
+	return used > 0;
+}
+
 bool IsThorPkg (const u8 *data, size_t size)
 {
 	if (!data || size < THOR_HEADER_SIZE)
 		return false;
+	if (IsThor3Pkg (data, size))
+		return true;
 	if (memcmp (data, thor_sig, sizeof (thor_sig)))
 		return false;
 	if (memcmp (data + 0x3C, "Thor", 4))
 		return false;
 	return true;
+}
+
+static int thor3_cmp_offset (const void *a, const void *b)
+{
+	const thor_entry_t *x = a, *y = b;
+	return x->offset < y->offset ? -1 : x->offset > y->offset ? 1 : x->id < y->id ? -1 : x->id > y->id;
+}
+
+static enumError ScanThor3Pkg (thor_t *thor, const u8 *data, size_t size)
+{
+	uint total = 0;
+	for (uint b = 0; b < THOR3_BUCKETS; b++)
+		if (rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4) != 0xFFFFFFFF)
+			total += rd_be32 (data + THOR_HEADER_SIZE + b * 8);
+	if (!total || total > 1000000)
+		return ERR_INVALID_DATA;
+	thor->entries = CALLOC (total, sizeof (thor_entry_t));
+	if (!thor->entries)
+		return ERR_CANT_CREATE;
+	uint n = 0;
+	for (uint b = 0; b < THOR3_BUCKETS; b++)
+	{
+		const u32 cnt = rd_be32 (data + THOR_HEADER_SIZE + b * 8);
+		const u32 off = rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4);
+		if (off == 0xFFFFFFFF)
+			continue;
+		for (u32 i = 0; i < cnt; i++)
+		{
+			const u32 eo = rd_be32 (data + off + (size_t)i * 8 + 4);
+			if (eo >= size)
+				continue; // unresolved reference, no data in this package
+			thor->entries[n].id = rd_be32 (data + off + (size_t)i * 8);
+			thor->entries[n].offset = eo;
+			n++;
+		}
+	}
+	if (!n)
+	{
+		FREE (thor->entries);
+		thor->entries = 0;
+		return ERR_INVALID_DATA;
+	}
+	qsort (thor->entries, n, sizeof (*thor->entries), thor3_cmp_offset);
+	for (uint i = 0; i < n; i++)
+	{
+		uint j = i + 1;
+		while (j < n && thor->entries[j].offset == thor->entries[i].offset)
+			j++;
+		const u32 end = j < n ? thor->entries[j].offset : (u32)size;
+		thor->entries[i].size = end - thor->entries[i].offset;
+	}
+	thor->n_entries = n;
+	thor->v3 = true;
+	return ERR_OK;
 }
 
 static void copy_padded_name (char *dest, size_t dest_size, const u8 *src, size_t src_size)
@@ -98,6 +188,9 @@ enumError ScanThorPkg (thor_t *thor, const u8 *data, size_t size)
 	thor->raw_size = size;
 	copy_padded_name (thor->name, sizeof (thor->name), data + 0x10, 12);
 	copy_padded_name (thor->category, sizeof (thor->category), data + 0x1C, 12);
+
+	if (IsThor3Pkg (data, size))
+		return ScanThor3Pkg (thor, data, size);
 
 	// walk the mostly-empty 8-byte slot run to find the { 0xFFFFFFFF, count }
 	// / { table_offset, 0 } marker pair.
@@ -258,9 +351,15 @@ enumError ExtractThorPkg (ccp arg, ccp basedir, uint depth)
 
 		char envname[128];
 		char out_path[PATH_MAX];
-		if (try_envelope_name (blob, e->size, e->id, envname, sizeof (envname))
-			&& OwnedNameOk (envname))
+		const bool named = try_envelope_name (blob, e->size, e->id, envname, sizeof (envname));
+		if (named)
+			for (char *c = envname; *c; c++)
+				if (*c == ':' || *c == '*' || *c == '?' || *c == '"' || *c == '<' || *c == '>' || *c == '|')
+					*c = '_';
+		if (named && OwnedNameOk (envname))
 			snprintf (out_path, sizeof (out_path), "%s/%04u_%s", dest, i, envname);
+		else if (thor.v3 && IsThor3Pkg (blob, e->size))
+			snprintf (out_path, sizeof (out_path), "%s/%04u_%08x.wii", dest, i, e->id);
 		else
 			snprintf (out_path, sizeof (out_path), "%s/%04u_%08x.bin", dest, i, e->id);
 

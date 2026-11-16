@@ -33,6 +33,7 @@ typedef struct thor_t
 	u32 table_offset; // absolute offset of the resource table
 	uint n_entries;
 	thor_entry_t *entries;
+	bool v3; // Happy Feet layout: hash-bucket index, sizes derived from the sorted offsets
 } thor_t;
 
 bool IsThorPkg (const u8 *data, size_t size);
