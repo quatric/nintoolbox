@@ -287,7 +287,7 @@ static enumError decompress_nintendo_file3 (
 				|| !strcasecmp (dot, ".lze") || !strcasecmp (dot, ".lzx") || !strcasecmp (dot, ".diff")
 				|| !strcasecmp (dot, ".ovl") || !strcasecmp (dot, ".psdk")
 				|| !strcasecmp (dot, ".cmp") || !strcasecmp (dot, ".lzh8")
-				|| !strcasecmp (dot, ".lh")))
+				|| !strcasecmp (dot, ".lh") || !strcasecmp (dot, ".rz")))
 		{
 			*dot = 0;
 			stripped = true;
