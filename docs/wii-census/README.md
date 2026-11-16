@@ -38,3 +38,23 @@ Web searches (QuickBMS, TCRF, WiiBrew, GitHub) found no public documentation for
 | `VALT` `.vlt` + `VBIN` `.bin` | SimAnimals, SimAnimals Africa, MySims Kingdom, MySims Agents | decoded (Sims vault, see `docs/FORMATS.md`): all eight retail vaults of the four games turn into `attrib.txt`, identical to an independent Python decoder (two `.bin` header layouts, v2 and v3 class tables, array elements stored as `[%05d]` entries) |
 | Unity `.assets` + `.ures` | My Animal Centre, JumpStart (4 games), El Chavo, Big Time Rush, Santa Claus Is Comin' to Town! | textures now decoded from the `.ures` streams (see the Unity row in `docs/FORMATS.md`); AudioClips in those streams are not (no DSP coefficients in the file). *Max & the Magic Marker* (older layout) was already handled |
 | `GGXA` `.bin` archives | Radirgy Noa Wii | now extracted (`GGXArchiver1.00`, Gage BPE members, see `docs/FORMATS.md`); `.pvr` textures decode to PNG; the Ninja `.nj` models now export to OBJ (see `docs/FORMATS.md`); `.njm` motions and `.njc` cameras are only described, not converted |
+
+## Re-check of the remaining gaps (2026-11-16)
+
+Most of the census gap list turned out to be stale or plain data. Findings from fetching the games again:
+
+| Format | Games | State |
+|---|---|---|
+| Mario Sports Mix `stage/*.bin` | Mario Sports Mix | not a gap: LZH8 (`0x40` header, 24-bit LE size) around a BRRES; `wszst xx` already unpacks it and exports the models |
+| Sonic `STA1`/`STP0`-`STP6` | Secret Rings, Black Knight | not a gap: `stp.inc` dumps them to `stp.txt` |
+| Tony Hawk's Downhill Jam `.pak.ngc` | Downhill Jam | not a gap: Neversoft PAK, extracts as NSPAK |
+| Nancy Drew `CVS.DAT` (`CIF `) | The White Wolf of Icicle Creek | index file only; the CIF tree ships already expanded as loose files |
+| Scrabble `AscSortedSyn<N>.bin` | Scrabble Interactive | now exported to `.tsv` (rack-leave values, record counts match `ElementsCount.bin`) |
+| Tunguska `PAKb` | Secret Files: Tunguska | extracted already; members are now named from the archive's own name table |
+| Thor v3 `.wii` | Happy Feet | now extracted (hash-bucket index) |
+| `vaps` `.wii` | Toy Story Mania!, Disney Princess, George of the Jungle, Trivial Pursuit | now extracted flat by hash; contents not decoded. Toy Story Mania's 40 `*_s.wii` sound files use a different multi-table layout (`00000001 00000001 00000020 00000024` header, several typed record tables) and are still open |
+| Happy Feet `.str` / `.sbk` | Happy Feet | headerless GameCube DSP-ADPCM (every 8-byte frame header has a predictor nibble <= 7); the sample rates and coefficients are not in the `.wii` resources checked (`explore_*` members are animation keyframes), so they need the sound engine's loader from `main.dol` |
+| Shawn Johnson `TDXS` (`BDD/*.bin`) | Shawn Johnson Gymnastics | big-endian typed table database: `{"TDXS", u16 1, u32 0x18, u32 string table, u32 end, ..., u32 records, u32 0x20}` then 32-byte records `{hash, type, length, name offset, ..., count, data offset}` over a hashed cell table; semantics not decoded |
+| Samba de Amigo `challenge*.bin` (`UOCC`) | Samba de Amigo | 484-byte tables of 0x58-byte `UOCC` blocks holding `IVD` items; not decoded |
+| Nodame Cantabile `*_msf.bin` (`_MSF`) | Nodame Cantabile: Dream Orchestra | little-endian score container with a `DATA` chunk of instrument-named event records (`violin_miki01_4`, ...); not decoded |
+| We Cheer 2 `keydata.bin` (`KBBE`), `NGWords.bin` (`MGBE`) | We Cheer 2 | plain data (an on-screen keyboard layout of `{x, y, char}` cells and a UTF-16BE word filter); not exported |
