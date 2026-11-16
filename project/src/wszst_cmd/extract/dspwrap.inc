@@ -419,10 +419,10 @@ static enumError extract_knonwvd_file (ccp arg, ccp basedir, uint depth)
 
 // A plain mono GameCube/Wii DSP-ADPCM file behind a misleading extension (Wacky Races: Crash & Dash
 // ships its audio as ".wav"; others use ".adp"/".ddsp"): a valid 0x60-byte header followed by
-// the ADPCM data. Written as "audio.dsp" so the DSP extractor converts it. RIFF files are left alone.
+// the ADPCM data (Arctic Tale ".aus" too). Written as "audio.dsp" so the DSP extractor converts it. RIFF files are left alone.
 static enumError extract_dspplain_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".wav") && !is_ext (arg, ".adp") && !is_ext (arg, ".ddsp"))
+	if (!is_ext (arg, ".wav") && !is_ext (arg, ".adp") && !is_ext (arg, ".ddsp") && !is_ext (arg, ".aus"))
 		return ERR_NOTHING_TO_DO;
 	struct stat st;
 	if (stat (arg, &st) || st.st_size < 0x80 || st.st_size > 0x4000000)
@@ -437,14 +437,14 @@ static enumError extract_dspplain_file (ccp arg, ccp basedir, uint depth)
 	const u32 ns = sz > 0x80 ? rd_be32 (raw) : 0, nib = ns ? rd_be32 (raw + 4) : 0, rate = ns ? rd_be32 (raw + 8) : 0;
 	const size_t per = ((size_t)nib + 15) / 16 * 8;
 	if (!ns || memcmp (raw, "RIFF", 4) == 0 || rate < 4000 || rate > 96000 || rd_be16 (raw + 0x0c) > 1 || rd_be16 (raw + 0x0e)
-		|| rd_be32 (raw + 0x18) != 2 || nib < (ns / 14) * 16 || nib > (ns / 14 + 1) * 16 + 16 || per + 0x60 > sz || rd_be16 (raw + 0x3c) > 0x100)
+		|| rd_be32 (raw + 0x18) != 2 || nib < (ns / 14) * 16 || nib > (ns / 14 + 1) * 16 + 16 || ((size_t)nib + 1) / 2 + 0x60 > sz || rd_be16 (raw + 0x3c) > 0x100)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
 	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
 	enumError err = ERR_OUT_OF_MEMORY;
-	if (entries && OwnedEntryAdd (entries, 0, "audio.dsp", raw, 0x60 + per))
+	if (entries && OwnedEntryAdd (entries, 0, "audio.dsp", raw, per + 0x60 <= sz ? 0x60 + per : sz))
 		err = write_owned_entries (arg, basedir, depth, "DSP", entries, 1);
 	else
 		FREE (entries);
