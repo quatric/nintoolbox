@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/asbsound.inc"
 #include "extract/iarcpack.inc"
 #include "extract/sntbank.inc"
 #include "extract/wsistream.inc"
