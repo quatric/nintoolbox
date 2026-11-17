@@ -106,6 +106,16 @@ static enumError extract_slz_file (ccp arg, ccp basedir, uint depth)
 				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", len, path);
 			ResetFile (&F, opt_preserve);
 		}
+		if (!err && count >= 2 && rd_be32 (out + tab) < us && rd_be32 (out + rd_be32 (out + tab)) == 0x20000)
+		{
+			const u32 l0 = rd_be32 (out + tab), l1 = rd_be32 (out + tab + 12);
+			if (l1 > l0 && l1 < us)
+			{
+				const enumError sub = txm_write_set (arg, out + l0, l1 - l0, out + l1, us - l1, dest, depth);
+				if (sub != ERR_NOTHING_TO_DO && err < sub)
+					err = sub;
+			}
+		}
 		if (!err)
 		{
 			const enumError sub = extract_tree_complete (dest, depth + 1);
