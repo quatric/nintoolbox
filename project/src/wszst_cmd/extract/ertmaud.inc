@@ -1,5 +1,5 @@
 // Telltale Games (Back to the Future: The Game, Wii) "*.aud" sound effects: "ERTM" {u32 version 1, u32 name crc, u32 crc, ...} with an Ogg Vorbis stream embedded in the resource (first "OggS" within the first 0x100
-// bytes, running to the end of the file). Written to "<file>.ogg". (The ".vox" voice files of the same games hold Speex frames and are not converted.)
+// bytes, running to the end of the file). Written to "<file>.ogg". (The ".vox" voice files of the same games hold Speex frames and are decoded by ertmvox.inc.)
 static enumError extract_ertmaud_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;

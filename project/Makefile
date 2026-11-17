@@ -146,7 +146,7 @@ DEFINES1	+= -DDEBUG_ASSERT		# enable ASSERTions in release version too
 DEFINES1	+= -DEXTENDED_ERRORS=1		# enable extended error messages (function,line,file)
 DEFINES1	+= -DUIOPT_INDEX_SIZE=400	# define max number of options (default 0x100)
 
-CFLAGS		+= -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/liblz4 -Isrc/clhca
+CFLAGS		+= -Isrc/mxml -Isrc/libyaml -Isrc/midilib -Isrc/libzstd -Isrc/liblz4 -Isrc/clhca -Isrc/speex
 CFLAGS		+= -std=gnu99 -D_GNU_SOURCE -fomit-frame-pointer -fno-strict-aliasing -funroll-loops
 CFLAGS		+= -Wall -Wno-parentheses -Wno-unused-function
 # No tentative-definition commons: Apple clang still emits them, and ld then gives large
@@ -448,12 +448,17 @@ LIB_LZ4_OBJ	= $(patsubst %.c,%.o,$(LIB_LZ4_SRC))
 LIB_CLHCA_SRC	= $(wildcard src/clhca/*.c)
 LIB_CLHCA_OBJ	= $(patsubst %.c,%.o,$(LIB_CLHCA_SRC))
 
+# libspeex 1.2 (BSD, decoder only; floating point build) for Ogg Speex / Telltale voice data
+LIB_SPEEX_SRC	= $(wildcard src/speex/*.c)
+LIB_SPEEX_OBJ	= $(patsubst %.c,%.o,$(LIB_SPEEX_SRC))
+src/speex/%.o: CFLAGS += -DFLOATING_POINT -DUSE_ALLOCA -DEXPORT= -DOUTSIDE_SPEEX -w
+
 # Non-native BMS COMTYPEs are handled by running a real `quickbms` executable
 # (see RunBmsScript / find_quickbms_engine in src/lib-bms.c); nothing to build
 # here.
 
-LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4 clhca
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_CLHCA_OBJ)
+LIB_LIST	+= libbz2 liblzma mxml ajpg libyaml midilib libzstd liblz4 clhca speex
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_YAML_OBJ) $(LIB_MIDILIB_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_CLHCA_OBJ) $(LIB_SPEEX_OBJ)
 # benzin: layout (BRLYT/BFLYT/BCLYT + BRLAN/BFLAN/BCLAN) support is native,
 # see lib-bflyt.c; no external interpreter needed.
 LIB_BENZIN_SRC	=
@@ -462,8 +467,8 @@ LIB_BENZIN_OBJ	= $(patsubst %,%.o,$(basename $(LIB_BENZIN_SRC)))
 #------------------------------------------------------------------------------
 # library object lists
 
-LIB_LIST	+= libbz2 liblzma mxml ajpg libzstd liblz4 clhca
-LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_CLHCA_OBJ)
+LIB_LIST	+= libbz2 liblzma mxml ajpg libzstd liblz4 clhca speex
+LIB_OBJECTS	+= $(LIB_BZ2_OBJ) $(LIB_LZMA_OBJ) $(LIB_MXML_OBJ) $(LIB_BENZIN_OBJ) $(LIB_ZSTD_OBJ) $(LIB_LZ4_OBJ) $(LIB_CLHCA_OBJ) $(LIB_SPEEX_OBJ)
 RM_FILES	+= $(foreach l,$(LIB_LIST),src/$(l)/*.{d,o})
 
 #-------------------------------------------------------------------------------
