@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/pizarc.inc"
 #include "extract/ffsarc.inc"
 #include "extract/xpac.inc"
 #include "extract/tgstex.inc"
