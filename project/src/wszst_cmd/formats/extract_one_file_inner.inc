@@ -38,6 +38,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_uber_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_tgstex_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_spbspeech_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
