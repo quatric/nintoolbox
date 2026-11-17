@@ -688,3 +688,4 @@
 #include "extract/fsarpack.inc"
 #include "extract/mibdsp.inc"
 #include "extract/hegame.inc"
+#include "extract/iwiimg.inc"
