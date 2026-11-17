@@ -15,7 +15,12 @@ static enumError extract_wittex_file (ccp arg, ccp basedir, uint depth)
 		goto done;
 	for (uint hb = 0; hb < 8 && err == ERR_NOTHING_TO_DO; hb += 4) // hb 4: Cabela's variant with a leading name hash and data at 0x18
 	{
-		const uint w = rd_le32 (raw + hb), h = rd_le32 (raw + hb + 4), fmt = rd_le32 (raw + hb + 8), lv = rd_le32 (raw + hb + 12);
+		uint w = rd_le32 (raw + hb), h = rd_le32 (raw + hb + 4), fmt = rd_le32 (raw + hb + 8), lv = rd_le32 (raw + hb + 12);
+		if (hb && fmt == 0x800) // Cabela's: two stacked CMPR mip chains (the second one is not decoded); the level count is stored twice
+		{
+			fmt = 14;
+			lv &= 0xffff;
+		}
 		static const uint bits[15] = { 4, 8, 8, 16, 16, 16, 32, 0, 0, 0, 0, 0, 0, 0, 4 };
 		if (!w || !h || w > 4096 || h > 4096 || fmt > 14 || !bits[fmt] || !lv || lv > 16)
 			continue;
