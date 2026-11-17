@@ -96,7 +96,7 @@ static enumError extract_txtcdec_file (ccp arg, ccp basedir, uint depth)
 		c.ok = true;
 		uint n = 0;
 		{
-			// {magic, u32 0, u16 languages, u16 ids[], u16 keys, u16 extra keys, {u16 len, UTF-16BE key}[], then per language {u32 bytes, NUL-separated UTF-16BE strings}}
+			// {magic, u32 version, u32 0, u16 languages, u16 ids[], u16 keys, (version 0: u16 extra keys), {u16 len, UTF-16BE key}[], then per language {u32 bytes, NUL-separated UTF-16BE strings}}
 			size_t q = 0xc;
 			const uint nl = q + 2 <= o ? rd_be16 (out + q) : 0;
 			if (!nl || nl > 16 || q + 2 + 2 * (size_t)nl + 4 > o)
@@ -108,8 +108,10 @@ static enumError extract_txtcdec_file (ccp arg, ccp basedir, uint depth)
 			for (uint l = 0; l < nl; l++)
 				ids[l] = rd_be16 (out + q + 2 + 2 * l);
 			q += 2 + 2 * (size_t)nl;
-			const uint nk = rd_be16 (out + q) + rd_be16 (out + q + 2);
-			q += 4;
+			uint nk = rd_be16 (out + q);
+			q += 2;
+			if (!rd_be32 (out + 4)) // version 0 files carry a count of extra keys
+				nk += rd_be16 (out + q), q += 2;
 			size_t kpos[1024];
 			uint klen[1024];
 			if (!nk || nk > 1024)
