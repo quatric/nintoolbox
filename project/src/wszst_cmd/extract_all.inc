@@ -702,3 +702,5 @@
 #include "extract/btftex.inc"
 #include "extract/he4song.inc"
 #include "extract/vbkdsp.inc"
+#include "extract/sz00zlib.inc"
+#include "extract/lsostr.inc"
