@@ -153,28 +153,51 @@ static enumError extract_eamus_xas_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	enumError err = ERR_NOTHING_TO_DO;
 	uint ntr = 0;
+	size_t *toff = 0;
+	uint *trate = 0;
+	bool seq = true; // layout A: tracks follow each other; layout B: the table gives each track's data offset
 	if (sz < 0x800)
 		goto done;
-	while (0x400 + 16 * (ntr + 1) <= 0x600 && ((rd_be32 (raw + 0x400 + 16 * ntr) >> 24) & 0xf) == 4 && (rd_be32 (raw + 0x400 + 16 * ntr) >> 24) < 0x10)
-		ntr++;
+	toff = CALLOC (100000, sizeof (size_t));
+	trate = CALLOC (100000, sizeof (uint));
+	if (rd_be32 (raw) == 0xccb6c0b2) // Spore Hero "pathfinder": {magic, 0, 0, then 12-byte {stream header offset, data offset, index << 16}}
+	{
+		seq = false;
+		for (size_t o = 0x0c; o + 12 <= sz && ntr < 100000; o += 12)
+		{
+			const u32 h = rd_be32 (raw + o), d = rd_be32 (raw + o + 4), idx = rd_be32 (raw + o + 8);
+			if (h < 0x20 || h + 16 > sz || d >= sz || (idx >> 16) != ntr + 1 || ((rd_be32 (raw + h) >> 24) & 0xf) != 4)
+				break;
+			toff[ntr] = d;
+			trate[ntr++] = rd_be32 (raw + h) & 0x3ffff;
+		}
+	}
+	else
+	{
+		while (0x400 + 16 * (ntr + 1) <= 0x600 && ((rd_be32 (raw + 0x400 + 16 * ntr) >> 24) & 0xf) == 4 && (rd_be32 (raw + 0x400 + 16 * ntr) >> 24) < 0x10)
+		{
+			trate[ntr] = rd_be32 (raw + 0x400 + 16 * ntr) & 0x3ffff;
+			ntr++;
+		}
+		toff[0] = 0x400 + 16 * ntr;
+	}
 	if (!ntr)
 		goto done;
 	{
 		char dest[PATH_MAX];
 		beside_source_dest (dest, sizeof (dest), arg);
-		size_t o = 0x400 + 16 * ntr;
-		while (o + 8 <= sz && !rd_be32 (raw + o))
-			o += 4;
-		o &= ~(size_t)0xff;
+		size_t o = toff[0];
 		uint made = 0;
 		err = ERR_OK;
-		for (uint t = 0; t < ntr && o + 8 <= sz && !err; t++)
+		for (uint t = 0; t < ntr && !err; t++)
 		{
+			if (!seq)
+				o = toff[t];
 			while (o + 8 <= sz && !rd_be32 (raw + o))
 				o += 4;
 			if (o + 8 > sz)
 				break;
-			const uint rate = rd_be32 (raw + 0x400 + 16 * t) & 0x3ffff;
+			const uint rate = trate[t];
 			size_t p = o;
 			u64 total = 0;
 			uint channels = 0;
@@ -198,9 +221,11 @@ static enumError extract_eamus_xas_file (ccp arg, ccp basedir, uint depth)
 				fin = (a >> 24) != 0;
 				p += psz;
 			}
-					if (!ok || !fin || !channels)
+			if (!ok || !fin || !channels)
 			{
-				break;
+				if (seq)
+					break;
+				continue;
 			}
 			if (!made && (verbose >= 0 || testmode))
 				fprintf (stdlog, "%s%sEXTRACT MUS-XAS:%s (%u tracks) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, ntr, dest);
@@ -239,6 +264,8 @@ static enumError extract_eamus_xas_file (ccp arg, ccp basedir, uint depth)
 			err = made ? ERR_OK : ERR_NOTHING_TO_DO;
 	}
 done:
+	FREE (toff);
+	FREE (trate);
 	FREE (raw);
 	return err;
 }
