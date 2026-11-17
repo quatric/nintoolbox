@@ -706,3 +706,4 @@
 #include "extract/lsostr.inc"
 #include "extract/ibzzlib.inc"
 #include "extract/wittex.inc"
+#include "extract/mulamtp.inc"
