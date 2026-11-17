@@ -44,6 +44,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_sasrefpack_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_eaaems_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	// "PAKb" (Secret Files) has a strict magic + chained offset table; claim it before the loose ".pak" sniffers,
 	// one of which otherwise swallows the file without writing anything.
 	err = extract_pakb_file (arg, basedir, depth);
