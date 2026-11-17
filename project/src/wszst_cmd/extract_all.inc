@@ -697,3 +697,4 @@
 #include "extract/beetex.inc"
 #include "extract/dbttex.inc"
 #include "extract/tdbtext.inc"
+#include "extract/dhgcpack.inc"
