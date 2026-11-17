@@ -714,3 +714,4 @@
 #include "extract/txtcdec.inc"
 #include "extract/spddsp.inc"
 #include "extract/stbltext.inc"
+#include "extract/wsbdsp.inc"
