@@ -684,6 +684,7 @@
 #include "extract/a2tex.inc"
 #include "extract/xabfsb.inc"
 #include "extract/tim2png.inc"
+#include "extract/tgaimg.inc"
 #include "extract/he2talk.inc"
 #include "extract/fsarpack.inc"
 #include "extract/mibdsp.inc"
