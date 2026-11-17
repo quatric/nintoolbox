@@ -253,6 +253,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_mulamtp_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_unitedata_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_dbttex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
