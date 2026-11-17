@@ -202,6 +202,12 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_iwiimg_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_u8ctext_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_bankdsp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_tim2png_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

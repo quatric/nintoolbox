@@ -689,3 +689,5 @@
 #include "extract/mibdsp.inc"
 #include "extract/hegame.inc"
 #include "extract/iwiimg.inc"
+#include "extract/u8ctext.inc"
+#include "extract/bankdsp.inc"
