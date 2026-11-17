@@ -709,6 +709,7 @@
 #include "extract/slz.inc"
 #include "extract/vag.inc"
 #include "extract/mtxz.inc"
+#include "extract/brawlarc.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
