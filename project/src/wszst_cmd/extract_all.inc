@@ -687,3 +687,4 @@
 #include "extract/he2talk.inc"
 #include "extract/fsarpack.inc"
 #include "extract/mibdsp.inc"
+#include "extract/hegame.inc"
