@@ -699,6 +699,7 @@
 #include "extract/tdbtext.inc"
 #include "extract/dhgcpack.inc"
 #include "extract/sfayyaf.inc"
+#include "extract/rketdsp.inc"
 #include "extract/btftex.inc"
 #include "extract/he4song.inc"
 #include "extract/vbkdsp.inc"
