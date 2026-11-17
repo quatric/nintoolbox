@@ -712,3 +712,4 @@
 #include "extract/ctxtex.inc"
 #include "extract/seafsb.inc"
 #include "extract/txtcdec.inc"
+#include "extract/spddsp.inc"
