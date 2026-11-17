@@ -321,6 +321,8 @@ static enumError decompress_nintendo_file3 (
 			ccp ext = ".bin";
 			if (info.type == NFMT_STPL || dec_info.type == NFMT_TPL)
 				ext = ".tpl";
+			else if (decoded_size > 0x40 && !memcmp (decoded, "TIM2", 4))
+				ext = ".tm2";
 			else if (dec_info.type == NFMT_NCGR)
 				ext = ".ncgr";
 			else if (dec_info.type == NFMT_NCLR)

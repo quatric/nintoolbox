@@ -69,8 +69,9 @@ static enumError extract_tim2png_file (ccp arg, ccp basedir, uint depth)
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sDECODE TIM2:%s (%ux%u, type %u) -> %s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, w, ht, itype, png);
 		if (!testmode)
-			SaveDecodedRGBAToPNG (rgba, w, ht, &be_func, png, 0, true);
-		FREE (rgba);
+			SaveDecodedRGBAToPNG (rgba, w, ht, &be_func, png, 0, true); // takes ownership of rgba
+		else
+			FREE (rgba);
 		p += total;
 	}
 	FREE (raw);
