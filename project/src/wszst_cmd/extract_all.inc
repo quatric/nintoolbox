@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/snhstream.inc"
 #include "extract/cpfpack.inc"
 #include "extract/lmptex.inc"
 #include "extract/sasrefpack.inc"
