@@ -706,6 +706,7 @@
 #include "extract/ertmvox.inc"
 #include "extract/ertmtex.inc"
 #include "extract/nftr.inc"
+#include "extract/slz.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
