@@ -1,4 +1,4 @@
-// Telltale Games (Wii) "*.d3dtx" textures: "ERTM" metastream (version 4+) whose D3DTX body embeds a standard Wii TPL (magic 0x0020AF30, first 0x400 bytes of the file) that runs to the end of the file. The TPL is
+// Telltale Games (Wii) "*.d3dtx" textures: "ERTM" metastream (version 4+) whose D3DTX body embeds a standard Wii TPL (magic 0x0020AF30 with 1 image and table offset 0xc) that runs to the end of the file. The TPL is
 // written to "<file>.tpl" and decoded to PNG by the existing TPL handler.
 static enumError extract_ertmtex_file (ccp arg, ccp basedir, uint depth)
 {
@@ -12,7 +12,7 @@ static enumError extract_ertmtex_file (ccp arg, ccp basedir, uint depth)
 		goto done;
 	{
 		size_t o = 0;
-		for (size_t i = 8; i + 0x40 < sz && i < 0x400 && !o; i++)
+		for (size_t i = 8; i + 0x40 < sz && !o; i++)
 			if (rd_be32 (raw + i) == 0x0020af30 && rd_be32 (raw + i + 4) == 1 && rd_be32 (raw + i + 8) == 0x0c && rd_be32 (raw + i + 12) + (u64)i < sz)
 				o = i;
 		if (!o)
