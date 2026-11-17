@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/aiffwav.inc"
 #include "extract/musyx.inc"
 #include "extract/lcmpcm.inc"
 #include "extract/asbsound.inc"
