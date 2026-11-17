@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/xpac.inc"
 #include "extract/tgstex.inc"
 #include "extract/spbspeech.inc"
 #include "extract/bobmp3.inc"
