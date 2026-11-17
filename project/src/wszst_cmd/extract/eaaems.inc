@@ -160,7 +160,7 @@ static enumError extract_eamus_xas_file (ccp arg, ccp basedir, uint depth)
 		goto done;
 	toff = CALLOC (100000, sizeof (size_t));
 	trate = CALLOC (100000, sizeof (uint));
-	if (rd_be32 (raw) == 0xccb6c0b2) // Spore Hero "pathfinder": {magic, 0, 0, then 12-byte {stream header offset, data offset, index << 16}}
+	if (rd_be32 (raw + 0x14) == 0x10000 && rd_be32 (raw + 4) == 0) // Spore Hero "pathfinder": {per-file magic, 0, 0, then 12-byte {stream header offset, data offset, index << 16}}
 	{
 		seq = false;
 		for (size_t o = 0x0c; o + 12 <= sz && ntr < 100000; o += 12)
