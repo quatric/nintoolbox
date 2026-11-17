@@ -704,6 +704,7 @@
 #include "extract/uber.inc"
 #include "extract/spxogg.inc"
 #include "extract/ertmvox.inc"
+#include "extract/ertmtex.inc"
 #include "extract/rspa.inc"
 #include "extract/eabank.inc"
 #include "extract/sousound.inc"
