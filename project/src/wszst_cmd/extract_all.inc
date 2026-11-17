@@ -704,3 +704,4 @@
 #include "extract/vbkdsp.inc"
 #include "extract/sz00zlib.inc"
 #include "extract/lsostr.inc"
+#include "extract/ibzzlib.inc"
