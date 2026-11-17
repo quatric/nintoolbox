@@ -698,3 +698,4 @@
 #include "extract/dbttex.inc"
 #include "extract/tdbtext.inc"
 #include "extract/dhgcpack.inc"
+#include "extract/sfayyaf.inc"
