@@ -292,6 +292,18 @@ static enumError decompress_nintendo_file3 (
 			*dot = 0;
 			stripped = true;
 		}
+		else
+		{
+			// Disney Tron Evolution: Battle Grids marks every LZ-packed file by a trailing "_" ("rta_1.brta_", "x.brres_rmdl_"); drop it so the inner extension is recognised
+			const size_t dl = strlen (dest);
+			const char *bs = strrchr (dest, '/');
+			const char *bd = strrchr (bs ? bs : dest, '.');
+			if (dl > 2 && dest[dl - 1] == '_' && bd && bd[1] && dest + dl - 1 > bd + 1)
+			{
+				dest[dl - 1] = 0;
+				stripped = true;
+			}
+		}
 
 		// Search for a genuine extension in the basename only. 'dest' is
 		// still a full path here, and an ancestor directory can itself
