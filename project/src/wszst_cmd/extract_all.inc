@@ -685,3 +685,4 @@
 #include "extract/xabfsb.inc"
 #include "extract/tim2png.inc"
 #include "extract/he2talk.inc"
+#include "extract/fsarpack.inc"
