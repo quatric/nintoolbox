@@ -701,3 +701,4 @@
 #include "extract/sfayyaf.inc"
 #include "extract/btftex.inc"
 #include "extract/he4song.inc"
+#include "extract/vbkdsp.inc"
