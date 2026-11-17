@@ -695,3 +695,4 @@
 #include "extract/tlibtext.inc"
 #include "extract/lclpool.inc"
 #include "extract/beetex.inc"
+#include "extract/dbttex.inc"
