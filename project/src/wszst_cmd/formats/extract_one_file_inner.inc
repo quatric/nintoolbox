@@ -271,6 +271,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_spddsp_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_stbl_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_dbttex_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
