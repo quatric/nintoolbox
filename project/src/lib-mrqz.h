@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //-----------------------------------------------------------------------------
-// "MRQZ" archive (".pak"; My Fitness Coach). Little-endian, verified on all
+// "MRQZ" archive (".pak"; My Fitness Coach; version 1 ".mrq" packs of Cosmic Family use a fixed 0x1000 header). Little-endian, verified on all
 // 565 retail paks:
 //   0x00 "MRQZ", u32 end (= file_size - 8), u16 version (2), u16 hdr_size
 //        (0x80 or 0x1000), u32 count, ...

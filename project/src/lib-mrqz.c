@@ -23,9 +23,10 @@ enumError ScanMrqz (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_en
 
 	u8 h[0x10];
 	if (fseeko (f, 0, SEEK_SET) || fread (h, 1, sizeof (h), f) != sizeof (h) || memcmp (h, "MRQZ", 4)
-		|| (h[8] | h[9] << 8) != 2)
+		|| ((h[8] | h[9] << 8) != 2 && (h[8] | h[9] << 8) != 1))
 		return EINVAL;
-	const u64 hdr = h[10] | h[11] << 8;
+	// version 1 (Cosmic Family ".mrq"): u16 at 10 is not a header size, the header is always 0x1000 bytes
+	const u64 hdr = (h[8] | h[9] << 8) == 1 ? 0x1000 : (u64)(h[10] | h[11] << 8);
 	const u32 count = mrqz_rd32 (h + 12);
 	if ((hdr != 0x80 && hdr != 0x1000) || !count || count > MRQZ_MAX_ENTRIES)
 		return EINVAL;

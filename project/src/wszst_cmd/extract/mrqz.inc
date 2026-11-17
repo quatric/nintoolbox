@@ -1,7 +1,7 @@
 // "MRQZ" archive (".pak", My Fitness Coach); see lib-mrqz.h.
 static enumError extract_mrqz_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".pak"))
+	if (!is_ext (arg, ".pak") && !is_ext (arg, ".mrq"))
 		return ERR_NOTHING_TO_DO;
 
 	FILE *src = fopen (arg, "rb");
