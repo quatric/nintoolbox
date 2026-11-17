@@ -699,3 +699,4 @@
 #include "extract/tdbtext.inc"
 #include "extract/dhgcpack.inc"
 #include "extract/sfayyaf.inc"
+#include "extract/btftex.inc"
