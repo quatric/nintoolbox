@@ -691,3 +691,4 @@
 #include "extract/iwiimg.inc"
 #include "extract/u8ctext.inc"
 #include "extract/bankdsp.inc"
+#include "extract/acrmess.inc"
