@@ -702,6 +702,7 @@
 #include "extract/rketdsp.inc"
 #include "extract/cpfpack.inc"
 #include "extract/lmptex.inc"
+#include "extract/sasrefpack.inc"
 #include "extract/btftex.inc"
 #include "extract/he4song.inc"
 #include "extract/vbkdsp.inc"
