@@ -694,3 +694,4 @@
 #include "extract/acrmess.inc"
 #include "extract/tlibtext.inc"
 #include "extract/lclpool.inc"
+#include "extract/beetex.inc"
