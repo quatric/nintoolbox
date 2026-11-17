@@ -1157,6 +1157,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_ealayer3_file (arg);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_eaaac_layer3_file (arg);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_schl_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

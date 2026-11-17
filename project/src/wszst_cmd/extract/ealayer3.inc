@@ -312,3 +312,71 @@ static enumError extract_ealayer3_file (ccp arg)
 	FREE (raw);
 	return err ? err : n_out ? ERR_OK : ERR_NOTHING_TO_DO;
 }
+
+// EA "SNR"/"SNU" streams (EAAC, FaceBreaker K.O. Party "*.snr"): {u32 BE: bits 24-27 codec (5-7 = EALayer3), bits 18-23 channel config, bits 0-17 sample rate, u32 flags | total
+// samples, optional 4 extra bytes}, then blocks {u32 flags | size (the size includes this 8-byte header), u32 samples, payload}. The payload is the same EALayer3 granule stream as in
+// SCHl files and is re-assembled to "<file>.mp3" (not verified for stereo or multi-block files).
+static enumError extract_eaaac_layer3_file (ccp arg)
+{
+	if (!is_ext (arg, ".snr") && !is_ext (arg, ".snu"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t sz = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	enumError err = ERR_NOTHING_TO_DO;
+	const uint w0 = sz > 0x20 ? rd_be32 (raw) : 0, codec = (w0 >> 24) & 0xf, cfg = (w0 >> 18) & 0x3f;
+	if (!w0 || codec < 5 || codec > 7 || ((cfg >> 2) + 1) != 1)
+		goto done;
+	{
+		size_t b = 0;
+		for (uint h = 8; h <= 20 && !b; h += 4)
+			if (h + 8 <= sz && (rd_be32 (raw + h) & 0xffffff) >= 12 && (rd_be32 (raw + h) & 0xffffff) <= sz - h)
+				b = h;
+		if (!b)
+			goto done;
+		u8 *buf = MALLOC (sz);
+		size_t *starts = MALLOC (sizeof (size_t) * (1 + sz / 12));
+		size_t blen = 0;
+		uint ns = 0;
+		while (buf && starts && b + 8 <= sz)
+		{
+			const size_t bs = rd_be32 (raw + b) & 0xffffff;
+			if (bs < 8 || bs > sz - b)
+				break;
+			memcpy (buf + blen, raw + b + 8, bs - 8);
+			blen += bs - 8;
+			starts[ns++] = blen;
+			b += bs;
+		}
+		// the first block can open with a few non-granule bytes: start at the first offset that begins a chain of consecutive valid frames
+		size_t skip = 0;
+		for (; skip + 64 < blen; skip++)
+		{
+			size_t q = skip;
+			uint ok = 0;
+			ealsc_frame_t f;
+			while (ok < 6 && q + 4 < blen && ealsc_parse (buf, blen, q, 2, &f) && f.common)
+			{
+				q += f.size;
+				ok++;
+			}
+			if (ok == 6)
+				break;
+		}
+		uint n_out = 0;
+		uint ns2 = 0;
+		for (uint i = 0; i < ns; i++)
+			if (starts[i] > skip)
+				starts[ns2++] = starts[i] - skip;
+		err = skip + 64 < blen ? ealsc_flush (arg, buf + skip, blen - skip, starts, ns2, 2, 0, &n_out) : ERR_NOTHING_TO_DO;
+		FREE (buf);
+		FREE (starts);
+	}
+done:
+	FREE (raw);
+	return err;
+}
