@@ -702,7 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
-#include "extract/marcpack.inc"
+#include "extract/iarcpack.inc"
 #include "extract/sntbank.inc"
 #include "extract/wsistream.inc"
 #include "extract/ntcompress.inc"
