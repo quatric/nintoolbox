@@ -702,6 +702,7 @@
 #include "extract/sfayyaf.inc"
 #include "extract/rketdsp.inc"
 #include "extract/uber.inc"
+#include "extract/sntbank.inc"
 #include "extract/wsistream.inc"
 #include "extract/ntcompress.inc"
 #include "extract/jpiindex.inc"
