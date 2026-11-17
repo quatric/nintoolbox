@@ -318,14 +318,21 @@ static enumError extract_ealayer3_file (ccp arg)
 // SCHl files and is re-assembled to "<file>.mp3" (not verified for stereo or multi-block files).
 static enumError extract_eaaac_layer3_file (ccp arg)
 {
-	if (!is_ext (arg, ".snr") && !is_ext (arg, ".snu"))
+	const bool is_mus = is_ext (arg, ".mus");
+	if (!is_ext (arg, ".snr") && !is_ext (arg, ".snu") && !is_mus)
 		return ERR_NOTHING_TO_DO;
-	u8 *raw = 0;
+	u8 *raw0 = 0, *raw;
 	size_t sz = 0;
-	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+	if (LoadFileAlloc (arg, 0, 0, &raw0, &sz, 0, 0, 0, false) || !raw0)
 	{
-		FREE (raw);
+		FREE (raw0);
 		return ERR_NOTHING_TO_DO;
+	}
+	raw = raw0;
+	if (is_mus && sz > 0x120) // FaceBreaker ".mus": a zero-padded 0x100 index, then the SNR stream
+	{
+		raw += 0x100;
+		sz -= 0x100;
 	}
 	enumError err = ERR_NOTHING_TO_DO;
 	const uint w0 = sz > 0x20 ? rd_be32 (raw) : 0, codec = (w0 >> 24) & 0xf, cfg = (w0 >> 18) & 0x3f;
@@ -377,6 +384,6 @@ static enumError extract_eaaac_layer3_file (ccp arg)
 		FREE (starts);
 	}
 done:
-	FREE (raw);
+	FREE (raw0);
 	return err;
 }
