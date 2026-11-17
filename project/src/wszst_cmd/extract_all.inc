@@ -692,3 +692,4 @@
 #include "extract/u8ctext.inc"
 #include "extract/bankdsp.inc"
 #include "extract/acrmess.inc"
+#include "extract/tlibtext.inc"
