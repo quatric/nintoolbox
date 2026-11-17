@@ -316,74 +316,101 @@ static enumError extract_ealayer3_file (ccp arg)
 // EA "SNR"/"SNU" streams (EAAC, FaceBreaker K.O. Party "*.snr"): {u32 BE: bits 24-27 codec (5-7 = EALayer3), bits 18-23 channel config, bits 0-17 sample rate, u32 flags | total
 // samples, optional 4 extra bytes}, then blocks {u32 flags | size (the size includes this 8-byte header), u32 samples, payload}. The payload is the same EALayer3 granule stream as in
 // SCHl files and is re-assembled to "<file>.mp3" (not verified for stereo or multi-block files).
+static enumError eaaac_l3_one (ccp arg, const u8 *raw, size_t sz, uint index)
+{
+	enumError err = ERR_NOTHING_TO_DO;
+	const uint w0 = sz > 0x20 ? rd_be32 (raw) : 0, codec = (w0 >> 24) & 0xf, cfg = (w0 >> 18) & 0x3f;
+	if (!w0 || codec < 5 || codec > 7 || ((cfg >> 2) + 1) != 1)
+		return err;
+	size_t b = 0;
+	for (uint h = 8; h <= 20 && !b; h += 4)
+		if (h + 8 <= sz && (rd_be32 (raw + h) & 0xffffff) >= 12 && (rd_be32 (raw + h) & 0xffffff) <= sz - h)
+			b = h;
+	if (!b)
+		return err;
+	u8 *buf = MALLOC (sz);
+	size_t *starts = MALLOC (sizeof (size_t) * (1 + sz / 12));
+	size_t blen = 0;
+	uint ns = 0;
+	while (buf && starts && b + 8 <= sz)
+	{
+		const size_t bs = rd_be32 (raw + b) & 0xffffff;
+		if (bs < 8 || bs > sz - b)
+			break;
+		memcpy (buf + blen, raw + b + 8, bs - 8);
+		blen += bs - 8;
+		starts[ns++] = blen;
+		b += bs;
+		if (b + 8 <= sz && (rd_be32 (raw + b) >> 24) == 0x05 && !rd_be32 (raw + b + 12)) // the next stream header
+			break;
+	}
+	// the first block can open with a few non-granule bytes: start at the first offset that begins a chain of consecutive valid frames
+	size_t skip = 0;
+	for (; skip + 64 < blen; skip++)
+	{
+		size_t q = skip;
+		uint ok = 0;
+		ealsc_frame_t f;
+		while (ok < 6 && q + 4 < blen && ealsc_parse (buf, blen, q, 2, &f) && f.common)
+		{
+			q += f.size;
+			ok++;
+		}
+		if (ok == 6)
+			break;
+	}
+	uint n_out = 0;
+	uint ns2 = 0;
+	for (uint i = 0; i < ns; i++)
+		if (starts[i] > skip)
+			starts[ns2++] = starts[i] - skip;
+	err = skip + 64 < blen ? ealsc_flush (arg, buf + skip, blen - skip, starts, ns2, 2, index, &n_out) : ERR_NOTHING_TO_DO;
+	FREE (buf);
+	FREE (starts);
+	return err;
+}
+
 static enumError extract_eaaac_layer3_file (ccp arg)
 {
 	const bool is_mus = is_ext (arg, ".mus");
 	if (!is_ext (arg, ".snr") && !is_ext (arg, ".snu") && !is_mus)
 		return ERR_NOTHING_TO_DO;
-	u8 *raw0 = 0, *raw;
+	u8 *raw0 = 0;
 	size_t sz = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw0, &sz, 0, 0, 0, false) || !raw0)
 	{
 		FREE (raw0);
 		return ERR_NOTHING_TO_DO;
 	}
-	raw = raw0;
-	if (is_mus && sz > 0x120) // FaceBreaker ".mus": a zero-padded 0x100 index, then the SNR stream
-	{
-		raw += 0x100;
-		sz -= 0x100;
-	}
 	enumError err = ERR_NOTHING_TO_DO;
-	const uint w0 = sz > 0x20 ? rd_be32 (raw) : 0, codec = (w0 >> 24) & 0xf, cfg = (w0 >> 18) & 0x3f;
-	if (!w0 || codec < 5 || codec > 7 || ((cfg >> 2) + 1) != 1)
-		goto done;
+	if (is_mus && sz > 0x120 && rd_be32 (raw0 + 4) == 0 && rd_be32 (raw0 + 0x14) == 0x10000 && rd_be32 (raw0 + 0x0c) >= 0x20)
 	{
-		size_t b = 0;
-		for (uint h = 8; h <= 20 && !b; h += 4)
-			if (h + 8 <= sz && (rd_be32 (raw + h) & 0xffffff) >= 12 && (rd_be32 (raw + h) & 0xffffff) <= sz - h)
-				b = h;
-		if (!b)
-			goto done;
-		u8 *buf = MALLOC (sz);
-		size_t *starts = MALLOC (sizeof (size_t) * (1 + sz / 12));
-		size_t blen = 0;
-		uint ns = 0;
-		while (buf && starts && b + 8 <= sz)
+		// Spore Hero "ovl_*.mus": {per-file magic, 0, 0, 12-byte {stream offset, aux, index << 16} records}; every stream is a SNR stream
+		uint n = 0, made = 0;
+		for (size_t o = 0x0c; o + 12 <= sz && n < 1000; o += 12, n++)
 		{
-			const size_t bs = rd_be32 (raw + b) & 0xffffff;
-			if (bs < 8 || bs > sz - b)
+			const size_t off = rd_be32 (raw0 + o);
+			const uint idx = rd_be32 (raw0 + o + 8) >> 16;
+			if ((idx != n + 1 && idx) || off + 0x20 > sz)
 				break;
-			memcpy (buf + blen, raw + b + 8, bs - 8);
-			blen += bs - 8;
-			starts[ns++] = blen;
-			b += bs;
+			size_t end = sz;
+			if (o + 24 <= sz && ((rd_be32 (raw0 + o + 20) >> 16) == n + 2 || !(rd_be32 (raw0 + o + 20) >> 16)) && rd_be32 (raw0 + o + 12) > off)
+				end = rd_be32 (raw0 + o + 12);
+			const enumError e = eaaac_l3_one (arg, raw0 + off, end - off, n);
+			if (e && e != ERR_NOTHING_TO_DO)
+				err = e;
+			else if (!e)
+				made++;
 		}
-		// the first block can open with a few non-granule bytes: start at the first offset that begins a chain of consecutive valid frames
-		size_t skip = 0;
-		for (; skip + 64 < blen; skip++)
-		{
-			size_t q = skip;
-			uint ok = 0;
-			ealsc_frame_t f;
-			while (ok < 6 && q + 4 < blen && ealsc_parse (buf, blen, q, 2, &f) && f.common)
-			{
-				q += f.size;
-				ok++;
-			}
-			if (ok == 6)
-				break;
-		}
-		uint n_out = 0;
-		uint ns2 = 0;
-		for (uint i = 0; i < ns; i++)
-			if (starts[i] > skip)
-				starts[ns2++] = starts[i] - skip;
-		err = skip + 64 < blen ? ealsc_flush (arg, buf + skip, blen - skip, starts, ns2, 2, 0, &n_out) : ERR_NOTHING_TO_DO;
-		FREE (buf);
-		FREE (starts);
+		if (!made && err == ERR_NOTHING_TO_DO)
+			err = ERR_NOTHING_TO_DO;
+		else if (!err)
+			err = ERR_OK;
 	}
-done:
+	else if (is_mus && sz > 0x120) // FaceBreaker ".mus": a zero-padded 0x100 index, then the SNR stream
+		err = eaaac_l3_one (arg, raw0 + 0x100, sz - 0x100, 0);
+	else
+		err = eaaac_l3_one (arg, raw0, sz, 0);
 	FREE (raw0);
 	return err;
 }
