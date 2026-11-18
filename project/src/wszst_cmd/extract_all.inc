@@ -719,6 +719,7 @@
 #include "extract/datl.inc"
 #include "extract/upk.inc"
 #include "extract/jadebf.inc"
+#include "extract/pickmix.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
