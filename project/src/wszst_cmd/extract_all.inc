@@ -741,6 +741,7 @@
 #include "extract/txw.inc"
 #include "extract/abrs.inc"
 #include "extract/lmxbdb.inc"
+#include "extract/lzmabrtex.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
