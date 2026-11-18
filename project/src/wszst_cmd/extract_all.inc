@@ -723,6 +723,7 @@
 #include "extract/geekcsa.inc"
 #include "extract/pixelpte.inc"
 #include "extract/ubiipk.inc"
+#include "extract/lxbd.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"

@@ -319,7 +319,7 @@ done:
 static enumError extract_upk_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir; (void)depth;
-	static const char *const exts[] = { ".uml", ".upk", ".utx", ".usx", ".ukx", ".uax", ".unr", ".u", ".ut2", ".uc", 0 };
+	static const char *const exts[] = { ".uml", ".upk", ".utx", ".usx", ".ukx", ".uax", ".unr", ".u", ".ut2", ".uc", ".umd", 0 };
 	bool match = false;
 	for (uint i = 0; exts[i]; i++)
 		if (is_ext (arg, exts[i]))
