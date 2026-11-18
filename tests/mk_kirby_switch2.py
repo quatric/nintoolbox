@@ -333,15 +333,25 @@ def panm_clip():
     keys = (0xFF | 0xFF << 8) << 17  # key 0 all zero, key 1: y = 255, tz = 255, sign 0
     keyed = hdr + recs + ref + keys.to_bytes(5, "little")
     const = struct.pack("<10f", 1, 1, 1, 0, 0, 0, 1, 0, 1, 0) + bytes(4)
-    blob = keyed + bytes(-len(keyed) % 16) + const
+    # property channels: a keyed bool (1 bit per key: 1, 0) and a constant float2
+    vis = struct.pack("<HHHHII", 4, 0, 0x20, 1, 0x21, 2) + bytes(16) + b"\x00" + b"\x01"
+    uv = struct.pack("<2f", 0.25, 0.5)
+    blob = bytearray()
+    offs = []
+    for part in (keyed, const, vis, uv):
+        blob += bytes(-len(blob) % 16)
+        offs.append(len(blob))
+        blob += part
+    blob = bytes(blob)
 
-    def chan(kind, keys, off, size):
-        return [(1, ("table", [(0, ("u64", 0x9490E9729494E5F5))])), (2, ("u8", 1)), (3, ("u8", kind)),
+    def chan(kind, keys, off, size, typ=1, prop=0x9490E9729494E5F5):
+        return [(1, ("table", [(0, ("u64", prop))])), (2, ("u8", typ)), (3, ("u8", kind)),
                 (4, ("u32", keys)), (6, ("u32", off)), (7, ("u32", size))]
 
     def build(blob_off):
-        targets = [[(1, ("table", [(0, ("u64", JOINT_TIP))])), (2, ("vec", [chan(3, 2, 0, len(keyed))]))],
-                   [(1, ("table", [(0, ("u64", JOINT_ROOT))])), (2, ("vec", [chan(2, 1, len(blob) - len(const), len(const))]))]]
+        targets = [[(1, ("table", [(0, ("u64", JOINT_TIP))])), (2, ("vec", [chan(3, 2, 0, len(keyed)),
+                    chan(3, 2, offs[2], len(vis), 8, 0x1111), chan(2, 1, offs[3], len(uv), 9, 0x2222)]))],
+                   [(1, ("table", [(0, ("u64", JOINT_ROOT))])), (2, ("vec", [chan(2, 1, offs[1], len(const))]))]]
         a = [(1, ("u32", 1)), (2, ("raw", struct.pack("<f", 60.0))), (5, ("vec", [[(1, ("u8", 1)), (2, ("vec", targets))]])),
              (6, ("u32", blob_off)), (7, ("u32", len(blob)))]
         return flatbuffer([(3, ("table", a))], b"PANM")

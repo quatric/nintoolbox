@@ -1328,14 +1328,15 @@ static bool panm_sample (const u8 *b, uint bn, uint key, float out[10])
 
 typedef struct panm_chan_t
 {
-	u64 target;
-	uint kind, keys;
+	u64 target, prop;
+	uint type, kind, keys;
 	const u8 *b;
 	uint bn;
 } panm_chan_t;
 
-// Transform channels of a PANM; returns the count (array in *out), 0 when none.
-static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps)
+// Transform channels (value type 1), or with OTHER the remaining property channels, of a PANM;
+// returns the count (array in *out), 0 when none.
+static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps, bool other)
 {
 	*out = 0;
 	if (!IsPANM (d, n))
@@ -1365,10 +1366,10 @@ static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps)
 			{
 				const uint ct = fb_vec_table (d, n, cv, c), tp = ct ? fb_field (d, n, ct, 2, 1) : 0;
 				const uint kp = ct ? fb_field (d, n, ct, 3, 1) : 0;
-				if (!tp || d[tp] != 1 || !kp)
+				if (!tp || (d[tp] == 1) == other || !kp)
 					continue;
 				const u32 off = fb_u32 (d, n, ct, 6, 0), sz = fb_u32 (d, n, ct, 7, 0);
-				if ((u64)off + sz > blob_n || sz < 40)
+				if ((u64)off + sz > blob_n || sz < (other ? 1 : 40))
 					continue;
 				if (cnt == cap)
 				{
@@ -1380,11 +1381,14 @@ static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps)
 				}
 				panm_chan_t *pc = *out + cnt++;
 				pc->target = le64 (d + hp);
+				const uint pn = fb_ref (d, n, ct, 1), pp = pn ? fb_field (d, n, pn, 0, 8) : 0;
+				pc->prop = pp ? le64 (d + pp) : 0;
+				pc->type = d[tp];
 				pc->kind = d[kp];
 				pc->keys = d[kp] == 3 && sz >= 16 ? le32 (d + blob + off + 12) : 1;
 				pc->b = d + blob + off;
 				pc->bn = sz;
-				if (pc->kind == 3 && (sz < 16 + 9 * 16 || !pc->keys || pc->keys > 1u << 20))
+				if (pc->kind == 3 && (sz < (other ? 16u : 16u + 9 * 16) || !pc->keys || pc->keys > 1u << 20))
 					cnt--;
 			}
 		}
@@ -1397,11 +1401,82 @@ static uint panm_channels (const u8 *d, uint n, panm_chan_t **out, float *fps)
 	return cnt;
 }
 
+// Property channels other than transforms (value type 3 float, 9 float2, 8 bool, ...) as JSON: the same
+// key-stream header as transforms with one {min, max, bits} range per component (components =
+// (reference offset - 16) / 16); bool channels are one raw bit per key.
+uint PANMWriteChannelsJSON (FILE *f, const u8 *d, uint n)
+{
+	panm_chan_t *ch = 0;
+	float fps = 30;
+	const uint nc = panm_channels (d, n, &ch, &fps, true);
+	if (!nc)
+		return 0;
+	fprintf (f, "{\n  \"fps\": %.9g,\n  \"channels\": [", fps);
+	for (uint i = 0; i < nc; i++)
+	{
+		const panm_chan_t *c = ch + i;
+		fprintf (f, "%s\n    {\"target\": \"%016llx\", \"property\": \"%016llx\", \"type\": %u, \"keys\": [", i ? "," : "",
+			(unsigned long long)c->target, (unsigned long long)c->prop, c->type);
+		const u8 *b = c->b;
+		const uint bn = c->bn;
+		if (c->kind != 3)
+		{
+			// constant
+			if (c->type == 8 || bn < 4)
+				fprintf (f, "%u", b[0]);
+			else
+			{
+				fputc ('[', f);
+				for (uint k = 0; k + 4 <= bn && k < 64; k += 4)
+					fprintf (f, "%s%.9g", k ? ", " : "", lef4 (b + k));
+				fputc (']', f);
+			}
+		}
+		else
+		{
+			const uint ref = le16 (b + 4), bpk = le16 (b + 6), dat = le32 (b + 8);
+			uint comps = ref > 16 ? (ref - 16) / 16 : 0;
+			if (comps > 16)
+				comps = 16;
+			for (uint k = 0; k < c->keys; k++)
+			{
+				uint pos = bpk * k + dat * 8;
+				if (k)
+					fputs (", ", f);
+				if (c->type == 8)
+				{
+					fprintf (f, "%u", panm_bits (b, bn, pos, 1));
+					continue;
+				}
+				fputc ('[', f);
+				for (uint j = 0; j < comps; j++)
+				{
+					const u8 *r = b + 16 + 16 * j;
+					const uint bits = le16 (r + 8);
+					float v = (u64)ref + 4 * j + 4 <= bn ? lef4 (b + ref + 4 * j) : 0;
+					if (bits && bits <= 32)
+					{
+						v = (float)(lef4 (r) + ((double)lef4 (r + 4) - lef4 (r)) * panm_bits (b, bn, pos, bits)
+								/ (double)((1ull << bits) - 1));
+						pos += bits;
+					}
+					fprintf (f, "%s%.6g", j ? ", " : "", v);
+				}
+				fputc (']', f);
+			}
+		}
+		fputs ("]}", f);
+	}
+	fputs ("\n  ]\n}\n", f);
+	FREE (ch);
+	return nc;
+}
+
 uint PANMTargets (const u8 *d, uint n, u64 **targets)
 {
 	panm_chan_t *ch = 0;
 	float fps;
-	const uint nc = panm_channels (d, n, &ch, &fps);
+	const uint nc = panm_channels (d, n, &ch, &fps, false);
 	*targets = nc ? MALLOC (nc * sizeof (u64)) : 0;
 	uint k = 0;
 	for (uint i = 0; *targets && i < nc; i++)
@@ -1415,7 +1490,7 @@ model_t *DecodePANM (const u8 *d, uint n, const u8 *psks, uint psks_n, ccp name,
 	*matched = 0;
 	panm_chan_t *ch = 0;
 	float fps = 30;
-	const uint nc = panm_channels (d, n, &ch, &fps);
+	const uint nc = panm_channels (d, n, &ch, &fps, false);
 	if (!nc)
 		return 0;
 	model_t *model = CALLOC (1, sizeof (*model));

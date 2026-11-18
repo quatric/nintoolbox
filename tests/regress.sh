@@ -19452,7 +19452,16 @@ tz = acc(ch[('joint_3333cccc4444dddd', 'translation')]['output'])
 assert abs(tz[2]) < 1e-6 and abs(tz[5] - 2) < 1e-6
 assert list(acc(ch[('joint_1111aaaa2222bbbb', 'translation')]['output'])) == [0, 1, 0]
 PYE
-    fok "phx PANM animation (quantized transform keys + constant) -> GLB clip on the PSKS armature"
+    if python3 -c '
+import json, sys
+c = {(x["target"], x["property"]): x for x in json.load(open(sys.argv[1]))["channels"]}
+assert c[("3333cccc4444dddd", "0000000000001111")]["keys"] == [1, 0]
+assert c[("3333cccc4444dddd", "0000000000002222")]["keys"] == [[0.25, 0.5]]
+' "$a/panm/6677889900aabbcc.channels.json" 2>/dev/null; then
+      fok "phx PANM animation (quantized transform keys + constant) -> GLB clip on the PSKS armature, property channels -> JSON"
+    else
+      fno "phx PANM property channels" "wrong $a/panm/6677889900aabbcc.channels.json"
+    fi
   else
     fno "phx PANM" "wrong or missing $a/panm/6677889900aabbcc.glb"
   fi

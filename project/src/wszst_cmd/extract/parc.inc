@@ -482,6 +482,23 @@ static enumError extract_phx_panm_file (ccp arg, ccp basedir, uint depth)
 	char *dot = strrchr (name, '.');
 	if (dot)
 		*dot = 0;
+	// material / visibility channels -> "<id>.channels.json"
+	uint n_other = 0;
+	{
+		char js[PATH_MAX];
+		beside_source_dest_ext (js, sizeof (js), arg, ".channels.json");
+		FILE *jf = testmode ? 0 : fopen (js, "w");
+		if (jf)
+		{
+			n_other = PANMWriteChannelsJSON (jf, d, (uint)n);
+			fclose (jf);
+			if (!n_other)
+				remove (js);
+			else if (verbose >= 0)
+				fprintf (stdlog, "%sDECODE PANM:%s (%u property channels) -> JSON:%s\n", verbose > 0 ? "\n" : "", arg,
+					n_other, js);
+		}
+	}
 	uint matched = 0;
 	model_t *model = DecodePANM (d, (uint)n, sk, (uint)sk_n, name, &matched);
 	if (model && sk && matched < nt / 2)
@@ -494,7 +511,7 @@ static enumError extract_phx_panm_file (ccp arg, ccp basedir, uint depth)
 	FREE (d);
 	FREE (sk);
 	if (!model)
-		return depth > 0 ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "PANM: no transform channels: %s\n", arg);
+		return depth > 0 || n_other ? ERR_OK : ERROR0 (ERR_INVALID_DATA, "PANM: no animation channels: %s\n", arg);
 	beside_source_dest_ext (glb, sizeof (glb), arg, ".glb");
 	if (verbose >= 0 || testmode)
 	{

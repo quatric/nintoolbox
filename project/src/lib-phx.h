@@ -36,6 +36,8 @@ uint PMSHApplySkeleton (model_t *model, const u8 *psks, uint psks_size);
 bool IsPANM (const u8 *data, uint size);
 uint PANMTargets (const u8 *data, uint size, u64 **targets);
 model_t *DecodePANM (const u8 *data, uint size, const u8 *psks, uint psks_size, ccp name, uint *matched);
+// The non-transform property channels (material/visibility values) as JSON; returns their count.
+uint PANMWriteChannelsJSON (FILE *f, const u8 *data, uint size);
 
 // "engine_bin" obfuscation (startup.dat, Bin/config.bin): out[i] = AES InvSbox[in[i] ^ in[i+1]], n-1 bytes.
 uint PhxDeobfuscate (u8 *out, const u8 *in, uint size);
