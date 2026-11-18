@@ -1,7 +1,29 @@
 // Purr Pals "*.rsc" resource containers: big-endian {"RSC0", u32 version 2, u32 block count, u32 header size 0x20, u32 total size}, then blocks {char tag[4], u32 block length incl. header, u32 name hash, ...}.
 // Tags: TEX0 (u32 flags, u16 fmt|mips code 0x17xx = RGBA8 / 0x18xx = CMPR, u16 w, u16 h, u32 data size, u32 data offset 0x20; mip chain follows the top level), GRP0 (u32 hash, flags, child count, child offset 0x20, then child blocks), STR0, SND0, ANM0, MDL0, COL0, BIN0, FNT0.
 // TEX0 top levels become single-image TPLs ("NNN_TEX0_<hash>.tpl"); every other block is written raw to "NNN_<tag>_<hash>.bin" and GRP0 children go to a "NNN_GRP0_<hash>" subdirectory.
-static enumError rsc0_blocks (const u8 *d, size_t sz, size_t p, size_t end, uint cnt, uint idx0, ccp dest, ccp arg, uint depth)
+static enumError rsc0_write_dsp (const u8 *pl, size_t plen, uint rate, ccp path, ccp arg)
+{
+	const uint frames = (uint)((plen - 0x40) / 8);
+	u8 *dsp = CALLOC (1, 0x60 + (size_t)frames * 8);
+	wr_be32 (dsp, frames * 14);
+	wr_be32 (dsp + 4, frames * 16);
+	wr_be32 (dsp + 8, rate);
+	wr_be32 (dsp + 0x10, 2);
+	wr_be32 (dsp + 0x14, frames * 16 - 1);
+	wr_be32 (dsp + 0x18, 2);
+	memcpy (dsp + 0x1c, pl, 0x20);
+	dsp[0x3f] = pl[0x40];
+	memcpy (dsp + 0x60, pl + 0x40, (size_t)frames * 8);
+	File_t F;
+	enumError err = CreateFileOpt (&F, true, path, false, arg);
+	if (F.f && fwrite (dsp, 1, 0x60 + (size_t)frames * 8, F.f) != 0x60 + (size_t)frames * 8)
+		err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing DSP failed: %s\n", path);
+	ResetFile (&F, opt_preserve);
+	FREE (dsp);
+	return err;
+}
+
+static enumError rsc0_blocks (const u8 *d, size_t sz, size_t p, size_t end, uint cnt, uint idx0, ccp dest, ccp arg, uint depth, size_t *soff)
 {
 	enumError err = ERR_OK;
 	for (uint i = 0; !err && i < cnt && p + 0x20 <= end; i++)
@@ -44,34 +66,30 @@ static enumError rsc0_blocks (const u8 *d, size_t sz, size_t p, size_t end, uint
 				continue;
 			}
 		}
+		if (!memcmp (b, "SND0", 4) && be32 (b + 0x0c) == 0x200000 && len == 0x60 && soff && *soff)
+		{
+			// streamed sound: the DSP data follows the block table of this file, each stream 0x20-aligned
+			const size_t size = be32 (b + 0x10), off = *soff;
+			*soff = (off + size + 0x1f) & ~(size_t)0x1f;
+			if (be32 (b + 0x14) == 0x01100201 && size > 0x48 && off + size <= sz)
+			{
+				snprintf (path, sizeof (path), "%s/%03u_SND0_%08x.dsp", dest, idx0 + i, be32 (b + 8));
+				err = rsc0_write_dsp (d + off, size, be16 (b + 0x18), path, arg);
+				p += len;
+				continue;
+			}
+		}
 		if (!memcmp (b, "SND0", 4) && be32 (b + 0x0c) == 0x100000 && be32 (b + 0x14) == 0x01100201 && len > 0x20 + 0x48)
 		{
-			// mono DSP-ADPCM: 16 coefficients, 0x20 bytes of (unused) header, then 8-byte frames
-			const uint frames = (len - 0x20 - 0x40) / 8, rate = be16 (b + 0x18);
-			u8 *dsp = CALLOC (1, 0x60 + (size_t)frames * 8);
-			wr_be32 (dsp, frames * 14);
-			wr_be32 (dsp + 4, frames * 16);
-			wr_be32 (dsp + 8, rate);
-			wr_be32 (dsp + 0x10, 2);
-			wr_be32 (dsp + 0x14, frames * 16 - 1);
-			wr_be32 (dsp + 0x18, 2);
-			memcpy (dsp + 0x1c, b + 0x20, 0x20);
-			dsp[0x3f] = b[0x20 + 0x40];
-			memcpy (dsp + 0x60, b + 0x20 + 0x40, (size_t)frames * 8);
 			snprintf (path, sizeof (path), "%s/%03u_SND0_%08x.dsp", dest, idx0 + i, be32 (b + 8));
-			File_t F;
-			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && fwrite (dsp, 1, 0x60 + (size_t)frames * 8, F.f) != 0x60 + (size_t)frames * 8)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing DSP failed: %s\n", path);
-			ResetFile (&F, opt_preserve);
-			FREE (dsp);
+			err = rsc0_write_dsp (b + 0x20, len - 0x20, be16 (b + 0x18), path, arg);
 			p += len;
 			continue;
 		}
 		if (!memcmp (b, "GRP0", 4) && len >= 0x30 && be32 (b + 0x14) == 0x20 && depth < 8)
 		{
 			snprintf (path, sizeof (path), "%s/%03u_GRP0_%08x", dest, idx0 + i, be32 (b + 8));
-			err = rsc0_blocks (d, sz, p + 0x20, p + len, be32 (b + 0x10), 0, path, arg, depth + 1);
+			err = rsc0_blocks (d, sz, p + 0x20, p + len, be32 (b + 0x10), 0, path, arg, depth + 1, 0);
 			p += len;
 			continue;
 		}
@@ -143,11 +161,14 @@ static enumError extract_rsc0_file (ccp arg, ccp basedir, uint depth)
 				for (uint i = 0; !err && i < nblk; i++)
 				{
 					const u8 *e = d + 0x20 + i * 16;
-					err = rsc0_blocks (d, (size_t)sz, be32 (e + 8), (size_t)be32 (e + 8) + be32 (e + 12), 1, i, dest, arg, 0);
+					err = rsc0_blocks (d, (size_t)sz, be32 (e + 8), (size_t)be32 (e + 8) + be32 (e + 12), 1, i, dest, arg, 0, 0);
 				}
 			}
 			else
-				err = rsc0_blocks (d, (size_t)sz, 0x20, (size_t)sz, nblk, 0, dest, arg, 0);
+			{
+				size_t soff = be32 (d + 0x10) < (u32)sz ? be32 (d + 0x10) : 0;
+				err = rsc0_blocks (d, (size_t)sz, 0x20, (size_t)sz, nblk, 0, dest, arg, 0, &soff);
+			}
 			if (!err)
 			{
 				const enumError sub = extract_tree_complete (dest, depth + 1);
