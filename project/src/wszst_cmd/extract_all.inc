@@ -743,6 +743,7 @@
 #include "extract/lmxbdb.inc"
 #include "extract/lzmabrtex.inc"
 #include "extract/chfpack.inc"
+#include "extract/mrvpbin.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
