@@ -178,14 +178,15 @@ static void nif_find_textures (nif_t *n);
 nif_t *NifOpen (const u8 *d, uint size)
 {
 	static const char magic[] = "Gamebryo File Format, Version 20.6.0.0\n";
-	if (!d || size < 0x60 || memcmp (d, magic, sizeof (magic) - 1))
+	static const char magic5[] = "Gamebryo File Format, Version 20.6.5.0\n"; // Epic Mickey 2 (same layout)
+	if (!d || size < 0x60 || (memcmp (d, magic, sizeof (magic) - 1) && memcmp (d, magic5, sizeof (magic5) - 1)))
 		return 0;
 	cur_t c = { d + sizeof (magic) - 1, d + size, true };
 	// the first fields are little-endian, the rest follows the endian flag
 	if (c.p + 13 > c.end)
 		return 0;
 	const u32 ver = c.p[0] | c.p[1] << 8 | c.p[2] << 16 | (u32)c.p[3] << 24;
-	if (ver != 0x14060000 || c.p[4] != 0)
+	if ((ver != 0x14060000 && ver != 0x14060500) || c.p[4] != 0)
 		return 0;
 	const u32 nb = c.p[9] | c.p[10] << 8 | c.p[11] << 16 | (u32)c.p[12] << 24;
 	c.p += 13;

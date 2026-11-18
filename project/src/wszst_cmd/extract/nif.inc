@@ -2,7 +2,7 @@
 // file, scene geometry -> GLB (world space, bind pose, textured).
 static enumError extract_nif_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".nif"))
+	if (!is_ext (arg, ".nif") && !is_ext (arg, ".nif_wii"))
 		return ERR_NOTHING_TO_DO;
 
 	u8 *raw = 0;
