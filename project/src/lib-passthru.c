@@ -3848,6 +3848,12 @@ static enumError passthru_claim (bool strong_only, // true: header-claimed conta
 	if (!memcmp (head, "MSCF\0\0\0\0", 8))
 		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, false);
 
+	// Plain ZIP archives under non-zip names (The Price Is Right ships its
+	// content as "Update.u00".."Update_3.u50"): claimed by the local-file-header
+	// magic only in the weak pass, after every native probe had its chance.
+	if (!strong_only && !memcmp (head, "PK\x03\x04", 4))
+		return passthru_7z (src, basedir, stage, staged_dir, staged_dir_size, false);
+
 	// 7-Zip / RAR / Tar / gzip archives (by extension). Koei Tecmo
 	// .g1t.gz files are not gzip streams at all (chunked wrapper with
 	// its own magic); the native G1T extractor takes them below, so
