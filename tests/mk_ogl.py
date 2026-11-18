@@ -4,8 +4,11 @@
 import struct, sys, os, subprocess
 d = sys.argv[1]
 ref = os.path.join(d, 't.ref.ogg')
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.5:sample_rate=22050', '-c:a', 'libvorbis',
-                '-ac', '1', ref], check=True)
+# libvorbis when this ffmpeg has it, else ffmpeg's built-in (experimental) Vorbis encoder
+enc = ['-c:a', 'libvorbis'] if b'libvorbis' in subprocess.run(['ffmpeg', '-hide_banner', '-encoders'], capture_output=True).stdout \
+    else ['-c:a', 'vorbis', '-strict', '-2']  # (stereo only)
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.5:sample_rate=22050'] + enc +
+               (['-ac', '1'] if enc[1] == 'libvorbis' else ['-ac', '2']) + [ref], check=True)
 data = open(ref, 'rb').read()
 packets, cur, last_gran, p = [], b'', 0, 0
 while p < len(data):

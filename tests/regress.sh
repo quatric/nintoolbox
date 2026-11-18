@@ -4697,10 +4697,12 @@ echo "== external pass-through extraction (wit/ndstool/ctrtool/sharpii) =="
 # Only plain DS ROMs (header unitcode 0x12 == 0) take the ndstool path; DSi
 # enhanced/exclusive ROMs are modcrypt-decrypted by extract/twl.inc instead
 # and stage as <name>.nds.d/decrypted.d, so they would fail the t.d layout.
+# ROMs with an empty filesystem (homebrew menus) have no data/ dir to stage, so they are skipped too.
 PT_NDS=$(for d in $SEARCH; do [ -d "$d" ] || continue
     find -L "$d" -maxdepth 4 -iname '*.nds' -size -60M ! -path '*/_r_*' 2>/dev/null
   done | while IFS= read -r n; do
-    [ "$(dd if="$n" bs=1 skip=18 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')" = "0" ] && { printf '%s\n' "$n"; break; }
+    [ "$(dd if="$n" bs=1 skip=18 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')" = "0" ] \
+      && [ "$(ndstool -l "$n" 2>/dev/null | wc -l)" -gt 3 ] && { printf '%s\n' "$n"; break; }
   done)
 PT_WAD=$(for d in $SEARCH; do [ -d "$d" ] || continue; find -L "$d" -maxdepth 4 -iname '*.wad' -size -60M ! -path '*/_r_*' -print -quit 2>/dev/null; done | head -1)
 
