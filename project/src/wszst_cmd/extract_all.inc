@@ -765,6 +765,7 @@
 #include "extract/ccd.inc"
 #include "extract/lxhd.inc"
 #include "extract/wtpak.inc"
+#include "extract/dbreg.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
