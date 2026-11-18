@@ -731,6 +731,7 @@
 #include "extract/mmpaq.inc"
 #include "extract/bct.inc"
 #include "extract/s3t.inc"
+#include "extract/rsc0.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
