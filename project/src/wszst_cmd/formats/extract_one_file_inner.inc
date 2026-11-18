@@ -116,6 +116,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_wwb_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_mmpaq_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_msimawav_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
