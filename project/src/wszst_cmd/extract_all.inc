@@ -745,6 +745,7 @@
 #include "extract/chfpack.inc"
 #include "extract/mrvpbin.inc"
 #include "extract/gos1.inc"
+#include "extract/gms.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
