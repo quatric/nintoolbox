@@ -44,6 +44,30 @@ static enumError rsc0_blocks (const u8 *d, size_t sz, size_t p, size_t end, uint
 				continue;
 			}
 		}
+		if (!memcmp (b, "SND0", 4) && be32 (b + 0x0c) == 0x100000 && be32 (b + 0x14) == 0x01100201 && len > 0x20 + 0x48)
+		{
+			// mono DSP-ADPCM: 16 coefficients, 0x20 bytes of (unused) header, then 8-byte frames
+			const uint frames = (len - 0x20 - 0x40) / 8, rate = be16 (b + 0x18);
+			u8 *dsp = CALLOC (1, 0x60 + (size_t)frames * 8);
+			wr_be32 (dsp, frames * 14);
+			wr_be32 (dsp + 4, frames * 16);
+			wr_be32 (dsp + 8, rate);
+			wr_be32 (dsp + 0x10, 2);
+			wr_be32 (dsp + 0x14, frames * 16 - 1);
+			wr_be32 (dsp + 0x18, 2);
+			memcpy (dsp + 0x1c, b + 0x20, 0x20);
+			dsp[0x3f] = b[0x20 + 0x40];
+			memcpy (dsp + 0x60, b + 0x20 + 0x40, (size_t)frames * 8);
+			snprintf (path, sizeof (path), "%s/%03u_SND0_%08x.dsp", dest, idx0 + i, be32 (b + 8));
+			File_t F;
+			err = CreateFileOpt (&F, true, path, false, arg);
+			if (F.f && fwrite (dsp, 1, 0x60 + (size_t)frames * 8, F.f) != 0x60 + (size_t)frames * 8)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing DSP failed: %s\n", path);
+			ResetFile (&F, opt_preserve);
+			FREE (dsp);
+			p += len;
+			continue;
+		}
 		if (!memcmp (b, "GRP0", 4) && len >= 0x30 && be32 (b + 0x14) == 0x20 && depth < 8)
 		{
 			snprintf (path, sizeof (path), "%s/%03u_GRP0_%08x", dest, idx0 + i, be32 (b + 8));
