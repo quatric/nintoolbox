@@ -24,7 +24,7 @@ static enumError copy_zip_member (File_t *file, const zip_member_t *member)
 
 static enumError extract_zip_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".zip") && !is_ext (arg, ".tszip") && !is_ext (arg, ".szip"))
+	if (!is_ext (arg, ".zip") && !is_ext (arg, ".tszip") && !is_ext (arg, ".szip") && !is_ext (arg, ".zgs"))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t raw_size = 0;
