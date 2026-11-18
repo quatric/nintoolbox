@@ -757,6 +757,7 @@
 #include "extract/gijoedfu.inc"
 #include "extract/fordwig.inc"
 #include "extract/fsgimg.inc"
+#include "extract/efa.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
