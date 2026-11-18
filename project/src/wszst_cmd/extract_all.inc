@@ -748,6 +748,7 @@
 #include "extract/gms.inc"
 #include "extract/rtdpvld.inc"
 #include "extract/tpkbres.inc"
+#include "extract/globpack.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
