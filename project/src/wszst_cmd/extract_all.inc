@@ -712,6 +712,7 @@
 #include "extract/mtxz.inc"
 #include "extract/brawlarc.inc"
 #include "extract/dt3.inc"
+#include "extract/mosdata.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
