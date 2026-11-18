@@ -751,6 +751,7 @@
 #include "extract/globpack.inc"
 #include "extract/rvli.inc"
 #include "extract/tatepak.inc"
+#include "extract/rbin.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
