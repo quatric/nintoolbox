@@ -737,6 +737,7 @@
 #include "extract/lracp.inc"
 #include "extract/mjbf.inc"
 #include "extract/cdbigfile.inc"
+#include "extract/dhlvl.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
