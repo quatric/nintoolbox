@@ -720,6 +720,8 @@
 #include "extract/upk.inc"
 #include "extract/jadebf.inc"
 #include "extract/pickmix.inc"
+#include "extract/geekcsa.inc"
+#include "extract/pixelpte.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
