@@ -176,7 +176,15 @@ static enumError extract_streamed_entries (ccp arg, ccp basedir, uint depth, ccp
 		err = CreateFileOpt (&F, true, path, false, arg);
 		if (F.f && fseeko (src, (off_t)entries[i].offset, SEEK_SET))
 			err = FILEERROR1 (&F, ERR_READ_FAILED, "Seek failed: %s\n", arg);
-		if (F.f && !err && entries[i].codec == STREAM_CODEC_ABE_LZO)
+		if (F.f && !err && entries[i].codec == STREAM_CODEC_ABE_LZO5)
+		{
+			u8 skip[4];
+			if (fread (skip, 1, 4, src) != 4)
+				err = FILEERROR1 (&F, ERR_READ_FAILED, "Reading member failed: %s\n", arg);
+			else
+				err = stream_write_abe_lzo (&F, src, arg, path, entries[i].size);
+		}
+		else if (F.f && !err && entries[i].codec == STREAM_CODEC_ABE_LZO)
 			err = stream_write_abe_lzo (&F, src, arg, path, entries[i].size);
 		if (F.f && !err && entries[i].codec == STREAM_CODEC_IGA_LZMA)
 			err = stream_write_iga_lzma (&F, src, arg, path, entries[i].size);

@@ -53,7 +53,7 @@ enumError ScanAbeBf (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_e
 
 	u8 h[0x30];
 	if (!abe_read (f, file_size, 0, h, sizeof (h)) || memcmp (h, "ABE\0", 4)
-		|| abe_rd32 (h + 4) != 4)
+		|| (abe_rd32 (h + 4) != 4 && abe_rd32 (h + 4) != 5))
 		return EINVAL;
 	const u32 total = abe_rd32 (h + 8);
 	u64 chunk = abe_rd32 (h + 0x18);
@@ -105,7 +105,7 @@ enumError ScanAbeBf (FILE *f, u64 file_size, stream_entry_t **entries, uint *n_e
 				if (type == 2 && stored == unpacked)
 					codec = STREAM_CODEC_RAW;
 				else if (type == 4 && stored > 8 && unpacked)
-					codec = STREAM_CODEC_ABE_LZO;
+					codec = abe_rd32 (h + 4) == 5 ? STREAM_CODEC_ABE_LZO5 : STREAM_CODEC_ABE_LZO;
 				else
 					continue; // shadow reference or an unrelated record kind
 

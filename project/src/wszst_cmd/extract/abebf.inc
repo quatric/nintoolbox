@@ -1,7 +1,7 @@
 // Ubisoft Magma ABE BigFile (".BF", Rabbids Go Home); see lib-abebf.h.
 static enumError extract_abebf_file (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext (arg, ".bf"))
+	if (!is_ext (arg, ".bf") && !is_ext (arg, ".bbf"))
 		return ERR_NOTHING_TO_DO;
 
 	FILE *src = fopen (arg, "rb");
