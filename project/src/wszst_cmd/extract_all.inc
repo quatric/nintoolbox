@@ -739,6 +739,7 @@
 #include "extract/cdbigfile.inc"
 #include "extract/dhlvl.inc"
 #include "extract/txw.inc"
+#include "extract/abrs.inc"
 #include "extract/msimawav.inc"
 #include "extract/mssbnk.inc"
 #include "extract/rspa.inc"
