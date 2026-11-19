@@ -625,6 +625,7 @@
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"
 #include "extract/sega_hmot.inc"
+#include "extract/sega_abst.inc"
 #include "extract/mh2z.inc"
 #include "extract/mh2_anim.inc"
 #include "extract/ifp_anct.inc"

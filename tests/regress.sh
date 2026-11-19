@@ -13696,6 +13696,23 @@ PYE
     fno "SEGA AMMP" "fixture generation failed"
   fi
 
+  # SEGA ABST asset schedule (Sakura Wars .asd): chunk list with ASAD names -> JSON
+  mkdir -p "$d/sega_abst"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_abst.py" "$d/sega_abst/t.asd" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_abst/t.asd" >/dev/null 2>&1
+    if python3 - "$d/sega_abst/t.asd.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1]))
+c = j['chunks']
+assert [x['tag'] for x in c] == ['ASAD', 'ASSC'] and c[0]['name'] == 'evmap05_01_00' and c[1]['words'][0] == 7, j
+PYE
+    then fok "SEGA ABST: Sakura Wars .asd asset schedule (ASAD names, ASSC words) -> JSON"
+    else fno "SEGA ABST" "wrong JSON from synthetic schedule"
+    fi
+  else
+    fno "SEGA ABST" "mk_sega_abst.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
