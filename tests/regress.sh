@@ -13756,6 +13756,22 @@ PYE
     fno "SEGA MSCR" "mk_sega_mscr.py failed"
   fi
 
+  # SEGA MSCR unpacked script (Sakura Wars .msb): entry table, argument blocks, code, word table -> JSON
+  mkdir -p "$d/sega_msb"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_msb.py" "$d/sega_msb/t.msb" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_msb/t.msb" >/dev/null 2>&1
+    if python3 - "$d/sega_msb/t.msb.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1]))
+assert j['words'] == [100, 200, 300] and [(e['id'], e['args'], e['code']) for e in j['entries']] == [(7, [11, 22], '01020304'), (8, [], '0506')], j
+PYE
+    then fok "SEGA MSB: Sakura Wars .msb script (entries, argument blocks, code words, word table) -> JSON"
+    else fno "SEGA MSB" "wrong JSON from synthetic script"
+    fi
+  else
+    fno "SEGA MSB" "mk_sega_msb.py failed"
+  fi
+
   # SEGA GTPA text page table (Sakura Wars .gtp): layout words + message text -> JSON
   mkdir -p "$d/sega_gtpa"
   if python3 "$PWD_PROJECT/../tests/mk_sega_gtpa.py" "$d/sega_gtpa/t.gtp" >/dev/null 2>&1; then
