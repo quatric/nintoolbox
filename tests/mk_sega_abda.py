@@ -5,7 +5,8 @@ usage: mk_sega_abda.py OUT.abd"""
 import struct, sys
 payload = bytearray(0x4c)
 struct.pack_into('<IIi', payload, 0, 0x77820d59, 0x40, -1)
-struct.pack_into('<IIII', payload, 0x24, 2, 0x44, 0x50, 0x5c)         # two blocks (offsets relative to the section start) and the end offset
+struct.pack_into('<II', payload, 0x24, 2, 0x30 + 0x3c)                  # root: node count, file offset of the node pointer array (right after the root fields)
+struct.pack_into('<II', payload, 0x2c, 0x30 + 0x44, 0x30 + 0x50)         # the two node offsets (absolute)
 sec = b'ABDT' + struct.pack('<III', len(payload), 0x10, 0) + bytes(payload)
 # POF0 chunk after the section: slots at file offsets 0x20 (section entry) and 0x30 + 0x38 (first block offset): deltas 8 and 0x12 words -> bytes 0x48, 0x52
 pof = b'POF0' + struct.pack('<III', 0x10, 0x10, 0) + struct.pack('<I', 8) + bytes([0x48, 0x52, 0, 0]) + bytes(4)

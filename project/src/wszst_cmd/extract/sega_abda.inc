@@ -1,7 +1,7 @@
 // SEGA "ABDA" blocks (Sakura Wars: So Long, My Love "*.abd", "*.arm", "*.bfX", "*.bf1", "*.dia" and ABDA members of URES/AM?? packs; 670 retail files; little endian), structure: {"ABDA", u32 size, u32
 // header size (0x30..0x140), 0}, u32 type hash (0x77820d59 in most files), u32 section count, u32 offset of the POF0 chunk (the end of the sections), then from 0x20 a list of 8-byte entries {u32 section offset, 0}. Sections start
 // with {tag, u32 payload size, u32 header size 0x10, 0}: "ABDT" mostly. An ABDT payload starts {u32 hash, u32 0x40, u32 -1, f32 -1, f32 -1, ...} followed by offset tables to sub-blocks; the object
-// graph below the section level (animation / effect curves) is not decoded. The ABDT block table (u32 count at +0x34, then count+1 offsets relative to the section start) is listed as "blocks" (offset, size). Written as JSON with the section tag, offset, size and the first 64 payload words of every section.
+// graph below the section level (animation / effect curves) is not decoded. The ABDT node table is listed as "blocks" (absolute file offset, size). Written as JSON with the section tag, offset, size and the first 64 payload words of every section.
 static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -38,22 +38,23 @@ static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 		for (size_t w = o + 0x10; w + 4 <= end && w < o + 0x10 + 256; w += 4)
 			sumo_printf (&b, "%s%u", w > o + 0x10 ? ", " : "", rd_le32 (c + w));
 		sumo_printf (&b, "]");
-		// ABDT block table: u32 block count at +0x34, then count offsets (relative to the section start) of the sub-blocks and one more offset that ends the last block
-		if (!memcmp (c + o, "ABDT", 4) && o + 0x38 <= end)
+		// ABDT root (payload at section + 0x10, after the loader FUN_8001eadc): u32 node count at +0x34 (payload +0x24), u32 file offset of an array of that many u32 file offsets of the nodes at +0x38;
+		// a node ends where the next one starts (the last one at the section end). All pointers inside the file are absolute file offsets (see the POF0 table below).
+		if (!memcmp (c + o, "ABDT", 4) && o + 0x3c <= end)
 		{
-			const u32 m = rd_le32 (c + o + 0x34);
-			bool good = m && m <= 64 && o + 0x38 + 4 * (size_t)(m + 1) <= end;
-			for (u32 k = 0; k <= m && good; k++)
+			const u32 m = rd_le32 (c + o + 0x34), tb = rd_le32 (c + o + 0x38);
+			bool good = m && m <= 4096 && (u64)tb + 4ull * m <= end && tb >= o;
+			for (u32 k = 0; k < m && good; k++)
 			{
-				const u32 v = rd_le32 (c + o + 0x38 + 4 * k);
-				good = o + v <= end && (!k || v >= rd_le32 (c + o + 0x38 + 4 * (k - 1))) && v >= 0x38 + 4 * (m + 1);
+				const u32 v = rd_le32 (c + tb + 4 * k);
+				good = v >= o && v < end && (!k || v >= rd_le32 (c + tb + 4 * (k - 1)));
 			}
 			if (good)
 			{
 				sumo_printf (&b, ", \"blocks\": [");
 				for (u32 k = 0; k < m; k++)
 				{
-					const u32 v = rd_le32 (c + o + 0x38 + 4 * k), v2 = rd_le32 (c + o + 0x38 + 4 * (k + 1));
+					const u32 v = rd_le32 (c + tb + 4 * k), v2 = k + 1 < m ? rd_le32 (c + tb + 4 * (k + 1)) : (u32)end;
 					sumo_printf (&b, "%s{\"offset\": %u, \"size\": %u}", k ? ", " : "", v, v2 - v);
 				}
 				sumo_printf (&b, "]");
