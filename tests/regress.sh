@@ -13921,7 +13921,9 @@ PYE
   if python3 "$PWD_PROJECT/../tests/mk_sega_grd_atlas.py" "$d/sega_grd_atlas/t.GRD" >/dev/null 2>&1; then
     "$B/wszst" xx "$d/sega_grd_atlas/t.GRD" >/dev/null 2>&1
     if python3 - "$d/sega_grd_atlas/t.0.0.png" <<'PYE' 2>/dev/null
-import sys, struct, zlib
+import sys, struct, zlib, json
+q = json.load(open(sys.argv[1].replace('t.0.0.png', 't.GRD.d/t.json')))['cells'][0]['quads']
+assert len(q) == 1 and q[0]['state'] == [0xfc00a, 0xfc] and q[0]['centre'] == [224, -34.5] and q[0]['v'][2] == [256, 0, 0.25, 0.25], q
 def png_rows(path):
     d = open(path, 'rb').read(); p = 8; idat = b''
     while p < len(d):

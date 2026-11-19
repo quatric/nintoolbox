@@ -1,3 +1,11 @@
+static double grd_f32 (const u8 *p)
+{
+	const u32 v = rd_le32 (p);
+	float f;
+	memcpy (&f, &v, 4);
+	return (double)f;
+}
+
 // Atlas textures ("PVRT" kind 0x64, pixel format 9, 256 x 256) use the palette of the MPLN chunk (256 RGBA entries) and a swizzled index order: with i the byte index, target bit k of the position (k = 0..7
 // x, 8..15 y) is the parity of (i & mask[k]) for mask = 512 1024 2048 4096 8192 128 256 32768 | 4 8 9233 2 32 64 16400 16 (found by a smoothness search over bit assignments with XOR terms, rated on the
 // retail atlas), then the picture is rotated a quarter turn: pixel (255 - y, x). Returns the RGBA image or NULL.
@@ -26,8 +34,8 @@ static u8 *sega_atlas_rgba (const u8 *pvrt, size_t avail, const u8 *pal, uint pa
 
 // SEGA "MPLN" 2D effect/graphics sets (Sakura Wars: So Long, My Love "MARS/GR/**/*.GRD", little endian): a chunk {"MPLN", u32 size without header, u32 header size 0x10, 0} whose body (at 0x10) starts with a
 // 0x30 byte header {u32 palette offset, u32 sub-chunk offset, u16 17, u16 1, u16 width, u16 height, 6 floats, u32 flags (&0xf00: 0x100/0x800 = 16, 0x200/0x900 = 256 colours), u32 palette bytes}, then the palette (RGBA
-// bytes, alpha 0..0x80) and the sub-chunks (each {magic, u32 size without header, u32 header size 0x10, flags}, stride size + 0x10): MDCG cells (header word 5 = offset of the cell's vertex list start / "HTEX" chunk,
-// vertex lists are GX data that is not decoded) and MNCA tables {3 words, count, count x 4 u16 rectangles}. An HTEX chunk (flags 0x400) is Melt compressed (see sega_melt.inc) to an "HTSF" texture container
+// bytes, alpha 0..0x80) and the sub-chunks (each {magic, u32 size without header, u32 header size 0x10, flags}, stride size + 0x10): MDCG cells (header word 5 = offset of the cell's "HTEX" chunk; before it 96 byte textured-quad records,
+// see below) and MNCA tables {3 words, count, count x 4 u16 rectangles}. An HTEX chunk (flags 0x400) is Melt compressed (see sega_melt.inc) to an "HTSF" texture container
 // ("PVRT" blocks, pixel layout not decoded); it is written raw as "<name>.<cell>.htsf" and its 256 x 256 palette textures are decoded to "<name>.<cell>.<n>.png" (see sega_atlas_rgba). The JSON carries the header fields, the palette, the MNCA rectangles and the cell sizes.
 static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 {
@@ -81,7 +89,18 @@ static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 				const u32 hsz = rd_le32 (ch + ho + 4);
 				packed = ho + hsz <= sz && sega_melt (ch + ho, (size_t)hsz + 0x10, 0x20, dec, 0x1000000, &n) && n > 0x30 && !memcmp (dec, "HTSF", 4);
 			}
-			sumo_printf (&b, "%s\n\t\t{\"mdcg_size\": %u, \"htex_offset\": %u, \"htsf_bytes\": %zu}", ncell ? "," : "", sz, ho, packed ? n : 0);
+			sumo_printf (&b, "%s\n\t\t{\"mdcg_size\": %u, \"htex_offset\": %u, \"htsf_bytes\": %zu, \"quads\": [", ncell ? "," : "", sz, ho, packed ? n : 0);
+			// textured quads: 96 byte records {u32 state word, u32 state word, f32 centre x, centre y, size, f32 0, 4 x {f32 x, y, u, v}, 2 x f32 0} from body + 0x30 to the HTEX chunk
+			uint nq = 0;
+			for (size_t qo = 0x40; qo + 96 <= ho && (rd_le32 (ch + qo) & 0xff) == 0x0a; qo += 96, nq++)
+			{
+				const u8 *q = ch + qo;
+				sumo_printf (&b, "%s\n\t\t\t{\"state\": [%u, %u], \"centre\": [%g, %g], \"size\": %g, \"v\": [", nq ? "," : "", rd_le32 (q), rd_le32 (q + 4), grd_f32 (q + 8), grd_f32 (q + 12), grd_f32 (q + 16));
+				for (uint k = 0; k < 4; k++)
+					sumo_printf (&b, "%s[%g, %g, %g, %g]", k ? ", " : "", grd_f32 (q + 24 + 16 * k), grd_f32 (q + 28 + 16 * k), grd_f32 (q + 32 + 16 * k), grd_f32 (q + 36 + 16 * k));
+				sumo_printf (&b, "]}");
+			}
+			sumo_printf (&b, "%s]}", nq ? "\n\t\t" : "");
 			if (packed && !testmode)
 			{
 				char fn[PATH_MAX];
