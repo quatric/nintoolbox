@@ -98,6 +98,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_pixelpte_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	// the full IPK extractor (zlib / LZMA members, both name orders) first; the older UbiIPK one is the fallback
+	err = extract_ipk_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_ubiipk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
@@ -587,6 +591,10 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_eatpcm_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	// the Sumo / iSWS multi-channel extractor (honours --dest) first; the newer Dirt 2 one is the fallback
+	err = extract_was_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
 	err = extract_iswsdsp_file (arg, basedir, depth);

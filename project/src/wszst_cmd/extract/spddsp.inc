@@ -44,7 +44,8 @@ static enumError extract_spddsp_file (ccp arg, ccp basedir, uint depth)
 			const u64 first = (u64)(start - 2) / 2, nib = (u64)end - (start - 2) + 1, bytes = (nib + 1) / 2;
 			if (first + bytes > sz)
 				continue;
-			u8 *d = CALLOC (1, 0x60 + bytes);
+			const u64 padded = (bytes + 7) & ~(u64)7; // a cut-short last frame is zero-padded to a whole 8-byte frame
+			u8 *d = CALLOC (1, 0x60 + padded);
 			if (!d)
 			{
 				err = ERR_OUT_OF_MEMORY;
@@ -65,8 +66,8 @@ static enumError extract_spddsp_file (ccp arg, ccp basedir, uint depth)
 			snprintf (path, sizeof (path), "%s/%s%04u.dsp", dest, basedir ? basedir : "", i);
 			File_t F;
 			err = CreateFileOpt (&F, true, path, false, arg);
-			if (F.f && fwrite (d, 1, 0x60 + bytes, F.f) != 0x60 + bytes)
-				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", (uint)(0x60 + bytes), path);
+			if (F.f && fwrite (d, 1, 0x60 + padded, F.f) != 0x60 + padded)
+				err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", (uint)(0x60 + padded), path);
 			ResetFile (&F, opt_preserve);
 			FREE (d);
 			made++;

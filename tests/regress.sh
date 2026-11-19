@@ -13113,9 +13113,9 @@ assert b == b'IDSP' + bytes(range(0x7c))
   mkdir -p "$d/spt_test"
   if python3 "$PWD_PROJECT/../tests/mk_spt.py" "$d/spt_test" >/dev/null 2>&1; then
     "$B/wszst" x "$d/spt_test/b.spd" --overwrite >/dev/null 2>&1 \
-    && [ "$(stat -f%z "$d/spt_test/b.spd.d/000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/b.spd.d/000.dsp")" = "112" ] \
+    && [ "$(stat -f%z "$d/spt_test/b.spd.d/0000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/b.spd.d/0000.dsp")" = "112" ] \
     && "$B/wszst" x "$d/spt_test/c.spd" --overwrite >/dev/null 2>&1 \
-    && [ "$(stat -f%z "$d/spt_test/c.spd.d/000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/c.spd.d/000.dsp")" = "112" ] \
+    && [ "$(stat -f%z "$d/spt_test/c.spd.d/0000.dsp" 2>/dev/null || stat -c%s "$d/spt_test/c.spd.d/0000.dsp")" = "112" ] \
     && fok "SPD/SPT bank extracts DSP streams (incl. a truncated last frame)" \
     || fno "SPD/SPT bank" "failed to extract synthetic b.spd"
   else
@@ -14778,10 +14778,10 @@ open("'"$d"'/sonicex_test/plain.ngif", "wb").write(plain)
   python3 -c '
 import struct
 def pad(b): return b + b"\x00" * (-len(b) % 32)
-def chunk(t, body): body = pad(body); return struct.pack(">II", t, len(body) - 0) + body
+def chunk(t, body): body = body + b"\x00" * (-(len(body) + 8) % 32); return struct.pack(">II", t, len(body)) + body   # head + body padded to 0x20
 def counted(t, n, data): return chunk(t, pad(struct.pack(">I", n))[:0x18] + data)
 f = lambda *a: struct.pack(">%df" % len(a), *a)
-hdr = struct.pack(">II", 0, 0x18) + b"\x00" * 0x18
+hdr = struct.pack(">II", 0, 0x38) + b"\x00" * 0x38   # header chunk >= 0x20 bytes (IsPikminMod), 8 + 0x38 = 0x40
 vtx = counted(0x10, 3, f(0,0,0, 1,0,0, 0,1,0))
 nrm = counted(0x11, 1, f(0,0,1))
 dl = bytes([0x90, 0, 3]) + b"".join(struct.pack(">HH", i, 0) for i in range(3))

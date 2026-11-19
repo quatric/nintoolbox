@@ -2,6 +2,8 @@
 static enumError extract_brawlarc_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)basedir;
+	if (is_ext (arg, ".pac")) // wszst's own PAC extractor restores the member names
+		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
