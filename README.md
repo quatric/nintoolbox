@@ -435,6 +435,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Midway TIM** | `.tim` | Wii |
 | **Momotarou Dentetsu 2010 font sheet** | — | *Momotarou Dentetsu 2010*, *Momotarou Dentetsu 16* |
 | **Muramasa FTX / NMS** | `.ftx`, `.nms` | *Muramasa: The Demon Blade* |
+| **Game Freak NTBG** | `.5bg` | *Looksley's Line Up* |
 | **Next Level texture banks** | `.rlt`, `.res`, `.dmn` | *Mario Strikers Charged* |
 | **Nippon Ichi IMY** | `.imy` | *Phantom Brave: We Meet Again* |
 | **NW4R intermediate texture** | `.rtex` | *Der Gesundheitscoach* |

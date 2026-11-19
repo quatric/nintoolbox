@@ -11079,6 +11079,16 @@ assert int.from_bytes(a[4:8], 'big') == 32 and int.from_bytes(b[8:12], 'big') ==
     fno "Krome .mdl" "mk_kromemdl.py failed"
   fi
 
+  # Game Freak NTBG (.5bg) background -> PNG
+  mkdir -p "$d/ntbg_test"
+  python3 "$PWD_PROJECT/../tests/mk_ntbg.py" "$d/ntbg_test" >/dev/null 2>&1 \
+  && "$B/wszst" xx "$d/ntbg_test/t.5bg" >/dev/null 2>&1 \
+  && python3 "$PNGTOOL" pixel "$d/ntbg_test/t.5bg.png" 0 0 0 255 0 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/ntbg_test/t.5bg.png" 15 7 0 255 0 255 2>/dev/null \
+  && python3 "$PNGTOOL" pixel "$d/ntbg_test/t.5bg.png" 16 0 0 0 0 0 2>/dev/null \
+  && fok "Game Freak NTBG .5bg -> PNG (4 bpp tiles, map flip, transparent colour 0)" \
+  || fno "Game Freak NTBG .5bg" "wrong or missing $d/ntbg_test/t.5bg.png"
+
   # Shin'en .ogl custom-framed Vorbis -> standard Ogg
   if command -v ffmpeg >/dev/null 2>&1; then
     mkdir -p "$d/ogl_test"
