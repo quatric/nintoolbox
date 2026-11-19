@@ -10046,6 +10046,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor NAV" "mk_igor_nav.py failed"
   fi
 
+  # Igor: The Game .mkr voice-over cue markers -> TSV
+  mkdir -p "$d/igormkr_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igor_mkr.py" "$d/igormkr_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igormkr_test/t.mkr" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_igor_mkr.py" check "$d/igormkr_test" >/dev/null 2>&1 \
+    && fok "Igor .mkr cue markers export to TSV (time, name)" \
+    || fno "Igor MKR" "failed to convert synthetic t.mkr"
+  else
+    fno "Igor MKR" "mk_igor_mkr.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then

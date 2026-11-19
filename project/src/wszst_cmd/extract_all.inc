@@ -625,6 +625,7 @@
 #include "extract/igor_ggm.inc"
 #include "extract/igor_xga.inc"
 #include "extract/igor_nav.inc"
+#include "extract/igor_mkr.inc"
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"
 #include "extract/sega_hmot.inc"

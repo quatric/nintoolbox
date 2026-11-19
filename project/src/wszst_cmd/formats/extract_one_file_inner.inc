@@ -933,6 +933,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_igor_nav_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_igor_mkr_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_sumo_cog_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
