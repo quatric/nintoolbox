@@ -259,6 +259,7 @@ wbrsar pack Sound.d/raw Sound-new.brsar       # rebuild from the raw assets
 | **TMPK** | `.pack`, `.tmpk` | *The Legend of Zelda: Twilight Princess HD* |
 | **Torus Games hunkfile** | `.hnk` | *Barbie & Her Sisters: Puppy Rescue* |
 | **Toshi TSFB** | `.ttl`, `.tkl` (`.trb` models and terrain) | *Nickelodeon Barnyard* |
+| **War Drum CLMP** | `.dff` (models, untextured) | *Manhunt 2* |
 | **Town Factory PCKG** | `.pac`, `.pcha`, `.pac0`-`9`, `.bin`, `.dat` | *Little King's Story* |
 | **TREASURE-MRG** | `.mrg`, `.bg4`, `.bg8` | *Bleach: Dark Souls*, *Bleach: The Blade of Fate*, *Bangai-O Spirits* |
 | **TRPAK** | `.trpak` | *Pokémon Scarlet / Violet* |

@@ -13666,6 +13666,27 @@ PYE
     fno "Toshi TSFB terrain" "mk_toshi_terrain.py failed"
   fi
 
+  # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
+  mkdir -p "$d/clmp"
+  if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
+    "$B/wmdlt" ENCODE "$d/clmp/t.dff" --dest "$d/clmp/t.glb" >/dev/null 2>&1
+    if python3 - "$d/clmp/t.glb" <<'PYE' 2>/dev/null
+import sys, json, struct
+d = open(sys.argv[1], 'rb').read()
+jl = struct.unpack('<I', d[12:16])[0]
+js = json.loads(d[20:20 + jl])
+prims = [p for m in js['meshes'] for p in m['primitives']]
+assert len(prims) == 1
+a = js['accessors'][prims[0]['attributes']['POSITION']]
+assert a['count'] == 3 and a['min'] == [0, 0, 0] and a['max'] == [1, 1, 0], a
+PYE
+    then fok "CLMP: Manhunt 2 .dff model (GX display list, s16 arrays) -> GLB"
+    else fno "CLMP model" "wrong GLB from synthetic model"
+    fi
+  else
+    fno "CLMP model" "mk_clmp.py failed"
+  fi
+
   # Toshi TSFB subtitle library (Nickelodeon Barnyard, Wii): two-section lib_*.trb -> text
   mkdir -p "$d/toshi_subs"
   if python3 "$PWD_PROJECT/../tests/mk_toshi_subs.py" "$d/toshi_subs" >/dev/null 2>&1; then

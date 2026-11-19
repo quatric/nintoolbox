@@ -1697,6 +1697,22 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				}
 			}
 		}
+		// War Drum CLMP model (Manhunt 2 Wii .dff)
+		if (is_model_dest && raw.data_size >= 4 && !memcmp (raw.data, "CLMP", 4) && IsClmpModel (raw.data, raw.data_size))
+		{
+			model_t *model = BuildClmpModel (raw.data, raw.data_size);
+			if (model)
+			{
+				if (!testmode)
+				{
+					if (verbose >= 0)
+						fprintf (stdlog, "%sEXPORT CLMP:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
+					ExportModelToGLB (model, dest);
+				}
+				FreeModel (model);
+				continue;
+			}
+		}
 		// J3D GameCube/Wii BMD/BDL (SuperBMD-compatible). Magic-checked
 		// first so a J3D .bmd never reaches the DS NSBMD path below;
 		// the .bmd extension alone still means early-DS BMD there.
