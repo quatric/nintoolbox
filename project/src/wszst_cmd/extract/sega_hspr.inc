@@ -1,8 +1,7 @@
 // SEGA "HSPR" sprite sheets (Sakura Wars: So Long, My Love; ".hspr" members of URES / AM?? packs and "*.bfX" / "*.arm" files, the packed \".bfX\" form (header flags 0x400) is Melt-unpacked first (see sega_melt.inc); 519 sheets checked; little endian), container level: {"HSPR", u32 size, u32
 // header size 0x10, 0} wraps a "KSPR" chunk at 0x10 (payload at 0x20, all offsets are relative to the HSPR chunk): {u32 version 1, 0, u32 N, u32 0x30}, at 0x30 {u32 sprite count, u32 offset of the sprite
 // records, u32 count again, u32 offset of a second table (one 48-byte record per sprite: 0, 0x30, index, offset of the sprite record)}. The sprite records start 0x10 bytes after the table offset (the
-// 16 bytes before them hold a float rectangle) and are 32 bytes each: {u32 index (0..count-1), 0, u32 kind (1..10), 0, f32 width, f32 height, u32 offset A, u32 offset B}; A and B point at GX command
-// streams (texture coordinates / quads) that are not decoded. Written as JSON with the sprite table.
+// 16 bytes before them hold a float rectangle) and are 32 bytes each: {u32 index (0..count-1), 0, u32 kind (1..10), 0, f32 width, f32 height, u32 offset A, u32 offset B}; A points at the sprite's data block and B at its animation track table (see below). Written as JSON with the sprite table.
 static enumError extract_sega_hspr_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -55,6 +54,61 @@ static enumError extract_sega_hspr_file (ccp arg, ccp basedir, uint depth)
 		}
 		sumo_printf (&b, "%s\n\t\t{\"index\": %zu, \"kind\": %u, \"width\": %.9g, \"height\": %.9g, \"offset_a\": %u, \"offset_b\": %u}", i ? "," : "", i, rd_le32 (r + 8),
 			(double)w, (double)h, rd_le32 (r + 0x18), rd_le32 (r + 0x1c));
+		// animation track table: at offset B + 0x10, 16 byte entries {type (1, 2: float tracks, 4: ARGB colours), key count, offset of count u16 key times, offset of the keys}; the table ends where the first
+		// time array begins. Offsets in the entries are relative to the KSPR chunk (file offset - 0x10). The keys are a 16 byte header {count, 2 values} followed by count records {u16 1, u16 time, 3 words}
+		const u32 bo = rd_le32 (r + 0x1c);
+		const u32 tt = (u64)bo + 0x20 <= cs ? rd_le32 (c + bo + 0x10 + 8) + 0x10 : 0;
+		if (tt > bo + 0x10 && tt <= cs && (tt - bo - 0x10) % 16 == 0 && (tt - bo - 0x10) / 16 <= 32)
+		{
+			const uint nt = (tt - bo - 0x10) / 16;
+			bool good = true;
+			for (uint j = 0; j < nt && good; j++)
+			{
+				const u8 *e = c + bo + 0x10 + 16 * j;
+				const u32 k = rd_le32 (e + 4), tp = rd_le32 (e + 8) + 0x10, kp = rd_le32 (e + 12) + 0x10;
+				good = k && k <= 64 && (u64)tp + 2 * k <= cs && (u64)kp + 16 * (k + 1) <= cs;
+			}
+			if (good)
+			{
+				b.n--; // drop the closing brace of the sprite
+				sumo_printf (&b, ", \"tracks\": [");
+				for (uint j = 0; j < nt; j++)
+				{
+					const u8 *e = c + bo + 0x10 + 16 * j;
+					const u32 ty = rd_le32 (e), k = rd_le32 (e + 4), tp = rd_le32 (e + 8) + 0x10, kp = rd_le32 (e + 12) + 0x10;
+					sumo_printf (&b, "%s{\"type\": %u, \"header\": [", j ? ", " : "", ty);
+					for (uint v = 1; v < 3; v++)
+					{
+						const u32 w32 = rd_le32 (c + kp + 4 * v);
+						float fv;
+						memcpy (&fv, &w32, 4);
+						if (ty == 4)
+							sumo_printf (&b, "%s\"%08x\"", v > 1 ? ", " : "", w32);
+						else
+							sumo_printf (&b, "%s%.9g", v > 1 ? ", " : "", (double)fv);
+					}
+					sumo_printf (&b, "], \"keys\": [");
+					for (u32 q = 0; q < k; q++)
+					{
+						const u8 *kr = c + kp + 16 * (q + 1);
+						sumo_printf (&b, "%s{\"time\": %u, \"flags\": %u, \"values\": [", q ? ", " : "", rd_le16 (kr + 2), rd_le16 (kr));
+						for (uint v = 0; v < 3; v++)
+						{
+							const u32 w32 = rd_le32 (kr + 4 + 4 * v);
+							float fv;
+							memcpy (&fv, &w32, 4);
+							if (ty == 4)
+								sumo_printf (&b, "%s\"%08x\"", v ? ", " : "", w32);
+							else
+								sumo_printf (&b, "%s%.9g", v ? ", " : "", (double)fv);
+						}
+						sumo_printf (&b, "]}");
+					}
+					sumo_printf (&b, "]}");
+				}
+				sumo_printf (&b, "]}");
+			}
+		}
 	}
 	sumo_printf (&b, "\n\t]\n}\n");
 	FREE (c);
