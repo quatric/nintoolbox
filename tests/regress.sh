@@ -13869,6 +13869,23 @@ PYE
     fno "SEGA MPLN" "mk_sega_grd.py failed"
   fi
 
+  # SEGA AFCE face set (Sakura Wars MRS_KAO_DUMMY.GRD): table -> JSON, Melt packed HTEX -> .htsf
+  mkdir -p "$d/sega_afce"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_afce.py" "$d/sega_afce/t.GRD" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_afce/t.GRD" >/dev/null 2>&1
+    if python3 - "$d/sega_afce/t.GRD.d" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1] + '/t.json'))
+t = open(sys.argv[1] + '/t.0.htsf', 'rb').read()
+assert j['table'] == [2, 65538, 1, 65537] and j['textures'] == [{'htsf_bytes': 64}] and t[:4] == b'HTSF' and t[0x10:] == bytes(range(0x30)), j
+PYE
+    then fok "SEGA AFCE: Sakura Wars face set (table JSON, Melt packed HTEX -> .htsf)"
+    else fno "SEGA AFCE" "wrong output from synthetic face set"
+    fi
+  else
+    fno "SEGA AFCE" "mk_sega_afce.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then

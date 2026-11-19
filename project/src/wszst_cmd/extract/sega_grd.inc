@@ -96,3 +96,71 @@ static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 	FREE (b.p);
 	return err;
 }
+
+// SEGA "AFCE" face sets (Sakura Wars "MARS/GR/dummy/MRS_KAO_DUMMY.GRD"): {"AFCE", u32 size without header, u32 header size 0x10, 0}, body {u32 count (4), u32 table offset 0x20, 0, 0} and at 0x20 a table of
+// u16 pairs (0x20 / 0x30 bytes in the sample: 2, 2, 1, 1, 1, 1 ... the meaning is not decoded), followed by "HTEX" chunks (stride size + 0x10, flags 0x400 = Melt packed, see sega_melt.inc) that hold the face textures
+// as "HTSF" containers (texel layout not decoded). Written as "<name>.json" (header words and table) and "<name>.<n>.htsf".
+static enumError extract_sega_afce_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)depth;
+	if (!is_ext (arg, ".GRD") && !is_ext (arg, ".grd"))
+		return ERR_NOTHING_TO_DO;
+	u8 *c = 0;
+	size_t cs = 0;
+	if (LoadFileAlloc (arg, 0, 0, &c, &cs, 0, 0, 0, false) || !c || cs < 0x40 || memcmp (c, "AFCE", 4) || rd_le32 (c + 8) != 0x10 || rd_le32 (c + 0x14) != 0x20)
+	{
+		FREE (c);
+		return ERR_NOTHING_TO_DO;
+	}
+	// the HTEX chunks start at the first "HTEX" tag after the table
+	size_t p = 0x20;
+	while (p + 0x10 <= cs && memcmp (c + p, "HTEX", 4))
+		p += 4;
+	sumo_buf_t b = { 0, 0, 0, true };
+	sumo_printf (&b, "{\n\t\"format\": \"Sakura Wars AFCE\",\n\t\"count\": %u,\n\t\"table\": [", rd_le32 (c + 0x10));
+	for (size_t i = 0x20; i + 4 <= p; i += 4)
+		sumo_printf (&b, "%s%u", i > 0x20 ? ", " : "", rd_le32 (c + i));
+	sumo_printf (&b, "],\n\t\"textures\": [");
+	char dest[PATH_MAX], name[PATH_MAX];
+	beside_source_dest (dest, sizeof (dest), arg);
+	const char *sl = strrchr (arg, '/');
+	snprintf (name, sizeof (name), "%s", sl ? sl + 1 : arg);
+	char *dot = strrchr (name, '.');
+	if (dot)
+		*dot = 0;
+	u8 *dec = MALLOC (0x1000000);
+	enumError err = ERR_OK;
+	uint nt = 0;
+	while (p + 0x20 <= cs && !memcmp (c + p, "HTEX", 4) && !err)
+	{
+		const u32 hsz = rd_le32 (c + p + 4);
+		size_t n = 0;
+		const bool ok = (rd_le32 (c + p + 0xc) & 0x400) && p + 0x10 + (size_t)hsz <= cs && sega_melt (c + p, (size_t)hsz + 0x10, 0x20, dec, 0x1000000, &n) && n > 0x30 && !memcmp (dec, "HTSF", 4);
+		sumo_printf (&b, "%s{\"htsf_bytes\": %zu}", nt ? ", " : "", ok ? n : 0);
+		if (ok && !testmode)
+		{
+			char fn[PATH_MAX];
+			snprintf (fn, sizeof (fn), "%s.%u.htsf", name, nt);
+			if (verbose >= 0)
+				fprintf (stdlog, "EXTRACT SEGA-AFCE:%s (HTSF %zu bytes) -> %s/%s\n", arg, n, dest, fn);
+			err = shade_write (arg, dest, basedir, fn, dec, (uint)n);
+		}
+		nt++;
+		p += 0x10 + (size_t)hsz;
+	}
+	sumo_printf (&b, "]\n}\n");
+	FREE (dec);
+	FREE (c);
+	if (!err && b.ok && b.n && b.n < 0xffffffffu)
+	{
+		char jn[PATH_MAX];
+		snprintf (jn, sizeof (jn), "%s.json", name);
+		if (verbose >= 0 || testmode)
+			fprintf (stdlog, "%s%sEXTRACT SEGA-AFCE:%s (%u textures) -> %s/%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nt, dest, jn);
+		err = shade_write (arg, dest, basedir, jn, (u8 *)b.p, (uint)b.n);
+	}
+	else if (!err)
+		err = ERR_NOTHING_TO_DO;
+	FREE (b.p);
+	return err;
+}
