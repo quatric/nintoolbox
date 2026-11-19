@@ -13812,7 +13812,7 @@ PYE
 import sys, json
 j = json.load(open(sys.argv[1]))
 s = j['sections']
-assert j['hash'] == 0x77820d59 and len(s) == 1 and s[0]['tag'] == 'ABDT' and s[0]['words'][1] == 0x40 and s[0]['size'] == 0x5c and s[0]['blocks'] == [{'offset': 0x74, 'size': 12}, {'offset': 0x80, 'size': 0x8c - 0x80}] and j['pointers'] == [[0x20, 0x30], [0x68, 0x6c]] and [o['at'] for o in j['objects']] == [0x30, 0x6c] and j['objects'][0]['words'][14] == '@108', j
+assert j['hash'] == 0x77820d59 and len(s) == 1 and s[0]['tag'] == 'ABDT' and s[0]['words'][1] == 0x40 and s[0]['size'] == 0x5c and s[0]['blocks'] == [{'offset': 0x74, 'size': 12}, {'offset': 0x80, 'size': 0x8c - 0x80}] and j['pointers'] == [[0x20, 0x30], [0x68, 0x6c]] and [o['at'] for o in j['objects']] == [0x30, 0x6c] and j['objects'][0]['words'][14] == '@108' and s[0]['tree']['nodes'] == [None, None] and s[0]['tree']['head'][:2] == [0x77820d59, 0x40], j
 PYE
     then fok "SEGA ABDA: Sakura Wars .abd block (section table, ABDT payload words) -> JSON"
     else fno "SEGA ABDA" "wrong JSON from synthetic block"

@@ -2,6 +2,115 @@
 // header size (0x30..0x140), 0}, u32 type hash (0x77820d59 in most files), u32 section count, u32 offset of the POF0 chunk (the end of the sections), then from 0x20 a list of 8-byte entries {u32 section offset, 0}. Sections start
 // with {tag, u32 payload size, u32 header size 0x10, 0}: "ABDT" mostly. An ABDT payload starts {u32 hash, u32 0x40, u32 -1, f32 -1, f32 -1, ...} followed by offset tables to sub-blocks; the object
 // graph below the section level (animation / effect curves) is not decoded. The ABDT node table is listed as "blocks" (absolute file offset, size). Written as JSON with the section tag, offset, size and the first 64 payload words of every section.
+// ABDT object tree, after the byte swap loops of the game's loader (FUN_8001eadc -> FUN_8001ed8c -> FUN_8001f148 -> FUN_8001f974); every pointer is an absolute file offset:
+// root (section + 0x10): 7 header words, +0x1c count A and +0x20 pointer to A pointers to 3 word records, +0x24 count B and +0x28 pointer to B node pointers;
+// node: 15 header words, +0x30 count C and +0x34 pointer to C pointers to 3 word records, +0x40 count D and +0x44 pointer to D child pointers;
+// child: 45 header words (up to +0xb0), +0xb4 count E and +0xb8 pointer to E leaf pointers;
+// leaf: 5 header words, +0x14 count F and +0x18 pointer to F pointers to 6 word records. Words are written as plain numbers (floats are not told apart); an unreadable pointer gives null.
+static bool abda_ok (size_t cs, u32 p, size_t need)
+{
+	return p >= 0x30 && !(p & 3) && (u64)p + need <= cs;
+}
+
+static void abda_words (sumo_buf_t *b, const u8 *c, size_t cs, u32 p, uint n)
+{
+	if (!abda_ok (cs, p, 4ull * n))
+	{
+		sumo_printf (b, "null");
+		return;
+	}
+	sumo_printf (b, "[");
+	for (uint i = 0; i < n; i++)
+		sumo_printf (b, "%s%u", i ? ", " : "", rd_le32 (c + p + 4 * i));
+	sumo_printf (b, "]");
+}
+
+// "count at p+co, pointer array at p+po": writes an array of items, each item written by the callback level
+static void abda_list3 (sumo_buf_t *b, const u8 *c, size_t cs, u32 cnt, u32 arr, uint nw)
+{
+	sumo_printf (b, "[");
+	if (cnt <= 65536 && abda_ok (cs, arr, 4ull * cnt))
+		for (u32 i = 0; i < cnt; i++)
+		{
+			sumo_printf (b, "%s", i ? ", " : "");
+			abda_words (b, c, cs, rd_le32 (c + arr + 4 * i), nw);
+		}
+	sumo_printf (b, "]");
+}
+
+static void abda_leaf (sumo_buf_t *b, const u8 *c, size_t cs, u32 p)
+{
+	if (!abda_ok (cs, p, 0x1c))
+	{
+		sumo_printf (b, "null");
+		return;
+	}
+	sumo_printf (b, "{\"head\": ");
+	abda_words (b, c, cs, p, 5);
+	sumo_printf (b, ", \"records\": ");
+	abda_list3 (b, c, cs, rd_le32 (c + p + 0x14), rd_le32 (c + p + 0x18), 6);
+	sumo_printf (b, "}");
+}
+
+static void abda_child (sumo_buf_t *b, const u8 *c, size_t cs, u32 p)
+{
+	if (!abda_ok (cs, p, 0xbc))
+	{
+		sumo_printf (b, "null");
+		return;
+	}
+	sumo_printf (b, "{\"head\": ");
+	abda_words (b, c, cs, p, 45);
+	sumo_printf (b, ", \"leaves\": [");
+	const u32 n = rd_le32 (c + p + 0xb4), arr = rd_le32 (c + p + 0xb8);
+	if (n <= 65536 && abda_ok (cs, arr, 4ull * n))
+		for (u32 i = 0; i < n; i++)
+		{
+			sumo_printf (b, "%s", i ? ", " : "");
+			abda_leaf (b, c, cs, rd_le32 (c + arr + 4 * i));
+		}
+	sumo_printf (b, "]}");
+}
+
+static void abda_node (sumo_buf_t *b, const u8 *c, size_t cs, u32 p)
+{
+	if (!abda_ok (cs, p, 0x48))
+	{
+		sumo_printf (b, "null");
+		return;
+	}
+	sumo_printf (b, "{\"head\": ");
+	abda_words (b, c, cs, p, 15);
+	sumo_printf (b, ", \"records\": ");
+	abda_list3 (b, c, cs, rd_le32 (c + p + 0x30), rd_le32 (c + p + 0x34), 3);
+	sumo_printf (b, ", \"children\": [");
+	const u32 n = rd_le32 (c + p + 0x40), arr = rd_le32 (c + p + 0x44);
+	if (n <= 65536 && abda_ok (cs, arr, 4ull * n))
+		for (u32 i = 0; i < n; i++)
+		{
+			sumo_printf (b, "%s", i ? ", " : "");
+			abda_child (b, c, cs, rd_le32 (c + arr + 4 * i));
+		}
+	sumo_printf (b, "]}");
+}
+
+static void abda_root (sumo_buf_t *b, const u8 *c, size_t cs, u32 p)
+{
+	sumo_printf (b, "{\"head\": ");
+	abda_words (b, c, cs, p, 7);
+	sumo_printf (b, ", \"records\": ");
+	abda_list3 (b, c, cs, rd_le32 (c + p + 0x1c), rd_le32 (c + p + 0x20), 3);
+	sumo_printf (b, ", \"nodes\": [");
+	const u32 n = rd_le32 (c + p + 0x24), arr = rd_le32 (c + p + 0x28);
+	if (n <= 65536 && abda_ok (cs, arr, 4ull * n))
+		for (u32 i = 0; i < n; i++)
+		{
+			sumo_printf (b, "%s", i ? ", " : "");
+			abda_node (b, c, cs, rd_le32 (c + arr + 4 * i));
+		}
+	sumo_printf (b, "]}");
+}
+
 static int cmp_u32_abda (const void *a, const void *b)
 {
 	const u32 x = *(const u32 *)a, y = *(const u32 *)b;
@@ -63,7 +172,8 @@ static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 					const u32 v = rd_le32 (c + tb + 4 * k), v2 = k + 1 < m ? rd_le32 (c + tb + 4 * (k + 1)) : (u32)end;
 					sumo_printf (&b, "%s{\"offset\": %u, \"size\": %u}", k ? ", " : "", v, v2 - v);
 				}
-				sumo_printf (&b, "]");
+				sumo_printf (&b, "], \"tree\": ");
+				abda_root (&b, c, cs, (u32)o + 0x10);
 			}
 		}
 		sumo_printf (&b, "}");
