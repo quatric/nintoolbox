@@ -394,6 +394,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **SEGA MSCR** | `.msX` | **MSB** (unpacked script binary) | *Sakura Wars: So Long, My Love* |
 | **SEGA MSB** | `.msb` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **SEGA GHSL** | `.bin` | **JSON** | *Sakura Wars: So Long, My Love* |
+| **SEGA MPLN** | `.GRD` | **JSON** + `.htsf` (texture container, pixels not decoded) | *Sakura Wars: So Long, My Love* |
 | **SEGA GTPA** | `.gtp`, `.arm` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **SEGA ABDA** | `.abd`, `.bfX`, `.bf1`, `.dia`, `.arm` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **SEGA HSPR** | `.hspr`, `.bfX`, `.arm` | **JSON** | *Sakura Wars: So Long, My Love* |

@@ -13853,6 +13853,22 @@ PYE
     fno "SEGA HSPR packed" "mk_sega_hspr.py packed failed"
   fi
 
+  # SEGA MPLN graphics set (Sakura Wars .GRD): header, palette, MNCA rectangles -> JSON
+  mkdir -p "$d/sega_grd"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_grd.py" "$d/sega_grd/t.GRD" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_grd/t.GRD" >/dev/null 2>&1
+    if python3 - "$d/sega_grd/t.GRD.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1]))
+assert (j['width'], j['height'], j['flags']) == (640, 624, 0x902) and j['palette'] == '000000000102034009080780ffffff80' and j['rects'] == [[1, 2, 3, 4], [5, 6, 7, 8]], j
+PYE
+    then fok "SEGA MPLN: Sakura Wars .GRD graphics set (header, palette, MNCA rectangles) -> JSON"
+    else fno "SEGA MPLN" "wrong JSON from synthetic set"
+    fi
+  else
+    fno "SEGA MPLN" "mk_sega_grd.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
