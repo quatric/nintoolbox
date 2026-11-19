@@ -2,7 +2,7 @@
 // table, then header words; the data size is at +0x1c of the header, the key count K at +0x20): {u32 channel count C at +0x24, u32 C again, C x {u32 0x14 (class name offset), u32 0x29 (empty
 // string), u32 name offset (the skeleton node animated), u32 kind offset ("Joint"), u32 byte offset of the channel's keys}} followed by a table that is not decoded. The keys sit in the
 // data block at the end of the file (size = C x K x 32): per channel K keys of {f32 quaternion x, y, z, w, f32 translation x, y, z, f32 scale (about 1)}, channel i starting at i x K x 32.
-// Key times are not stored with the keys (written as frame indices). Other channel classes ("XgmMatrixAnimChannel", the 5 files with an empty first name) are left alone. Written as
+// Key times are not stored at all (the K keys are evenly spaced; written as frame indices). After the channel records comes {u32 0, u32 M, M x {u32 name offset, 8 floats}}: the rest pose of the M skeleton nodes, written as "rest". Other channel classes ("XgmMatrixAnimChannel", the 5 files with an empty first name) are left alone. Written as
 // "<file>.json" (455 of 474 files).
 static enumError extract_igor_xga_file (ccp arg, ccp basedir, uint depth)
 {
@@ -56,7 +56,36 @@ static enumError extract_igor_xga_file (ccp arg, ccp basedir, uint depth)
 		}
 		sumo_printf (&b, "]}");
 	}
-	sumo_printf (&b, "\n\t]\n}\n");
+	sumo_printf (&b, "\n\t]");
+	{
+		// rest pose: after the channel records {u32 0, u32 M, M x {u32 name offset, 8 floats as in a key}} (the key times are not stored, the K keys are evenly spaced)
+		const size_t s0 = hb + 0x2c + 20 * (size_t)nc;
+		const u32 m = s0 + 8 <= base ? rd_be32 (raw + s0 + 4) : 0;
+		if (m && m <= 4096 && s0 + 8 + 36ull * m == base)
+		{
+			bool good = true;
+			for (u32 i = 0; i < m && good; i++)
+				good = rd_be32 (raw + s0 + 8 + 36 * (size_t)i) < sl;
+			if (good)
+			{
+				sumo_printf (&b, ",\n\t\"rest\": [");
+				for (u32 i = 0; i < m; i++)
+				{
+					const u8 *r = raw + s0 + 8 + 36 * (size_t)i;
+					float f[8];
+					for (uint v = 0; v < 8; v++)
+					{
+						const u32 u = rd_be32 (r + 4 + 4 * v);
+						memcpy (&f[v], &u, 4);
+					}
+					sumo_printf (&b, "%s\n\t\t{\"name\": \"%s\", \"pose\": [%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g]}", i ? "," : "", (ccp)st + rd_be32 (r), (double)f[0], (double)f[1],
+						(double)f[2], (double)f[3], (double)f[4], (double)f[5], (double)f[6], (double)f[7]);
+				}
+				sumo_printf (&b, "\n\t]");
+			}
+		}
+	}
+	sumo_printf (&b, "\n}\n");
 	FREE (raw);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && b.n && b.n < 0xffffffffu)

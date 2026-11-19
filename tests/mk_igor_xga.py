@@ -10,6 +10,7 @@ if __name__ == "__main__":
         j = json.load(open(os.path.join(sys.argv[2], "t.xga.d", "t.json")))
         assert j["keys"] == 2 and [c["name"] for c in j["channels"]] == ["Root", "Head"], j
         assert j["channels"][1]["keys"][1] == [0, 0, 1, 0, 1, 2, 3, 1] and j["channels"][0]["kind"] == "Joint", j
+        assert j["rest"] == [{"name": "Root", "pose": [0, 0, 0, 1, 7, 8, 9, 1]}], j
         print("PASS")
         sys.exit(0)
     st = b"xga\0header\0animdata\0"
@@ -28,5 +29,6 @@ if __name__ == "__main__":
     hdr = struct.pack(">8I", 0, 2, 4, 0, 0, 0, 0, len(data)) + struct.pack(">3I", 2, 2, 2)
     for i, nm in enumerate((n1, n2)):
         hdr += struct.pack(">5I", cls, e, nm, kind, i * 64)
+    hdr += struct.pack(">II", 0, 1) + struct.pack(">I8f", n1, 0, 0, 0, 1, 7, 8, 9, 1)
     out = b"chkf" + struct.pack(">I", len(st)) + st + hdr + data
     open(os.path.join(sys.argv[1], "t.xga"), "wb").write(out)
