@@ -1,11 +1,11 @@
-// Sega resource containers (".urs"/".amf"/".gdr"/".gdn"/".arm"/... from Sakura Wars: So Long, My Love; Wii, little endian): 4-byte magic (URES, GDEN, SASN and the "AM??" movie packs AMPP, AMMP, AMIN, AMWD, AMWF, AMWN, AMCT), payload
+// Sega resource containers (".urs"/".amf"/".gdr"/".gdn"/".arm"/... from Sakura Wars: So Long, My Love; Wii, little endian): 4-byte magic (URES, GDEN, SASN and the "AM??" movie packs AMPP, AMMP, AMIN, AMWD, AMWF, AMWN, AMCT and the "BS1 " battle-scene packs), payload
 // size @4, header size @8, flags @0xc, member count @0x10, table offset @0x14 (0x1c), then a u32 offset table (0 = absent; the first member sits right after the header).
 // Every member is a chunk {magic, payload size @4, header size @8, ...} (HMDL, HTEX, HMOT, HSPR, GRO3, ABDA, ABRS, UMDL, ...) spanning header + payload. Written as
 // "NN_<magic>.<lowercase magic>", so HTEX members (".htx") go straight to the existing HTEX texture decoder.
 static enumError extract_sega_res_file (ccp arg, ccp basedir, uint depth)
 {
 	if (!file_has_magic (arg, "URES", 4) && !file_has_magic (arg, "AMPP", 4) && !file_has_magic (arg, "GDEN", 4) && !file_has_magic (arg, "SASN", 4)
-		&& !(is_ext (arg, ".amf") && file_has_magic (arg, "AM", 2)))
+		&& !(is_ext (arg, ".amf") && file_has_magic (arg, "AM", 2)) && !file_has_magic (arg, "BS1 ", 4))
 		return ERR_NOTHING_TO_DO;
 	u8 *raw = 0;
 	size_t sz = 0;
