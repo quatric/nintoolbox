@@ -5,7 +5,7 @@
 // {u32 id, u32 argument block offset, u32 argument word count, u32 code offset} (all offsets relative to the body); the code is a stream of 16 bit instruction words that runs to the next code
 // offset (the last one to the word table). Written as JSON with the raw code bytes and a named listing (asm) using the game's instruction table (sega_msb_ops.inc): known opcodes by name, bit-15
 // words as immediate pushes (#8002 ...: the game takes opcode = word & 0xf000, argument = word & 0xfff), opcodes 0x10..0x14 as literal pushes with a 32 bit inline value (litNN:xxxxxxxx), unknown words in hex.
-// Roughly half of the code streams parse cleanly with these rules, some entries seem to carry data tables, so the listing is still not a verified disassembly.
+// "statements" reads the whole code area as one postfix stream split after each 0x0001 (statement end), tagged with its byte offset (@hex): `args... op`, e.g. `#d00b #d00a #8002 ActionAddPlane`. Only ~2% of the words are unknown (u32 data tables between code), so this is a readable but not fully verified disassembly.
 static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -81,6 +81,43 @@ static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 				sumo_printf (&b, "%s%s%04x", k > co ? " " : "", w & 0x8000 ? "#" : "", w);
 		}
 		sumo_printf (&b, "\"}");
+	}
+	sumo_printf (&b, "\n\t],\n\t\"statements\": [");
+	{
+		// the whole code area (first code offset .. word table) read as one postfix stream, one string per statement (0x0001 ends a statement); entry offsets are labels inside it
+		u32 first = wtab;
+		for (u32 i = 0; i < ne; i++)
+			if (rd_le32 (s + etab + 16 * i + 12) < first)
+				first = rd_le32 (s + etab + 16 * i + 12);
+		bool open = false, any = false;
+		for (u32 k = first; k + 2 <= wtab; k += 2)
+		{
+			const uint w = rd_le16 (s + k);
+			if (!open)
+				sumo_printf (&b, "%s\n\t\t\"@%x:", any ? "," : "", k), open = true, any = true;
+			const sega_msb_op_t *op = 0;
+			if (w >= 0x10 && w <= 0x14 && k + 6 <= wtab)
+			{
+				sumo_printf (&b, " lit%x:%08x", w, rd_le32 (s + k + 2));
+				k += 4;
+				continue;
+			}
+			if (!(w & 0x8000))
+				for (uint m = 0; m < sizeof (sega_msb_ops) / sizeof (*sega_msb_ops); m++)
+					if (sega_msb_ops[m].id == w)
+					{
+						op = sega_msb_ops + m;
+						break;
+					}
+			if (op)
+				sumo_printf (&b, " %s", op->name);
+			else
+				sumo_printf (&b, " %s%04x", w & 0x8000 ? "#" : "", w);
+			if (w == 1)
+				sumo_printf (&b, "\""), open = false;
+		}
+		if (open)
+			sumo_printf (&b, "\"");
 	}
 	sumo_printf (&b, "\n\t]\n}\n");
 	FREE (c);
