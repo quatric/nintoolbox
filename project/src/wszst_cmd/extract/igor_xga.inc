@@ -24,13 +24,23 @@ static enumError extract_igor_xga_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	const u8 *st = raw + 8;
+	// "XgmMatrixAnimChannel" (texture transform matrices): {K, C, 0, C} instead of {K, C, C}, 16 floats (a 4x4 matrix) per key
+	const bool mx = sl > 0x29 && !memcmp (st + 0x14, "XgmMatrixAnimChannel", 21);
+	const size_t rec0 = hb + (mx ? 0x30 : 0x2c);
+	const uint nf = mx ? 16 : 8, kb = 4 * nf;
+	if (hb + 0x34 > sz)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
 	const u32 dsz = rd_be32 (raw + hb + 0x1c), kk = rd_be32 (raw + hb + 0x20), nc = rd_be32 (raw + hb + 0x24);
-	bool ok = kk && kk <= 100000 && nc && nc <= 4096 && rd_be32 (raw + hb + 0x28) == nc && dsz <= sz - hb && (u64)nc * kk * 32 == dsz && hb + 0x2c + 20ull * nc <= sz - dsz;
+	bool ok = kk && kk <= 100000 && nc && nc <= 4096 && rd_be32 (raw + hb + (mx ? 0x2c : 0x28)) == nc && (!mx || !rd_be32 (raw + hb + 0x28)) && dsz <= sz - hb && (u64)nc * kk * kb == dsz
+		&& rec0 + 20ull * nc <= sz - dsz;
 	const size_t base = sz - dsz;
 	for (u32 i = 0; ok && i < nc; i++)
 	{
-		const u8 *r = raw + hb + 0x2c + 20 * (size_t)i;
-		ok = rd_be32 (r) < sl && rd_be32 (r + 8) < sl && rd_be32 (r + 12) < sl && rd_be32 (r + 16) == (u64)i * kk * 32 && !memcmp (st + rd_be32 (r), "XgmDecompAnimChannel", 21);
+		const u8 *r = raw + rec0 + 20 * (size_t)i;
+		ok = rd_be32 (r) < sl && rd_be32 (r + 8) < sl && rd_be32 (r + 12) < sl && rd_be32 (r + 16) == (u64)i * kk * kb && !memcmp (st + rd_be32 (r), mx ? "XgmMatrixAnimChannel" : "XgmDecompAnimChannel", 21);
 	}
 	if (!ok)
 	{
@@ -41,26 +51,28 @@ static enumError extract_igor_xga_file (ccp arg, ccp basedir, uint depth)
 	sumo_printf (&b, "{\n\t\"format\": \"Igor XGA\",\n\t\"keys\": %u,\n\t\"channels\": [", kk);
 	for (u32 i = 0; i < nc; i++)
 	{
-		const u8 *r = raw + hb + 0x2c + 20 * (size_t)i;
-		sumo_printf (&b, "%s\n\t\t{\"name\": \"%s\", \"kind\": \"%s\", \"keys\": [", i ? "," : "", (ccp)st + rd_be32 (r + 8), (ccp)st + rd_be32 (r + 12));
+		const u8 *r = raw + rec0 + 20 * (size_t)i;
+		sumo_printf (&b, "%s\n\t\t{\"name\": \"%s\", \"owner\": \"%s\", \"kind\": \"%s\", \"keys\": [", i ? "," : "", (ccp)st + rd_be32 (r + 8), (ccp)st + rd_be32 (r + 4), (ccp)st + rd_be32 (r + 12));
 		for (u32 k = 0; k < kk; k++)
 		{
-			const u8 *p = raw + base + (size_t)i * kk * 32 + 32 * (size_t)k;
-			float f[8];
-			for (uint v = 0; v < 8; v++)
+			const u8 *p = raw + base + (size_t)i * kk * kb + kb * (size_t)k;
+			sumo_printf (&b, "%s[", k ? ", " : "");
+			for (uint v = 0; v < nf; v++)
 			{
 				const u32 u = rd_be32 (p + 4 * v);
-				memcpy (&f[v], &u, 4);
+				float f;
+				memcpy (&f, &u, 4);
+				sumo_printf (&b, "%s%.9g", v ? ", " : "", (double)f);
 			}
-			sumo_printf (&b, "%s[%.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g, %.9g]", k ? ", " : "", (double)f[0], (double)f[1], (double)f[2], (double)f[3], (double)f[4], (double)f[5], (double)f[6], (double)f[7]);
+			sumo_printf (&b, "]");
 		}
 		sumo_printf (&b, "]}");
 	}
 	sumo_printf (&b, "\n\t]");
 	{
 		// rest pose: after the channel records {u32 0, u32 M, M x {u32 name offset, 8 floats as in a key}} (the key times are not stored, the K keys are evenly spaced)
-		const size_t s0 = hb + 0x2c + 20 * (size_t)nc;
-		const u32 m = s0 + 8 <= base ? rd_be32 (raw + s0 + 4) : 0;
+		const size_t s0 = rec0 + 20 * (size_t)nc;
+		const u32 m = !mx && s0 + 8 <= base ? rd_be32 (raw + s0 + 4) : 0;
 		if (m && m <= 4096 && s0 + 8 + 36ull * m == base)
 		{
 			bool good = true;
