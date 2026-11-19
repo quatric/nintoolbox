@@ -13756,6 +13756,23 @@ PYE
     fno "SEGA GTPA" "mk_sega_gtpa.py failed"
   fi
 
+  # SEGA ABDA block (Sakura Wars .abd): section table with ABDT payload words -> JSON
+  mkdir -p "$d/sega_abda"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_abda.py" "$d/sega_abda/t.abd" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_abda/t.abd" >/dev/null 2>&1
+    if python3 - "$d/sega_abda/t.abd.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1]))
+s = j['sections']
+assert j['hash'] == 0x77820d59 and len(s) == 1 and s[0]['tag'] == 'ABDT' and s[0]['words'][1] == 0x40 and s[0]['size'] == 48, j
+PYE
+    then fok "SEGA ABDA: Sakura Wars .abd block (section table, ABDT payload words) -> JSON"
+    else fno "SEGA ABDA" "wrong JSON from synthetic block"
+    fi
+  else
+    fno "SEGA ABDA" "mk_sega_abda.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
