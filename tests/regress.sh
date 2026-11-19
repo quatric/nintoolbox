@@ -10035,6 +10035,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor XGA" "mk_igor_xga.py failed"
   fi
 
+  # Igor: The Game .nav navigation mesh (chkf/nav) -> navmesh.obj
+  mkdir -p "$d/igornav_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igor_nav.py" "$d/igornav_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igornav_test/t.nav" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_igor_nav.py" check "$d/igornav_test" >/dev/null 2>&1 \
+    && fok "Igor .nav navigation meshes export to navmesh.obj" \
+    || fno "Igor NAV" "failed to convert synthetic t.nav"
+  else
+    fno "Igor NAV" "mk_igor_nav.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
