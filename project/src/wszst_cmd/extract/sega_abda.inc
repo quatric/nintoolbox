@@ -1,5 +1,5 @@
 // SEGA "ABDA" blocks (Sakura Wars: So Long, My Love "*.abd", "*.arm", "*.bfX", "*.bf1", "*.dia" and ABDA members of URES/AM?? packs; 670 retail files; little endian), structure: {"ABDA", u32 size, u32
-// header size (0x30..0x140), 0}, u32 type hash (0x77820d59 in most files), u32 section count, u32 total section bytes, then from 0x20 a list of 8-byte entries {u32 section offset, 0}. Sections start
+// header size (0x30..0x140), 0}, u32 type hash (0x77820d59 in most files), u32 section count, u32 offset of the POF0 chunk (the end of the sections), then from 0x20 a list of 8-byte entries {u32 section offset, 0}. Sections start
 // with {tag, u32 payload size, u32 header size 0x10, 0}: "ABDT" mostly. An ABDT payload starts {u32 hash, u32 0x40, u32 -1, f32 -1, f32 -1, ...} followed by offset tables to sub-blocks; the object
 // graph below the section level (animation / effect curves) is not decoded. The ABDT block table (u32 count at +0x34, then count+1 offsets relative to the section start) is listed as "blocks" (offset, size). Written as JSON with the section tag, offset, size and the first 64 payload words of every section.
 static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
@@ -61,7 +61,42 @@ static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 		}
 		sumo_printf (&b, "}");
 	}
-	sumo_printf (&b, "\n\t]\n}\n");
+	sumo_printf (&b, "\n\t]");
+	{
+		// POF0 pointer table (the game applies it after loading, see FUN_8001df18): the u32 at header +0x18 is the file offset of a "POF0" chunk {tag, size, 0x10, 0, u32 byte count, data}; the data is a
+		// stream of variable length numbers (top 2 bits of the first byte: 1 = 6 bit, 2 = 14 bit, 3 = 30 bit, 0 = end) counting 4 byte words from the previous slot (from file offset 0), each slot is a u32 file
+		// offset that the game turns into a pointer. Written as "pointers": [[slot, value], ...]; values of slots inside a section are relative to that section start (ABDT blocks), the section entries at 0x20 are file offsets.
+		const size_t po = rd_le32 (c + 0x18);
+		if (po >= hs && po + 0x14 <= cs && !memcmp (c + po, "POF0", 4))
+		{
+			size_t pend = po + 0x10 + rd_le32 (c + po + 4);
+			if (pend > cs)
+				pend = cs;
+			size_t i = po + 0x14, pos = 0;
+			uint np = 0;
+			while (i < pend)
+			{
+				const uint bt = c[i] >> 6;
+				size_t v;
+				if (bt == 1)
+					v = c[i] & 0x3f, i += 1;
+				else if (bt == 2 && i + 2 <= pend)
+					v = ((size_t)(c[i] & 0x3f) << 8) | c[i + 1], i += 2;
+				else if (bt == 3 && i + 4 <= pend)
+					v = ((size_t)(c[i] & 0x3f) << 24) | ((size_t)c[i + 1] << 16) | ((size_t)c[i + 2] << 8) | c[i + 3], i += 4;
+				else
+					break;
+				pos += v * 4;
+				if (pos + 4 > cs)
+					break;
+				sumo_printf (&b, "%s%s[%zu, %u]", np ? ", " : ",\n\t\"pointers\": [", np && np % 8 == 0 ? "\n\t\t" : "", pos, rd_le32 (c + pos));
+				np++;
+			}
+			if (np)
+				sumo_printf (&b, "]");
+		}
+	}
+	sumo_printf (&b, "\n}\n");
 	FREE (c);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && b.n && b.n < 0xffffffffu)
