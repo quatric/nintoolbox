@@ -13740,6 +13740,22 @@ PYE
     fno "SEGA GLIP" "mk_sega_glip.py failed"
   fi
 
+  # SEGA MSCR compressed script (Sakura Wars .msX): inverted-byte LZ -> plain .msb
+  mkdir -p "$d/sega_mscr"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_mscr.py" "$d/sega_mscr/t.msX" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_mscr/t.msX" >/dev/null 2>&1
+    if python3 - "$d/sega_mscr/t.msX.d/t.msb" <<'PYE' 2>/dev/null
+import sys
+d = open(sys.argv[1], 'rb').read()
+assert d[:4] == b'MSCR' and d[0xc:0x10] == bytes(4) and d[0x20:] == b'ABCDEFGHABCABCDEFGHA', d
+PYE
+    then fok "SEGA MSCR: Sakura Wars .msX inverted-byte LZ script -> plain .msb"
+    else fno "SEGA MSCR" "wrong output from synthetic script"
+    fi
+  else
+    fno "SEGA MSCR" "mk_sega_mscr.py failed"
+  fi
+
   # SEGA GTPA text page table (Sakura Wars .gtp): layout words + message text -> JSON
   mkdir -p "$d/sega_gtpa"
   if python3 "$PWD_PROJECT/../tests/mk_sega_gtpa.py" "$d/sega_gtpa/t.gtp" >/dev/null 2>&1; then
