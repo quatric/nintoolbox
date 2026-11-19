@@ -13683,6 +13683,19 @@ PYE
     fno "SEGA HMOT" "mk_hmot.py failed"
   fi
 
+  # SEGA movie pack with an "AM??" magic (Sakura Wars, Wii): members are split out and the HMOT inside decodes
+  mkdir -p "$d/sega_amf"
+  if python3 "$PWD_PROJECT/../tests/mk_hmot.py" "$d/sega_amf/m.hmot" >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_sega_amf.py" "$d/sega_amf/m.hmot" "$d/sega_amf/t.amf" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_amf/t.amf" >/dev/null 2>&1
+    if [ -f "$d/sega_amf/t.amf.d/00_hmot.hmot" ] && [ -f "$d/sega_amf/t.amf.d/00_hmot.hmot.d/00_hmot.json" ]
+    then fok "SEGA AMMP movie pack (AM?? magic): HMOT member split out and decoded"
+    else fno "SEGA AMMP" "AM?? pack not extracted"
+    fi
+  else
+    fno "SEGA AMMP" "fixture generation failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
