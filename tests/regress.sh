@@ -13713,6 +13713,22 @@ PYE
     fno "SEGA ABST" "mk_sega_abst.py failed"
   fi
 
+  # SEGA GLIP lip-sync table (Sakura Wars .cnk): key/offset table with record bytes -> JSON
+  mkdir -p "$d/sega_glip"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_glip.py" "$d/sega_glip/t.cnk" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_glip/t.cnk" >/dev/null 2>&1
+    if python3 - "$d/sega_glip/t.cnk.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+e = json.load(open(sys.argv[1]))['entries']
+assert [(x['key'], x['data']) for x in e] == [(0x16000, '2e4684'), (0x16001, '4526')], e
+PYE
+    then fok "SEGA GLIP: Sakura Wars .cnk lip-sync table (key/offset entries, record bytes) -> JSON"
+    else fno "SEGA GLIP" "wrong JSON from synthetic table"
+    fi
+  else
+    fno "SEGA GLIP" "mk_sega_glip.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
