@@ -4,7 +4,8 @@
 // body = file + header size (0x20, or 0x10): 8 words {hash, hash, u32 offset of the word table, u32 word count, u32 offset of the entry table (0x20, 0x18 in the two files with a 0x10 byte header), u32 entry count, 0, 0}; an entry is
 // {u32 id, u32 argument block offset, u32 argument word count, u32 code offset} (all offsets relative to the body); the code is a stream of 16 bit instruction words that runs to the next code
 // offset (the last one to the word table). Written as JSON with the raw code bytes and a named listing (asm) using the game's instruction table (sega_msb_ops.inc): known opcodes by name, bit-15
-// words as operands (#8002 ...), unknown words in hex. The stack / inline operand semantics are not decoded, so the listing is a token stream, not a verified disassembly.
+// words as immediate pushes (#8002 ...: the game takes opcode = word & 0xf000, argument = word & 0xfff), opcodes 0x10..0x14 as literal pushes with a 32 bit inline value (litNN:xxxxxxxx), unknown words in hex.
+// Roughly half of the code streams parse cleanly with these rules, some entries seem to carry data tables, so the listing is still not a verified disassembly.
 static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -60,6 +61,13 @@ static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 		{
 			const uint w = rd_le16 (s + k);
 			const sega_msb_op_t *op = 0;
+			if (w >= 0x10 && w <= 0x14 && k + 6 <= end)
+			{
+				// literal push handlers (FUN_8009de68 ...): each reads one 32 bit value from the next two code words
+				sumo_printf (&b, "%slit%x:%08x", k > co ? " " : "", w, rd_le32 (s + k + 2));
+				k += 4;
+				continue;
+			}
 			if (!(w & 0x8000))
 				for (uint m = 0; m < sizeof (sega_msb_ops) / sizeof (*sega_msb_ops); m++)
 					if (sega_msb_ops[m].id == w)
