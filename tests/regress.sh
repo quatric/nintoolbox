@@ -10013,6 +10013,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Glacier PRM" "mk_glacier_prm.py failed"
   fi
 
+  # Igor: The Game .ggm model (chkf/xgm) -> model.obj + skeleton.json
+  mkdir -p "$d/igorggm_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igor_ggm.py" "$d/igorggm_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igorggm_test/t.ggm" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_igor_ggm.py" check "$d/igorggm_test" >/dev/null 2>&1 \
+    && fok "Igor .ggm models export to model.obj (positions, UV /1024, normals /32768) and skeleton.json" \
+    || fno "Igor GGM" "failed to convert synthetic t.ggm"
+  else
+    fno "Igor GGM" "mk_igor_ggm.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
