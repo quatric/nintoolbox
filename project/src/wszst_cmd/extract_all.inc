@@ -623,6 +623,7 @@
 #include "extract/glacier_prm.inc"
 #include "extract/sumo_cog.inc"
 #include "extract/igor_ggm.inc"
+#include "extract/glacier_mat.inc"
 #include "extract/igor_xga.inc"
 #include "extract/igor_nav.inc"
 #include "extract/igor_mkr.inc"

@@ -10057,6 +10057,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor MKR" "mk_igor_mkr.py failed"
   fi
 
+  # Glacier .MAT material library -> texture bindings JSON
+  mkdir -p "$d/glaciermat_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_mat.py" "$d/glaciermat_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glaciermat_test/t.MAT" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_mat.py" check "$d/glaciermat_test" >/dev/null 2>&1 \
+    && fok "Glacier .MAT material names and TXID texture bindings export to JSON" \
+    || fno "Glacier MAT" "failed to convert synthetic t.MAT"
+  else
+    fno "Glacier MAT" "mk_glacier_mat.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
