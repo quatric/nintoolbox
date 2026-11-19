@@ -396,6 +396,7 @@
 #include "extract/toshi_trz.inc"
 #include "extract/toshi_tso.inc"
 #include "extract/toshi_text.inc"
+#include "extract/toshi_loc.inc"
 #include "extract/fbc.inc"
 #include "extract/pub.inc"
 #include "extract/rez.inc"

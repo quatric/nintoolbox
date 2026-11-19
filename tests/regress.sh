@@ -13679,6 +13679,20 @@ PYE
     fno "Toshi TSFB subtitles" "mk_toshi_subs.py failed"
   fi
 
+  # Toshi TSFB terrain locators (Nickelodeon Barnyard, Wii): *skel.trb Locators / LocatorVIS -> YAML
+  mkdir -p "$d/toshi_loc"
+  if python3 "$PWD_PROJECT/../tests/mk_toshi_loc.py" "$d/toshi_loc" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/toshi_loc/T_skel.trb" >/dev/null 2>&1
+    grep -q '^locators: # 2 entries$' "$d/toshi_loc/T_skel.trb.yaml" 2>/dev/null \
+    && grep -q '^  - name: "rock_b"$' "$d/toshi_loc/T_skel.trb.yaml" \
+    && grep -q '^    position: \[-4, 5, 6\]$' "$d/toshi_loc/T_skel.trb.yaml" \
+    && grep -q '^vis-sections: # 1 entries$' "$d/toshi_loc/T_skel.trb.yaml" \
+    && fok "Toshi TSFB: terrain locators + visibility sections -> YAML" \
+    || fno "Toshi TSFB locators" "wrong YAML from synthetic locator list"
+  else
+    fno "Toshi TSFB locators" "mk_toshi_loc.py failed"
+  fi
+
   # Toshi TSFB keyframe library (Nickelodeon Barnyard, Wii): .tkl -> YAML
   mkdir -p "$d/tkl_test"
   if python3 "$PWD_PROJECT/../tests/mk_tkl.py" "$d/tkl_test" >/dev/null 2>&1; then
