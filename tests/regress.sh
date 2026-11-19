@@ -13696,6 +13696,17 @@ PYE
     fno "SEGA AMMP" "fixture generation failed"
   fi
 
+  # SEGA LTHM chunk stream (Sakura Wars bromide viewer .bf1): top-level chunks are split out like pack members
+  if python3 "$PWD_PROJECT/../tests/mk_sega_lthm.py" "$d/sega_amf/l.bf1" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_amf/l.bf1" >/dev/null 2>&1
+    if [ -f "$d/sega_amf/l.bf1.d/00_hspr.hspr" ] && [ -f "$d/sega_amf/l.bf1.d/01_abda.abda" ]
+    then fok "SEGA LTHM chunk stream: chunks split out as members"
+    else fno "SEGA LTHM" "chunk stream not split"
+    fi
+  else
+    fno "SEGA LTHM" "mk_sega_lthm.py failed"
+  fi
+
   # SEGA ABST asset schedule (Sakura Wars .asd): chunk list with ASAD names -> JSON
   mkdir -p "$d/sega_abst"
   if python3 "$PWD_PROJECT/../tests/mk_sega_abst.py" "$d/sega_abst/t.asd" >/dev/null 2>&1; then
