@@ -78,8 +78,9 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 				sumo_printf (&mj, "%s\"%s\"", nt++ ? ", " : "", (ccp)st + i + 17);
 	}
 	sumo_printf (&mj, "],\n\t\"meshes\": [");
+	char curmat[256] = "", curtex[256] = "";
 	uint meshes = 0, vbase = 1;
-	for (size_t p = hb; nfmt && prim && p + 40 <= base && o.b; p += 4)
+	for (size_t p = hb; nfmt && prim && p + 32 <= base && o.b; p += 4)
 	{
 		bool isf = false;
 		for (u32 k = 0; k < nfmt; k++)
@@ -97,7 +98,27 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 			continue;
 		// skin palette: {slot, name offset of the node} pairs after the descriptor (the count is the word before the format name); vertices carry the slot in byte 18
 		const u32 npal = p >= 4 ? rd_be32 (raw + p - 4) : 0;
-		sumo_printf (&mj, "%s\n\t\t{\"index\": %u, \"vertices\": %u, \"triangles\": %u, \"palette\": [", meshes ? "," : "", meshes, vn, ic / 3);
+		// material: the descriptor of the first mesh of a shape (word before the format name - 3 is 0) names it at p - 16; later meshes of the shape reuse it. The first material lists its
+		// textures after the key "ETEXDEST_DIFFUSE", every other material is {name, diffuse texture}
+		if (p >= 16 && rd_be32 (raw + p - 12) == 0 && rd_be32 (raw + p - 16) < sl && rd_be32 (raw + p - 16) > 3)
+		{
+			const u32 mo = rd_be32 (raw + p - 16);
+			ccp mn = (ccp)st + mo;
+			const u32 nl = (u32)strlen (mn);
+			ccp after = mn + nl + 1;
+			if (!strcmp (after, "MaterialBasic"))
+			{
+				for (u32 i = 0; i + 17 < sl; i++)
+					if (!memcmp (st + i, "ETEXDEST_DIFFUSE", 17) && i + 17 < sl)
+					{
+						after = (ccp)st + i + 17;
+						break;
+					}
+			}
+			snprintf (curmat, sizeof (curmat), "%s", mn);
+			snprintf (curtex, sizeof (curtex), "%s", after);
+		}
+		sumo_printf (&mj, "%s\n\t\t{\"index\": %u, \"material\": \"%s\", \"texture\": \"%s\", \"vertices\": %u, \"triangles\": %u, \"palette\": [", meshes ? "," : "", meshes, curmat, curtex, vn, ic / 3);
 		for (u32 k = 0; k < npal && k < 64 && p + 40 + 8 * (size_t)k <= base; k++)
 		{
 			const u32 no = rd_be32 (raw + p + 36 + 8 * (size_t)k);
