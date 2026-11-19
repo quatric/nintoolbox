@@ -2,6 +2,12 @@
 // header size (0x30..0x140), 0}, u32 type hash (0x77820d59 in most files), u32 section count, u32 offset of the POF0 chunk (the end of the sections), then from 0x20 a list of 8-byte entries {u32 section offset, 0}. Sections start
 // with {tag, u32 payload size, u32 header size 0x10, 0}: "ABDT" mostly. An ABDT payload starts {u32 hash, u32 0x40, u32 -1, f32 -1, f32 -1, ...} followed by offset tables to sub-blocks; the object
 // graph below the section level (animation / effect curves) is not decoded. The ABDT node table is listed as "blocks" (absolute file offset, size). Written as JSON with the section tag, offset, size and the first 64 payload words of every section.
+static int cmp_u32_abda (const void *a, const void *b)
+{
+	const u32 x = *(const u32 *)a, y = *(const u32 *)b;
+	return x < y ? -1 : x > y;
+}
+
 static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -75,6 +81,8 @@ static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 				pend = cs;
 			size_t i = po + 0x14, pos = 0;
 			uint np = 0;
+			u32 *slots = MALLOC (sizeof (u32) * (pend - po + 1)), *tg = MALLOC (sizeof (u32) * (pend - po + 1));
+			uint nt = 0;
 			while (i < pend)
 			{
 				const uint bt = c[i] >> 6;
@@ -91,10 +99,40 @@ static enumError extract_sega_abda_file (ccp arg, ccp basedir, uint depth)
 				if (pos + 4 > cs)
 					break;
 				sumo_printf (&b, "%s%s[%zu, %u]", np ? ", " : ",\n\t\"pointers\": [", np && np % 8 == 0 ? "\n\t\t" : "", pos, rd_le32 (c + pos));
-				np++;
+				slots[np++] = (u32)pos;
+				if (rd_le32 (c + pos) >= hs && rd_le32 (c + pos) < po)
+					tg[nt++] = rd_le32 (c + pos);
 			}
 			if (np)
 				sumo_printf (&b, "]");
+			// object graph: every distinct pointer target starts an object that runs to the next target (the last one to the POF0 chunk); words that are pointer slots are written as "@offset"
+			// strings, all other words as plain numbers (floats are not told apart)
+			if (np)
+			{
+				qsort (tg, nt, sizeof (u32), cmp_u32_abda);
+				uint nu = 0;
+				for (uint k = 0; k < nt; k++)
+					if (!nu || tg[nu - 1] != tg[k])
+						tg[nu++] = tg[k];
+				sumo_printf (&b, ",\n\t\"objects\": [");
+				for (uint k = 0; k < nu; k++)
+				{
+					const u32 s0 = tg[k], e0 = k + 1 < nu ? tg[k + 1] : (u32)po;
+					sumo_printf (&b, "%s\n\t\t{\"at\": %u, \"words\": [", k ? "," : "", s0);
+					for (u32 w = s0; w + 4 <= e0; w += 4)
+					{
+						const u32 val = rd_le32 (c + w);
+						if (bsearch (&w, slots, np, sizeof (u32), cmp_u32_abda))
+							sumo_printf (&b, "%s\"@%u\"", w > s0 ? ", " : "", val);
+						else
+							sumo_printf (&b, "%s%u", w > s0 ? ", " : "", val);
+					}
+					sumo_printf (&b, "]}");
+				}
+				sumo_printf (&b, "\n\t]");
+			}
+			FREE (slots);
+			FREE (tg);
 		}
 	}
 	sumo_printf (&b, "\n}\n");
