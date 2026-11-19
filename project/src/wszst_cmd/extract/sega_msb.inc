@@ -1,7 +1,10 @@
+#include "sega_msb_ops.inc"
+
 // SEGA "MSCR" script binaries, unpacked (Sakura Wars: So Long, My Love "*.msb", or the output of the ".msX" unpacker), layout after the game's loader (the byte swapping loop that runs after "Fail Melt"):
 // body = file + header size (0x20, or 0x10): 8 words {hash, hash, u32 offset of the word table, u32 word count, u32 offset of the entry table (0x20, 0x18 in the two files with a 0x10 byte header), u32 entry count, 0, 0}; an entry is
 // {u32 id, u32 argument block offset, u32 argument word count, u32 code offset} (all offsets relative to the body); the code is a stream of 16 bit instruction words that runs to the next code
-// offset (the last one to the word table). Written as JSON; the instruction set itself is not decoded.
+// offset (the last one to the word table). Written as JSON with the raw code bytes and a named listing (asm) using the game's instruction table (sega_msb_ops.inc): known opcodes by name, bit-15
+// words as operands (#8002 ...), unknown words in hex. The stack / inline operand semantics are not decoded, so the listing is a token stream, not a verified disassembly.
 static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -51,6 +54,24 @@ static enumError extract_sega_msb_file (ccp arg, ccp basedir, uint depth)
 		sumo_printf (&b, "], \"code\": \"");
 		for (u32 k = co; k < end; k++)
 			sumo_printf (&b, "%02x", s[k]);
+		// named listing: words with bit 15 set are operand words ("#8002"), known opcodes print their name, anything else stays a hex word
+		sumo_printf (&b, "\", \"asm\": \"");
+		for (u32 k = co; k + 2 <= end; k += 2)
+		{
+			const uint w = rd_le16 (s + k);
+			const sega_msb_op_t *op = 0;
+			if (!(w & 0x8000))
+				for (uint m = 0; m < sizeof (sega_msb_ops) / sizeof (*sega_msb_ops); m++)
+					if (sega_msb_ops[m].id == w)
+					{
+						op = sega_msb_ops + m;
+						break;
+					}
+			if (op)
+				sumo_printf (&b, "%s%s", k > co ? " " : "", op->name);
+			else
+				sumo_printf (&b, "%s%s%04x", k > co ? " " : "", w & 0x8000 ? "#" : "", w);
+		}
 		sumo_printf (&b, "\"}");
 	}
 	sumo_printf (&b, "\n\t]\n}\n");

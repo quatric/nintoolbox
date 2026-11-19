@@ -13763,7 +13763,7 @@ PYE
     if python3 - "$d/sega_msb/t.msb.d/t.json" <<'PYE' 2>/dev/null
 import sys, json
 j = json.load(open(sys.argv[1]))
-assert j['words'] == [100, 200, 300] and [(e['id'], e['args'], e['code']) for e in j['entries']] == [(7, [11, 22], '01020304'), (8, [], '0506')], j
+assert j['words'] == [100, 200, 300] and [(e['id'], e['args'], e['code']) for e in j['entries']] == [(7, [11, 22], '01020304'), (8, [], '0506')] and [e['asm'] for e in j['entries']] == ['0201 0403', '0605'], j
 PYE
     then fok "SEGA MSB: Sakura Wars .msb script (entries, argument blocks, code words, word table) -> JSON"
     else fno "SEGA MSB" "wrong JSON from synthetic script"
