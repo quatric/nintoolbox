@@ -1,4 +1,4 @@
-// SEGA "HSPR" sprite sheets (Sakura Wars: So Long, My Love; ".hspr" members of URES / AM?? packs and "*.bfX" / "*.arm" files; 519 sheets checked; little endian), container level: {"HSPR", u32 size, u32
+// SEGA "HSPR" sprite sheets (Sakura Wars: So Long, My Love; ".hspr" members of URES / AM?? packs and "*.bfX" / "*.arm" files, the packed \".bfX\" form (header flags 0x400) is Melt-unpacked first (see sega_melt.inc); 519 sheets checked; little endian), container level: {"HSPR", u32 size, u32
 // header size 0x10, 0} wraps a "KSPR" chunk at 0x10 (payload at 0x20, all offsets are relative to the HSPR chunk): {u32 version 1, 0, u32 N, u32 0x30}, at 0x30 {u32 sprite count, u32 offset of the sprite
 // records, u32 count again, u32 offset of a second table (one 48-byte record per sprite: 0, 0x30, index, offset of the sprite record)}. The sprite records start 0x10 bytes after the table offset (the
 // 16 bytes before them hold a float rectangle) and are 32 bytes each: {u32 index (0..count-1), 0, u32 kind (1..10), 0, f32 width, f32 height, u32 offset A, u32 offset B}; A and B point at GX command
@@ -10,7 +10,25 @@ static enumError extract_sega_hspr_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	u8 *c = 0;
 	size_t cs = 0;
-	if (LoadFileAlloc (arg, 0, 0, &c, &cs, 0, 0, 0, false) || !c || cs < 0x60 || rd_le32 (c + 8) != 0x10 || memcmp (c + 0x10, "KSPR", 4))
+	if (!LoadFileAlloc (arg, 0, 0, &c, &cs, 0, 0, 0, false) && c && cs >= 0x24 && rd_le32 (c + 8) == 0x10 && (rd_le32 (c + 0xc) & 0x400))
+	{
+		// Melt packed (".bfX"): header 0x10, 16 byte block, stream at 0x20; rebuild the plain chunk
+		const size_t cap = 0x10 + 0x4000000;
+		u8 *o = MALLOC (cap);
+		size_t n = 0;
+		const bool ok = sega_melt (c, cs, 0x20, o + 0x10, cap - 0x10, &n);
+		if (ok && n)
+		{
+			memcpy (o, c, 0x10);
+			memset (o + 0xc, 0, 4);
+			FREE (c);
+			c = o;
+			cs = 0x10 + n;
+		}
+		else
+			FREE (o);
+	}
+	if (!c || cs < 0x60 || rd_le32 (c + 8) != 0x10 || memcmp (c + 0x10, "KSPR", 4) || (rd_le32 (c + 0xc) & 0x400))
 	{
 		FREE (c);
 		return ERR_NOTHING_TO_DO;

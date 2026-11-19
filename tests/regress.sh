@@ -13837,6 +13837,22 @@ PYE
     fno "SEGA HSPR" "mk_sega_hspr.py failed"
   fi
 
+  # SEGA HSPR packed (".bfX", Melt compressed, header flags 0x400): unpacked, then the sprite table -> JSON
+  mkdir -p "$d/sega_hspr_packed"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_hspr.py" "$d/sega_hspr_packed/t.bfX" packed >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_hspr_packed/t.bfX" >/dev/null 2>&1
+    if python3 - "$d/sega_hspr_packed/t.bfX.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+s = json.load(open(sys.argv[1]))['sprites']
+assert [(x['index'], x['kind'], x['width'], x['height']) for x in s] == [(0, 10, 10, 40), (1, 2, 30, 20.5)], s
+PYE
+    then fok "SEGA HSPR: Melt-packed .bfX sprite sheet unpacked, KSPR sprite table -> JSON"
+    else fno "SEGA HSPR packed" "wrong JSON from synthetic packed sheet"
+    fi
+  else
+    fno "SEGA HSPR packed" "mk_sega_hspr.py packed failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
