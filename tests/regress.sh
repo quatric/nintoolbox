@@ -13773,6 +13773,22 @@ PYE
     fno "SEGA ABDA" "mk_sega_abda.py failed"
   fi
 
+  # SEGA HSPR sprite sheet (Sakura Wars .hspr): KSPR sprite table -> JSON
+  mkdir -p "$d/sega_hspr"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_hspr.py" "$d/sega_hspr/t.hspr" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_hspr/t.hspr" >/dev/null 2>&1
+    if python3 - "$d/sega_hspr/t.hspr.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+s = json.load(open(sys.argv[1]))['sprites']
+assert [(x['index'], x['kind'], x['width'], x['height']) for x in s] == [(0, 10, 10, 40), (1, 2, 30, 20.5)], s
+PYE
+    then fok "SEGA HSPR: Sakura Wars sprite sheet (KSPR sprite table) -> JSON"
+    else fno "SEGA HSPR" "wrong JSON from synthetic sheet"
+    fi
+  else
+    fno "SEGA HSPR" "mk_sega_hspr.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
