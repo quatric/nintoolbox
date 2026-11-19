@@ -623,6 +623,7 @@
 #include "extract/glacier_prm.inc"
 #include "extract/sumo_cog.inc"
 #include "extract/igor_ggm.inc"
+#include "extract/igor_xga.inc"
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"
 #include "extract/sega_hmot.inc"

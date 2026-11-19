@@ -10024,6 +10024,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor GGM" "mk_igor_ggm.py failed"
   fi
 
+  # Igor: The Game .xga animation (chkf/xga) -> JSON
+  mkdir -p "$d/igorxga_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igor_xga.py" "$d/igorxga_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igorxga_test/t.xga" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_igor_xga.py" check "$d/igorxga_test" >/dev/null 2>&1 \
+    && fok "Igor .xga animation channels export to JSON (quaternion, translation, scale per key)" \
+    || fno "Igor XGA" "failed to convert synthetic t.xga"
+  else
+    fno "Igor XGA" "mk_igor_xga.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
