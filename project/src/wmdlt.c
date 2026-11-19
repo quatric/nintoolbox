@@ -1671,7 +1671,9 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 			toshi_trb_t trb;
 			if (!OpenToshiTrb (&trb, raw.data, raw.data_size))
 			{
-				model_t *model = IsToshiModel (&trb) ? BuildToshiModel (&trb) : 0;
+				model_t *model = IsToshiModel (&trb) ? BuildToshiModel (&trb)
+					: IsToshiTerrain (&trb)  ? BuildToshiTerrain (&trb)
+											 : 0;
 				ResetToshiTrb (&trb);
 				if (model)
 				{

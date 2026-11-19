@@ -140,6 +140,11 @@ model_t *BuildToshiModel (const toshi_trb_t *trb);
 // Writes the PNGs the model's materials name into DEST_DIR, looking in the
 // same-named library of the sibling Matlibs directory first, then in all of
 // them. MODEL_PATH is the .trb the model came from.
+// Terrain / world models (Data/Terrain): many static meshes with direct (inline) vertex data and RGB565 vertex
+// colours; textures come from the <name>Mat.ttl libraries beside the model.
+bool IsToshiTerrain (const toshi_trb_t *trb);
+model_t *BuildToshiTerrain (const toshi_trb_t *trb);
+
 void ExportToshiModelTextures (const model_t *model, ccp model_path, ccp dest_dir);
 
 #endif

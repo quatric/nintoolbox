@@ -13645,6 +13645,27 @@ PYEOF
     fno "Toshi TSFB model" "mk_toshi_model.py failed"
   fi
 
+  # Toshi TSFB terrain model (Nickelodeon Barnyard, Wii): world-shader .trb (inline and indexed vertices, RGB565 colours) -> GLB
+  mkdir -p "$d/toshi_terrain"
+  if python3 "$PWD_PROJECT/../tests/mk_toshi_terrain.py" "$d/toshi_terrain" >/dev/null 2>&1; then
+    "$B/wmdlt" ENCODE "$d/toshi_terrain/Data/Terrain/Area/Test_L0Mod0.trb" --dest "$d/toshi_terrain/T.glb" >/dev/null 2>&1
+    if python3 - "$d/toshi_terrain/T.glb" <<'PYE' 2>/dev/null
+import sys, json, struct
+d = open(sys.argv[1], 'rb').read()
+jl = struct.unpack('<I', d[12:16])[0]
+js = json.loads(d[20:20 + jl])
+prims = [p for m in js['meshes'] for p in m['primitives']]
+assert len(prims) == 2 and all('COLOR_0' in p['attributes'] for p in prims)
+box = sorted((js['accessors'][p['attributes']['POSITION']]['min'], js['accessors'][p['attributes']['POSITION']]['max']) for p in prims)
+assert box == [([0, 5, -1], [1, 5, 0]), ([10, 0, -21], [11, 0, -20])], box
+PYE
+    then fok "Toshi TSFB: terrain .trb (inline + indexed world meshes, vertex colours) -> GLB"
+    else fno "Toshi TSFB terrain" "wrong terrain GLB from synthetic model"
+    fi
+  else
+    fno "Toshi TSFB terrain" "mk_toshi_terrain.py failed"
+  fi
+
   # Toshi TSFB keyframe library (Nickelodeon Barnyard, Wii): .tkl -> YAML
   mkdir -p "$d/tkl_test"
   if python3 "$PWD_PROJECT/../tests/mk_tkl.py" "$d/tkl_test" >/dev/null 2>&1; then

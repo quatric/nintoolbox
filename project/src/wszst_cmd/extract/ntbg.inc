@@ -9,6 +9,17 @@ static enumError extract_ntbg_file (ccp arg, ccp basedir, uint depth)
 	(void)depth;
 	if (export_count <= 0 && !opt_decode)
 		return ERR_NOTHING_TO_DO;
+	{
+		// cheap magic probe first: this runs for every file in the dispatch chain
+		FILE *pf = fopen (arg, "rb");
+		if (!pf)
+			return ERR_NOTHING_TO_DO;
+		u8 magic[4];
+		const bool hit = fread (magic, 1, 4, pf) == 4 && !memcmp (magic, "NTBG", 4);
+		fclose (pf);
+		if (!hit)
+			return ERR_NOTHING_TO_DO;
+	}
 	u8 *raw = 0, *rgba = 0;
 	size_t sz = 0;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)

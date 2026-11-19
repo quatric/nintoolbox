@@ -345,8 +345,9 @@ static void ts_tex_base (ccp name, char *out, size_t out_size)
 // Position / normal / texcoord index of one display list vertex.
 typedef struct
 {
-	u32 pi, ni, ui;
+	u32 pi, ni, ui; // index, or for a "direct" attribute the section offset of its inline data
 	int node;
+	u8 direct; // bit a set: attribute a (0 position, 1 normal / colour, 2 texcoord) is stored inline
 } ts_vtx_t;
 
 static void ts_quat_to_euler (const float q[4], vec3_t *e)
@@ -360,19 +361,33 @@ static void ts_quat_to_euler (const float q[4], vec3_t *e)
 }
 
 static bool ts_build_mesh (const toshi_trb_t *t, model_t *m, uint mesh_no, uint node_base,
-	uint n_skin, const u8 *hdr, ccp name, bool skinned)
+	uint n_skin, const u8 *hdr, ccp name, bool skinned, bool world, const float *org)
 {
 	const u8 *s = t->sect;
 	const size_t sz = t->sect_size;
-	const u32 pos_o = ts_be32 (hdr), nrm_o = ts_be32 (hdr + 4), uv_o = ts_be32 (hdr + 8);
+	// world meshes carry the position array pointer in the word before the header and list the
+	// texcoord array first: {pos (-4), uv, colour, ?, dl, dl size, material, vertex count, fmt}
+	const u32 pos_o = ts_be32 (world ? hdr - 4 : hdr), nrm_o = ts_be32 (hdr + 4),
+		  uv_o = ts_be32 (world ? hdr : hdr + 8);
 	// Skin-shader meshes: {sub table, sub count, material, skin table}; the other shaders
 	// carry one display list inline: {dl, dl size, material, vertex count}.
 	const u32 sub_o = ts_be32 (hdr + 12), n_sub = skinned ? ts_be32 (hdr + 16) : 1;
 	const u32 mat_o = ts_be32 (hdr + 20);
 	const uint frac = hdr[28] & 31;
-	const uint isz[3] = { hdr[29] == 2 ? 1 : 2, hdr[30] == 2 ? 1 : 2, hdr[31] == 2 ? 1 : 2 };
+	// per attribute: GX index width 2 = u8, 3 = u16, 1 = direct (data inline in the display list)
+	const uint dsz[3] = { 6, world ? 2 : 3, 4 }; // direct sizes: s16 x3, RGB565 colour / s8 x3, s16 x2
+	uint isz[3];
+	u8 direct = 0;
+	for (uint a = 0; a < 3; a++)
+	{
+		const uint w = hdr[29 + a] & 0x7f; // bit 7 on the colour width (grass shader): RGBA4444 instead of RGB565
+		if (w == 1)
+			direct |= 1 << a, isz[a] = dsz[a];
+		else
+			isz[a] = w == 2 ? 1 : 2;
+	}
 	if (!n_sub || n_sub > 256 || (skinned && !ts_ptr (t, sub_o, (u64)n_sub * 24))
-		|| !ts_ptr (t, pos_o, 6) || !ts_ptr (t, nrm_o, 3) || !ts_ptr (t, uv_o, 4)
+		|| !ts_ptr (t, pos_o, 6) || !ts_ptr (t, nrm_o, world ? 2 : 3) || !ts_ptr (t, uv_o, 4)
 		|| !ts_ptr (t, mat_o, 1))
 		return false;
 	const uint vsz = (skinned ? 1 : 0) + isz[0] + isz[1] + isz[2];
@@ -409,11 +424,14 @@ static bool ts_build_mesh (const toshi_trb_t *t, model_t *m, uint mesh_no, uint 
 				u32 idx[3];
 				for (uint a = 0; a < 3; a++)
 				{
-					idx[a] = isz[a] == 1 ? q[o] : ts_be16 (q + o);
+					if (direct >> a & 1)
+						idx[a] = (u32)(q - s) + o; // section offset of the inline data
+					else
+						idx[a] = isz[a] == 1 ? q[o] : ts_be16 (q + o);
 					o += isz[a];
 				}
 				v[i] = (ts_vtx_t) { idx[0], idx[1], idx[2],
-					skin < n_skin ? (int)(node_base + skin) : -1 };
+					skin < n_skin ? (int)(node_base + skin) : -1, direct };
 			}
 			p += cnt * vsz;
 			// GX primitive -> triangles
@@ -500,6 +518,17 @@ static bool ts_build_mesh (const toshi_trb_t *t, model_t *m, uint mesh_no, uint 
 	mesh->position_node = calloc (n, sizeof (int));
 	mesh->normals = calloc (n, sizeof (vec3_t));
 	mesh->texcoords = calloc (n, sizeof (vec2_t));
+	if (world)
+		mesh->colors[0] = calloc (n, sizeof (color4_t));
+	if (world && !mesh->colors[0])
+	{
+		FREE (tk);
+		FREE (tv);
+		FREE (nmap);
+		FREE (umap);
+		FREE (corner);
+		return false;
+	}
 	if (!tk || !tv || !nmap || !umap || !mesh->vertices || !mesh->positions
 		|| !mesh->position_node || !mesh->normals || !mesh->texcoords)
 	{
@@ -533,12 +562,14 @@ static bool ts_build_mesh (const toshi_trb_t *t, model_t *m, uint mesh_no, uint 
 			tk[h] = key;
 			tv[h] = (int)mesh->num_positions;
 			vec3_t P = { 0, 0, 0 };
-			if (ts_ptr (t, pos_o + 6ull * c->pi, 6))
+			const u64 pa = c->direct & 1 ? c->pi : pos_o + 6ull * c->pi;
+			if (ts_ptr (t, pa, 6))
 			{
-				const u8 *q = s + pos_o + 6 * c->pi;
+				const u8 *q = s + pa;
 				// Z-up source -> Y-up: (x, y, z) -> (x, z, -y)
-				const float x = (s16)ts_be16 (q) * ps, y = (s16)ts_be16 (q + 2) * ps,
-							z = (s16)ts_be16 (q + 4) * ps;
+				const float x = (s16)ts_be16 (q) * ps + (org ? org[0] : 0),
+							y = (s16)ts_be16 (q + 2) * ps + (org ? org[1] : 0),
+							z = (s16)ts_be16 (q + 4) * ps + (org ? org[2] : 0);
 				P = (vec3_t) { x, z, -y };
 			}
 			mesh->position_node[mesh->num_positions] = c->node;
@@ -546,34 +577,67 @@ static bool ts_build_mesh (const toshi_trb_t *t, model_t *m, uint mesh_no, uint 
 		}
 		vx->position_idx = tv[h];
 
-		if (nmap[c->ni & 0xffff] < 0)
+		// normal (models) or RGB565 vertex colour (world / terrain shader)
+		const bool dn = c->direct >> 1 & 1;
+		if (dn || nmap[c->ni & 0xffff] < 0)
 		{
-			nmap[c->ni & 0xffff] = (int)mesh->num_normals;
-			vec3_t N = { 0, 1, 0 };
-			if (ts_ptr (t, nrm_o + 3ull * c->ni, 3))
+			const int slot = world ? (int)mesh->num_colors[0] : (int)mesh->num_normals;
+			if (!dn)
+				nmap[c->ni & 0xffff] = slot;
+			const u64 na = dn ? c->ni : nrm_o + (world ? 2ull : 3ull) * c->ni;
+			if (world)
 			{
-				const u8 *q = s + nrm_o + 3 * c->ni;
-				const float x = (int8_t)q[0], y = (int8_t)q[1], z = (int8_t)q[2];
-				const float len = sqrtf (x * x + y * y + z * z);
-				if (len > 0)
-					N = (vec3_t) { x / len, z / len, -y / len };
+				color4_t C = { 1, 1, 1, 1 };
+				if (ts_ptr (t, na, 2))
+				{
+					const uint cv = ts_be16 (s + na);
+					if (hdr[30] & 0x80)
+						C = (color4_t) { (cv >> 12) / 15.0f, (cv >> 8 & 15) / 15.0f, (cv >> 4 & 15) / 15.0f,
+							(cv & 15) / 15.0f };
+					else
+						C = (color4_t) { (cv >> 11) / 31.0f, (cv >> 5 & 63) / 63.0f, (cv & 31) / 31.0f, 1 };
+				}
+				mesh->colors[0][mesh->num_colors[0]++] = C;
 			}
-			mesh->normals[mesh->num_normals++] = N;
-		}
-		vx->normal_idx = nmap[c->ni & 0xffff];
-
-		if (umap[c->ui & 0xffff] < 0)
-		{
-			umap[c->ui & 0xffff] = (int)mesh->num_texcoords;
-			vec2_t U = { 0, 0 };
-			if (ts_ptr (t, uv_o + 4ull * c->ui, 4))
+			else
 			{
-				const u8 *q = s + uv_o + 4 * c->ui;
+				vec3_t N = { 0, 1, 0 };
+				if (ts_ptr (t, na, 3))
+				{
+					const u8 *q = s + na;
+					const float x = (int8_t)q[0], y = (int8_t)q[1], z = (int8_t)q[2];
+					const float len = sqrtf (x * x + y * y + z * z);
+					if (len > 0)
+						N = (vec3_t) { x / len, z / len, -y / len };
+				}
+				mesh->normals[mesh->num_normals++] = N;
+			}
+		}
+		if (world)
+		{
+			vx->color_idx[0] = dn ? (int)mesh->num_colors[0] - 1 : nmap[c->ni & 0xffff];
+			if (!mesh->num_normals)
+				mesh->normals[mesh->num_normals++] = (vec3_t) { 0, 1, 0 };
+			vx->normal_idx = 0;
+		}
+		else
+			vx->normal_idx = dn ? (int)mesh->num_normals - 1 : nmap[c->ni & 0xffff];
+
+		if ((c->direct >> 2 & 1) || umap[c->ui & 0xffff] < 0)
+		{
+			const bool du = c->direct >> 2 & 1;
+			if (!du)
+				umap[c->ui & 0xffff] = (int)mesh->num_texcoords;
+			vec2_t U = { 0, 0 };
+			const u64 ua = du ? c->ui : uv_o + 4ull * c->ui;
+			if (ts_ptr (t, ua, 4))
+			{
+				const u8 *q = s + ua;
 				U = (vec2_t) { (s16)ts_be16 (q) * us, (s16)ts_be16 (q + 2) * us };
 			}
 			mesh->texcoords[mesh->num_texcoords++] = U;
 		}
-		vx->texcoord_idx = umap[c->ui & 0xffff];
+		vx->texcoord_idx = (c->direct >> 2 & 1) ? (int)mesh->num_texcoords - 1 : umap[c->ui & 0xffff];
 	}
 	mesh->num_vertices = n;
 	FREE (tk);
@@ -718,8 +782,144 @@ model_t *BuildToshiModel (const toshi_trb_t *t)
 				}
 			}
 		}
-		ts_build_mesh (t, m, k, node_base, n_skin, hdr, name, skinned);
+		ts_build_mesh (t, m, k, node_base, n_skin, hdr, name, skinned, false, 0);
 	}
+	if (!m->num_meshes)
+	{
+		FreeModel (m);
+		return 0;
+	}
+	return m;
+}
+
+// Terrain / world model (Data/Terrain/<area>/<name>Mod<n>.trb): symbols Database, Header, Materials, Collision only.
+// Header {u32 LOD count, float distance, ptr}; the LOD at +0xc is {u32 mesh count, 0, shader 2 (world) or 4 (grass), 0,
+// sphere}. The meshes are leaves of a bounding-sphere tree stored after the collision data; each leaf is
+//   sphere (centre = origin of its vertices, radius), 8 or 16 bytes of links, a second sphere, then
+//   {ptr positions (s16 x3), ptr texcoords (s16 x2), ptr colours (2 bytes), ptr ?, ptr display list, u32 DL size,
+//   ptr material name, u32 vertex count, u8 fmt[4]}, fmt = {position frac bits, position / colour / texcoord index
+//   width: 1 = inline in the display list, 2 = u8, 3 = u16; bit 7 on the colour width = RGBA4444 instead of RGB565}.
+// The "table" in the file lists the node ends, not all nodes (the first mesh sits before it), so the meshes are
+// found by scanning for headers whose material name is one of the Materials entries.
+typedef struct
+{
+	u32 hdr; // offset of the position array pointer word
+	float org[3];
+} ts_terrain_mesh_t;
+
+static bool ts_terrain_header_ok (const toshi_trb_t *t, u64 h, uint nmat, const u8 *mats)
+{
+	const u8 *s = t->sect;
+	if (h < 0x30 || h + 36 > t->sect_size)
+		return false;
+	const u32 a = ts_be32 (s + h), p0 = ts_be32 (s + h + 4), p1 = ts_be32 (s + h + 8), p2 = ts_be32 (s + h + 12),
+		  dl = ts_be32 (s + h + 16), dsz = ts_be32 (s + h + 20), mat = ts_be32 (s + h + 24);
+	const u8 *f = s + h + 32;
+	if (!(a <= p0 && p0 <= p1 && p1 <= p2 && p2 <= t->sect_size) || !dsz || !ts_ptr (t, dl, dsz) || !ts_ptr (t, mat, 1)
+		|| !f[0] || f[0] > 15 || !(f[1] & 0x7f) || (f[1] & 0x7f) > 3 || !(f[2] & 0x7f) || (f[2] & 0x7f) > 3
+		|| !(f[3] & 0x7f) || (f[3] & 0x7f) > 3)
+		return false;
+	const size_t ml = strnlen ((ccp)s + mat, t->sect_size - mat);
+	for (uint i = 0; i < nmat; i++)
+		if (strlen ((ccp)mats + i * TS_MAT_SIZE) == ml && !memcmp (mats + i * TS_MAT_SIZE, s + mat, ml))
+			return true;
+	return false;
+}
+
+static ts_terrain_mesh_t *ts_terrain_meshes (const toshi_trb_t *t, uint *count)
+{
+	*count = 0;
+	const u8 *s = t->sect;
+	const s64 ho = ToshiSymbol (t, "Header"), mt = ToshiSymbol (t, "Materials"), co = ToshiSymbol (t, "Collision");
+	if (ho < 0 || mt < 0 || co < 0 || !ts_ptr (t, ho, 12) || !ts_ptr (t, mt, 16) || ts_be32 (s + ho) < 1)
+		return 0;
+	const u32 lod = ts_be32 (s + ho + 8);
+	if (!ts_ptr (t, lod, 32) || (ts_be32 (s + lod + 8) != 2 && ts_be32 (s + lod + 8) != 4))
+		return 0;
+	const uint nmat = ts_be32 (s + mt + 8), want = ts_be32 (s + lod);
+	if (!want || want > 65536 || !nmat || nmat > 1024 || !ts_ptr (t, mt + 16, (u64)nmat * TS_MAT_SIZE))
+		return 0;
+	ts_terrain_mesh_t *list = calloc (want, sizeof (*list));
+	if (!list)
+		return 0;
+	uint n = 0;
+	for (u64 h = (u64)co; h + 36 <= t->sect_size && n < want; h += 4)
+	{
+		if (!ts_terrain_header_ok (t, h, nmat, s + mt + 16))
+			continue;
+		// vertices are relative to the first sphere's centre: 8 bytes of links before the second sphere
+		// (pointer, 0) or 16 (0, 1, 0, 0)
+		const u64 o = (ts_be32 (s + h - 0x18) && ts_ptr (t, ts_be32 (s + h - 0x18), 1) && !ts_be32 (s + h - 0x14)) ? 0x28 : 0x30;
+		list[n].hdr = (u32)h;
+		for (uint i = 0; i < 3; i++)
+			list[n].org[i] = ts_bef32 (s + h - o + 4 * i);
+		n++;
+	}
+	if (!n)
+	{
+		free (list);
+		return 0;
+	}
+	*count = n;
+	return list;
+}
+
+bool IsToshiTerrain (const toshi_trb_t *t)
+{
+	uint n;
+	if (ToshiSymbol (t, "Materials") < 0 || ToshiSymbol (t, "Skeleton") >= 0 || ToshiSymbol (t, "LOD0_Mesh_0") >= 0)
+		return false;
+	ts_terrain_mesh_t *l = ts_terrain_meshes (t, &n);
+	const bool ok = l != 0;
+	free (l);
+	return ok;
+}
+
+model_t *BuildToshiTerrain (const toshi_trb_t *t)
+{
+	const u8 *s = t->sect;
+	uint nm;
+	ts_terrain_mesh_t *list = ts_terrain_meshes (t, &nm);
+	const s64 mt = ToshiSymbol (t, "Materials");
+	if (!list || mt < 0)
+	{
+		free (list);
+		return 0;
+	}
+	const uint nmat = ts_be32 (s + mt + 8);
+	model_t *m = calloc (1, sizeof (*m));
+	if (!m)
+	{
+		free (list);
+		return 0;
+	}
+	m->materials = calloc (nmat ? nmat : 1, sizeof (material_t));
+	if (!m->materials)
+	{
+		free (list);
+		FreeModel (m);
+		return 0;
+	}
+	m->num_materials = nmat;
+	for (uint i = 0; i < nmat; i++)
+	{
+		const u8 *e = s + mt + 16 + (size_t)i * TS_MAT_SIZE;
+		material_t *mat = m->materials + i;
+		snprintf (mat->name, sizeof (mat->name), "%.63s", (ccp)e);
+		if (e[104])
+		{
+			ts_tex_base ((ccp)e + 104, mat->textures[0], sizeof (mat->textures[0]));
+			mat->num_textures = 1;
+		}
+		mat->diffuse[0] = mat->diffuse[1] = mat->diffuse[2] = mat->diffuse[3] = 1.0f;
+	}
+	for (uint k = 0; k < nm; k++)
+	{
+		char name[32];
+		snprintf (name, sizeof (name), "mesh_%u", k);
+		ts_build_mesh (t, m, k, 0, 0, s + list[k].hdr + 4, name, false, true, list[k].org);
+	}
+	free (list);
 	if (!m->num_meshes)
 	{
 		FreeModel (m);
@@ -803,9 +1003,11 @@ void ExportToshiModelTextures (const model_t *model, ccp model_path, ccp dest_di
 	snprintf (lib_dir, sizeof (lib_dir), "%s/../Matlibs", dir);
 	CreatePath (dest_dir, true);
 
-	for (uint pass = 0; pass < 2; pass++)
+	// pass 0: Matlibs/<model>.ttl, pass 1: every Matlibs library, pass 2: every library beside the model (terrain)
+	for (uint pass = 0; pass < 3; pass++)
 	{
-		DIR *dp = pass ? opendir (lib_dir) : 0;
+		ccp scan_dir = pass == 2 ? dir : lib_dir;
+		DIR *dp = pass ? opendir (scan_dir) : 0;
 		const struct dirent *de = 0;
 		char path[PATH_MAX];
 		for (;;)
@@ -817,7 +1019,7 @@ void ExportToshiModelTextures (const model_t *model, ccp model_path, ccp dest_di
 				const size_t l = strlen (de->d_name);
 				if (l < 5 || strcasecmp (de->d_name + l - 4, ".ttl"))
 					continue;
-				snprintf (path, sizeof (path), "%s/%s", lib_dir, de->d_name);
+				snprintf (path, sizeof (path), "%s/%s", scan_dir, de->d_name);
 			}
 			else
 				snprintf (path, sizeof (path), "%s/%s.ttl", lib_dir, stem);
