@@ -630,6 +630,7 @@
 #include "extract/sega_gtpa.inc"
 #include "extract/sega_abda.inc"
 #include "extract/sega_hspr.inc"
+#include "extract/sega_melt.inc"
 #include "extract/sega_mscr.inc"
 #include "extract/sega_msb.inc"
 #include "extract/sega_ghsl.inc"
