@@ -1,8 +1,34 @@
+// Atlas textures ("PVRT" kind 0x64, pixel format 9, 256 x 256) use the palette of the MPLN chunk (256 RGBA entries) and a swizzled index order: with i the byte index, target bit k of the position (k = 0..7
+// x, 8..15 y) is the parity of (i & mask[k]) for mask = 512 1024 2048 4096 8192 128 256 32768 | 4 8 9233 2 32 64 16400 16 (found by a smoothness search over bit assignments with XOR terms, rated on the
+// retail atlas), then the picture is rotated a quarter turn: pixel (255 - y, x). Returns the RGBA image or NULL.
+static u8 *sega_atlas_rgba (const u8 *pvrt, size_t avail, const u8 *pal, uint pal_bytes)
+{
+	static const uint mk[16] = { 512, 1024, 2048, 4096, 8192, 128, 256, 32768, 4, 8, 9233, 2, 32, 64, 16400, 16 };
+	if (avail < 0x20 + 0x10000 || pal_bytes < 0x400 || memcmp (pvrt, "PVRT", 4) || pvrt[8] != 9 || pvrt[9] != 0x64 || rd_le16 (pvrt + 0xc) != 256 || rd_le16 (pvrt + 0xe) != 256)
+		return 0;
+	const u8 *px = pvrt + 0x20;
+	u8 *rgba = MALLOC (256 * 256 * 4);
+	for (uint i = 0; i < 0x10000; i++)
+	{
+		uint t = 0;
+		for (uint k = 0; k < 16; k++)
+			t |= (uint)(__builtin_popcount (i & mk[k]) & 1) << k;
+		const uint x = t & 255, y = t >> 8;
+		u8 *o = rgba + ((size_t)x * 256 + (255 - y)) * 4;
+		const u8 *pe = pal + 4 * (uint)px[i];
+		o[0] = pe[0];
+		o[1] = pe[1];
+		o[2] = pe[2];
+		o[3] = pe[3] >= 0x80 ? 255 : (u8)(pe[3] * 2);
+	}
+	return rgba;
+}
+
 // SEGA "MPLN" 2D effect/graphics sets (Sakura Wars: So Long, My Love "MARS/GR/**/*.GRD", little endian): a chunk {"MPLN", u32 size without header, u32 header size 0x10, 0} whose body (at 0x10) starts with a
 // 0x30 byte header {u32 palette offset, u32 sub-chunk offset, u16 17, u16 1, u16 width, u16 height, 6 floats, u32 flags (&0xf00: 0x100/0x800 = 16, 0x200/0x900 = 256 colours), u32 palette bytes}, then the palette (RGBA
 // bytes, alpha 0..0x80) and the sub-chunks (each {magic, u32 size without header, u32 header size 0x10, flags}, stride size + 0x10): MDCG cells (header word 5 = offset of the cell's vertex list start / "HTEX" chunk,
 // vertex lists are GX data that is not decoded) and MNCA tables {3 words, count, count x 4 u16 rectangles}. An HTEX chunk (flags 0x400) is Melt compressed (see sega_melt.inc) to an "HTSF" texture container
-// ("PVRT" blocks, pixel layout not decoded); it is written raw as "<name>.<cell>.htsf". The JSON carries the header fields, the palette, the MNCA rectangles and the cell sizes.
+// ("PVRT" blocks, pixel layout not decoded); it is written raw as "<name>.<cell>.htsf" and its 256 x 256 palette textures are decoded to "<name>.<cell>.<n>.png" (see sega_atlas_rgba). The JSON carries the header fields, the palette, the MNCA rectangles and the cell sizes.
 static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -65,6 +91,27 @@ static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 				const enumError e = shade_write (arg, dest, basedir, fn, dec, (uint)n);
 				if (e)
 					err = e;
+				uint tex = 0;
+				for (size_t q = 0; !err && q + 0x30 <= n && !memcmp (dec + q, "HTSF", 4); tex++)
+				{
+					const u32 hs = rd_le32 (dec + q + 4);
+					size_t pb = q + 0x10;
+					if (pb + 0x10 <= n && !memcmp (dec + pb, "GBIX", 4))
+						pb += 0x10;
+					u8 *rgba = sega_atlas_rgba (dec + pb, n - pb, body + poff, pbytes);
+					if (rgba)
+					{
+						char png[PATH_MAX], ext[48];
+						snprintf (ext, sizeof (ext), ".%u.%u.png", ncell, tex);
+						beside_source_dest_ext (png, sizeof (png), arg, ext);
+						if (verbose >= 0)
+							fprintf (stdlog, "EXTRACT SEGA-GRD:%s (256x256 C8) -> PNG:%s\n", arg, png);
+						const enumError pe = SaveDecodedRGBAToPNG (rgba, 256, 256, &le_func, png, 0, opt_overwrite);
+						if (pe && pe != ERR_NOTHING_TO_DO)
+							err = pe;
+					}
+					q += 0x10 + (size_t)hs;
+				}
 			}
 			ncell++;
 		}

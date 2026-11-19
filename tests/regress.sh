@@ -13916,6 +13916,51 @@ PYE
     fno "SEGA AFCE" "mk_sega_afce.py failed"
   fi
 
+  # SEGA MPLN atlas (Sakura Wars .GRD, MDCG cell with a Melt packed 256x256 palette texture) -> PNG
+  mkdir -p "$d/sega_grd_atlas"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_grd_atlas.py" "$d/sega_grd_atlas/t.GRD" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_grd_atlas/t.GRD" >/dev/null 2>&1
+    if python3 - "$d/sega_grd_atlas/t.0.0.png" <<'PYE' 2>/dev/null
+import sys, struct, zlib
+def png_rows(path):
+    d = open(path, 'rb').read(); p = 8; idat = b''
+    while p < len(d):
+        n, tag = struct.unpack('>I4s', d[p:p + 8])
+        if tag == b'IHDR': w, h, bd, ct = struct.unpack('>IIBB', d[p + 8:p + 18])
+        if tag == b'IDAT': idat += d[p + 8:p + 8 + n]
+        p += 12 + n
+    bpp = {2: 3, 6: 4}[ct]
+    raw = zlib.decompress(idat); assert bd == 8 and (w, h) == (256, 256)
+    rows = []; prev = bytearray(w * bpp); st = w * bpp + 1
+    for y in range(h):
+        f = raw[y * st]; r = bytearray(raw[y * st + 1:(y + 1) * st])
+        for i in range(len(r)):
+            a = r[i - bpp] if i >= bpp else 0; b = prev[i]; c = prev[i - bpp] if i >= bpp else 0
+            if f == 1: r[i] = (r[i] + a) & 255
+            elif f == 2: r[i] = (r[i] + b) & 255
+            elif f == 3: r[i] = (r[i] + (a + b) // 2) & 255
+            elif f == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                r[i] = (r[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append(r); prev = r
+    return rows, bpp
+rows, bpp = png_rows(sys.argv[1])
+mk = [512, 1024, 2048, 4096, 8192, 128, 256, 32768, 4, 8, 9233, 2, 32, 64, 16400, 16]
+for i in (0, 1, 5, 77, 1000, 9999, 40000, 65535):
+    t = 0
+    for k in range(16):
+        t |= (bin(i & mk[k]).count('1') & 1) << k
+    x, y = t & 255, t >> 8
+    j = i & 255
+    assert tuple(rows[x][bpp * (255 - y):bpp * (255 - y) + 3]) == (j, 255 - j, 7), (i, x, y)
+PYE
+    then fok "SEGA MPLN: Sakura Wars .GRD atlas cell (Melt packed HTEX, swizzled 256x256 C8 texture) -> PNG"
+    else fno "SEGA MPLN atlas" "wrong PNG from synthetic atlas"
+    fi
+  else
+    fno "SEGA MPLN atlas" "mk_sega_grd_atlas.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
