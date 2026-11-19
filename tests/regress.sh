@@ -13666,6 +13666,19 @@ PYE
     fno "Toshi TSFB terrain" "mk_toshi_terrain.py failed"
   fi
 
+  # Toshi TSFB subtitle library (Nickelodeon Barnyard, Wii): two-section lib_*.trb -> text
+  mkdir -p "$d/toshi_subs"
+  if python3 "$PWD_PROJECT/../tests/mk_toshi_subs.py" "$d/toshi_subs" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/toshi_subs/lib_test.trb" >/dev/null 2>&1
+    grep -q '^\[snd_a\]$' "$d/toshi_subs/lib_test.trb.txt" 2>/dev/null \
+    && grep -q $'^0-1500\tHello there!$' "$d/toshi_subs/lib_test.trb.txt" \
+    && grep -q $'^1500-2600\tMoo?$' "$d/toshi_subs/lib_test.trb.txt" \
+    && fok "Toshi TSFB: subtitle library (section-relative pointers, UTF-16) -> text" \
+    || fno "Toshi TSFB subtitles" "wrong text from synthetic subtitle library"
+  else
+    fno "Toshi TSFB subtitles" "mk_toshi_subs.py failed"
+  fi
+
   # Toshi TSFB keyframe library (Nickelodeon Barnyard, Wii): .tkl -> YAML
   mkdir -p "$d/tkl_test"
   if python3 "$PWD_PROJECT/../tests/mk_tkl.py" "$d/tkl_test" >/dev/null 2>&1; then

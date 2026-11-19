@@ -62,8 +62,18 @@ static enumError extract_toshi_text_file (ccp arg, ccp basedir, uint depth)
 	}
 	enumError err = ERR_NOTHING_TO_DO;
 	const s64 loc = ToshiSymbol (&trb, "LocaleStrings");
-	// the subtitle libraries ("SubtitleVersion") store their line strings behind an extra level of pointers that is not understood yet, so they are left alone
-	const s64 sv = -1;
+	// the subtitle libraries ("SubtitleVersion") keep one symbol per sound in a second section; XRDH lists the section
+	// sizes ({version, count, count x {?, size, ?, ?}}) and the sections follow each other inside the TCES hunk, so
+	// symbol offsets and text pointers are relative to that section's start
+	const s64 sv = ToshiSymbol (&trb, "SubtitleVersion");
+	u32 secbase[16] = { 0 };
+	if (raw_size >= 0x20 && !memcmp (raw + 0xc, "XRDH", 4))
+	{
+		const uint nsec = rd_be32 (raw + 0x18) > 15 ? 15 : rd_be32 (raw + 0x18);
+		if (raw_size >= 0x1c + 16ull * nsec)
+			for (uint i = 0; i < nsec; i++)
+				secbase[i + 1] = secbase[i] + rd_be32 (raw + 0x1c + 16 * i + 4);
+	}
 	bool ok = false;
 	uint nout = 0;
 	u32 lcount = 0, lptr = 0;
@@ -119,7 +129,7 @@ static enumError extract_toshi_text_file (ccp arg, ccp basedir, uint depth)
 				{
 					const u8 *e = trb.symb + 4 + 12 * i;
 					const size_t no = names + rd_be16 (e + 2);
-					const u32 off = rd_be32 (e + 8);
+					const u32 sbase = secbase[rd_be16 (e) & 15], off = sbase + rd_be32 (e + 8);
 					if (no >= trb.symb_size || !strcmp ((ccp)trb.symb + no, "SubtitleVersion") || (u64)off + 4 > trb.sect_size)
 						continue;
 					const u32 nl = rd_be32 (trb.sect + off);
@@ -127,7 +137,7 @@ static enumError extract_toshi_text_file (ccp arg, ccp basedir, uint depth)
 						continue;
 					bool good = true;
 					for (u32 k = 0; k < nl && good; k++)
-						good = toshi_text_ok (&trb, rd_be32 (trb.sect + off + 4 + 12 * k + 8));
+						good = toshi_text_ok (&trb, sbase + rd_be32 (trb.sect + off + 4 + 12 * k + 8));
 					if (!good)
 						continue;
 					fprintf (f, "[%s]\n", (ccp)trb.symb + no);
@@ -135,7 +145,7 @@ static enumError extract_toshi_text_file (ccp arg, ccp basedir, uint depth)
 					{
 						const u8 *l = trb.sect + off + 4 + 12 * k;
 						fprintf (f, "%d-%d\t", (int)rd_be32 (l), (int)rd_be32 (l + 4));
-						toshi_utf8 (f, trb.sect, trb.sect_size, rd_be32 (l + 8));
+						toshi_utf8 (f, trb.sect, trb.sect_size, sbase + rd_be32 (l + 8));
 						fputc ('\n', f);
 						nout++;
 					}
