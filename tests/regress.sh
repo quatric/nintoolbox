@@ -13666,6 +13666,23 @@ PYE
     fno "Toshi TSFB terrain" "mk_toshi_terrain.py failed"
   fi
 
+  # SEGA HMOT motion (Sakura Wars, Wii): bone table, base values and s16 curves -> JSON
+  mkdir -p "$d/hmot"
+  if python3 "$PWD_PROJECT/../tests/mk_hmot.py" "$d/hmot/t.hmot" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/hmot/t.hmot" >/dev/null 2>&1
+    if python3 - "$d/hmot/t.hmot.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+j = json.load(open(sys.argv[1]))
+b = j['bones'][0]
+assert j['frames'] == 2 and b['mask'] == 33 and b['rot0']['curve'] == [1, 0, -0.5] and b['tx']['base'] == 1.25, j
+PYE
+    then fok "SEGA HMOT: Sakura Wars motion (bone table, base values, s16 curves) -> JSON"
+    else fno "SEGA HMOT" "wrong JSON from synthetic motion"
+    fi
+  else
+    fno "SEGA HMOT" "mk_hmot.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then
