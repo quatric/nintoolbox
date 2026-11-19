@@ -4,7 +4,7 @@
 // bulk data (vertices and indices of every mesh, end of the file, size = data size) follows the descriptors. A mesh descriptor is {u32 palette size, u32 vertex format name offset, u32
 // vertex data offset, u32 vertex count, u32 stride (0x18), 0, u32 primitive name offset ("EPRIM_TRIANGLES"), u32 index count, u32 index data offset, 0, palette ...}: the vertices are
 // {f32 x, y, z, s16 nx, ny, nz (/32768), u8 skin palette slot (format "I1") or two colour bytes ("C2"), 0, s16 u, v (/1024)}, the u16 triangle list follows its vertices, the palette
-// lists {slot, node name offset} pairs for rigid skinning. The vertices are already in model space. Written as "<file>.d/model.obj" and "<file>.d/skeleton.json" (240 files).
+// lists {slot, node name offset} pairs for rigid skinning. The vertices are already in model space. Written as "<file>.d/model.obj", "<file>.d/meshes.json" (diffuse texture names, per mesh skin palette: slot -> node name; vertex byte 18 is the slot) and "<file>.d/skeleton.json" (240 files).
 static bool igor_ggm_text (const u8 *st, u32 sl, u32 off, double *m)
 {
 	if (off >= sl)
@@ -68,6 +68,16 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 			break;
 		}
 	njm_out_t o = { MALLOC (1 << 20), 0, 1 << 20 };
+	sumo_buf_t mj = { 0, 0, 0, true };
+	sumo_printf (&mj, "{\n\t\"format\": \"Igor GGM meshes\",\n\t\"textures\": [");
+	{
+		// diffuse texture names: the string after "ETEXDEST_DIFFUSE" in each material block
+		uint nt = 0;
+		for (u32 i = 0; i + 16 < sl; i++)
+			if (!memcmp (st + i, "ETEXDEST_DIFFUSE", 17) && (!i || !st[i - 1]))
+				sumo_printf (&mj, "%s\"%s\"", nt++ ? ", " : "", (ccp)st + i + 17);
+	}
+	sumo_printf (&mj, "],\n\t\"meshes\": [");
 	uint meshes = 0, vbase = 1;
 	for (size_t p = hb; nfmt && prim && p + 40 <= base && o.b; p += 4)
 	{
@@ -85,6 +95,16 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 			ok = rd_be16 (iv + 2 * k) < vn;
 		if (!ok)
 			continue;
+		// skin palette: {slot, name offset of the node} pairs after the descriptor (the count is the word before the format name); vertices carry the slot in byte 18
+		const u32 npal = p >= 4 ? rd_be32 (raw + p - 4) : 0;
+		sumo_printf (&mj, "%s\n\t\t{\"index\": %u, \"vertices\": %u, \"triangles\": %u, \"palette\": [", meshes ? "," : "", meshes, vn, ic / 3);
+		for (u32 k = 0; k < npal && k < 64 && p + 40 + 8 * (size_t)k <= base; k++)
+		{
+			const u32 no = rd_be32 (raw + p + 36 + 8 * (size_t)k);
+			if (no < sl)
+				sumo_printf (&mj, "%s{\"slot\": %u, \"node\": \"%s\"}", k ? ", " : "", rd_be32 (raw + p + 32 + 8 * (size_t)k), (ccp)st + no);
+		}
+		sumo_printf (&mj, "]}");
 		njm_put (&o, "o mesh_%u\n", meshes);
 		for (u32 k = 0; k < vn; k++)
 		{
@@ -115,6 +135,12 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 		if (verbose >= 0 || testmode)
 			fprintf (stdlog, "%s%sDECODE IGOR-GGM:%s (%u meshes) -> %s/model.obj\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, meshes, dest);
 		err = testmode ? ERR_OK : shade_write (arg, dest, basedir, "model.obj", (u8 *)o.b, (uint)o.used);
+		if (!err && !testmode)
+		{
+			sumo_printf (&mj, "\n\t]\n}\n");
+			if (mj.ok && mj.n && mj.n < 0xffffffffu)
+				err = shade_write (arg, dest, basedir, "meshes.json", (u8 *)mj.p, (uint)mj.n);
+		}
 		if (!err && !testmode && nn)
 		{
 			sumo_buf_t b = { 0, 0, 0, true };
@@ -142,6 +168,7 @@ static enumError extract_igor_ggm_file (ccp arg, ccp basedir, uint depth)
 	}
 	else if (o.b)
 		err = ERR_OK;
+	FREE (mj.p);
 	FREE (o.b);
 	FREE (raw);
 	return err;

@@ -27,6 +27,8 @@ if __name__ == "__main__":
         sk = json.load(open(os.path.join(sys.argv[2], "t.ggm.d", "skeleton.json")))
         n = sk["nodes"][0]
         assert n["name"] == "Root" and n["parent"] == -1 and n["local"][12:15] == [5, 6, 7] and n["inverse"][12:15] == [-5, -6, -7], sk
+        mj = json.load(open(os.path.join(sys.argv[2], "t.ggm.d", "meshes.json")))
+        assert mj["meshes"][0]["palette"] == [{"slot": 0, "node": "Root"}] and mj["meshes"][0]["triangles"] == 1, mj
         print("PASS")
         sys.exit(0)
     st = b"xgm\0header\0modeldata\0"
@@ -42,6 +44,6 @@ if __name__ == "__main__":
     hdr = struct.pack(">8I", 1, 0, 0, 0, 0, 0, 0, len(data))  # data size at +0x1c
     hdr += struct.pack(">I", 1)  # node count at +0x20
     hdr += struct.pack(">5I", 0, 0xffffffff, name, m1, m2)
-    hdr += struct.pack(">IIIIIIIIIIII", 1, fmt, 0, 3, 0x18, 0, prim, 3, len(vb), 0, 0, name)
+    hdr += struct.pack(">IIIIIIIIIII", 1, fmt, 0, 3, 0x18, 0, prim, 3, len(vb), 0, name)
     out = b"chkf" + struct.pack(">I", len(st)) + st + hdr + data
     open(os.path.join(sys.argv[1], "t.ggm"), "wb").write(out)
