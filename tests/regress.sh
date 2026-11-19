@@ -13877,9 +13877,39 @@ PYE
 import sys, json
 j = json.load(open(sys.argv[1] + '/t.json'))
 t = open(sys.argv[1] + '/t.0.htsf', 'rb').read()
-assert j['table'] == [2, 65538, 1, 65537] and j['textures'] == [{'htsf_bytes': 64}] and t[:4] == b'HTSF' and t[0x10:] == bytes(range(0x30)), j
+assert j['table'] == [2, 65538, 1, 65537] and j['textures'][0] == {'htsf_bytes': 64} and t[:4] == b'HTSF' and t[0x10:] == bytes(range(0x30)), j
+import struct, zlib
+def png_rows(path):
+    d = open(path, 'rb').read(); p = 8; idat = b''
+    while p < len(d):
+        n, tag = struct.unpack('>I4s', d[p:p + 8])
+        if tag == b'IHDR': w, h, bd, ct = struct.unpack('>IIBB', d[p + 8:p + 18])
+        if tag == b'IDAT': idat += d[p + 8:p + 8 + n]
+        p += 12 + n
+    bpp = {2: 3, 6: 4}[ct]
+    raw = zlib.decompress(idat); assert bd == 8 and (w, h) == (128, 128)
+    rows = []; prev = bytearray(w * bpp); st = w * bpp + 1
+    for y in range(h):
+        f = raw[y * st]; r = bytearray(raw[y * st + 1:(y + 1) * st])
+        for i in range(len(r)):
+            a = r[i - bpp] if i >= bpp else 0; b = prev[i]; c = prev[i - bpp] if i >= bpp else 0
+            if f == 1: r[i] = (r[i] + a) & 255
+            elif f == 2: r[i] = (r[i] + b) & 255
+            elif f == 3: r[i] = (r[i] + (a + b) // 2) & 255
+            elif f == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                r[i] = (r[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append(r); prev = r
+    return rows, bpp
+rows, bpp = png_rows(sys.argv[1] + '/../t.1.png')
+bit = lambda i, k: (i >> k) & 1
+for i in (0, 1, 5, 77, 1000, 9999, 16383):
+    x = bit(i, 8) | bit(i, 0) << 1 | bit(i, 9) << 2 | bit(i, 10) << 3 | bit(i, 11) << 4 | bit(i, 12) << 5 | bit(i, 13) << 6
+    y = bit(i, 2) | bit(i, 3) << 1 | (bit(i, 0) ^ bit(i, 4) ^ bit(i, 9)) << 2 | bit(i, 1) << 3 | bit(i, 5) << 4 | bit(i, 6) << 5 | bit(i, 7) << 6
+    j = i & 255
+    assert tuple(rows[x][bpp * (127 - y):bpp * (127 - y) + 3]) == (j, 255 - j, 7), (i, x, y)
 PYE
-    then fok "SEGA AFCE: Sakura Wars face set (table JSON, Melt packed HTEX -> .htsf)"
+    then fok "SEGA AFCE: Sakura Wars face set (table JSON, Melt packed HTEX -> .htsf, 128x128 swizzled C8 face -> PNG)"
     else fno "SEGA AFCE" "wrong output from synthetic face set"
     fi
   else

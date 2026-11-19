@@ -97,9 +97,37 @@ static enumError extract_sega_grd_file (ccp arg, ccp basedir, uint depth)
 	return err;
 }
 
+// Face textures ("PVRT" kind 0x6c, pixel format 9, 128 x 128): a 1024 byte RGBA palette (alpha 0..0x80) followed by 16384 index bytes in a swizzled order. With i the byte index, the stored position is
+// x = i8 | i0 << 1 | i9 << 2 | i10 << 3 | i11 << 4 | i12 << 5 | i13 << 6 and y = i2 | i3 << 1 | (i0 ^ i4 ^ i9) << 2 | i1 << 3 | i5 << 4 | i6 << 5 | i7 << 6 (found by searching bit assignments for the
+// smoothest image and checked on the four retail faces); the picture is then rotated a quarter turn: pixel (127 - y, x). Returns the RGBA image or NULL.
+static u8 *sega_face_rgba (const u8 *htsf, size_t n)
+{
+	size_t b = 0x10;
+	if (b + 0x10 <= n && !memcmp (htsf + b, "GBIX", 4))
+		b += 0x10;
+	if (b + 0x10 + 0x400 + 0x4000 > n || memcmp (htsf + b, "PVRT", 4) || htsf[b + 8] != 9 || htsf[b + 9] != 0x6c || rd_le16 (htsf + b + 0xc) != 128 || rd_le16 (htsf + b + 0xe) != 128)
+		return 0;
+	const u8 *pal = htsf + b + 0x10, *px = pal + 0x400;
+	u8 *rgba = MALLOC (128 * 128 * 4);
+	for (uint i = 0; i < 0x4000; i++)
+	{
+		#define SB(k) (((i) >> (k)) & 1u)
+		const uint x = SB (8) | SB (0) << 1 | SB (9) << 2 | SB (10) << 3 | SB (11) << 4 | SB (12) << 5 | SB (13) << 6;
+		const uint y = SB (2) | SB (3) << 1 | (SB (0) ^ SB (4) ^ SB (9)) << 2 | SB (1) << 3 | SB (5) << 4 | SB (6) << 5 | SB (7) << 6;
+		#undef SB
+		u8 *o = rgba + ((size_t)x * 128 + (127 - y)) * 4;
+		const u8 *pe = pal + 4 * (uint)px[i];
+		o[0] = pe[0];
+		o[1] = pe[1];
+		o[2] = pe[2];
+		o[3] = pe[3] >= 0x80 ? 255 : (u8)(pe[3] * 2);
+	}
+	return rgba;
+}
+
 // SEGA "AFCE" face sets (Sakura Wars "MARS/GR/dummy/MRS_KAO_DUMMY.GRD"): {"AFCE", u32 size without header, u32 header size 0x10, 0}, body {u32 count (4), u32 table offset 0x20, 0, 0} and at 0x20 a table of
 // u16 pairs (0x20 / 0x30 bytes in the sample: 2, 2, 1, 1, 1, 1 ... the meaning is not decoded), followed by "HTEX" chunks (stride size + 0x10, flags 0x400 = Melt packed, see sega_melt.inc) that hold the face textures
-// as "HTSF" containers (texel layout not decoded). Written as "<name>.json" (header words and table) and "<name>.<n>.htsf".
+// as "HTSF" containers. Written as "<name>.json" (header words and table), "<name>.<n>.htsf" and, for the 128 x 128 palette textures, "<name>.<n>.png".
 static enumError extract_sega_afce_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -144,6 +172,18 @@ static enumError extract_sega_afce_file (ccp arg, ccp basedir, uint depth)
 			if (verbose >= 0)
 				fprintf (stdlog, "EXTRACT SEGA-AFCE:%s (HTSF %zu bytes) -> %s/%s\n", arg, n, dest, fn);
 			err = shade_write (arg, dest, basedir, fn, dec, (uint)n);
+			u8 *rgba = err ? 0 : sega_face_rgba (dec, n);
+			if (rgba)
+			{
+				char png[PATH_MAX], ext[32];
+				snprintf (ext, sizeof (ext), ".%u.png", nt);
+				beside_source_dest_ext (png, sizeof (png), arg, ext);
+				if (verbose >= 0)
+					fprintf (stdlog, "EXTRACT SEGA-AFCE:%s (128x128 C8) -> PNG:%s\n", arg, png);
+				const enumError e = SaveDecodedRGBAToPNG (rgba, 128, 128, &le_func, png, 0, opt_overwrite);
+				if (e && e != ERR_NOTHING_TO_DO)
+					err = e;
+			}
 		}
 		nt++;
 		p += 0x10 + (size_t)hsz;
