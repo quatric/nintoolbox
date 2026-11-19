@@ -10,6 +10,12 @@ struct.pack_into('<IIII', S, 0x20, 1, 0, 2, 0x30)
 struct.pack_into('<IIII', S, 0x30, 2, 0x80, 2, 0x100)       # sprite count, record table, count, second table
 for i, (kind, w, h) in enumerate(((10, 10.0, 40.0), (2, 30.0, 20.5))):
     struct.pack_into('<IIII2f2I', S, 0x80 + 0x10 + 0x20 * i, i, 0, kind, 0, w, h, 0x150 + 0x20 * i, 0x170 + 0x20 * i)
+# animation track table of sprite 0 (B = 0x170): one float track with two keys; offsets in the entry are relative to the KSPR chunk
+struct.pack_into('<IIII', S, 0x180, 1, 2, 0x180, 0x190)
+struct.pack_into('<HH', S, 0x190, 10, 20)
+struct.pack_into('<Iff', S, 0x1a0, 2, -10.0, 7.5)
+struct.pack_into('<HHfff', S, 0x1b0, 1, 10, 69.0, 0, 0)
+struct.pack_into('<HHfff', S, 0x1c0, 1, 20, 70.0, 0, 0)
 if len(sys.argv) > 2:
     body = bytes(S[0x10:])          # the KSPR chunk is what the packed stream holds
     stream = bytearray(); nb = 0; fpos = 0

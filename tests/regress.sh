@@ -13829,8 +13829,9 @@ PYE
 import sys, json
 s = json.load(open(sys.argv[1]))['sprites']
 assert [(x['index'], x['kind'], x['width'], x['height']) for x in s] == [(0, 10, 10, 40), (1, 2, 30, 20.5)], s
+assert s[0]['tracks'] == [{'type': 1, 'header': [-10, 7.5], 'keys': [{'time': 10, 'flags': 1, 'values': [69, 0, 0]}, {'time': 20, 'flags': 1, 'values': [70, 0, 0]}]}] and 'tracks' not in s[1], s
 PYE
-    then fok "SEGA HSPR: Sakura Wars sprite sheet (KSPR sprite table) -> JSON"
+    then fok "SEGA HSPR: Sakura Wars sprite sheet (KSPR sprite table, animation tracks) -> JSON"
     else fno "SEGA HSPR" "wrong JSON from synthetic sheet"
     fi
   else
