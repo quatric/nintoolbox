@@ -391,6 +391,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **SEGA HMOT** | `.hmot` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **SEGA ABST** | `.asd` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **SEGA GLIP** | `.cnk` | **JSON** | *Sakura Wars: So Long, My Love* |
+| **SEGA GTPA** | `.gtp`, `.arm` | **JSON** | *Sakura Wars: So Long, My Love* |
 | **Sumo COG / GOG** | `.cog`, `.gog` | **OBJ** | *Sonic & Sega All-Stars Racing*, *Virtua Tennis 2009* |
 
 `Byte-Exact Roundtrip` = decode → GLB → re-encode reproduces the original file's bytes identically (canonical fixed-point verified), not just a successful encode.

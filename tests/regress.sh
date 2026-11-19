@@ -13729,6 +13729,22 @@ PYE
     fno "SEGA GLIP" "mk_sega_glip.py failed"
   fi
 
+  # SEGA GTPA text page table (Sakura Wars .gtp): layout words + message text -> JSON
+  mkdir -p "$d/sega_gtpa"
+  if python3 "$PWD_PROJECT/../tests/mk_sega_gtpa.py" "$d/sega_gtpa/t.gtp" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_gtpa/t.gtp" >/dev/null 2>&1
+    if python3 - "$d/sega_gtpa/t.gtp.d/t.json" <<'PYE' 2>/dev/null
+import sys, json
+p = json.load(open(sys.argv[1]))['pages']
+assert [x['text'] for x in p] == ['Hello, world.\nLine two', 'Second "page"'] and p[1]['layout_words'][0] == 24, p
+PYE
+    then fok "SEGA GTPA: Sakura Wars .gtp text page table (layout words, message text) -> JSON"
+    else fno "SEGA GTPA" "wrong JSON from synthetic table"
+    fi
+  else
+    fno "SEGA GTPA" "mk_sega_gtpa.py failed"
+  fi
+
   # War Drum CLMP model (Manhunt 2, Wii): .dff mesh block with a GX triangle display list -> GLB
   mkdir -p "$d/clmp"
   if python3 "$PWD_PROJECT/../tests/mk_clmp.py" "$d/clmp/t.dff" >/dev/null 2>&1; then

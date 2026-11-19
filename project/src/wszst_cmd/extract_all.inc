@@ -627,6 +627,7 @@
 #include "extract/sega_hmot.inc"
 #include "extract/sega_abst.inc"
 #include "extract/sega_glip.inc"
+#include "extract/sega_gtpa.inc"
 #include "extract/mh2z.inc"
 #include "extract/mh2_anim.inc"
 #include "extract/ifp_anct.inc"
