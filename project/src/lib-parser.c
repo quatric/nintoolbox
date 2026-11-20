@@ -4804,7 +4804,7 @@ static enumError SI_BreakLoop (ScanInfo_t *si, // valid data
 		}
 	}
 	CheckEolSI (si);
-	noPRINT (""## % s##\n " -> cond = %d, level = %d\n", cond, level);
+	noPRINT ("## cond = %d, level = %d\n", cond, level);
 	if (!cond)
 		return err;
 

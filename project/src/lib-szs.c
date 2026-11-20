@@ -768,7 +768,7 @@ enumError DecompressYAZ (
 			DASSERT (n >= 3 && n <= 0x111);
 
 			noPRINT_IF (copy_src + n > dest, "RLE OVERLAP: copy %zu..%zu -> %zu\n",
-				copy_src - szs->data, copy_src + n - szs->data, dest - szs->data);
+				copy_src - (u8 *)dest_buf, copy_src + n - (u8 *)dest_buf, dest - (u8 *)dest_buf);
 
 			if (copy_src < (u8 *)dest_buf)
 			{
@@ -1525,7 +1525,7 @@ static enumError BackTrackYAZ (yaz_compr_t *yaz, uint max_depth)
 				{
 					*dest++ = yref->ref >> 8 | (yref->len - 2) << 4;
 					*dest++ = yref->ref;
-					noPRINT (" %5zx -> %02x %02x\n", src - szs->data, dest[-2], dest[-1]);
+					noPRINT (" %5zx -> %02x %02x\n", src - yaz->src, dest[-2], dest[-1]);
 				}
 				else
 				{
@@ -1533,7 +1533,7 @@ static enumError BackTrackYAZ (yaz_compr_t *yaz, uint max_depth)
 					*dest++ = yref->ref;
 					*dest++ = yref->len - 0x12;
 					noPRINT (
-						" %5zx -> %02x %02x %02x\n", src - szs->data, dest[-3], dest[-2], dest[-1]);
+						" %5zx -> %02x %02x %02x\n", src - yaz->src, dest[-3], dest[-2], dest[-1]);
 				}
 				src += yref->len;
 				yref += yref->len;
@@ -1667,7 +1667,7 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 					const int len = cmp2 - src;
 					DASSERT (cmp1 - search == len);
 					noPRINT_IF (search + len > src, "FOUND l=%u,%u pos=%zu,%zu\n", len, found_len,
-						search - szs->data, src - szs->data);
+						search - yaz->src, src - yaz->src);
 
 					if (found_len < len)
 					{
@@ -1707,7 +1707,7 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 					const int len = cmp2 - src2;
 					DASSERT (cmp1 - search == len);
 					noPRINT_IF (search + len > src2, "FOUND l=%u,%u pos=%zu,%zu\n", len, found_len2,
-						search - szs->data, src2 - szs->data);
+						search - yaz->src, src2 - yaz->src);
 					if (found_len2 < len)
 					{
 						found_len2 = len;
@@ -1736,7 +1736,7 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 			{
 				*dest++ = delta >> 8 | (found_len - 2) << 4;
 				*dest++ = delta;
-				noPRINT (" %5zx -> %02x %02x\n", src - szs->data, dest[-2], dest[-1]);
+				noPRINT (" %5zx -> %02x %02x\n", src - yaz->src, dest[-2], dest[-1]);
 			}
 			else
 			{
@@ -1744,7 +1744,7 @@ enumError ClassicCompressYAZ (yaz_compr_t *yaz, int compr)
 				*dest++ = delta;
 				*dest++ = found_len - 0x12;
 				noPRINT (
-					" %5zx -> %02x %02x %02x\n", src - szs->data, dest[-3], dest[-2], dest[-1]);
+					" %5zx -> %02x %02x %02x\n", src - yaz->src, dest[-3], dest[-2], dest[-1]);
 			}
 			src += found_len;
 		}

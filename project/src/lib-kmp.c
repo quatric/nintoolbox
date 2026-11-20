@@ -1028,7 +1028,7 @@ int GetNextPointKMP (const kmp_t *kmp, // KMP data structure
 		*ret_ph = ph;
 
 	noPRINT (
-		">> %u %zu[%u+%u]\n", idx, ph - (kmp_enph_entry_t *)phlist->list, ph->pt_start, ph->pt_len);
+		">> %u %zu[%u+%u]\n", pt_index, ph - (kmp_enph_entry_t *)phlist->list, ph->pt_start, ph->pt_len);
 
 	if (pt_index == ph->pt_start + ph->pt_len - 1)
 	{
@@ -1596,7 +1596,7 @@ static void AnalyzeKmpPath (const kmp_t *kmp, // KMP data structure
 	{
 		gp->done = 0; // clear done for further processing
 		gp->order = index[gp->index] + gp->subindex;
-		noPRINT ("GRP %3u: %3u => %u.%u\n", gi, gp->grp_order, gp->index, gp->subindex);
+		noPRINT ("GRP %3u: %3u => %u.%u\n", gi, gp->order, gp->index, gp->subindex);
 		path->grp_order[gp->order] = gi;
 	}
 
@@ -2230,7 +2230,7 @@ static const void *get_kmp_pointer (
 	{
 		// not found yet: try iteration
 
-		noPRINT ("'%s' FAILED, TRY ITERATION, ns=%d, maxoff=%x\n", sect_name, n_sect, hi.max_off);
+		noPRINT ("'%s' FAILED, TRY ITERATION, ns=%d, maxoff=%x\n", sect_name, hi.n_sect, hi.max_off);
 
 		int s;
 		for (s = -1; s < hi.n_sect; s++)

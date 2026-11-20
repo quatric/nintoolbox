@@ -836,7 +836,7 @@ enumError DiffBMG (const bmg_t *bmg1, // first bmg
 	int differ = 0;
 	while (p1 && p1 < e1 && p2 && p2 < e2)
 	{
-		noPRINT ("\t%s : %s\n", p1->path, p2->path);
+		noPRINT ("\t%x : %x\n", p1->mid, p2->mid);
 
 		if (p1->mid < p2->mid)
 		{

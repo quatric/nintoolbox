@@ -1078,7 +1078,7 @@ DataContainer_t *UseSubContainer (DataContainer_t *dc, // old_container to reuse
 		FreeContainer (dc);
 
 	dc = MALLOC (sizeof (*dc));
-	noPRINT ("CONTAINER: NEW(%p), dc_alloced=%d\n", dc, dc_alloced);
+	noPRINT ("CONTAINER: NEW(%p)\n", dc);
 	DASSERT (dc);
 	memset (dc, 0, sizeof (*dc));
 
@@ -1112,7 +1112,7 @@ DataContainer_t *NewContainer (DataContainer_t *dc, // old_container to reuse,
 		FreeContainer (dc);
 
 	dc = MALLOC (sizeof (*dc));
-	noPRINT ("CONTAINER: NEW(%p), dc_alloced=%d\n", dc, dc_alloced);
+	noPRINT ("CONTAINER: NEW(%p)\n", dc);
 	DASSERT (dc);
 	memset (dc, 0, sizeof (*dc));
 
@@ -1159,7 +1159,7 @@ DataContainer_t *DupContainer (
 	}
 
 	DataContainer_t *dc = MALLOC (sizeof (*dc));
-	noPRINT ("CONTAINER: NEW(%p), dc_alloced=%d\n", dc, dc_alloced);
+	noPRINT ("CONTAINER: NEW(%p)\n", dc);
 	DASSERT (dc);
 	memset (dc, 0, sizeof (*dc));
 

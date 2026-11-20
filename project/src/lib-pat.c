@@ -1297,7 +1297,7 @@ enumError ScanTextPAT (pat_t *pat, // PAT data structure
 			si.cur_file->ptr++;
 			char name[20];
 			ScanNameSI (&si, name, sizeof (name), true, true, 0);
-			noPRINT ("--> #%04u: %s\n", si.line, name);
+			noPRINT ("--> #%04u: %s\n", si.cur_file->line, name);
 
 			int abbrev_count;
 			const KeywordTab_t *cmd = ScanKeyword (&abbrev_count, name, pat_section_name);

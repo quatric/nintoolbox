@@ -706,7 +706,7 @@ void IterateStringsMDL (StringIteratorMDL_t *sit, // string iterator data
 				{
 					const uint n_layer = be32 (data + 0x2c);
 					sit->str_func (sit, GetStrIdxMIL (mi, n_layer + 1), data, (u32 *)(data + 0x08));
-					noPRINT ("[%d] %p %x\n", count, data, be32 (data + 0x08));
+					noPRINT ("[%d] %p %x\n", n_layer, data, be32 (data + 0x08));
 					u32 layer_off = be32 (data + 0x30);
 					uint i;
 					for (i = 0; i < n_layer; i++, layer_off += 0x34)

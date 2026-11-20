@@ -2885,7 +2885,7 @@ static u32 CalcCube (oct_info_t *oi, // base data
 	{
 		noPRINT ("--> TLIST:   n-tri =%5u, width =%6u, base = %6u,%6u,%6u, depth=%u/%u\n",
 			tri_count, cube_size, cube->min[0], cube->min[1], cube->min[2], depth,
-			kcl->max_octree_depth);
+			oi->kcl->max_octree_depth);
 
 		if (!tri_count)
 			return 0;
@@ -2929,7 +2929,7 @@ static u32 CalcCube (oct_info_t *oi, // base data
 	{
 		noPRINT ("--> SUBCUBE: n-tri =%5u, width =%6u, base = %6u,%6u,%6u, depth=%u/%u\n",
 			tri_count, cube_size, cube->min[0], cube->min[1], cube->min[2], depth,
-			kcl->max_octree_depth);
+			oi->kcl->max_octree_depth);
 
 		if (oi->oused + 8 > oi->osize)
 		{
@@ -3147,8 +3147,8 @@ enumError CreateOctreeKCL (kcl_t *kcl // KCL data structure
 #else
 		setup_oct_tri (kcl, tri, td);
 #endif
-		noPRINT ("%5u: min=%5d,%5d,%5d, max=%5d,%5d,%5d, select=%d\n", t, tri->min[0], tri->min[1],
-			tri->min[2], tri->max[0], tri->max[1], tri->max[2], tri->select);
+		noPRINT ("%5u: min=%5d,%5d,%5d, max=%5d,%5d,%5d, select=%d\n", t, tri->cube.min[0], tri->cube.min[1],
+			tri->cube.min[2], tri->cube.max[0], tri->cube.max[1], tri->cube.max[2], tri->select);
 	}
 
 	//--- now create the octree (start recursion)
