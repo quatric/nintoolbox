@@ -1,0 +1,147 @@
+# Mii body targets for convert.py: what wmdlt decodes, then the clean-up applied to the GLB.
+# Every output is scaled to the Wii U Mii Maker body (sugar): same arm span and units.
+#
+# Keys (all optional except name and source):
+#   source          model file, relative to --sources
+#   submodel        model name inside a file holding several (wmdlt --submodel)
+#   anims           animation files or folders, relative to --sources (wmdlt --anim)
+#   drop_meshes     drop meshes whose mesh or material name contains one of these
+#   drop_channels   drop the animation channels of these bones
+#   anim_rotate     [{ bone, axis, degrees }]: rotate every animation key of a bone about its
+#                   own axis (applied after the key's rotation, like adding to an Euler angle)
+#   strip_textures  drop images and texture references (the applications bring their own)
+#   reset_joint_rotations / align_joints_to_model
+#                   give every bone under this one the orientation of its parent's frame / of
+#                   the model axes, without changing how anything looks
+#   mesh_order      meshes matching earlier patterns (mesh or material name) come first
+#   skin_root       the skin lists every weighted bone plus its unweighted ancestors up to this
+#                   one, parents before children
+#   scale           uniform scale of the whole result
+#   mesh_groups     [{ name, materials }]: merge primitives into one mesh per group, by material
+#                   name; "*" takes everything left
+#   donor_source / donor_keep_materials
+#                   before grouping, replace every mesh except those matching donor_keep_materials
+#                   with the meshes of another model on the same skeleton
+
+[[target.nigaoe]]   # Wii Mii Channel
+name = "nigaoe_male"
+source = "nigaoe/maleBody.brres"
+drop_meshes = ["shadow"]
+drop_channels = ["shadow_model"]
+# The game bakes a -45 degree plaza lean into aslope_root's animation keys; cancel it.
+anim_rotate = [{ bone = "aslope_root", axis = "x", degrees = 45.0 }]
+strip_textures = true
+# NW4R points each bone along its own +X. Give every bone the model's axes, like the
+# Wii U/Switch/3DS rigs, so per-axis body scaling and the head mount work the same.
+reset_joint_rotations = "skl_root"
+mesh_order = ["pants", "outer"]
+skin_root = "skl_root"
+scale = 0.1   # Arm span is 10x sugar.
+
+[[target.nigaoe]]
+name = "nigaoe_female"
+source = "nigaoe/femaleBody.brres"
+drop_meshes = ["shadow"]
+drop_channels = ["shadow_model"]
+anim_rotate = [{ bone = "aslope_root", axis = "x", degrees = 45.0 }]
+strip_textures = true
+reset_joint_rotations = "skl_root"
+mesh_order = ["pants", "outer"]
+skin_root = "skl_root"
+scale = 0.1
+
+[[target.ctr-medit]]   # 3DS Mii Maker. The .bcskla files store no frame rate; wmdlt uses 60.
+name = "ctr_male"
+source = "ctr-medit/MaleBody.bcmdl"
+anims = ["ctr-medit/MiiAnim"]
+drop_meshes = ["shadow"]
+strip_textures = true
+mesh_order = ["mt_pants", "mt_body"]
+skin_root = "skl_root"
+scale = 0.1   # Arm span is 10x sugar.
+
+[[target.ctr-medit]]
+name = "ctr_female"
+source = "ctr-medit/FemaleBody.bcmdl"
+anims = ["ctr-medit/MiiAnim"]
+drop_meshes = ["shadow"]
+strip_textures = true
+mesh_order = ["mt_pants", "mt_body"]
+skin_root = "skl_root"
+scale = 0.1
+
+[[target.sugar]]   # Wii U Mii Maker, Middle body: the reference scale.
+name = "sugar_male"
+source = "sugar/MiiBodyMiddle.bfres"
+submodel = "MaleBody"
+anims = ["sugar/MiiAnim.bfres"]
+mesh_order = ["mt_pants", "mt_body"]
+skin_root = "skl_root"
+
+[[target.sugar]]
+name = "sugar_female"
+source = "sugar/MiiBodyMiddle.bfres"
+submodel = "FemaleBody"
+anims = ["sugar/MiiAnim.bfres"]
+mesh_order = ["mt_pants", "mt_body"]
+skin_root = "skl_root"
+
+[[target.miieditn]]   # Switch Mii Maker. The animations are inside the .bfres.
+name = "miieditn_male"
+source = "miieditn/Male.bfres"
+mesh_order = ["pants", "body"]
+skin_root = "skl_root"
+scale = 0.142857142857   # Arm span is 7x sugar.
+
+[[target.miieditn]]
+name = "miieditn_female"
+source = "miieditn/Female.bfres"
+mesh_order = ["pants", "body"]
+skin_root = "skl_root"
+scale = 0.142857142857
+
+[[target.miiedit-ounce]]   # Switch 2 Mii Maker; the .bfres are the decompressed .zs files.
+name = "miiedit-ounce_male"
+source = "miiedit-ounce/Male.bfres"
+mesh_order = ["pants", "body"]
+skin_root = "skl_root"
+scale = 0.142857142857
+
+[[target.miiedit-ounce]]
+name = "miiedit-ounce_female"
+source = "miiedit-ounce/Female.bfres"
+mesh_order = ["pants", "body"]
+skin_root = "skl_root"
+scale = 0.142857142857
+
+# Miitomo. Bodies are split into clothing parts (one mesh per area); they are joined into two
+# meshes, pants first and body second, like the editor bodies. Pants run up to and including the
+# hip (mtArHip). Nothing is weighted to Skl_Root, so the skin starts at JointScale. The head bone
+# carries the skeleton's +90 degree Z frame; renderers attach the head to its bind frame, and the
+# editor bodies' head bones use the model axes.
+[[target.arch]]
+name = "miitomo_male"
+source = "arch/bodyAll0004/bodyAll0004.Mdl.pod"
+anims = ["arch/animWaitNintendo.Anim.pod"]
+skin_root = "JointScale"
+align_joints_to_model = "Head"
+mesh_groups = [
+    { name = "pants", materials = ["mtArFoot", "mtArLoLeg", "mtArKnee", "mtArUpLeg", "mtArHip"] },
+    { name = "body", materials = ["*"] },
+]
+
+# The game has no female body. Its female look is the male body with a top that covers the chest
+# down to the hip (bodyTopslong0046), so the female is the top's meshes plus the male body's leg
+# and foot meshes. The top's arm mesh is identical to the male body's.
+[[target.arch]]
+name = "miitomo_female"
+source = "arch/bodyAll0004/bodyAll0004.Mdl.pod"
+anims = ["arch/animWaitNintendo.Anim.pod"]
+skin_root = "JointScale"
+align_joints_to_model = "Head"
+donor_source = "arch/bodyTopslong0046/bodyTopslong0046.Mdl.pod"
+donor_keep_materials = ["mtArFoot", "mtArLoLeg", "mtArKnee", "mtArUpLeg"]
+mesh_groups = [
+    { name = "pants", materials = ["mtArFoot", "mtArLoLeg", "mtArKnee", "mtArUpLeg"] },
+    { name = "body", materials = ["*"] },
+]
