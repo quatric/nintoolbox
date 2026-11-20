@@ -10187,6 +10187,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Spectrobes HIT" "mk_spectrobes_hit.py failed"
   fi
 
+  # Spectrobes .LXMF bundles -> members by path
+  mkdir -p "$d/lxmf_test"
+  if python3 "$PWD_PROJECT/../tests/mk_lxmf.py" "$d/lxmf_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/lxmf_test/t.LXMF" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_lxmf.py" check "$d/lxmf_test" >/dev/null 2>&1 \
+    && fok "Spectrobes .LXMF bundles unpack members under their stored paths" \
+    || fno "Spectrobes LXMF" "failed to unpack synthetic t.LXMF"
+  else
+    fno "Spectrobes LXMF" "mk_lxmf.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then

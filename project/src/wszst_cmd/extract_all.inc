@@ -794,6 +794,7 @@
 #include "extract/fgnblk.inc"
 #include "extract/ccd.inc"
 #include "extract/lxhd.inc"
+#include "extract/lxmf.inc"
 #include "extract/wtpak.inc"
 #include "extract/ntbg.inc"
 #include "extract/dbreg.inc"
