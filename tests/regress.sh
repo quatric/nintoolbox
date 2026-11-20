@@ -10057,6 +10057,18 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor MKR" "mk_igor_mkr.py failed"
   fi
 
+  # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
+  mkdir -p "$d/igorfbin_test"
+  if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/igorfbin_test/t.fbin" --overwrite >/dev/null 2>&1 \
+    && "$B/wszst" xx "$d/igorfbin_test/t.sfbin" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" check "$d/igorfbin_test" >/dev/null 2>&1 \
+    && fok "Igor .fbin/.sfbin font tables export to JSON (sprites, glyph metrics)" \
+    || fno "Igor FBIN" "failed to convert synthetic t.fbin/t.sfbin"
+  else
+    fno "Igor FBIN" "mk_igor_fbin.py failed"
+  fi
+
   # Glacier .MAT material library -> texture bindings JSON
   mkdir -p "$d/glaciermat_test"
   if python3 "$PWD_PROJECT/../tests/mk_glacier_mat.py" "$d/glaciermat_test" >/dev/null 2>&1; then
