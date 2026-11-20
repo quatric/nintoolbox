@@ -9309,6 +9309,16 @@ with open(sys.argv[1], "wb") as f:
   else
     fno "IGA LZMA members" "mk_igalzma.py failed"
   fi
+  mkdir -p "$d/iga11_test"
+  if python3 "$PWD_PROJECT/../tests/mk_iga11.py" "$d/iga11_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/iga11_test/V11.arc" --overwrite >/dev/null 2>&1 \
+    && [ "$(wc -c < "$d/iga11_test/V11.arc.d/11111111.fsb" | tr -d ' ')" = "64" ] \
+    && cmp -s "$d/iga11_test/V11.arc.d/22222222.igz" "$d/iga11_test/V11.expect" \
+    && fok "IGA version 11 (Skylanders Trap Team) unpacks hash-named stored and LZMA members" \
+    || fno "IGA v11" "failed to unpack synthetic V11.arc"
+  else
+    fno "IGA v11" "mk_iga11.py failed"
+  fi
 
   # One Piece STRT string table: dumped to .txt by xx
   mkdir -p "$d/strt_test"

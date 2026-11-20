@@ -84,7 +84,7 @@ static enumError stream_write_abe_lzo (File_t *F, FILE *src, ccp arg, ccp path, 
 // Alchemy IGA chunked LZMA members: {u16 BE n, 5 LZMA property bytes, n
 // stream bytes} per chunk of up to 0x8000 unpacked bytes; each chunk starts at
 // the next 0x800 boundary of the file. The stream is positioned at the member.
-static enumError stream_write_iga_lzma (File_t *F, FILE *src, ccp arg, ccp path, u32 unpacked)
+static enumError stream_write_iga_lzma (File_t *F, FILE *src, ccp arg, ccp path, u32 unpacked, bool le)
 {
 	enumError err = ERR_OK;
 	u8 *in = MALLOC (13 + 0x10000 + 8), *out = MALLOC (0x8000);
@@ -103,7 +103,7 @@ static enumError stream_write_iga_lzma (File_t *F, FILE *src, ccp arg, ccp path,
 			err = FILEERROR1 (F, ERR_READ_FAILED, "Reading member failed: %s\n", arg);
 			break;
 		}
-		const uint cs = hdr[0] << 8 | hdr[1];
+		const uint cs = le ? hdr[1] << 8 | hdr[0] : hdr[0] << 8 | hdr[1];
 		const u32 want = unpacked - done < 0x8000 ? unpacked - done : 0x8000;
 		// A chunk that did not compress is stored as-is, without a header.
 		u8 props[5];
@@ -186,8 +186,8 @@ static enumError extract_streamed_entries (ccp arg, ccp basedir, uint depth, ccp
 		}
 		else if (F.f && !err && entries[i].codec == STREAM_CODEC_ABE_LZO)
 			err = stream_write_abe_lzo (&F, src, arg, path, entries[i].size);
-		if (F.f && !err && entries[i].codec == STREAM_CODEC_IGA_LZMA)
-			err = stream_write_iga_lzma (&F, src, arg, path, entries[i].size);
+		if (F.f && !err && (entries[i].codec == STREAM_CODEC_IGA_LZMA || entries[i].codec == STREAM_CODEC_IGA11_LZMA))
+			err = stream_write_iga_lzma (&F, src, arg, path, entries[i].size, entries[i].codec == STREAM_CODEC_IGA11_LZMA);
 		for (u32 left = entries[i].codec ? 0 : entries[i].size; F.f && !err && left;)
 		{
 			const size_t chunk = left < 0x100000 ? left : 0x100000;

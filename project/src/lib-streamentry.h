@@ -14,6 +14,7 @@ enum
 	STREAM_CODEC_ABE_LZO = 1, // u32 n_blocks, n * u32 packed size, then the LZO1X blocks; size = unpacked
 	STREAM_CODEC_IGA_LZMA = 2, // IGA chunks {u16 BE size, 5 props bytes, LZMA data}, 0x800-aligned; size = unpacked
 	STREAM_CODEC_ABE_LZO5 = 3, // ABE version 5: u32 1, then as STREAM_CODEC_ABE_LZO
+	STREAM_CODEC_IGA11_LZMA = 4, // IGA version 11 (Skylanders Trap Team): as STREAM_CODEC_IGA_LZMA with a little endian u16 chunk size
 };
 
 typedef struct stream_entry_t
