@@ -342,7 +342,7 @@ static enumError lzh8_write_bits (
 		else
 			this_round = 32 - *written_p;
 		const u32 selected
-			= (bits_to_write >> (bit_count - this_round - produced)) & ((1u << this_round) - 1);
+			= (bits_to_write >> (bit_count - this_round - produced)) & (this_round >= 32 ? ~0u : (1u << this_round) - 1);
 		*pool_p |= selected << (32 - this_round - *written_p);
 		*written_p += this_round;
 		produced += this_round;

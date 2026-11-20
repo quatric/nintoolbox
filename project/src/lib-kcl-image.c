@@ -337,7 +337,7 @@ enumError SaveImageKCL (kmp_t *kmp, // pointer to valid KMP
 	//--- calc pix_size & pix_aalise
 
 	uint pix_aalise = opt_png_aalise ? opt_png_aalise : 1;
-	uint pix_size = opt_png_pix_size / opt_png_aalise;
+	uint pix_size = opt_png_pix_size / pix_aalise;
 	if (!pix_size)
 	{
 		pix_size = 1;

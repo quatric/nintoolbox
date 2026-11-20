@@ -444,7 +444,15 @@ bool OpoonaAddMotion (model_t *model, const u8 *d, size_t n, const char *name)
 	}
 	model_animation_t *na = realloc (model->animations, (model->num_animations + 1) * sizeof (*na));
 	if (!na)
+	{
+		for (size_t i = 0; i < nch; i++)
+		{
+			free (chs[i].times);
+			free (chs[i].values);
+		}
+		free (chs);
 		return false;
+	}
 	model->animations = na;
 	model_animation_t *a = na + model->num_animations++;
 	memset (a, 0, sizeof (*a));
