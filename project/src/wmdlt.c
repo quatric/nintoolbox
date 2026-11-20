@@ -438,6 +438,29 @@ static int iter_export_mdl0_glb (struct szs_iterator_t *it, bool term)
 		return 0;
 	}
 
+	// Bone animations (CHR0) stored in the same BRRES, e.g. the Wii Mii
+	// Channel bodies' bodyWait/bodyWalk. A CHR0 is found by its magic and
+	// its back-pointer to the BRRES header (+0x0C = -offset); its names
+	// live in the shared string pool after it, so it is parsed up to the
+	// end of the archive.
+	if (it->szs->fform_arch == FF_BRRES && it->szs->data && it->szs->size > 0x40)
+	{
+		const u8 *b = it->szs->data;
+		const size_t bsize = it->szs->size;
+		for (size_t o = 0x10; o + 0x28 <= bsize; o += 4)
+		{
+			if (memcmp (b + o, "CHR0", 4) || (int32_t)be32 (b + o + 0x0C) != -(int32_t)o)
+				continue;
+			const uint32_t ver = be32 (b + o + 8);
+			const uint32_t name_off = be32 (b + o + (ver >= 5 ? 0x18 : 0x14));
+			char clip[64] = "chr0";
+			if (name_off && o + name_off < bsize)
+				snprintf (clip, sizeof (clip), "%.*s", (int)strnlen ((ccp)b + o + name_off,
+					bsize - o - name_off), (ccp)b + o + name_off);
+			ParseCHR0IntoModel (model, b + o, bsize - o, clip);
+		}
+	}
+
 	char path[PATH_MAX];
 	if (!ctx->count)
 		snprintf (path, sizeof (path), "%s", ctx->dest);
