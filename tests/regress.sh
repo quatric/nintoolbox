@@ -10144,6 +10144,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "IWI" "mk_iwi.py failed"
   fi
 
+  # Battle of Giants .bof language tables -> JSON
+  mkdir -p "$d/bof_test"
+  if python3 "$PWD_PROJECT/../tests/mk_bof_text.py" "$d/bof_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/bof_test/t.bof" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_bof_text.py" check "$d/bof_test" >/dev/null 2>&1 \
+    && fok "Battle of Giants .bof language tables export strings and index (JSON)" \
+    || fno "BOF text" "failed to convert synthetic t.bof"
+  else
+    fno "BOF text" "mk_bof_text.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
