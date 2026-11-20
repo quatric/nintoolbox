@@ -473,7 +473,8 @@
 	" exported model, matched to its bones by name. A directory adds"
 	" every .bcskla in it. Can be used multiple times."
 	" Supported: CGFX skeletal animations (3DS .bcskla) on .bcres/.bcmdl"
-	" models." },
+	" models, and Wii U BFRES skeletal animations (FSKA, e.g. an"
+	" animation-only .bfres) on Wii U .bfres models." },
 
   { T_OPT_C,	"CSB_BIG",	"csb-big",
 	0,

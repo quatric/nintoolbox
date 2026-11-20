@@ -395,7 +395,9 @@ static const InfoOption_t OptionInfo[OPT__N_TOTAL+1] =
 	"Model decode: add the skeletal animations in this file to the"
 	" exported model, matched to its bones by name. A directory adds every"
 	" .bcskla in it. Can be used multiple times. Supported: CGFX skeletal"
-	" animations (3DS .bcskla) on .bcres/.bcmdl models."
+	" animations (3DS .bcskla) on .bcres/.bcmdl models, and Wii U BFRES"
+	" skeletal animations (FSKA, e.g. an animation-only .bfres) on Wii U"
+	" .bfres models."
     },
 
     {	OPT_CSB_BIG, false, false, false, false, false, 0, "csb-big",

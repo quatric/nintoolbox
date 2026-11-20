@@ -4112,3 +4112,31 @@ int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_
 	*out_entries = list;
 	return (int)n;
 }
+
+// Appends the skeletal animations (FSKA) of a Wii U BFRES to an already
+// parsed model, matching bones by name. For animation-only files such as
+// the Wii U Mii Maker's MiiAnim.bfres, whose skeleton lives in another file.
+int ImportBFRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size)
+{
+	if (!model || !model->num_joints || !data || size < 0x50 || memcmp (data, "FRES", 4)
+		|| !memcmp (data + 4, "    ", 4)) // Switch files have spaces here
+		return 0;
+	const uint8_t *d = data;
+	const uint32_t bfr_version = rb32 (d + 4);
+	const size_t before = model->num_animations;
+	if (!rb32 (d + 0x28)) // REL() of a null offset would point at itself
+		return 0;
+	const size_t fska_grp = REL (d, 0x28);
+	const uint32_t entries = fska_grp + 8 <= size ? rb32 (d + fska_grp + 4) : 0;
+	if (!entries || entries > 0x10000 || fska_grp + 8 + (size_t)(entries + 1) * 16 > size)
+		return 0;
+	for (uint32_t fi = 1; fi <= entries; fi++)
+	{
+		const size_t fe = fska_grp + 8 + (size_t)fi * 16;
+		const size_t fs = REL (d, fe + 12);
+		if (fs + 0x30 > size || memcmp (d + fs, "FSKA", 4))
+			continue;
+		parse_fska_into_model (model, d, size, bfr_version, fs, rel_string (d, size, fe + 8));
+	}
+	return (int)(model->num_animations - before);
+}

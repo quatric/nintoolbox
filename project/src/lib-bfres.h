@@ -6,6 +6,8 @@
 #include <stddef.h>
 
 model_t *ParseBFRES (const uint8_t *data, size_t size);
+// Adds the FSKA clips of a Wii U BFRES (e.g. an animation-only file) to model; returns how many.
+int ImportBFRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size);
 
 // Switch flavour: little endian, version-major-gated header layout, a
 // separate FRES-wide buffer pool (BufferInfo) index/vertex data lives in.

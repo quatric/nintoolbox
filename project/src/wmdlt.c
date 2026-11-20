@@ -759,7 +759,9 @@ static void import_anim_file (model_t *model, ccp path)
 	char *dot = strrchr (base, '.');
 	if (dot)
 		*dot = 0;
-	const int n = ImportBCRESSkeletalAnims (model, data, size, base);
+	const int n = size >= 4 && !memcmp (data, "FRES", 4)
+		? ImportBFRESSkeletalAnims (model, data, size)
+		: ImportBCRESSkeletalAnims (model, data, size, base);
 	if (!n)
 		ERROR0 (ERR_WARNING, "No skeletal animation for this model in %s\n", path);
 	else if (verbose > 0)
@@ -1864,7 +1866,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				// them into the model so the exported GLB carries the animations.
 				if (model && is_bmd)
 					ImportNSBAnimSiblings (model, arg);
-				if (model && n_opt_anim && !memcmp (raw.data, "CGFX", 4))
+				if (model && n_opt_anim)
 					import_opt_anims (model);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
