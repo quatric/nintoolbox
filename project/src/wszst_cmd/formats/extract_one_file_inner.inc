@@ -951,6 +951,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_sonic_bbina_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_sonic_gncp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_sumo_cog_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

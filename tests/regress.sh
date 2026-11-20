@@ -10068,6 +10068,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Sonic BBINA" "mk_sonic_bbina.py failed"
   fi
 
+  # Sonic Colors NGIF UI layout (.gncp): NOF0 pointer list -> JSON
+  mkdir -p "$d/sonicgncp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sonic_gncp.py" "$d/sonicgncp_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sonicgncp_test/t.gncp" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_sonic_gncp.py" check "$d/sonicgncp_test" >/dev/null 2>&1 \
+    && fok "Sonic Colors NGIF layout (.gncp) exports words, NOF0 pointers and names to JSON" \
+    || fno "Sonic GNCP" "failed to convert synthetic t.gncp"
+  else
+    fno "Sonic GNCP" "mk_sonic_gncp.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
