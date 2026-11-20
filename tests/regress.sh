@@ -10112,6 +10112,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "GLOB pack" "mk_glob_pack.py failed"
   fi
 
+  # Green Lantern .gaftx GX textures -> PNG
+  mkdir -p "$d/gaftx_test"
+  if python3 "$PWD_PROJECT/../tests/mk_gaftx.py" "$d/gaftx_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/gaftx_test/t.gaftx" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_gaftx.py" check "$d/gaftx_test" >/dev/null 2>&1 \
+    && fok "Green Lantern .gaftx (GX CMPR) decodes to PNG" \
+    || fno "GAFTX" "failed to decode synthetic t.gaftx"
+  else
+    fno "GAFTX" "mk_gaftx.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then

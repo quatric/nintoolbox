@@ -963,6 +963,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_glob_pack_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_gaftx_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_sumo_cog_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
