@@ -4703,7 +4703,7 @@ void CatMemListN (mem_list_t *dest, // valid destination mem_list
 				bufptr += sptr->len;
 				*bufptr++ = 0;
 				DASSERT (bufptr <= new_buf + need_size);
-				noPRINT ("NEW: %p,%u\n", dest->ptr, dest->len);
+				noPRINT ("NEW: %p,%u\n", listptr->ptr, listptr->len);
 				listptr++;
 				DASSERT (listptr <= new_list + need_elem);
 			}

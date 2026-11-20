@@ -27,7 +27,9 @@ int main (void)
 	CHECK (DecodeZIPMember (0, payload, size, size, crc ^ 1, 0) != ERR_OK);
 	CHECK (DecodeZIPMember (0, raw, raw_size, size - 1, crc, 8) != ERR_OK);
 	CHECK (DecodeZIPMember (0, raw, raw_size, size + 1, crc, 8) != ERR_OK);
-	CHECK (DecodeZIPMember (0, raw, raw_size + 1, size, crc, 8) != ERR_OK);
+	// Up to 4 trailing bytes are tolerated (IO Interactive packs); more is rejected.
+	CHECK (DecodeZIPMember (0, raw, raw_size + 4, size, crc, 8) == ERR_OK);
+	CHECK (DecodeZIPMember (0, raw, raw_size + 5, size, crc, 8) != ERR_OK);
 	CHECK (DecodeZIPMember (0, raw, raw_size, UINT_MAX, crc, 8) != ERR_OK);
 	for (uint n = 0; n < raw_size; n++)
 		CHECK (DecodeZIPMember (0, raw, n, size, crc, 8) != ERR_OK);

@@ -125,7 +125,7 @@ static void DumpBlockList (const mc_t *mc, ccp title)
 	uint cnt;
 	for (cnt = 0; blk; cnt++, blk = blk->next)
 	{
-		mcPRINT ("%4u %s: len: %3u=0x%03x ** elem: %u..%u %3u/%u\n", cnt, info, blk->max_len,
+		mcPRINT ("%4u: len: %3u=0x%03x ** elem: %u..%u %3u/%u\n", cnt, blk->max_len,
 			blk->max_len, (int)(blk->elem_beg - mc->elem), (int)(blk->elem_end - mc->elem),
 			(int)(blk->elem_end - blk->elem_beg), mc->n_elem);
 	}

@@ -1431,13 +1431,13 @@ uint FindMemInfoHelper (u8 *data, uint size)
 			beg = idx + 1;
 		else
 		{
-			noTRACE ("FindMemInfoHelper(%llx,%llx) FOUND=%d/%d/%d\n", (u64)off, (u64)size, idx,
+			noTRACE ("FindMemInfoHelper(%llx,%llx) FOUND=%d/%d/%d\n", (u64)(uintptr_t)data, (u64)size, idx,
 				mem_used, mem_size);
 			return idx;
 		}
 	}
 
-	noTRACE ("FindStringFieldHelper(%llx,%llx) failed=%d/%d/%d\n", (u64)off, (u64)size, beg,
+	noTRACE ("FindMemInfoHelper(%llx,%llx) failed=%d/%d/%d\n", (u64)(uintptr_t)data, (u64)size, beg,
 		mem_used, mem_size);
 	return beg;
 }
