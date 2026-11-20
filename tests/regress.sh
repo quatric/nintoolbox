@@ -10101,6 +10101,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Eurocom Filelist" "mk_eurocom_filelist.py failed"
   fi
 
+  # GLOB resource pack (Green Lantern .glob + .name.glob)
+  mkdir -p "$d/globpack_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glob_pack.py" "$d/globpack_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/globpack_test/t.glob" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glob_pack.py" check "$d/globpack_test" >/dev/null 2>&1 \
+    && fok "GLOB .glob + .name.glob pack extracts resources under their names" \
+    || fno "GLOB pack" "failed to extract synthetic t.glob"
+  else
+    fno "GLOB pack" "mk_glob_pack.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
