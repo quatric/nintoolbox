@@ -67,7 +67,7 @@ class CastlevaniaSpriteTests(unittest.TestCase):
         spr_path.write_bytes(make_cv_spr())
 
         res = subprocess.run([str(BIN), 'dump', str(spr_path)], stdout=subprocess.PIPE, text=True, check=True)
-        self.assertIn('Dump structure of CV-SPR', res.stdout)
+        self.assertIn('Dump structure of SPR', res.stdout)
         self.assertIn('magic = 0xBEEFF00D', res.stdout)
         self.assertIn('part_count = 1', res.stdout)
 

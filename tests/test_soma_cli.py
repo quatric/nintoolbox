@@ -95,7 +95,7 @@ class SomaBringTests(unittest.TestCase):
         res = subprocess.run([str(BIN), 'DUMP', str(src)],
                              capture_output=True, text=True, timeout=30)
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertIn('Dump structure of SOMA-OBP', res.stdout)
+        self.assertIn('Dump structure of OBP', res.stdout)
         self.assertIn('width = 32', res.stdout)
 
     def test_bgp_text(self):
