@@ -10090,6 +10090,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Sonic XTB" "mk_sonic_xtb.py failed"
   fi
 
+  # Eurocom Filelist.bin + Filelist.000 pack (GoldenEye 007 Wii)
+  mkdir -p "$d/eurocomfl_test"
+  if python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" "$d/eurocomfl_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eurocomfl_test/Filelist.bin" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" check "$d/eurocomfl_test" >/dev/null 2>&1 \
+    && fok "Eurocom Filelist.bin/.000 pack splits into numbered files" \
+    || fno "Eurocom Filelist" "failed to extract synthetic Filelist"
+  else
+    fno "Eurocom Filelist" "mk_eurocom_filelist.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
