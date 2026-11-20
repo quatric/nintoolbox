@@ -10165,6 +10165,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "BOF text" "mk_bof_text.py failed"
   fi
 
+  # Batman B&B .lipb lip sync tracks -> JSON
+  mkdir -p "$d/lipb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_lipb_sync.py" "$d/lipb_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/lipb_test/t.lipb" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_lipb_sync.py" check "$d/lipb_test" >/dev/null 2>&1 \
+    && fok "Batman B&B .lipb lip sync tracks export sound name and viseme keys (JSON)" \
+    || fno "LIPB" "failed to convert synthetic t.lipb"
+  else
+    fno "LIPB" "mk_lipb_sync.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
