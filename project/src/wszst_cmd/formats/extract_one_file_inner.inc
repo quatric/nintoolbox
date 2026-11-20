@@ -930,6 +930,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_glacier_mat_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_glacier_prp_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_igor_xga_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

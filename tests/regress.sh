@@ -10068,6 +10068,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Glacier MAT" "mk_glacier_mat.py failed"
   fi
 
+  # Glacier IOPacked .prp property stream -> text dump
+  mkdir -p "$d/glacierprp_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_prp.py" "$d/glacierprp_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glacierprp_test/t.prp" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_prp.py" check "$d/glacierprp_test" >/dev/null 2>&1 \
+    && fok "Glacier IOPacked .prp property streams export to an indented text dump" \
+    || fno "Glacier PRP" "failed to convert synthetic t.prp"
+  else
+    fno "Glacier PRP" "mk_glacier_prp.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
