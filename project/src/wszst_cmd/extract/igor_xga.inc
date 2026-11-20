@@ -34,6 +34,71 @@ static enumError extract_igor_xga_file (ccp arg, ccp basedir, uint depth)
 		return ERR_NOTHING_TO_DO;
 	}
 	const u32 dsz = rd_be32 (raw + hb + 0x1c), kk = rd_be32 (raw + hb + 0x20), nc = rd_be32 (raw + hb + 0x24);
+	// mixed files: {K, C = D + M, D}, D skeleton channels {0x14, 0, name, kind, off}, then {M, M x {class, owner, target, kind, off}} texture transform channels; blob = D x K x 32 + M x K x 64
+	if (!mx && kk && nc > 1 && nc <= 4096 && rd_be32 (raw + hb + 0x28) < nc && rd_be32 (raw + hb + 0x28) && dsz <= sz - hb)
+	{
+		const u32 nd = rd_be32 (raw + hb + 0x28);
+		const size_t s1 = hb + 0x2c + 20 * (size_t)nd;
+		const u32 nm = s1 + 4 <= sz ? rd_be32 (raw + s1) : 0;
+		const size_t mb = sz - dsz;
+		bool good = nm && nm == nc - nd && (u64)kk * (32ull * nd + 64ull * nm) == dsz && s1 + 4 + 20ull * nm <= mb;
+		for (u32 i = 0; i < nd && good; i++)
+		{
+			const u8 *r = raw + hb + 0x2c + 20 * (size_t)i;
+			good = rd_be32 (r + 8) < sl && rd_be32 (r + 12) < sl && rd_be32 (r + 16) == (u64)i * kk * 32 && !memcmp (st + rd_be32 (r), "XgmDecompAnimChannel", 21);
+		}
+		for (u32 i = 0; i < nm && good; i++)
+		{
+			const u8 *r = raw + s1 + 4 + 20 * (size_t)i;
+			good = rd_be32 (r + 4) < sl && rd_be32 (r + 8) < sl && rd_be32 (r + 12) < sl && rd_be32 (r + 16) == 32ull * nd * kk + (u64)i * kk * 64;
+		}
+		if (good)
+		{
+			sumo_buf_t m2 = { 0, 0, 0, true };
+			sumo_printf (&m2, "{\n\t\"format\": \"Igor XGA\",\n\t\"keys\": %u,\n\t\"channels\": [", kk);
+			for (u32 i = 0; i < nc; i++)
+			{
+				const bool isj = i < nd;
+				const u8 *r = isj ? raw + hb + 0x2c + 20 * (size_t)i : raw + s1 + 4 + 20 * (size_t)(i - nd);
+				const uint nfl = isj ? 8 : 16;
+				const size_t boff = mb + rd_be32 (r + 16);
+				sumo_printf (&m2, "%s\n\t\t{\"name\": \"%s\", \"owner\": \"%s\", \"kind\": \"%s\", \"keys\": [", i ? "," : "", (ccp)st + rd_be32 (r + 8), (ccp)st + rd_be32 (r + 4), (ccp)st + rd_be32 (r + 12));
+				for (u32 k = 0; k < kk; k++)
+				{
+					sumo_printf (&m2, "%s[", k ? ", " : "");
+					for (uint v = 0; v < nfl; v++)
+					{
+						const u32 u = rd_be32 (raw + boff + 4 * nfl * (size_t)k + 4 * v);
+						float f;
+						memcpy (&f, &u, 4);
+						sumo_printf (&m2, "%s%.9g", v ? ", " : "", (double)f);
+					}
+					sumo_printf (&m2, "]");
+				}
+				sumo_printf (&m2, "]}");
+			}
+			sumo_printf (&m2, "\n\t]\n}\n");
+			FREE (raw);
+			enumError err2 = ERR_NOTHING_TO_DO;
+			if (m2.ok && m2.n < 0xffffffffu)
+			{
+				char dest[PATH_MAX], name[PATH_MAX];
+				beside_source_dest (dest, sizeof (dest), arg);
+				const char *sl3 = strrchr (arg, '/');
+				snprintf (name, sizeof (name), "%s", sl3 ? sl3 + 1 : arg);
+				char *dot = strrchr (name, '.');
+				if (dot)
+					strcpy (dot, ".json");
+				else
+					strcat (name, ".json");
+				if (verbose >= 0 || testmode)
+					fprintf (stdlog, "%s%sEXTRACT IGOR-XGA:%s (%u channels, %u keys) -> %s/%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, nc, kk, dest, name);
+				err2 = shade_write (arg, dest, basedir, name, (u8 *)m2.p, (uint)m2.n);
+			}
+			FREE (m2.p);
+			return err2;
+		}
+	}
 	bool ok = kk && kk <= 100000 && nc && nc <= 4096 && rd_be32 (raw + hb + (mx ? 0x2c : 0x28)) == nc && (!mx || !rd_be32 (raw + hb + 0x28)) && dsz <= sz - hb && (u64)nc * kk * kb == dsz
 		&& rec0 + 20ull * nc <= sz - dsz;
 	const size_t base = sz - dsz;
