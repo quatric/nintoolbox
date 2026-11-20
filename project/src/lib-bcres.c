@@ -2969,6 +2969,26 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 				}
 			}
 
+			// Rigid submeshes store each vertex in its bone's space and the
+			// decoder moves them to model space with the bone's world matrix, so
+			// apply the inverse (the inverse bind) here to keep the round trip exact.
+			if (mesh_skind[m] == 1 && nw >= 1 && model->joints)
+			{
+				const uint32_t gb = mesh_pal[m][loc[0]];
+				if (gb < model->num_joints && model->joints[gb].has_inverse_bind)
+				{
+					const float *im = model->joints[gb].inverse_bind;
+					const float px = p.x, py = p.y, pz = p.z;
+					p.x = im[0] * px + im[1] * py + im[2] * pz + im[3];
+					p.y = im[4] * px + im[5] * py + im[6] * pz + im[7];
+					p.z = im[8] * px + im[9] * py + im[10] * pz + im[11];
+					const float nx = n.x, ny = n.y, nz = n.z;
+					n.x = im[0] * nx + im[1] * ny + im[2] * nz;
+					n.y = im[4] * nx + im[5] * ny + im[6] * nz;
+					n.z = im[8] * nx + im[9] * ny + im[10] * nz;
+				}
+			}
+
 			size_t o = vpos + (size_t)v * stride;
 			for (unsigned k = 0; k < raw_na; k++)
 			{

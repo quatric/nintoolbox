@@ -927,7 +927,7 @@ acc = j['accessors'][prim['attributes']['POSITION']]
 bv = j['bufferViews'][acc['bufferView']]
 off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
 print(struct.unpack_from('<1f', d, off)[0])" 2>/dev/null || true)
-        if [ "$e" = "123.125" ] 2>/dev/null; then
+        if python3 -c "import sys; sys.exit(0 if abs(float(sys.argv[1]) - 123.125) < 1e-3 else 1)" "$e" 2>/dev/null; then
           ok "CGFX (3DS) edited geometry survived roundtrip (v0.x = $e)"
         else
           no "CGFX (3DS) edited geometry survived roundtrip" "expected v0.x=123.125, got '$e'"
