@@ -120,7 +120,11 @@ enumError DecodeSumoSTZ (u8 **dest, uint *dest_size, const u8 *d, size_t size, c
 			memcpy (tag, out, 4);
 	}
 
-	*dest = out;
-	*dest_size = raw_size;
+	if (dest)
+		*dest = out;
+	else
+		FREE (out);
+	if (dest_size)
+		*dest_size = raw_size;
 	return ERR_OK;
 }
