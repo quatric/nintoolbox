@@ -636,6 +636,7 @@
 #include "extract/eurocom_filelist.inc"
 #include "extract/glob_pack.inc"
 #include "extract/gaftx.inc"
+#include "extract/iw_ff.inc"
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"
 #include "extract/sega_hmot.inc"

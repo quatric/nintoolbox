@@ -10123,6 +10123,27 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "GAFTX" "mk_gaftx.py failed"
   fi
 
+  # Call of Duty (Wii) fastfile .ff -> zone + raw files, and IWi v7/v11 images -> PNG
+  mkdir -p "$d/iwff_test"
+  if python3 "$PWD_PROJECT/../tests/mk_iw_ff.py" "$d/iwff_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/iwff_test/t.ff" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_iw_ff.py" check "$d/iwff_test" >/dev/null 2>&1 \
+    && fok "Call of Duty .ff fastfile inflates to zone.bin and extracts raw files (scripts)" \
+    || fno "IW FF" "failed to extract synthetic t.ff"
+  else
+    fno "IW FF" "mk_iw_ff.py failed"
+  fi
+  mkdir -p "$d/iwi_test"
+  if python3 "$PWD_PROJECT/../tests/mk_iwi.py" "$d/iwi_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/iwi_test/t7.iwi" --overwrite >/dev/null 2>&1
+    "$B/wszst" xx "$d/iwi_test/t11.iwi" --overwrite >/dev/null 2>&1
+    python3 "$PWD_PROJECT/../tests/mk_iwi.py" check "$d/iwi_test" >/dev/null 2>&1 \
+    && fok "Infinity Ward .iwi (v7 and v11, GX CMPR) decodes to PNG" \
+    || fno "IWI" "failed to decode synthetic t7.iwi / t11.iwi"
+  else
+    fno "IWI" "mk_iwi.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
