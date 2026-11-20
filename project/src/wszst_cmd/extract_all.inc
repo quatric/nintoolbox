@@ -632,6 +632,7 @@
 #include "extract/igor_fbin.inc"
 #include "extract/sonic_bbina.inc"
 #include "extract/sonic_gncp.inc"
+#include "extract/sonic_xtb.inc"
 #include "extract/midway_pha.inc"
 #include "extract/sega_gro3.inc"
 #include "extract/sega_hmot.inc"

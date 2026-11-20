@@ -10079,6 +10079,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Sonic GNCP" "mk_sonic_gncp.py failed"
   fi
 
+  # Sonic Colors .xtb text tables -> JSON + TXT
+  mkdir -p "$d/sonicxtb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sonic_xtb.py" "$d/sonicxtb_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sonicxtb_test/t.xtb" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_sonic_xtb.py" check "$d/sonicxtb_test" >/dev/null 2>&1 \
+    && fok "Sonic Colors .xtb text tables export styles, groups and message text (JSON + TXT)" \
+    || fno "Sonic XTB" "failed to convert synthetic t.xtb"
+  else
+    fno "Sonic XTB" "mk_sonic_xtb.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
