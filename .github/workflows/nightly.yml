@@ -61,6 +61,10 @@ jobs:
 
   release:
     needs: [gate, build]
+    # Publish whatever built, even if a single job failed or was cancelled
+    # (e.g. macOS runners are frequently capacity-starved and never start,
+    # which previously blocked the whole nightly).
+    if: ${{ !cancelled() && needs.gate.outputs.release == 'true' }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -70,6 +74,9 @@ jobs:
       - uses: actions/download-artifact@v7
         with:
           path: dist
+      - name: Warn about incomplete build
+        if: needs.build.result != 'success'
+        run: echo "::warning::build result was ${{ needs.build.result }}; publishing available artifacts only"
       - name: Package each target
         run: |
           git archive --format=tar.gz --prefix="wiimms-szs-tools-nintendo-${TAG}/" \
