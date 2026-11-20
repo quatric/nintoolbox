@@ -969,6 +969,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_spectrobes_hit_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_cod_geom_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_eurocom_filelist_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

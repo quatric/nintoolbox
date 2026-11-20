@@ -10198,6 +10198,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Spectrobes LXMF" "mk_lxmf.py failed"
   fi
 
+  # Call of Duty WaW (Wii) .xgm/.sgm geometry streams -> OBJ
+  mkdir -p "$d/codgeom_test"
+  if python3 "$PWD_PROJECT/../tests/mk_cod_geom.py" "$d/codgeom_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/codgeom_test/t.xgm" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_cod_geom.py" check "$d/codgeom_test" >/dev/null 2>&1 \
+    && fok "Call of Duty WaW .xgm/.sgm geometry streams export positions, UVs and normals (OBJ)" \
+    || fno "CoD geom" "failed to convert synthetic t.xgm"
+  else
+    fno "CoD geom" "mk_cod_geom.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
