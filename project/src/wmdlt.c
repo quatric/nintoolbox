@@ -55,6 +55,7 @@
 #include "lib-j3d.h"
 #include "lib-nsbanim.h"
 #include "lib-bcres.h"
+#include "lib-pvrpod.h"
 #include "lib-bch.h"
 #include "lib-bfres.h"
 #include "lib-zstd.h"
@@ -756,10 +757,13 @@ static void import_anim_file (model_t *model, ccp path)
 	char base[PATH_MAX];
 	ccp slash = strrchr (path, '/');
 	snprintf (base, sizeof (base), "%s", slash ? slash + 1 : path);
-	char *dot = strrchr (base, '.');
+	const bool is_pod = IsPowerVRPOD (data, size);
+	// "animWait.Anim.pod" -> "animWait"; otherwise drop the last extension.
+	char *dot = is_pod ? strchr (base, '.') : strrchr (base, '.');
 	if (dot)
 		*dot = 0;
-	const int n = size >= 4 && !memcmp (data, "FRES", 4)
+	const int n = is_pod ? ImportPowerVRPODAnim (model, data, size, base)
+		: size >= 4 && !memcmp (data, "FRES", 4)
 		? ImportBFRESSkeletalAnims (model, data, size)
 		: ImportBCRESSkeletalAnims (model, data, size, base);
 	if (!n)
@@ -790,7 +794,8 @@ static void import_opt_anims (model_t *model)
 		while ((de = readdir (dir)) != 0)
 		{
 			const size_t len = strlen (de->d_name);
-			if (len <= 7 || strcasecmp (de->d_name + len - 7, ".bcskla"))
+			if (!(len > 7 && !strcasecmp (de->d_name + len - 7, ".bcskla"))
+				&& !(len > 9 && !strcasecmp (de->d_name + len - 9, ".anim.pod")))
 				continue;
 			if (n == cap)
 			{
@@ -1839,7 +1844,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 						|| !memcmp (raw.data, "HBSS", 4)))
 				|| (raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))
 				|| (raw.data_size >= 8 && IsMPRSKEL (raw.data, raw.data_size))
-				|| (raw.data_size >= 0x80 && IsPlatinumWMB (raw.data, raw.data_size))))
+				|| (raw.data_size >= 0x80 && IsPlatinumWMB (raw.data, raw.data_size))
+				|| IsPowerVRPOD (raw.data, raw.data_size)))
 		{
 			if (!testmode)
 			{
@@ -1866,6 +1872,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				// them into the model so the exported GLB carries the animations.
 				if (model && is_bmd)
 					ImportNSBAnimSiblings (model, arg);
+				if (!model && IsPowerVRPOD (raw.data, raw.data_size))
+					model = ParsePowerVRPOD (raw.data, raw.data_size);
 				if (model && n_opt_anim)
 					import_opt_anims (model);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
