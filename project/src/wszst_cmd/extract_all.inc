@@ -625,6 +625,7 @@
 #include "extract/igor_ggm.inc"
 #include "extract/glacier_mat.inc"
 #include "extract/glacier_prp.inc"
+#include "extract/glacier_gms.inc"
 #include "extract/igor_xga.inc"
 #include "extract/igor_nav.inc"
 #include "extract/igor_mkr.inc"

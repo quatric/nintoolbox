@@ -10079,6 +10079,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Glacier PRP" "mk_glacier_prp.py failed"
   fi
 
+  # Glacier .gms deflated scene geometry -> unpacked .bin
+  mkdir -p "$d/glaciergms_test"
+  if python3 "$PWD_PROJECT/../tests/mk_glacier_gms.py" "$d/glaciergms_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/glaciergms_test/t.gms" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_glacier_gms.py" check "$d/glaciergms_test" >/dev/null 2>&1 \
+    && fok "Glacier .gms raw deflate scene geometry unpacks to .bin" \
+    || fno "Glacier GMS" "failed to unpack synthetic t.gms"
+  else
+    fno "Glacier GMS" "mk_glacier_gms.py failed"
+  fi
+
   # FBND bundles (zeroed table, 0x800-aligned U8 / BCV0 members)
   mkdir -p "$d/fbnd_test"
   if python3 "$PWD_PROJECT/../tests/mk_fbnd.py" "$d/fbnd_test" >/dev/null 2>&1; then
