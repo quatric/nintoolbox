@@ -270,6 +270,9 @@ static int cg_influence_add (node_influence_t **inf, size_t *n, size_t *cap, con
 	return (int)(*n)++;
 }
 
+static void bc_mul43 (float out[12], const float a[12], const float b[12]);
+static int bc_invert43 (float out[12], const float m[12]);
+
 model_t *ParseBCRES (const uint8_t *data, size_t size)
 {
 	if (!data || size < 0x14 || memcmp (data, "CGFX", 4))
@@ -398,6 +401,10 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		}
 	}
 
+	// Rigid-skinned submeshes (kind 1) store each vertex in its bone's space.
+	// Remember that bone (+1, 0 = none) per output vertex and move the
+	// vertex into model space once the skeleton has been read.
+	int **rigid_bone = CALLOC (n_mesh, sizeof (int *));
 	for (uint32_t mi = 0; mi < n_mesh; mi++)
 	{
 		const size_t me = cg_ptr (g, p_mesh + 4 * mi);
@@ -600,6 +607,11 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 		}
 
 		mesh->position_node = CALLOC (total_idx, sizeof (int));
+		if (rigid_bone)
+		{
+			FREE (rigid_bone[out->num_meshes]);
+			rigid_bone[out->num_meshes] = CALLOC (total_idx ? total_idx : 1, sizeof (int));
+		}
 		if (!mesh->position_node)
 		{
 			FREE (mesh->positions);
@@ -630,6 +642,7 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 			// [6,7]/[6]/[3,6,5,4] palettes under an 8-bone SOBJ.
 			uint32_t sub_bones[64];
 			unsigned n_sub_bones = 0;
+			const uint32_t sub_kind = cg_u32 (g, sub + 0x08);
 			{
 				const uint32_t bc = cg_u32 (g, sub);
 				const size_t bptr = cg_ptr (g, sub + 4);
@@ -803,6 +816,8 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 									&cap_node_inf, combo_bones, combo_weights, combo_n);
 								if (ii >= 0)
 									mesh->position_node[n] = ii;
+								if (sub_kind == 1 && rigid_bone && rigid_bone[out->num_meshes])
+									rigid_bone[out->num_meshes][n] = combo_bones[0] + 1;
 							}
 						}
 						mesh->vertices[n].position_idx = (int)n;
@@ -955,10 +970,57 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 						for (int m = 0; m < 12; m++)
 							out->joints[bi].inverse_bind[m] = cg_f32 (g, bp + 0xa4 + m * 4);
 						out->joints[bi].has_inverse_bind = 1;
+						// Some files (3DS Mii Maker) leave the world matrix for
+						// the runtime to fill (all-zero translation); then
+						// world * inverse is not identity, so rebuild the world
+						// matrix from the stored inverse.
+						{
+							joint_t *jt = &out->joints[bi];
+							float id[12];
+							bc_mul43 (id, jt->bind, jt->inverse_bind);
+							bool ok = true;
+							for (int m = 0; m < 12; m++)
+								if (fabsf (id[m] - ((m % 5) == 0 ? 1.0f : 0.0f)) > 1e-3f)
+									ok = false;
+							if (!ok)
+								bc_invert43 (jt->bind, jt->inverse_bind);
+						}
 					}
 				}
 			}
 		}
+	}
+
+	if (rigid_bone)
+	{
+		for (size_t mi2 = 0; mi2 < out->num_meshes; mi2++)
+		{
+			mesh_t *ms = &out->meshes[mi2];
+			const int *rb = rigid_bone[mi2];
+			for (size_t v = 0; rb && v < ms->num_vertices; v++)
+			{
+				const int b = rb[v] - 1;
+				if (b < 0 || (size_t)b >= out->num_joints)
+					continue;
+				const float *m = out->joints[b].bind;
+				vec3_t *p = &ms->positions[v];
+				const float x = p->x, y = p->y, z = p->z;
+				p->x = m[0] * x + m[1] * y + m[2] * z + m[3];
+				p->y = m[4] * x + m[5] * y + m[6] * z + m[7];
+				p->z = m[8] * x + m[9] * y + m[10] * z + m[11];
+				if (ms->normals)
+				{
+					vec3_t *nv = &ms->normals[v];
+					const float nx = nv->x, ny = nv->y, nz = nv->z;
+					nv->x = m[0] * nx + m[1] * ny + m[2] * nz;
+					nv->y = m[4] * nx + m[5] * ny + m[6] * nz;
+					nv->z = m[8] * nx + m[9] * ny + m[10] * nz;
+				}
+			}
+		}
+		for (uint32_t mi2 = 0; mi2 < n_mesh; mi2++)
+			FREE (rigid_bone[mi2]);
+		FREE (rigid_bone);
 	}
 
 	// No geometry is a failure, not an empty success: returning an empty
@@ -988,6 +1050,262 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 static const char *cgfx_dict_names[CGFX_N_DICTS] = { "Models", "Textures", "LUTs", "Materials",
 	"Shaders", "Cameras", "Lights", "Fogs", "Scenes", "SkeletalAnimations", "MaterialAnimations",
 	"VisibilityAnimations", "CameraAnimations", "LightAnimations", "FogAnimations", "Emitters" };
+
+//-----------------------------------------------------------------------------
+// CGFX skeletal animations (CANM, e.g. 3DS Mii Maker .bcskla)
+//
+// CANM: magic, revision, name, target group name, loop mode, frame count
+// (f32), element count, element DICT. Each element is one bone transform:
+//   +0x00 flags  bit (16+i): component i absent (keep the bind value)
+//                bit (6+i):  component i is a constant f32 in its slot
+//   +0x04 name   +0x10 primitive type (5 = transform)
+//   +0x14 10 slots: scale XYZ, rotation XYZ (Euler radians), unused W,
+//         translation XYZ; a slot is a curve pointer unless constant.
+// Curve: start, end, repeat bytes, flags, segment count, segment pointers.
+// Segment: start, end, flags (interp = (f>>2)&3: step/linear/hermite;
+// quantization = (f>>5)&7), key count, 1/duration, keys:
+//   quantization 0: frame, value, in slope, out slope (16 bytes)
+//   quantization 3: frame, value, slope (12 bytes)
+// Layout verified against all 57 3DS Mii Maker MiiAnim files; other
+// quantizations do not occur there and are left at the bind value.
+//-----------------------------------------------------------------------------
+
+static bool canm_seg_eval (const cg_t *g, size_t seg, float frame, float *out)
+{
+	const uint32_t fl = cg_u32 (g, seg + 8);
+	const uint32_t n = cg_u32 (g, seg + 12);
+	const unsigned quant = (fl >> 5) & 7, interp = (fl >> 2) & 3;
+	const size_t stride = quant == 0 ? 16 : quant == 3 ? 12 : 0;
+	const size_t keys = seg + 0x14;
+	if (!stride || !n || n > 0x100000 || !cg_ok (g, keys, n * stride))
+		return false;
+#define KF(i) cg_f32 (g, keys + (size_t)(i) * stride)
+#define KV(i) cg_f32 (g, keys + (size_t)(i) * stride + 4)
+#define KIN(i) cg_f32 (g, keys + (size_t)(i) * stride + 8)
+#define KOUT(i) cg_f32 (g, keys + (size_t)(i) * stride + (quant == 0 ? 12 : 8))
+	if (n == 1 || frame <= KF (0))
+	{
+		*out = KV (0);
+		return true;
+	}
+	if (frame >= KF (n - 1))
+	{
+		*out = KV (n - 1);
+		return true;
+	}
+	uint32_t i = 0;
+	while (i + 2 < n && frame >= KF (i + 1))
+		i++;
+	const float f0 = KF (i), f1 = KF (i + 1), v0 = KV (i), v1 = KV (i + 1);
+	const float dt = f1 - f0;
+	if (interp == 0 || dt <= 0.0f)
+		*out = v0;
+	else
+	{
+		const float t = (frame - f0) / dt;
+		if (interp == 1)
+			*out = v0 + (v1 - v0) * t;
+		else
+		{
+			const float t2 = t * t, t3 = t2 * t;
+			*out = (2 * t3 - 3 * t2 + 1) * v0 + (t3 - 2 * t2 + t) * dt * KOUT (i)
+				+ (-2 * t3 + 3 * t2) * v1 + (t3 - t2) * dt * KIN (i + 1);
+		}
+	}
+#undef KF
+#undef KV
+#undef KIN
+#undef KOUT
+	return true;
+}
+
+static bool canm_curve_eval (const cg_t *g, size_t curve, float frame, float *out)
+{
+	const uint32_t nseg = cg_u32 (g, curve + 0x10);
+	if (!nseg || nseg > 0x1000)
+		return false;
+	size_t pick = 0;
+	for (uint32_t k = 0; k < nseg; k++)
+	{
+		const size_t seg = cg_ptr (g, curve + 0x14 + (size_t)k * 4);
+		if (!seg || !cg_ok (g, seg, 0x14))
+			continue;
+		if (!pick || frame >= cg_f32 (g, seg))
+			pick = seg;
+	}
+	return pick && canm_seg_eval (g, pick, frame, out);
+}
+
+static model_anim_channel_t *canm_add_channel (model_animation_t *a, int node,
+	model_anim_path_t path, float *times, float *values, size_t count, size_t comps)
+{
+	model_anim_channel_t *ch
+		= REALLOC (a->channels, (a->num_channels + 1) * sizeof (model_anim_channel_t));
+	if (!ch)
+	{
+		FREE (times);
+		FREE (values);
+		return NULL;
+	}
+	a->channels = ch;
+	ch += a->num_channels++;
+	ch->node_idx = node;
+	ch->path = path;
+	ch->times = times;
+	ch->values = values;
+	ch->count = count;
+	ch->components = comps;
+	return ch;
+}
+
+static int canm_import_one (model_t *model, const cg_t *g, size_t canm, const char *fallback_name)
+{
+	const float frames = cg_f32 (g, canm + 0x14);
+	const uint32_t nel = cg_u32 (g, canm + 0x18);
+	const size_t edict = cg_ptr (g, canm + 0x1c);
+	if (!edict || !cg_ok (g, edict, 0x1c) || memcmp (g->d + edict, "DICT", 4) || !nel
+		|| nel > 0x10000 || !(frames >= 0.0f) || frames > 100000.0f)
+		return 0;
+	const size_t nframes = (size_t)ceilf (frames) + 1;
+
+	model_animation_t anim;
+	memset (&anim, 0, sizeof (anim));
+	const size_t np = cg_ptr (g, canm + 8);
+	const char *name = np && memchr (g->d + np, 0, g->size - np) ? (const char *)g->d + np : NULL;
+	snprintf (anim.name, sizeof (anim.name), "%s", name && *name ? name : fallback_name ? fallback_name : "anim");
+
+	for (uint32_t e = 0; e < nel; e++)
+	{
+		const size_t el = cg_ptr (g, edict + 0x1c + (size_t)e * 16 + 0x0c);
+		if (!el || !cg_ok (g, el, 0x3c) || cg_u32 (g, el + 0x10) != 5)
+			continue;
+		const size_t enp = cg_ptr (g, el + 4);
+		if (!enp || !memchr (g->d + enp, 0, g->size - enp))
+			continue;
+		const char *bone = (const char *)g->d + enp;
+		int j = -1;
+		for (size_t k = 0; k < model->num_joints; k++)
+			if (!strcmp (model->joints[k].name, bone))
+			{
+				j = (int)k;
+				break;
+			}
+		if (j < 0)
+			continue;
+		const joint_t *jt = &model->joints[j];
+		const uint32_t fl = cg_u32 (g, el);
+		const float base[10] = { jt->scale.x, jt->scale.y, jt->scale.z,
+			jt->rotate.x * (float)(M_PI / 180.0), jt->rotate.y * (float)(M_PI / 180.0),
+			jt->rotate.z * (float)(M_PI / 180.0), 0.0f, jt->translate.x, jt->translate.y,
+			jt->translate.z };
+		bool present[10];
+		for (unsigned c = 0; c < 10; c++)
+			present[c] = c != 6 && !(fl >> (16 + c) & 1);
+		const unsigned groups[3][2] = { { 0, 3 }, { 3, 6 }, { 7, 10 } };
+		const model_anim_path_t paths[3]
+			= { MODEL_ANIM_SCALE, MODEL_ANIM_ROTATION, MODEL_ANIM_TRANSLATION };
+		for (unsigned gi = 0; gi < 3; gi++)
+		{
+			bool any = false;
+			for (unsigned c = groups[gi][0]; c < groups[gi][1]; c++)
+				any |= present[c];
+			if (!any)
+				continue;
+			const size_t comps = gi == 1 ? 4 : 3;
+			float *times = MALLOC (nframes * sizeof (float));
+			float *vals = MALLOC (nframes * comps * sizeof (float));
+			if (!times || !vals)
+			{
+				FREE (times);
+				FREE (vals);
+				continue;
+			}
+			for (size_t f = 0; f < nframes; f++)
+			{
+				const float fr = f < nframes - 1 ? (float)f : frames;
+				float v[3];
+				for (unsigned c = groups[gi][0]; c < groups[gi][1]; c++)
+				{
+					float x = base[c];
+					if (present[c])
+					{
+						const size_t slot = el + 0x14 + (size_t)c * 4;
+						if (fl >> (6 + c) & 1)
+							x = cg_f32 (g, slot);
+						else
+						{
+							const size_t curve = cg_ptr (g, slot);
+							float y;
+							if (curve && cg_ok (g, curve, 0x18) && canm_curve_eval (g, curve, fr, &y))
+								x = y;
+						}
+					}
+					v[c - groups[gi][0]] = x;
+				}
+				times[f] = fr / 60.0f;
+				if (gi == 1)
+				{
+					// Euler XYZ (R = Rz * Ry * Rx, as the joint export) to quaternion.
+					const double cx = cos (v[0] * 0.5), sx = sin (v[0] * 0.5);
+					const double cy = cos (v[1] * 0.5), sy = sin (v[1] * 0.5);
+					const double cz = cos (v[2] * 0.5), sz = sin (v[2] * 0.5);
+					vals[f * 4 + 0] = (float)(sx * cy * cz - cx * sy * sz);
+					vals[f * 4 + 1] = (float)(cx * sy * cz + sx * cy * sz);
+					vals[f * 4 + 2] = (float)(cx * cy * sz - sx * sy * cz);
+					vals[f * 4 + 3] = (float)(cx * cy * cz + sx * sy * sz);
+				}
+				else
+					memcpy (vals + f * 3, v, sizeof (v));
+			}
+			canm_add_channel (&anim, j, paths[gi], times, vals, nframes, comps);
+		}
+	}
+
+	if (!anim.num_channels)
+	{
+		FREE (anim.channels);
+		return 0;
+	}
+	model_animation_t *arr
+		= REALLOC (model->animations, (model->num_animations + 1) * sizeof (model_animation_t));
+	if (!arr)
+	{
+		for (size_t c = 0; c < anim.num_channels; c++)
+		{
+			FREE (anim.channels[c].times);
+			FREE (anim.channels[c].values);
+		}
+		FREE (anim.channels);
+		return 0;
+	}
+	model->animations = arr;
+	model->animations[model->num_animations++] = anim;
+	return 1;
+}
+
+int ImportBCRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size, const char *fallback_name)
+{
+	if (!model || !model->num_joints || !data || size < 0x14 || memcmp (data, "CGFX", 4))
+		return 0;
+	const cg_t gg = { data, size }, *g = &gg;
+	const uint32_t header_len = (uint32_t)data[6] | (uint32_t)data[7] << 8;
+	if (!cg_ok (g, header_len, 0x10 + 10 * 8) || memcmp (data + header_len, "DATA", 4))
+		return 0;
+	// DATA dict slot 9 is "SkeletalAnimations" (see GetCGFXDictName).
+	const uint32_t n = cg_u32 (g, header_len + 8 + 9 * 8);
+	const size_t dict = cg_ptr (g, header_len + 0x0c + 9 * 8);
+	if (!n || n > 0x10000 || !dict || !cg_ok (g, dict, 0x1c + (size_t)n * 16)
+		|| memcmp (data + dict, "DICT", 4))
+		return 0;
+	int added = 0;
+	for (uint32_t i = 0; i < n; i++)
+	{
+		const size_t canm = cg_ptr (g, dict + 0x1c + (size_t)i * 16 + 0x0c);
+		if (canm && cg_ok (g, canm, 0x20) && !memcmp (data + canm, "CANM", 4))
+			added += canm_import_one (model, g, canm, fallback_name);
+	}
+	return added;
+}
 
 const char *GetCGFXDictName (int id)
 {

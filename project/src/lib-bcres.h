@@ -8,6 +8,10 @@
 
 // Parses a CGFX model's skeleton, geometry, materials and texture bindings into a model_t.
 model_t *ParseBCRES (const uint8_t *data, size_t size);
+// Appends every skeletal animation (CANM in the DATA "SkeletalAnimations"
+// dict, e.g. a standalone .bcskla) to model as baked 60 fps clips that
+// target the model's joints by name. Returns the number of clips added.
+int ImportBCRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size, const char *fallback_name);
 
 // Encodes a model_t into a full NintendoWare NW4C CGFX ("BCRES") binary.
 // Allocates *out_data (free with FREE()); returns 1 on success, 0 on failure.

@@ -467,6 +467,14 @@
 	0,
 	"J3D BMD/BDL encode: ignore _mipN texture files." },
 
+  { T_OPT_CP,	"ANIM",		"anim",
+	"file|dir",
+	"Model decode: add the skeletal animations in this file to the"
+	" exported model, matched to its bones by name. A directory adds"
+	" every .bcskla in it. Can be used multiple times."
+	" Supported: CGFX skeletal animations (3DS .bcskla) on .bcres/.bcmdl"
+	" models." },
+
   { T_OPT_C,	"CSB_BIG",	"csb-big",
 	0,
 	"Paper Mario CSB encode: write the big-endian Color Splash layout"
@@ -523,6 +531,7 @@
 
   { T_GRP_BEG,	"J3D",		0,0,0 },
 
+  { T_COPT,	"ANIM",		0,0,0 },
   { T_COPT,	"J3D_MAT",	0,0,0 },
   { T_COPT,	"J3D_OUTMAT",	0,0,0 },
   { T_COPT,	"J3D_TEXHEADER",	0,0,0 },

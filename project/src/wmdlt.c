@@ -78,6 +78,8 @@
 #include "ui-wmdlt.c"
 
 static ccp opt_parent = 0;
+static ccp opt_anim[64]; // --anim: skeletal animation files/dirs to add
+static uint n_opt_anim = 0;
 static bool opt_csb_big = false; // --csb-big: Color Splash big-endian layout
 static bool opt_csb_mobj = false; // --csb-mobj: split map-object models, no CTB
 
@@ -738,6 +740,75 @@ static bool save_nsb_dest (const model_t *model, ccp dest, unsigned bflags)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////		  command encode/decode			///////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+// --anim: add the skeletal animations of each given file (or of every
+// .bcskla in a given directory, in name order) to a decoded model.
+static void import_anim_file (model_t *model, ccp path)
+{
+	u8 *data = 0;
+	size_t size = 0;
+	if (LoadFileAlloc (path, 0, 0, &data, &size, 0, 2, 0, false) || !data)
+	{
+		FREE (data);
+		ERROR0 (ERR_WARNING, "Can't read animation file %s\n", path);
+		return;
+	}
+	char base[PATH_MAX];
+	ccp slash = strrchr (path, '/');
+	snprintf (base, sizeof (base), "%s", slash ? slash + 1 : path);
+	char *dot = strrchr (base, '.');
+	if (dot)
+		*dot = 0;
+	const int n = ImportBCRESSkeletalAnims (model, data, size, base);
+	if (!n)
+		ERROR0 (ERR_WARNING, "No skeletal animation for this model in %s\n", path);
+	else if (verbose > 0)
+		fprintf (stdlog, "ANIM: added %d clip%s from %s\n", n, n == 1 ? "" : "s", path);
+	FREE (data);
+}
+
+static int anim_name_cmp (const void *a, const void *b)
+{
+	return strcmp (*(ccp const *)a, *(ccp const *)b);
+}
+
+static void import_opt_anims (model_t *model)
+{
+	for (uint i = 0; model && i < n_opt_anim; i++)
+	{
+		DIR *dir = opendir (opt_anim[i]);
+		if (!dir)
+		{
+			import_anim_file (model, opt_anim[i]);
+			continue;
+		}
+		char **names = 0;
+		size_t n = 0, cap = 0;
+		struct dirent *de;
+		while ((de = readdir (dir)) != 0)
+		{
+			const size_t len = strlen (de->d_name);
+			if (len <= 7 || strcasecmp (de->d_name + len - 7, ".bcskla"))
+				continue;
+			if (n == cap)
+			{
+				cap = cap ? cap * 2 : 64;
+				names = REALLOC (names, cap * sizeof (*names));
+			}
+			names[n++] = STRDUP (de->d_name);
+		}
+		closedir (dir);
+		qsort (names, n, sizeof (*names), anim_name_cmp);
+		for (size_t k = 0; k < n; k++)
+		{
+			char path[PATH_MAX];
+			snprintf (path, sizeof (path), "%s/%s", opt_anim[i], names[k]);
+			import_anim_file (model, path);
+			FREE (names[k]);
+		}
+		FREE (names);
+	}
+}
 
 static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 {
@@ -1793,6 +1864,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				// them into the model so the exported GLB carries the animations.
 				if (model && is_bmd)
 					ImportNSBAnimSiblings (model, arg);
+				if (model && n_opt_anim && !memcmp (raw.data, "CGFX", 4))
+					import_opt_anims (model);
 				if (!model && raw.data_size >= 4 && !memcmp (raw.data, "FRES", 4))
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 0x100 && !memcmp (raw.data, "FRES", 4))
@@ -2300,6 +2373,10 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 				break;
 			case GO_PARENT:
 				opt_parent = optarg;
+				break;
+			case GO_ANIM:
+				if (n_opt_anim < sizeof (opt_anim) / sizeof (*opt_anim))
+					opt_anim[n_opt_anim++] = optarg;
 				break;
 			case GO_J3D_MAT:
 				opt_j3d_mat = optarg;

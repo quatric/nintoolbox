@@ -25469,6 +25469,13 @@
 	"", \
 	"J3D BMD/BDL encode: ignore _mipN texture files." )
 
+#:def_opt( "ANIM", "anim", "CP", \
+	"file|dir", \
+	"Model decode: add the skeletal animations in this file to the" \
+	" exported model, matched to its bones by name. A directory adds every" \
+	" .bcskla in it. Can be used multiple times. Supported: CGFX skeletal" \
+	" animations (3DS .bcskla) on .bcres/.bcmdl models." )
+
 #:def_opt( "CSB_BIG", "csb-big", "C", \
 	"", \
 	"Paper Mario CSB encode: write the big-endian Color Splash layout (u32" \
@@ -25902,6 +25909,10 @@
 	"", \
 	"" )
 
+#:def_cmd_opt( "DECODE", "ANIM", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "DECODE", "J3D_MAT", \
 	"", \
 	"" )
@@ -26059,6 +26070,10 @@
 	"" )
 
 #:def_cmd_opt( "ENCODE", "MDL", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "ANIM", \
 	"", \
 	"" )
 
