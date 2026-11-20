@@ -425,13 +425,13 @@ static int attr_read (const uint8_t *p, size_t avail, uint32_t fmt, float out[4]
 		}
 		case 0x0000080A: // 16_16_16_16 float
 		case 0x0000080E: // 16_16_16_16 float
+		case 0x0000080F: // GX2_ATTRIB_FORMAT_FLOAT_16_16_16_16 (Wii U Mii Maker _p0)
 			if (avail < 8)
 				return 0;
 			for (int i = 0; i < 4; i++)
 				out[i] = half_to_float (rb16 (p + i * 2));
 			return 1;
 		case 0x0000080D: // 32_32 float
-		case 0x0000080F: // 32_32 float
 		{
 			if (avail < 8)
 				return 0;
@@ -1176,6 +1176,14 @@ static int parse_fska_into_model (model_t *model, const uint8_t *d, size_t size,
 	return 1;
 }
 
+// FMDL to export from a Wii U BFRES holding several (wmdlt --submodel);
+// NULL or "" means the first one.
+static const char *bfres_submodel = NULL;
+void SetBFRESSubmodel (const char *name)
+{
+	bfres_submodel = name;
+}
+
 model_t *ParseBFRES (const uint8_t *data, size_t size)
 {
 	if (!data || size < 8)
@@ -1222,8 +1230,29 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 	if (!entries || entries > 0x10000 || grp + 8 + (size_t)(entries + 1) * 16 > size)
 		return NULL;
 
-	// First model only: DAE has no multi-model concept here.
-	const size_t e = grp + 8 + 16;
+	// One model per export: the first, or the one named by --submodel.
+	size_t e = grp + 8 + 16;
+	if (bfres_submodel && *bfres_submodel)
+	{
+		e = 0;
+		for (uint32_t i = 1; i <= entries && !e; i++)
+		{
+			const char *nm = rel_string (d, size, grp + 8 + (size_t)i * 16 + 8);
+			if (nm && !strcmp (nm, bfres_submodel))
+				e = grp + 8 + (size_t)i * 16;
+		}
+		if (!e)
+		{
+			fprintf (stderr, "BFRES: no model named \"%s\"; models:", bfres_submodel);
+			for (uint32_t i = 1; i <= entries; i++)
+			{
+				const char *nm = rel_string (d, size, grp + 8 + (size_t)i * 16 + 8);
+				fprintf (stderr, " %s", nm ? nm : "?");
+			}
+			fputc ('\n', stderr);
+			return NULL;
+		}
+	}
 	const size_t m = REL (d, e + 12);
 	if (m + 0x30 > size || memcmp (d + m, "FMDL", 4))
 		return NULL;

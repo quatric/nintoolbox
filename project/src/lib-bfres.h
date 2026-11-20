@@ -6,6 +6,8 @@
 #include <stddef.h>
 
 model_t *ParseBFRES (const uint8_t *data, size_t size);
+// Selects the FMDL ParseBFRES exports by name (NULL/"" = first).
+void SetBFRESSubmodel (const char *name);
 // Adds the FSKA clips of a Wii U BFRES (e.g. an animation-only file) to model; returns how many.
 int ImportBFRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size);
 

@@ -2376,6 +2376,9 @@ static enumError CheckOptions (int argc, char **argv, bool is_env)
 			case GO_PARENT:
 				opt_parent = optarg;
 				break;
+			case GO_SUBMODEL:
+				SetBFRESSubmodel (optarg);
+				break;
 			case GO_ANIM:
 				if (n_opt_anim < sizeof (opt_anim) / sizeof (*opt_anim))
 					opt_anim[n_opt_anim++] = optarg;

@@ -25469,6 +25469,11 @@
 	"", \
 	"J3D BMD/BDL encode: ignore _mipN texture files." )
 
+#:def_opt( "SUBMODEL", "submodel", "CP", \
+	"name", \
+	"Model decode: export the model with this name from a file that holds" \
+	" several (Wii U .bfres FMDLs) instead of the first one." )
+
 #:def_opt( "ANIM", "anim", "CP", \
 	"file|dir", \
 	"Model decode: add the skeletal animations in this file to the" \
@@ -25915,6 +25920,10 @@
 	"", \
 	"" )
 
+#:def_cmd_opt( "DECODE", "SUBMODEL", \
+	"", \
+	"" )
+
 #:def_cmd_opt( "DECODE", "J3D_MAT", \
 	"", \
 	"" )
@@ -26076,6 +26085,10 @@
 	"" )
 
 #:def_cmd_opt( "ENCODE", "ANIM", \
+	"", \
+	"" )
+
+#:def_cmd_opt( "ENCODE", "SUBMODEL", \
 	"", \
 	"" )
 

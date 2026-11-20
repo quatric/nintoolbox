@@ -467,6 +467,11 @@
 	0,
 	"J3D BMD/BDL encode: ignore _mipN texture files." },
 
+  { T_OPT_CP,	"SUBMODEL",	"submodel",
+	"name",
+	"Model decode: export the model with this name from a file that"
+	" holds several (Wii U .bfres FMDLs) instead of the first one." },
+
   { T_OPT_CP,	"ANIM",		"anim",
 	"file|dir",
 	"Model decode: add the skeletal animations in this file to the"
@@ -533,6 +538,7 @@
   { T_GRP_BEG,	"J3D",		0,0,0 },
 
   { T_COPT,	"ANIM",		0,0,0 },
+  { T_COPT,	"SUBMODEL",	0,0,0 },
   { T_COPT,	"J3D_MAT",	0,0,0 },
   { T_COPT,	"J3D_OUTMAT",	0,0,0 },
   { T_COPT,	"J3D_TEXHEADER",	0,0,0 },
