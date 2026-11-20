@@ -10176,6 +10176,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "LIPB" "mk_lipb_sync.py failed"
   fi
 
+  # Spectrobes .HIT collision quads -> OBJ
+  mkdir -p "$d/hit_test"
+  if python3 "$PWD_PROJECT/../tests/mk_spectrobes_hit.py" "$d/hit_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/hit_test/t.HIT" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_spectrobes_hit.py" check "$d/hit_test" >/dev/null 2>&1 \
+    && fok "Spectrobes .HIT collision quads export as OBJ groups" \
+    || fno "Spectrobes HIT" "failed to convert synthetic t.HIT"
+  else
+    fno "Spectrobes HIT" "mk_spectrobes_hit.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then

@@ -635,6 +635,7 @@
 #include "extract/sonic_xtb.inc"
 #include "extract/bof_text.inc"
 #include "extract/lipb_sync.inc"
+#include "extract/spectrobes_hit.inc"
 #include "extract/eurocom_filelist.inc"
 #include "extract/glob_pack.inc"
 #include "extract/gaftx.inc"
