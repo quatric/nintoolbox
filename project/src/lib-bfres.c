@@ -12,6 +12,7 @@
 
 #include "lib-bfres.h"
 #include "lib-brres-model.h"
+#include "lib-model-glb.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -671,6 +672,40 @@ static void bfres_euler_rad_to_quat (float rx, float ry, float rz, float q[4])
 	q[3] = (float)(cx * cy * cz + sx * sy * sz);
 }
 
+// Moves a rigid-skinned vertex (VertexSkinCount 1, stored in its bone's
+// space) into model space with the bone's bind (world) matrix, which the
+// caller must have filled (ComputeModelTRSBinds). Normals get the linear part.
+static void bfres_bone_to_model (const model_t *model, int bone, vec3_t *pos, vec3_t *nrm)
+{
+	if (bone < 0 || (size_t)bone >= model->num_joints)
+		return;
+	const float *m = model->joints[bone].bind;
+	if (pos)
+	{
+		const float x = pos->x, y = pos->y, z = pos->z;
+		pos->x = m[0] * x + m[1] * y + m[2] * z + m[3];
+		pos->y = m[4] * x + m[5] * y + m[6] * z + m[7];
+		pos->z = m[8] * x + m[9] * y + m[10] * z + m[11];
+	}
+	if (nrm)
+	{
+		const float x = nrm->x, y = nrm->y, z = nrm->z;
+		float nx = m[0] * x + m[1] * y + m[2] * z;
+		float ny = m[4] * x + m[5] * y + m[6] * z;
+		float nz = m[8] * x + m[9] * y + m[10] * z;
+		const float len = sqrtf (nx * nx + ny * ny + nz * nz);
+		if (len > 0.0f)
+		{
+			nx /= len;
+			ny /= len;
+			nz /= len;
+		}
+		nrm->x = nx;
+		nrm->y = ny;
+		nrm->z = nz;
+	}
+}
+
 // Inverse of the above, for converting an FSKL bone whose rotation is stored
 // as a quaternion into the half-angle-Euler convention joint_t::rotate uses.
 static void bfres_quat_to_euler (
@@ -1324,6 +1359,10 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 	// skin exporter. FSKL header: flags@+4, numBone@+8, numSmooth@+10,
 	// numRigid@+12, BoneDict@+0x10, BoneArray@+0x14, MatrixToBone@+0x18,
 	// InverseMatrices@+0x1C.
+	// MatrixToBoneList (FSKL+0x18): _i0 values are matrix indices, and this
+	// table turns them into bones (smooth matrices first, then rigid ones).
+	size_t fskl_mtx_arr = 0;
+	uint fskl_n_mtx = 0;
 	{
 		const size_t sk = REL (d, m + 0x0C);
 		if (sk + 8 <= size && !memcmp (d + sk, "FSKL", 4))
@@ -1333,7 +1372,17 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			const size_t bone_arr = sk + 0x18 <= size ? REL (d, sk + 0x14) : 0;
 			const size_t mtx_arr = sk + 0x20 <= size ? REL (d, sk + 0x18) : 0;
 			const size_t inv_arr = sk + 0x20 <= size ? REL (d, sk + 0x1C) : 0;
-			if (n_bones && n_bones < 4096 && bone_arr && bone_arr + (size_t)n_bones * 0x40 <= size)
+			const uint n_mtx = n_smooth + (sk + 14 <= size ? rb16 (d + sk + 12) : 0);
+			if (mtx_arr && n_mtx && mtx_arr + (size_t)n_mtx * 2 <= size)
+			{
+				fskl_mtx_arr = mtx_arr;
+				fskl_n_mtx = n_mtx;
+			}
+			// Before 3.4 each bone carries its own Matrix3x4 inverse bind
+			// inline after the userdata offset (NintenTools Bone.cs), so the
+			// record grows from 0x40 to 0x70 bytes (Wii U Mii Maker, 3.0.0.1).
+			const size_t bone_stride = bfr_version >= 0x03040000 ? 0x40 : 0x70;
+			if (n_bones && n_bones < 4096 && bone_arr && bone_arr + (size_t)n_bones * bone_stride <= size)
 			{
 				out->num_joints = n_bones;
 				out->joints = calloc (n_bones, sizeof (joint_t));
@@ -1341,7 +1390,7 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 				{
 					for (uint b = 0; b < n_bones; b++)
 					{
-						const size_t boff = bone_arr + (size_t)b * 0x40;
+						const size_t boff = bone_arr + (size_t)b * bone_stride;
 						joint_t *j = out->joints + b;
 						j->parent_idx = -1;
 
@@ -1380,8 +1429,9 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 						// array of numSmooth Matrix3x4 (48B each) at inv_arr,
 						// indexed by this bone's SmoothMatrixIndex
 						// (NintenTools Skeleton.cs). Older files store one
-						// Matrix3x4 inline per bone--not observed in the
-						// retail corpus here, left as bind-identity.
+						// Matrix3x4 inline per bone at +0x40.
+						// Wii U Mii Maker (3.0.0.1) leaves it as identity, so
+						// pre-3.4 binds are rebuilt from the TRS chain below.
 						if (bfr_version >= 0x03040000 && n_smooth && inv_arr
 							&& inv_arr + (size_t)n_smooth * 48 <= size)
 						{
@@ -1399,6 +1449,10 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 						}
 						(void)mtx_arr;
 					}
+					// Pre-3.4 files leave the inline inverse binds as identity;
+					// newer ones store inverse binds but no world matrices, which
+					// rigid skinning needs, so rebuild both from the TRS chain.
+					ComputeModelTRSBinds (out);
 				}
 			}
 		}
@@ -1530,8 +1584,12 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 			mesh->colors[1] = fvtx.clr1 ? calloc (sm_count, sizeof (color4_t)) : NULL;
 			mesh->vertices = calloc (sm_count, sizeof (vertex_t));
 			// Skinning needs one node id per position (mirrors Switch path).
-			const int has_skin
-				= fvtx.bone && fvtx.wt && n_skin_bones > 0 && skin_arr && out->num_joints > 0;
+			// Rigid skinning (VertexSkinCount 1, e.g. Wii U Mii Maker) has
+			// only _i0: each vertex follows one bone at full weight.
+			const uint8_t vtx_skin_count = sh + 0x17 <= size ? d[sh + 0x16] : 0;
+			const int rigid_skin = !fvtx.wt && vtx_skin_count == 1;
+			const int has_skin = fvtx.bone && (fvtx.wt || rigid_skin)
+				&& n_skin_bones > 0 && (skin_arr || fskl_mtx_arr) && out->num_joints > 0;
 			if (has_skin)
 				mesh->position_node = calloc (sm_count, sizeof (int));
 			{
@@ -1648,6 +1706,9 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 					float bw[4] = { 0, 0, 0, 0 };
 					attr_read_uint8 (fvtx.bone + (size_t)vi * fvtx.stride_bone,
 						fvtx.avail_bone - (size_t)vi * fvtx.stride_bone, fvtx.fmt_bone, bi);
+					if (rigid_skin)
+						bw[0] = 1.0f;
+					else
 					{
 						float wb[4];
 						if (attr_read (fvtx.wt + (size_t)vi * fvtx.stride_wt,
@@ -1666,12 +1727,18 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 					{
 						if (bw[b] <= 0.0f)
 							continue;
-						if (bi[b] >= n_skin_bones)
-							continue;
-						const size_t idx_off = skin_arr + (size_t)bi[b] * 2;
-						if (idx_off + 2 > size)
-							continue;
-						const uint16_t fskl_bone = rb16 (d + idx_off);
+						uint16_t fskl_bone;
+						if (fskl_mtx_arr && bi[b] < fskl_n_mtx)
+							fskl_bone = rb16 (d + fskl_mtx_arr + (size_t)bi[b] * 2);
+						else
+						{
+							if (bi[b] >= n_skin_bones || !skin_arr)
+								continue;
+							const size_t idx_off = skin_arr + (size_t)bi[b] * 2;
+							if (idx_off + 2 > size)
+								continue;
+							fskl_bone = rb16 (d + idx_off);
+						}
 						if (fskl_bone >= out->num_joints)
 							continue;
 						weights[nw].bone_idx = (int)fskl_bone;
@@ -1762,6 +1829,11 @@ model_t *ParseBFRES (const uint8_t *data, size_t size)
 						ni_idx = found;
 					}
 					mesh->position_node[n] = ni_idx;
+					// Rigid-skinned vertices are stored in their bone's space.
+					if (rigid_skin && nw == 1)
+						bfres_bone_to_model (out, weights[0].bone_idx,
+							mesh->positions ? &mesh->positions[n] : NULL,
+							mesh->normals ? &mesh->normals[n] : NULL);
 				}
 				n++;
 			}
@@ -2474,6 +2546,7 @@ static int attr_read_uint8_switch (const uint8_t *p, size_t avail, uint32_t fmt,
 			out[1] = p[1];
 			return 2;
 		case 0x0009: // 8 uint (scalar)
+		case 0x0302: // 8 uint (rigid-skin _i0, Switch Mii Maker bodies)
 			if (avail < 1)
 				return 0;
 			out[0] = p[0];
@@ -2750,6 +2823,10 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	// two UserData offsets), with parent/TRS shifted accordingly;
 	// rotation is euler XYZ (3 floats) or quaternion (4 floats) per
 	// the FSKL flags mode bits.
+	// MatrixToBoneList (v>=9: FSKL+0x18): rigid-skinned _i0 values are
+	// matrix indices into it (smooth matrices first, then rigid ones).
+	int64_t sw_mtx_arr = 0;
+	uint sw_n_mtx = 0;
 	{
 		const int64_t fskl_off = les64 (d + fmdl_arr + 4 + fhdr + 16);
 		if (fskl_off > 0 && (size_t)fskl_off + 0x40 <= size && !memcmp (d + fskl_off, "FSKL", 4))
@@ -2766,6 +2843,15 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 				matrix_off = les64 (d + fskl_off + 0x20);
 				n_bones = le16 (d + fskl_off + 0x38);
 				n_smooth = le16 (d + fskl_off + 0x3A);
+				{
+					const int64_t mtb = les64 (d + fskl_off + 0x18);
+					const uint nm = n_smooth + le16 (d + fskl_off + 0x3C);
+					if (mtb > 0 && nm && (size_t)mtb + (size_t)nm * 2 <= size)
+					{
+						sw_mtx_arr = mtb;
+						sw_n_mtx = nm;
+					}
+				}
 				rot_quat = ((le32 (d + fskl_off + 4) >> 12) & 7) == 0;
 				if (vmajor >= 10)
 				{
@@ -3070,6 +3156,7 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 	// Dynamic node_influence accumulator -- one entry per unique bone-weight
 	// combination across all shapes. position_node[] per mesh indexes into this.
 	node_influence_t *node_inf = NULL;
+	int rigid_binds_ready = 0;
 	size_t n_node_inf = 0, cap_node_inf = 0;
 
 	for (uint si = 0; si < n_fshp && sh > 0 && (size_t)sh + 0x60 <= size; si++)
@@ -3177,7 +3264,15 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 					snprintf (ms->name, sizeof (ms->name), "%s", sname && *sname ? sname : "shape");
 				ms->material_idx = fmat_idx < out->num_materials ? (int)fmat_idx : -1;
 
-				const int has_skin = fv.bone && fv.wt && n_skin_bones > 0 && skin_bone_arr > 0;
+				// VertexSkinCount sits just before the mesh count. Rigid
+				// skinning (count 1, Mii Maker bodies) has _i0 but no _w0.
+				const uint8_t vtx_skin_count = vmajor >= 9
+					? ((size_t)sname_off + 0x53 <= size ? d[sname_off + 0x52] : 0)
+					: ((size_t)sname_off + 0x57 <= size ? d[sname_off + 0x56] : 0);
+				const int rigid_skin = !fv.wt && vtx_skin_count == 1;
+				const int has_skin = fv.bone && (fv.wt || rigid_skin) && n_skin_bones > 0 && skin_bone_arr > 0;
+				if (rigid_skin && has_skin && !rigid_binds_ready)
+					rigid_binds_ready = ComputeModelTRSBinds (out);
 
 				ms->positions = calloc (sm_count, sizeof (vec3_t));
 				ms->normals = calloc (sm_count, sizeof (vec3_t));
@@ -3311,6 +3406,9 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 						float bw[4] = { 0, 0, 0, 0 };
 						attr_read_uint8_switch (fv.bone + (size_t)vi * fv.stride_bone,
 							fv.avail_bone - (size_t)vi * fv.stride_bone, fv.fmt_bone, bi);
+						if (rigid_skin)
+							bw[0] = 1.0f;
+						else
 						{
 							float wb[4];
 							if (attr_read_switch (fv.wt + (size_t)vi * fv.stride_wt,
@@ -3332,12 +3430,18 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 						{
 							if (bw[b] <= 0.0f)
 								continue;
-							if (bi[b] >= n_skin_bones)
-								continue;
-							const size_t idx_off = (size_t)skin_bone_arr + bi[b] * 2;
-							if (idx_off + 2 > size)
-								continue;
-							const uint16_t fskl_bone = le16 (d + idx_off);
+							uint16_t fskl_bone;
+							if (rigid_skin && sw_mtx_arr && bi[b] < sw_n_mtx)
+								fskl_bone = le16 (d + (size_t)sw_mtx_arr + (size_t)bi[b] * 2);
+							else
+							{
+								if (bi[b] >= n_skin_bones)
+									continue;
+								const size_t idx_off = (size_t)skin_bone_arr + bi[b] * 2;
+								if (idx_off + 2 > size)
+									continue;
+								fskl_bone = le16 (d + idx_off);
+							}
 							if (fskl_bone >= out->num_joints)
 								continue;
 							weights[nw].bone_idx = (int)fskl_bone;
@@ -3435,6 +3539,11 @@ model_t *ParseBFRESSwitch (const uint8_t *data, size_t size)
 							ni_idx = found;
 						}
 						ms->position_node[n] = ni_idx;
+						// Rigid-skinned vertices are stored in their bone's space.
+						if (rigid_skin && nw == 1 && rigid_binds_ready)
+							bfres_bone_to_model (out, weights[0].bone_idx,
+								ms->positions ? &ms->positions[n] : NULL,
+								ms->normals ? &ms->normals[n] : NULL);
 					}
 
 					n++;
