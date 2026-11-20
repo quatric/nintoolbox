@@ -637,6 +637,7 @@
 #include "extract/lipb_sync.inc"
 #include "extract/spectrobes_hit.inc"
 #include "extract/cod_geom.inc"
+#include "extract/batman_fmsb.inc"
 #include "extract/eurocom_filelist.inc"
 #include "extract/glob_pack.inc"
 #include "extract/gaftx.inc"

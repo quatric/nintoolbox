@@ -10209,6 +10209,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "CoD geom" "mk_cod_geom.py failed"
   fi
 
+  # Batman B&B .fmsb level object tables -> JSON
+  mkdir -p "$d/fmsb_test"
+  if python3 "$PWD_PROJECT/../tests/mk_batman_fmsb.py" "$d/fmsb_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/fmsb_test/t.fmsb" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_batman_fmsb.py" check "$d/fmsb_test" >/dev/null 2>&1 \
+    && fok "Batman B&B .fmsb level object tables export model, transform and parameters (JSON)" \
+    || fno "FMSB" "failed to convert synthetic t.fmsb"
+  else
+    fno "FMSB" "mk_batman_fmsb.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
