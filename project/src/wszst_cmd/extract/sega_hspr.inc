@@ -110,7 +110,81 @@ static enumError extract_sega_hspr_file (ccp arg, ccp basedir, uint depth)
 			}
 		}
 	}
-	sumo_printf (&b, "\n\t]\n}\n");
+	sumo_printf (&b, "\n\t]");
+	// cells (engine loader FUN_803977b0, verified on am_ctron.hspr): the u32 at 0x28 is the cell count and the word at 0x2c (+0x10) the cell table; a cell is 0x40 bytes {u32, u32, u32 count C, u16 n1, u16 n2,
+	// u16 n3, u32 pointers (+0x10) to n1, n2, n3 u16 lists, to C 32 byte entries, to C 64 byte entries, to a u16[C], to two u32[C] arrays}. The contents are dumped as raw words.
+	{
+		const size_t nc = rd_le32 (c + 0x28), ct = (size_t)rd_le32 (c + 0x2c) + 0x10;
+		bool cok = nc && nc <= 4096 && ct + 0x40 * nc <= cs;
+				for (size_t i = 0; cok && i < nc; i++)
+		{
+			const u8 *r = c + ct + 0x40 * i;
+			const u32 cc = rd_le32 (r + 8);
+			const uint ln[3] = { rd_le16 (r + 0xc), rd_le16 (r + 0xe), rd_le16 (r + 0x10) };
+			const u32 pl[3] = { rd_le32 (r + 0x14), rd_le32 (r + 0x18), rd_le32 (r + 0x1c) };
+			const u32 pe = rd_le32 (r + 0x20), pf = rd_le32 (r + 0x24), pg = rd_le32 (r + 0x28), p1 = rd_le32 (r + 0x2c), p2 = rd_le32 (r + 0x30);
+			cok = cc <= 0x10000 && (!cc || ((u64)pe + 0x10 + 0x20ull * cc <= cs && (u64)pf + 0x10 + 0x40ull * cc <= cs && (u64)pg + 0x10 + 2ull * cc <= cs));
+			for (uint k = 0; cok && k < 3; k++)
+				cok = !ln[k] || ((u64)pl[k] + 0x10 + 2ull * ln[k] <= cs);
+			if (cok && cc)
+				cok = (!p1 || (u64)p1 + 0x10 + 4ull * cc <= cs) && (!p2 || (u64)p2 + 0x10 + 4ull * cc <= cs);
+			if (!cok)
+				break;
+		}
+		if (cok)
+			sumo_printf (&b, ",\n\t\"cells\": [");
+		for (size_t i = 0; cok && i < nc; i++)
+		{
+			const u8 *r = c + ct + 0x40 * i;
+			const u32 cc = rd_le32 (r + 8);
+			const uint ln[3] = { rd_le16 (r + 0xc), rd_le16 (r + 0xe), rd_le16 (r + 0x10) };
+			const u32 pl[3] = { rd_le32 (r + 0x14), rd_le32 (r + 0x18), rd_le32 (r + 0x1c) };
+			const u32 pe = rd_le32 (r + 0x20), pf = rd_le32 (r + 0x24), pg = rd_le32 (r + 0x28), p1 = rd_le32 (r + 0x2c), p2 = rd_le32 (r + 0x30);
+			cok = cc <= 0x10000 && (!cc || ((u64)pe + 0x10 + 0x20ull * cc <= cs && (u64)pf + 0x10 + 0x40ull * cc <= cs && (u64)pg + 0x10 + 2ull * cc <= cs));
+			for (uint k = 0; cok && k < 3; k++)
+				cok = !ln[k] || ((u64)pl[k] + 0x10 + 2ull * ln[k] <= cs);
+			if (cok && cc)
+				cok = (!p1 || (u64)p1 + 0x10 + 4ull * cc <= cs) && (!p2 || (u64)p2 + 0x10 + 4ull * cc <= cs);
+			sumo_printf (&b, "%s\n\t\t{\"index\": %zu, \"words\": [%u, %u, %u], \"lists\": [", i ? "," : "", i, rd_le32 (r), rd_le32 (r + 4), cc);
+			for (uint k = 0; k < 3; k++)
+			{
+				sumo_printf (&b, "%s[", k ? ", " : "");
+				for (uint q = 0; q < ln[k]; q++)
+					sumo_printf (&b, "%s%u", q ? ", " : "", rd_le16 (c + pl[k] + 0x10 + 2 * q));
+				sumo_printf (&b, "]");
+			}
+			sumo_printf (&b, "], \"entries32\": [");
+			for (u32 q = 0; q < cc; q++)
+			{
+				sumo_printf (&b, "%s[", q ? ", " : "");
+				for (uint w = 0; w < 8; w++)
+					sumo_printf (&b, "%s%u", w ? ", " : "", rd_le32 (c + pe + 0x10 + 0x20 * q + 4 * w));
+				sumo_printf (&b, "]");
+			}
+			sumo_printf (&b, "], \"entries64\": [");
+			for (u32 q = 0; q < cc; q++)
+			{
+				sumo_printf (&b, "%s[", q ? ", " : "");
+				for (uint w = 0; w < 16; w++)
+					sumo_printf (&b, "%s%u", w ? ", " : "", rd_le32 (c + pf + 0x10 + 0x40 * q + 4 * w));
+				sumo_printf (&b, "]");
+			}
+			sumo_printf (&b, "], \"u16\": [");
+			for (u32 q = 0; q < cc; q++)
+				sumo_printf (&b, "%s%u", q ? ", " : "", rd_le16 (c + pg + 0x10 + 2 * q));
+			for (uint k = 0; k < 2; k++)
+			{
+				const u32 pp = k ? p2 : p1;
+				sumo_printf (&b, "], \"u32_%c\": [", 'a' + k);
+				for (u32 q = 0; pp && q < cc; q++)
+					sumo_printf (&b, "%s%u", q ? ", " : "", rd_le32 (c + pp + 0x10 + 4 * q));
+			}
+			sumo_printf (&b, "]}");
+		}
+		if (cok)
+			sumo_printf (&b, "\n\t]");
+	}
+	sumo_printf (&b, "\n}\n");
 	FREE (c);
 	enumError err = ERR_NOTHING_TO_DO;
 	if (b.ok && b.n && b.n < 0xffffffffu)
