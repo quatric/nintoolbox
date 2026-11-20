@@ -936,7 +936,7 @@ enumError ScanPMProbe (pmprobe_t *probe, const u8 *data, size_t size)
 	{
 		probe->axis = MALLOC ((size_t)n * sizeof (*probe->axis));
 		if (!probe->axis)
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		for (i = 0; i < n; i++)
 			probe->axis[i] = le32 (data + 8 + (size_t)i * 4);
 	}
@@ -982,7 +982,7 @@ enumError EncodePMProbe (const pmprobe_t *probe, u8 **dest, size_t *dest_size)
 	total = 156 + (size_t)probe->n_axis * 4;
 	out = MALLOC (total ? total : 1);
 	if (!out)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	pm_wr32 (out, PMPROBE_MAGIC);
 	pm_wr32 (out + 4, probe->n_axis);
 	for (i = 0; i < probe->n_axis; i++)
@@ -1037,7 +1037,7 @@ enumError DecodePMProbe_JSON (FILE *out, const u8 *data, size_t size)
 	if (!sb.buf)
 	{
 		ResetPMProbe (&probe);
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	}
 	pm_sb_puts (&sb, "{\n");
 	pm_sb_puts (&sb, "  \"AxisParameters\": [");
@@ -1079,7 +1079,7 @@ enumError DecodePMProbe_JSON (FILE *out, const u8 *data, size_t size)
 	pm_sb_puts (&sb, "}\n");
 	ResetPMProbe (&probe);
 	if (!sb.buf)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	fputs (sb.buf, out ? out : stdout);
 	pm_sb_free (&sb);
 	return ERR_OK;
@@ -1449,7 +1449,7 @@ static enumError pm_parse_value (pmrender_val_t *val, const char *s, size_t n)
 	val->kind = PMR_STRING;
 	val->sval = MALLOC (n + 1);
 	if (!val->sval)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	memcpy (val->sval, s, n);
 	val->sval[n] = '\0';
 	return ERR_OK;
@@ -1480,7 +1480,7 @@ static enumError pm_parse_body (pmrender_section_t *sec, const u8 *data, size_t 
 		(void)phash;
 		key = MALLOC (hlen + 1);
 		if (!key)
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		memcpy (key, line, hlen);
 		key[hlen] = '\0';
 		// resolve key display name through the hash table
@@ -1488,7 +1488,7 @@ static enumError pm_parse_body (pmrender_section_t *sec, const u8 *data, size_t 
 		if (!np)
 		{
 			FREE (key);
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		}
 		sec->props = np;
 		np = &sec->props[sec->n_props];
@@ -1506,7 +1506,7 @@ static enumError pm_parse_body (pmrender_section_t *sec, const u8 *data, size_t 
 			if (!np->key)
 			{
 				FREE (key);
-				return ERR_NO_MEMORY;
+				return ERR_OUT_OF_MEMORY;
 			}
 			strcpy (np->key, known);
 		}
@@ -1578,7 +1578,7 @@ enumError ScanPMRender (pmrender_t *render, const u8 *data, size_t size)
 			if (!sec->name)
 			{
 				ResetPMRender (render);
-				return ERR_NO_MEMORY;
+				return ERR_OUT_OF_MEMORY;
 			}
 			strcpy (sec->name, tmp);
 		}
@@ -1722,7 +1722,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 	*dest_size = 0;
 	bodies = MALLOC (render->n_sections * sizeof (*bodies));
 	if (render->n_sections && !bodies)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	for (s = 0; s < render->n_sections; s++)
 	{
 		const pmrender_section_t *sec = &render->sections[s];
@@ -1732,7 +1732,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 			while (s)
 				pm_sb_free (&bodies[--s]);
 			FREE (bodies);
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		}
 		pm_sb_printf (&bodies[s], "%08x\n", sec->hash);
 		for (p = 0; p < sec->n_props; p++)
@@ -1746,7 +1746,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 			for (p = 0; p <= s; p++)
 				pm_sb_free (&bodies[p]);
 			FREE (bodies);
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		}
 	}
 	pm_sb_init (&out);
@@ -1755,7 +1755,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 		for (s = 0; s < render->n_sections; s++)
 			pm_sb_free (&bodies[s]);
 		FREE (bodies);
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	}
 	pm_sb_putn (&out, "\xef\xbb\xbf", 3);
 	pm_sb_printf (&out, "%08x\n", (unsigned)render->n_sections);
@@ -1768,7 +1768,7 @@ enumError EncodePMRender (const pmrender_t *render, u8 **dest, size_t *dest_size
 	}
 	FREE (bodies);
 	if (!out.buf)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	*dest = (u8 *)out.buf;
 	*dest_size = out.len;
 	return ERR_OK;
@@ -1817,7 +1817,7 @@ enumError DecodePMRender_JSON (FILE *out, const u8 *data, size_t size)
 	if (!sb.buf)
 	{
 		ResetPMRender (&render);
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	}
 	pm_sb_puts (&sb, "{\n  \"Sections\": [");
 	for (s = 0; s < render.n_sections; s++)
@@ -1839,7 +1839,7 @@ enumError DecodePMRender_JSON (FILE *out, const u8 *data, size_t size)
 	pm_sb_puts (&sb, render.n_sections ? "\n  ]\n}\n" : "]\n}\n");
 	ResetPMRender (&render);
 	if (!sb.buf)
-		return ERR_NO_MEMORY;
+		return ERR_OUT_OF_MEMORY;
 	fputs (sb.buf, out ? out : stdout);
 	pm_sb_free (&sb);
 	return ERR_OK;
@@ -1939,7 +1939,7 @@ enumError ParsePMRender_JSON (pmrender_t *render, const char *text, size_t text_
 		if (!render->sections)
 		{
 			pj_free (root);
-			return ERR_NO_MEMORY;
+			return ERR_OUT_OF_MEMORY;
 		}
 		memset (render->sections, 0, secs->n_items * sizeof (*render->sections));
 	}
@@ -1967,7 +1967,7 @@ enumError ParsePMRender_JSON (pmrender_t *render, const char *text, size_t text_
 			sec->name = MALLOC (strlen (tmp) + 1);
 			if (!sec->name)
 			{
-				err = ERR_NO_MEMORY;
+				err = ERR_OUT_OF_MEMORY;
 				goto done;
 			}
 			strcpy (sec->name, tmp);
@@ -1980,7 +1980,7 @@ enumError ParsePMRender_JSON (pmrender_t *render, const char *text, size_t text_
 			sec->props = MALLOC (jp->n_pairs * sizeof (*sec->props));
 			if (!sec->props)
 			{
-				err = ERR_NO_MEMORY;
+				err = ERR_OUT_OF_MEMORY;
 				goto done;
 			}
 			memset (sec->props, 0, jp->n_pairs * sizeof (*sec->props));
@@ -1991,7 +1991,7 @@ enumError ParsePMRender_JSON (pmrender_t *render, const char *text, size_t text_
 			prop->key = MALLOC (strlen (jp->keys[p]) + 1);
 			if (!prop->key)
 			{
-				err = ERR_NO_MEMORY;
+				err = ERR_OUT_OF_MEMORY;
 				goto done;
 			}
 			strcpy (prop->key, jp->keys[p]);

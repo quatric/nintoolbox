@@ -36,6 +36,7 @@ static enumError extract_nodamemsf_file (ccp arg, ccp basedir, uint depth)
 		for (uint i = 8; i < 0x15; i++)
 			pcr_emit (&cx, " %02x", raw[i]);
 		pcr_emit (&cx, "\n\noffset\tname\n");
+		uint cnt = 0; // declared before the record-parse block: its goto write_out jumps past the name scan
 		// full record parse
 		{
 			static const struct { u32 tag; uint size; } fixed[] = { { 2, 14 }, { 0x0a, 13 }, { 0x0b, 11 }, { 0x0c, 11 }, { 0x0f, 12 }, { 0x11, 13 },
@@ -97,7 +98,6 @@ static enumError extract_nodamemsf_file (ccp arg, ccp basedir, uint depth)
 				goto write_out;
 			}
 		}
-		uint cnt = 0;
 		for (size_t p = 0x1d; p + 3 < end;)
 		{
 			const uint L = raw[p] | raw[p + 1] << 8;

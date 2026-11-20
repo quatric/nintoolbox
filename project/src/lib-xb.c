@@ -884,6 +884,7 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 	if (xb_parse_xml (xml, xml_len, &roots, &n_roots) || !n_roots)
 		return ERR_INVALID_DATA;
 
+	xb_item_t *items = 0; // before the first goto fail, which frees it
 	xb_strtab_t tab = { 0, 0, 0, 0 };
 	bool oom = false;
 	for (size_t r = 0; r < n_roots; r++)
@@ -891,7 +892,6 @@ enumError EncodeXB (u8 **dest, uint *dest_size, const char *xml, size_t xml_len,
 	if (oom)
 		goto fail;
 
-	xb_item_t *items = 0;
 	size_t n_items = 0, cap_items = 0;
 	for (size_t r = 0; r < n_roots; r++)
 		xb_flatten (&items, &n_items, &cap_items, roots[r], 1, &oom);
