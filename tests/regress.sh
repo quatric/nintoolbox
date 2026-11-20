@@ -10057,6 +10057,17 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
     fno "Igor MKR" "mk_igor_mkr.py failed"
   fi
 
+  # Sonic Team BBINA (Sonic Colors .orc): pointer relocation stream -> JSON
+  mkdir -p "$d/sonicbbina_test"
+  if python3 "$PWD_PROJECT/../tests/mk_sonic_bbina.py" "$d/sonicbbina_test" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sonicbbina_test/t.orc" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_sonic_bbina.py" check "$d/sonicbbina_test" >/dev/null 2>&1 \
+    && fok "Sonic Team BBINA (.orc) exports words, relocated pointers and strings to JSON" \
+    || fno "Sonic BBINA" "failed to convert synthetic t.orc"
+  else
+    fno "Sonic BBINA" "mk_sonic_bbina.py failed"
+  fi
+
   # Igor: The Game .fbin/.sfbin bitmap font tables -> JSON
   mkdir -p "$d/igorfbin_test"
   if python3 "$PWD_PROJECT/../tests/mk_igor_fbin.py" "$d/igorfbin_test" >/dev/null 2>&1; then
