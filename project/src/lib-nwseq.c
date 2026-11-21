@@ -451,9 +451,9 @@ static s16 *var_ptr (player_t *pl, track_t *t, int n)
 	if (n < 16)
 		return pl->local_var + n;
 	if (n < 32)
-		return pl->global_var + n - 16;
+		return pl->global_var + (n - 16);
 	if (n < 48)
-		return t->var + n - 32;
+		return t->var + (n - 32);
 	return 0;
 }
 

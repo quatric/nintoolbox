@@ -77,7 +77,7 @@ enumError EncodeBRFNT_RGBA (
 	uint tglp_size = (0x30 + tex_size + 3) & ~3u;
 	uint cwdh_payload_size = n_chars * 3;
 	uint cwdh_size = (0x10 + cwdh_payload_size + 3) & ~3u;
-	uint cmap_size = 0x14;
+	uint cmap_size = 0x18; // header 0x14 + u32 index-offset field written below
 	uint total_size = 0x10 + 0x20 + tglp_size + cwdh_size + cmap_size;
 
 	u8 *out = CALLOC (1, total_size);

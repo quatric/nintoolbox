@@ -191,6 +191,13 @@ static uint16_t swap16 (uint16_t val)
 	return (val << 8) | (val >> 8);
 }
 
+static uint32_t read_unaligned_u32 (const void *p)
+{
+	uint32_t v;
+	memcpy (&v, p, sizeof (v));
+	return v;
+}
+
 static uint32_t swap32 (uint32_t val)
 {
 	return ((val << 24) & 0xff000000) | ((val << 8) & 0x00ff0000) | ((val >> 8) & 0x0000ff00)
@@ -478,7 +485,7 @@ static ResourceGroup *get_mdl_group (
 	const size_t field = 0x10 + index * 4;
 	if (field + 4 > size)
 		return NULL;
-	const int32_t offset = (int32_t)swap32 (*(const uint32_t *)(data + field));
+	const int32_t offset = (int32_t)swap32 (read_unaligned_u32 (data + field));
 	ResourceGroup *group = (ResourceGroup *)(data + offset);
 	return offset > 0 && in_bounds (data, size, group, sizeof (*group)) ? group : NULL;
 }
@@ -534,9 +541,9 @@ static int load_vec3_array (const uint8_t *data, size_t size, const uint8_t *nod
 {
 	if (!node || !in_bounds (data, size, node, header_size))
 		return 0;
-	const int32_t data_offset = (int32_t)swap32 (*(const uint32_t *)(node + 8));
-	const uint32_t dimensions = swap32 (*(const uint32_t *)(node + 20));
-	const uint32_t type = swap32 (*(const uint32_t *)(node + 24));
+	const int32_t data_offset = (int32_t)swap32 (read_unaligned_u32 (node + 8));
+	const uint32_t dimensions = swap32 (read_unaligned_u32 (node + 20));
+	const uint32_t type = swap32 (read_unaligned_u32 (node + 24));
 	const uint8_t divisor = node[28], stride = node[29];
 	const uint16_t num = read_be16 (node + 30);
 	const unsigned elem = component_size (type);
@@ -570,7 +577,7 @@ static int load_normal_nbt_array (const uint8_t *data, size_t size, const uint8_
 {
 	if (!node || !in_bounds (data, size, node, 0x20))
 		return 0;
-	const int32_t is_nbt = (int32_t)swap32 (*(const uint32_t *)(node + 4));
+	const int32_t is_nbt = (int32_t)swap32 (read_unaligned_u32 (node + 4));
 	if (!is_nbt)
 	{
 		// Plain normals: load as usual, no tangents.
@@ -579,8 +586,8 @@ static int load_normal_nbt_array (const uint8_t *data, size_t size, const uint8_
 		return load_vec3_array (data, size, node, 0x20, normals, num_normals);
 	}
 	// NBT mode: each vertex has 9 components (3 × vec3).
-	const int32_t data_offset = (int32_t)swap32 (*(const uint32_t *)(node + 8));
-	const uint32_t type = swap32 (*(const uint32_t *)(node + 24));
+	const int32_t data_offset = (int32_t)swap32 (read_unaligned_u32 (node + 8));
+	const uint32_t type = swap32 (read_unaligned_u32 (node + 24));
 	const uint8_t divisor = node[28], stride = node[29];
 	const uint16_t num = read_be16 (node + 30);
 	const unsigned elem = component_size (type);
@@ -625,9 +632,9 @@ static int load_vec2_array (
 {
 	if (!node || !in_bounds (data, size, node, 0x20))
 		return 0;
-	const int32_t data_offset = (int32_t)swap32 (*(const uint32_t *)(node + 8));
-	const uint32_t dimensions = swap32 (*(const uint32_t *)(node + 20));
-	const uint32_t type = swap32 (*(const uint32_t *)(node + 24));
+	const int32_t data_offset = (int32_t)swap32 (read_unaligned_u32 (node + 8));
+	const uint32_t dimensions = swap32 (read_unaligned_u32 (node + 20));
+	const uint32_t type = swap32 (read_unaligned_u32 (node + 24));
 	const uint8_t divisor = node[28], stride = node[29];
 	const uint16_t num = read_be16 (node + 30);
 	const unsigned elem = component_size (type);
@@ -655,8 +662,8 @@ static int load_color_array (
 {
 	if (!node || !in_bounds (data, size, node, 0x20))
 		return 0;
-	const int32_t data_offset = (int32_t)swap32 (*(const uint32_t *)(node + 8));
-	const uint32_t format = swap32 (*(const uint32_t *)(node + 24));
+	const int32_t data_offset = (int32_t)swap32 (read_unaligned_u32 (node + 8));
+	const uint32_t format = swap32 (read_unaligned_u32 (node + 24));
 	const uint8_t stride = node[28];
 	const uint16_t num = read_be16 (node + 30);
 	static const uint8_t format_size[] = { 2, 3, 4, 2, 3, 4 };
@@ -738,13 +745,13 @@ static const char *read_pooled_string (const uint8_t *base, size_t size, const u
 {
 	if (!in_bounds (base, size, field_ptr, 4))
 		return NULL;
-	int32_t rel = (int32_t)swap32 (*(const uint32_t *)field_ptr);
+	int32_t rel = (int32_t)swap32 (read_unaligned_u32 (field_ptr));
 	if (!rel)
 		return NULL;
 	const uint8_t *target = resolve_base + rel;
 	if (!in_bounds (base, size, target - 4, 4))
 		return NULL;
-	uint32_t len = swap32 (*(const uint32_t *)(target - 4));
+	uint32_t len = swap32 (read_unaligned_u32 (target - 4));
 	if (!len || len > 255 || !in_bounds (base, size, target, len))
 		return NULL;
 	for (uint32_t i = 0; i < len; i++)
@@ -778,8 +785,8 @@ static void read_material_textures (const uint8_t *data, size_t size, const uint
 	// material bytes: shader/user-data strings are not texture layers.
 	if (mat_len < 0x34)
 		return;
-	uint32_t count = swap32 (*(const uint32_t *)(mat_base + 0x2c));
-	int32_t refs_offset = (int32_t)swap32 (*(const uint32_t *)(mat_base + 0x30));
+	uint32_t count = swap32 (read_unaligned_u32 (mat_base + 0x2c));
+	int32_t refs_offset = (int32_t)swap32 (read_unaligned_u32 (mat_base + 0x30));
 	const unsigned max_layers = sizeof (mat->textures) / sizeof (mat->textures[0]);
 	if (refs_offset <= 0 || count > max_layers)
 		return;
@@ -798,10 +805,10 @@ static void read_material_textures (const uint8_t *data, size_t size, const uint
 		// filter 0..1) -- a misread layout would show arbitrary dwords.
 		// Without them every CLAMP or MIRROR layer was exported as the
 		// importer's default (usually REPEAT) and mapped visibly wrong.
-		const uint32_t u = swap32 (*(const uint32_t *)(ref + 0x18));
-		const uint32_t v = swap32 (*(const uint32_t *)(ref + 0x1c));
-		const uint32_t mn = swap32 (*(const uint32_t *)(ref + 0x20));
-		const uint32_t mg = swap32 (*(const uint32_t *)(ref + 0x24));
+		const uint32_t u = swap32 (read_unaligned_u32 (ref + 0x18));
+		const uint32_t v = swap32 (read_unaligned_u32 (ref + 0x1c));
+		const uint32_t mn = swap32 (read_unaligned_u32 (ref + 0x20));
+		const uint32_t mg = swap32 (read_unaligned_u32 (ref + 0x24));
 		mat->wrap_s[i] = u <= 2 ? (uint8_t)u : 1;
 		mat->wrap_t[i] = v <= 2 ? (uint8_t)v : 1;
 		mat->min_filter[i] = mn <= 5 ? (uint8_t)mn : 1;
@@ -820,7 +827,7 @@ static void read_material_textures (const uint8_t *data, size_t size, const uint
 	const size_t display_field = version >= 10 ? 0x3c : 0x38;
 	if (display_field + 4 > (size_t)mat_len)
 		return;
-	const int32_t display_offset = (int32_t)swap32 (*(const uint32_t *)(mat_base + display_field));
+	const int32_t display_offset = (int32_t)swap32 (read_unaligned_u32 (mat_base + display_field));
 	const uint8_t *xf = mat_base + display_offset + 0xe0;
 	if (display_offset <= 0 || !in_bounds (data, size, xf, 1))
 		return;
@@ -834,7 +841,7 @@ static void read_material_textures (const uint8_t *data, size_t size, const uint
 			break;
 		if (!(command & 1) && values)
 		{
-			const uint32_t info = swap32 (*(const uint32_t *)(xf + 5));
+			const uint32_t info = swap32 (read_unaligned_u32 (xf + 5));
 			const unsigned source_row = info >> 7 & 31;
 			mat->texture_coord[command / 2]
 				= source_row >= 5 && source_row <= 12 ? (int)source_row - 5 : 0;
@@ -877,7 +884,7 @@ static void read_linked_material_textures (
 		const uint8_t *links = get_group_resource (data, size, tex_group, ti - 1, 4);
 		if (!name || !links)
 			continue;
-		const uint32_t n_links = swap32 (*(const uint32_t *)links);
+		const uint32_t n_links = swap32 (read_unaligned_u32 (links));
 		if (n_links > (size - (size_t)(links - data) - 4) / 8
 			|| !in_bounds (data, size, links + 4, (size_t)n_links * 8))
 			continue;
@@ -885,7 +892,7 @@ static void read_linked_material_textures (
 		for (uint32_t li = 0; li < n_links; li++)
 		{
 			const int32_t ref_rel
-				= (int32_t)swap32 (*(const uint32_t *)(links + 8 + (size_t)li * 8));
+				= (int32_t)swap32 (read_unaligned_u32 (links + 8 + (size_t)li * 8));
 			if (ref_rel < 0)
 				continue;
 			const uint8_t *linked_ref = links + ref_rel;
@@ -900,8 +907,8 @@ static void read_linked_material_textures (
 				const uint8_t *mat = (const uint8_t *)mat_group + mat_rel;
 				if (!in_bounds (data, size, mat, 0x34))
 					continue;
-				const uint32_t count = swap32 (*(const uint32_t *)(mat + 0x2c));
-				const int32_t refs_rel = (int32_t)swap32 (*(const uint32_t *)(mat + 0x30));
+				const uint32_t count = swap32 (read_unaligned_u32 (mat + 0x2c));
+				const int32_t refs_rel = (int32_t)swap32 (read_unaligned_u32 (mat + 0x30));
 				if (refs_rel <= 0 || count > 8)
 					continue;
 				const uint8_t *refs = mat + refs_rel;
@@ -1240,9 +1247,9 @@ static void read_user_data (const uint8_t *data, size_t size, const uint8_t *ud,
 		const uint8_t *rec = (const uint8_t *)group + eoff;
 		if (eoff <= 0 || !in_bounds (data, size, rec, 0x18))
 			break;
-		const int32_t doff = (int32_t)swap32 (*(const uint32_t *)(rec + 4));
-		const uint32_t n = swap32 (*(const uint32_t *)(rec + 8));
-		const uint32_t type = swap32 (*(const uint32_t *)(rec + 12));
+		const int32_t doff = (int32_t)swap32 (read_unaligned_u32 (rec + 4));
+		const uint32_t n = swap32 (read_unaligned_u32 (rec + 8));
+		const uint32_t type = swap32 (read_unaligned_u32 (rec + 12));
 		const uint8_t *val = rec + doff;
 		if (doff < 0 || type > 2 || !in_bounds (data, size, val, 1))
 			break;
@@ -1275,7 +1282,7 @@ static void read_user_data (const uint8_t *data, size_t size, const uint8_t *ud,
 			e->count = n;
 			for (uint32_t k = 0; k < n; k++)
 			{
-				const uint32_t raw = swap32 (*(const uint32_t *)(val + k * 4));
+				const uint32_t raw = swap32 (read_unaligned_u32 (val + k * 4));
 				if (type == 0)
 					e->numbers[k] = (int32_t)raw;
 				else
@@ -1306,18 +1313,18 @@ static void read_mdl0_meta (const uint8_t *data, size_t size, uint32_t version, 
 	{
 		const uint8_t *pr = data + props_at;
 		meta->has_props = 1;
-		meta->scaling_rule = (int32_t)swap32 (*(const uint32_t *)(pr + 8));
-		meta->tex_matrix_mode = (int32_t)swap32 (*(const uint32_t *)(pr + 12));
-		meta->num_vertices = (int32_t)swap32 (*(const uint32_t *)(pr + 16));
-		meta->num_triangles = (int32_t)swap32 (*(const uint32_t *)(pr + 20));
-		meta->num_nodes = (int32_t)swap32 (*(const uint32_t *)(pr + 28));
+		meta->scaling_rule = (int32_t)swap32 (read_unaligned_u32 (pr + 8));
+		meta->tex_matrix_mode = (int32_t)swap32 (read_unaligned_u32 (pr + 12));
+		meta->num_vertices = (int32_t)swap32 (read_unaligned_u32 (pr + 16));
+		meta->num_triangles = (int32_t)swap32 (read_unaligned_u32 (pr + 20));
+		meta->num_nodes = (int32_t)swap32 (read_unaligned_u32 (pr + 28));
 		meta->need_nrm_mtx_array = pr[32];
 		meta->need_tex_mtx_array = pr[33];
 		meta->enable_extents = pr[34];
 		meta->env_mtx_mode = pr[35];
 		for (int i = 0; i < 6; i++)
 			meta->extents[i] = swapf (*(const float *)(pr + 0x28 + i * 4));
-		const int32_t orig = (int32_t)swap32 (*(const uint32_t *)(pr + 24));
+		const int32_t orig = (int32_t)swap32 (read_unaligned_u32 (pr + 24));
 		if (orig > 0)
 		{
 			const uint8_t *s = pr + orig;
@@ -1330,7 +1337,7 @@ static void read_mdl0_meta (const uint8_t *data, size_t size, uint32_t version, 
 
 	if (version >= 10 && size >= 0x48)
 	{
-		const int32_t ud = (int32_t)swap32 (*(const uint32_t *)(data + (version >= 11 ? 0x44 : 0x40)));
+		const int32_t ud = (int32_t)swap32 (read_unaligned_u32 (data + (version >= 11 ? 0x44 : 0x40)));
 		if (ud > 0)
 			read_user_data (data, size, data + ud, &meta->user_data);
 	}
@@ -1368,25 +1375,25 @@ static void read_mdl0_meta (const uint8_t *data, size_t size, uint32_t version, 
 		if (!m || !in_bounds (data, size, m, 0x40))
 			continue;
 		mdl0_material_meta_t *mm = &meta->materials[i];
-		mm->usage_flags = swap32 (*(const uint32_t *)(m + 0x10));
+		mm->usage_flags = swap32 (read_unaligned_u32 (m + 0x10));
 		mm->num_tex_gens = m[0x14];
 		mm->num_light_chans = m[0x15];
 		mm->num_tev_stages = m[0x16];
 		mm->num_ind_tex_stages = m[0x17];
-		mm->cull = (int32_t)swap32 (*(const uint32_t *)(m + 0x18));
+		mm->cull = (int32_t)swap32 (read_unaligned_u32 (m + 0x18));
 		mm->depth_test_before_texture = m[0x1c];
 		mm->light_set = (int8_t)m[0x1d];
 		mm->fog_set = (int8_t)m[0x1e];
 
 		const size_t ud_field = version >= 10 ? 0x38 : 0x34;
 		const size_t dl_field = version >= 10 ? 0x3c : 0x38;
-		const int32_t ud = (int32_t)swap32 (*(const uint32_t *)(m + ud_field));
+		const int32_t ud = (int32_t)swap32 (read_unaligned_u32 (m + ud_field));
 		if (ud > 0)
 			read_user_data (data, size, m + ud, &mm->user_data);
 
 		// MatModeBlock (0x20 bytes of BP commands): alpha function, z mode,
 		// mask, blend mode, constant alpha.
-		const int32_t dl = (int32_t)swap32 (*(const uint32_t *)(m + dl_field));
+		const int32_t dl = (int32_t)swap32 (read_unaligned_u32 (m + dl_field));
 		const uint8_t *b = m + dl;
 		if (dl > 0 && in_bounds (data, size, b, 0x19))
 		{
@@ -1577,7 +1584,7 @@ skip_bones:
 
 			if (meta_mats)
 				meta_mats[i - 1] = matBase;
-			int32_t matLen = (int32_t)swap32 (*(const uint32_t *)matBase);
+			int32_t matLen = (int32_t)swap32 (read_unaligned_u32 (matBase));
 			if (matLen < 16 || !in_bounds (data, size, matBase, (size_t)matLen))
 				matLen = 16;
 
@@ -1590,7 +1597,7 @@ skip_bones:
 			if (nm)
 				copy_pooled_string (mat->name, sizeof (mat->name), nm, nlen);
 
-			uint32_t xlu = swap32 (*(const uint32_t *)(matBase + 0x10));
+			uint32_t xlu = swap32 (read_unaligned_u32 (matBase + 0x10));
 			mat->has_alpha = (xlu != 0);
 
 			read_material_textures (data, size, matBase, matLen, version, mat);

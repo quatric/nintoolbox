@@ -37,7 +37,7 @@ static size_t jaudio_decode_afc (const u8 *d, size_t size, uint fmt, s16 *out, s
 				static const int two[4] = { 0, 1, -2, -1 };
 				code = two[(fr[1 + i / 4] >> (6 - 2 * (i & 3))) & 3];
 			}
-			int v = fmt == 0 ? (code * scale) << 11 : code * scale;
+			int v = fmt == 0 ? (code * scale) * 2048 : code * scale;
 			v = (v + c1 * h1 + c2 * h2) >> 11;
 			if (v > 32767)
 				v = 32767;

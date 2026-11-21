@@ -46,7 +46,7 @@ u32 FedForceHash (const char *name, bool case_sensitive)
 		int c = *p;
 		if (case_sensitive && c >= 65 && c <= 90)
 			c |= 0x20;
-		h = (int)((h * 33 + c) & 0xFFFFFFFF);
+		h = (int)((u32)h * 33u + (u32)c);
 	}
 	return (u32)h;
 }
@@ -1610,7 +1610,12 @@ enumError FedForceNLOCToText (u8 **dest, uint *dest_size, const fed_nloc_msg_t *
 		return EINVAL;
 	size_t total = 0;
 	for (uint i = 0; i < n; i++)
-		total += 9 + 1 + (msgs[i].text ? strlen (msgs[i].text) : 0) + 2;
+	{
+		char hex[16];
+		ccp nm = FedForceHashName (msgs[i].id, hex);
+		// "%08X %s\n%s\n\n": id, space, label, newline, text, two newlines
+		total += 8 + 1 + strlen (nm ? nm : hex) + 1 + (msgs[i].text ? strlen (msgs[i].text) : 0) + 2;
+	}
 	u8 *out = MALLOC (total + 1);
 	if (!out)
 		return ERR_CANT_CREATE;

@@ -30,7 +30,7 @@ static enumError extract_ngcbm_file (ccp arg, ccp basedir, uint depth)
 		case 0: case 14: bw = 8, bh = 8; break;           // I4, CMPR
 		case 1: case 2: bw = 8, bh = 4; break;            // I8, IA4
 		case 3: case 4: case 5: break;                    // IA8, RGB565, RGB5A3
-		case 6: break;                                    // RGBA8
+		case 6: bytes_per_block = 64; break;                 // RGBA8 (two 32-byte AR/GB halves per 4x4 block)
 		default: bw = 0;
 	}
 	if (!bw || !w || !h || w > 4096 || h > 4096 || off < 0x20 || off > raw_size)

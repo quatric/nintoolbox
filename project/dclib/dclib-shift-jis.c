@@ -7583,7 +7583,7 @@ int ScanShiftJISChar (cucp *str)
 	if (code < SJIS_TAB_MAPPING_BEG || code > SJIS_TAB_MAPPING_END)
 		return code;
 
-	const shift_jis_list_t *ptr = shift_jis_list + code - SJIS_TAB_MAPPING_BEG;
+	const shift_jis_list_t *ptr = shift_jis_list + (code - SJIS_TAB_MAPPING_BEG);
 	code = *s++;
 	if (!code)
 		return 0;
@@ -7615,7 +7615,7 @@ int ScanShiftJISCharE (cucp *str, cvp end)
 	if (code == SJIS_INVALID_CODE || s == end)
 		return -1;
 
-	const shift_jis_list_t *ptr = shift_jis_list + code - SJIS_TAB_MAPPING_BEG;
+	const shift_jis_list_t *ptr = shift_jis_list + (code - SJIS_TAB_MAPPING_BEG);
 	code = *s++;
 	*str = s;
 

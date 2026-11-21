@@ -342,7 +342,7 @@ static void rb_decode_adpcm (const rc_file_t *f, const rb_samp_t *s, int ch, s16
 			const u8 byte = rc_u8 (f, src + (i >> 1));
 			const u8 un = (i & 1) ? (byte & 15) : (byte >> 4);
 			const int8_t sn = (int8_t)(un << 4) >> 4;
-			const s16 sm = rb_clamp16 ((((sn * scale) << 11) + 1024 + (c1 * h1 + c2 * h2)) >> 11);
+			const s16 sm = rb_clamp16 ((((sn * scale) * 2048) + 1024 + (c1 * h1 + c2 * h2)) >> 11);
 			dst[di] = sm;
 			di += spacing;
 			h2 = h1;

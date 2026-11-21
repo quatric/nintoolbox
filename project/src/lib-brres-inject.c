@@ -11,6 +11,11 @@
 #include <dirent.h>
 #include <unistd.h>
 
+static void put_unaligned_u16 (void *p, uint16_t v)
+{
+	memcpy (p, &v, sizeof (v));
+}
+
 #pragma pack(push, 1)
 
 typedef struct
@@ -737,7 +742,7 @@ int InjectDAEIntoMDL0 (const uint8_t *mdl0_data, size_t mdl0_size, const model_t
 
 			uint8_t *dl = obuf + sizeof (MDL0ObjHeader);
 			dl[0] = 0x90; // GX_DRAW_TRIANGLES
-			*(uint16_t *)(dl + 1) = to_be16 ((uint16_t)num_vtx);
+			put_unaligned_u16 (dl + 1, to_be16 ((uint16_t)num_vtx));
 			uint8_t *dl_vtx = dl + 3;
 
 			// Triangles with reversed winding for GX hardware
@@ -748,16 +753,16 @@ int InjectDAEIntoMDL0 (const uint8_t *mdl0_data, size_t mdl0_size, const model_t
 				for (int v = 0; v < 3; v++)
 				{
 					const vertex_t *vtx = &match_mesh->vertices[tri_indices[v]];
-					*(uint16_t *)dl_vtx = to_be16 ((uint16_t)vtx->position_idx);
+					put_unaligned_u16 (dl_vtx, to_be16 ((uint16_t)vtx->position_idx));
 					dl_vtx += 2;
 					if (has_nrm)
 					{
-						*(uint16_t *)dl_vtx = to_be16 ((uint16_t)vtx->normal_idx);
+						put_unaligned_u16 (dl_vtx, to_be16 ((uint16_t)vtx->normal_idx));
 						dl_vtx += 2;
 					}
 					if (has_uv)
 					{
-						*(uint16_t *)dl_vtx = to_be16 ((uint16_t)vtx->texcoord_idx);
+						put_unaligned_u16 (dl_vtx, to_be16 ((uint16_t)vtx->texcoord_idx));
 						dl_vtx += 2;
 					}
 				}
@@ -1642,7 +1647,7 @@ int InjectDAEIntoBFRES (const uint8_t *bfres_data, size_t bfres_size, const mode
 	*(uint32_t *)(out + fv0 + 8) = SWP32 (vtx_count); // num_vertices
 	size_t bufs = BFRES_REL (out, fv0 + 0x18);
 	*(uint32_t *)(out + bufs + 4) = SWP32 (vtx_buf_size);
-	*(uint16_t *)(out + bufs + 0x0c) = SWP16 ((uint16_t)vtx_stride);
+	put_unaligned_u16 (out + bufs + 0x0c, SWP16 ((uint16_t)vtx_stride));
 	int32_t rel_vtx = (int32_t)(vtx_offset - (bufs + 0x14));
 	*(int32_t *)(out + bufs + 0x14) = (int32_t)SWP32 ((uint32_t)rel_vtx);
 

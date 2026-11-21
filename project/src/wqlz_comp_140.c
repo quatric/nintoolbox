@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "quicklz.h"
 
 #if QLZ_VERSION_MAJOR != 1 || QLZ_VERSION_MINOR != 4 || QLZ_VERSION_REVISION != 0
@@ -73,7 +74,11 @@ static __inline ui32 hash_func (ui32 i)
 static __inline ui32 fast_read (void const *src, ui32 bytes)
 {
 	if (bytes >= 1 && bytes <= 4)
-		return *((ui32 *)src);
+		{
+		ui32 v;
+		memcpy (&v, src, sizeof (v));
+		return v;
+	}
 	else
 		return 0;
 }
@@ -83,14 +88,17 @@ static __inline void fast_write (ui32 f, void *dst, size_t bytes)
 	switch (bytes)
 	{
 		case 4:
-			*((ui32 *)dst) = f;
+			memcpy (dst, &f, 4);
 			return;
 		case 3:
-			*((ui32 *)dst) = f;
+			memcpy (dst, &f, 4);
 			return;
 		case 2:
-			*((ui16 *)dst) = (ui16)f;
+		{
+			ui16 h = (ui16)f;
+			memcpy (dst, &h, 2);
 			return;
+		}
 		case 1:
 			*((unsigned char *)dst) = (unsigned char)f;
 			return;

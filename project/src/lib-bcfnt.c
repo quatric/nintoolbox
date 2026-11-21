@@ -36,7 +36,7 @@ enumError EncodeBCFNT_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint wid
 	uint tglp_size = (0x20 + tex_size + 3) & ~3u;
 	uint cwdh_payload_size = n_chars * 3;
 	uint cwdh_size = (0x10 + cwdh_payload_size + 3) & ~3u;
-	uint cmap_size = 0x14;
+	uint cmap_size = 0x18; // header 0x14 + u32 index-offset field written below
 	uint header_size = 0x14;
 	uint total_size = header_size + 0x20 + tglp_size + cwdh_size + cmap_size;
 

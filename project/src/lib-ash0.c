@@ -263,7 +263,7 @@ static void CxiBitWriterWrite (CxiBitWriter *stream, int bit)
 		stream->bits[stream->nWords - 1] = 0;
 	}
 
-	stream->bits[stream->nWords - 1] |= (bit << (31 - stream->nBitsInLastWord));
+	stream->bits[stream->nWords - 1] |= ((uint32_t)bit << (31 - stream->nBitsInLastWord));
 	stream->nBitsInLastWord++;
 	stream->length++;
 }

@@ -1789,7 +1789,7 @@ static av_always_inline u32 EmitBit (s32 code, s32 len, SArCDJ_HuffmanRequest *h
 	s32 shift;
 
 	shift = (s32)(*huffRequest->mHuffmanBufferRemain - len);
-	*huffRequest->mHuffmanBuffer |= (code << shift);
+	*huffRequest->mHuffmanBuffer |= ((u32)code << shift);
 	*huffRequest->mHuffmanBufferRemain -= len;
 
 	while (*huffRequest->mHuffmanBufferRemain <= 24)
@@ -1836,7 +1836,7 @@ static u32 huffmanCoder (u16 *DCTBuffer, SArCDJ_HuffmanRequest *huffRequest)
 	while (1)
 	{
 
-		dctVal = (s32)(*DCTBuffer << 16);
+		dctVal = (s32)((u32)*DCTBuffer << 16);
 		dctVal >>= 16;
 		DCTBuffer += 2;
 
@@ -1888,7 +1888,7 @@ static u32 huffmanCoder (u16 *DCTBuffer, SArCDJ_HuffmanRequest *huffRequest)
 			while (1)
 			{
 
-				dctVal = (s32)(*DCTBuffer << 16);
+				dctVal = (s32)((u32)*DCTBuffer << 16);
 				dctVal >>= 16;
 				DCTBuffer += 2;
 				if (dctVal == 0)
