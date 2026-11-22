@@ -438,7 +438,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **Havok-style HVT texture** | `.hvt` | *Aladdin Magic Racer* |
 | **International Athletics TEX** | `.TEX` | *International Athletics* |
 | **J3D BMT** | `.bmt` | GameCube / Wii |
-| **JParticle JPC (textures)** | `.jpc` | *Twilight Princess*, *Super Mario Galaxy* |
+| **JParticle JPC** (textures; list/extract/import particles with `wszst JPC`) | `.jpc` | *Twilight Princess*, *Super Mario Galaxy* |
 | **JSystem BFN** | `.bfn` | *Twilight Princess*, *Super Mario Galaxy* |
 | **Krome TEX** | `.tex` | *Star Wars: The Force Unleashed* |
 | **Kylotonn VID (video frames)** | `.vid` | *Cocoto Festival* |

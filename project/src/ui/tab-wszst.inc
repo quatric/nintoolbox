@@ -158,6 +158,17 @@
 		" to DOL file offsets, all others are file offsets and are converted"
 		" to RAM addresses." },
 
+  { T_DEF_CMD,	"JPC",		"JPC",
+		    "wszst JPC LIST file.jpc\n"
+		    "wszst JPC EXTRACT file.jpc dir\n"
+		    "wszst JPC IMPORT file.jpc out.jpc jpa-file-or-dir...",
+		"Inspect and edit JParticle containers (JPAC1-00 and JPAC2-10)."
+		" LIST prints all particles with size and textures."
+		" EXTRACT writes each particle and its textures as XXXX.jpa into a directory."
+		" IMPORT adds or replaces particles (and their textures)"
+		" from .jpa files or directories and writes the result to a new .jpc file."
+		" A 4-digit hex file name XXXX.jpa sets the particle ID." },
+
   { T_DEF_CMD,	"BRSUB",	"BRSUB",
 		    "wszst BRSUB [source]...",
 		" If no file is defined, print a table with known BRRES"
@@ -3333,6 +3344,10 @@
   //---------- COMMAND wszst DOLMAP ----------
 
   { T_CMD_BEG,	"DOLMAP",	0,0,0 },
+
+  //---------- COMMAND wszst JPC ----------
+
+  { T_CMD_BEG,	"JPC",		0,0,0 },
 
   //---------- COMMAND wszst BRSUB ----------
 
