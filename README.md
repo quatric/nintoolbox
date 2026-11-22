@@ -433,7 +433,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BNTX** | `.bntx` | Switch |
 | **BREFT** | `.breft`, `.bt-img` | Wii |
 | **BTGA / LGA** | `.btga`, `.lga` | LEGO 3DS titles |
-| **BTI / TPL** | `.bti`, `.tpl` | GameCube / Wii |
+| **BTI / TPL** (BTI header edit via `wszst BTI`; GameCube banners via `wszst BNR`) | `.bti`, `.tpl` | GameCube / Wii |
 | **GCT0** | `.BIN` | *No More Heroes* |
 | **Havok-style HVT texture** | `.hvt` | *Aladdin Magic Racer* |
 | **International Athletics TEX** | `.TEX` | *International Athletics* |

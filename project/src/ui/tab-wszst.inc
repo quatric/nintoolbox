@@ -169,6 +169,18 @@
 		" from .jpa files or directories and writes the result to a new .jpc file."
 		" A 4-digit hex file name XXXX.jpa sets the particle ID." },
 
+  { T_DEF_CMD,	"BTI",		"BTI",
+		    "wszst BTI INFO file.(bti|bmd|bdl|bmt)\n"
+		    "wszst BTI SET in out key=value... [tex=N]",
+		"Print or patch BTI texture headers of .bti files and J3D models/material tables."
+		" Keys: wrap_s, wrap_t (clamp|repeat|mirror), min_filter, mag_filter,"
+		" alpha, min_lod, max_lod, lod_bias. Image data is not re-encoded." },
+
+  { T_DEF_CMD,	"BNR",		"BNR",
+		    "wszst BNR file.bnr [out.bti]",
+		"Print the text of a GameCube banner (BNR1/BNR2)"
+		" and optionally write its 96x32 RGB5A3 image as a BTI file." },
+
   { T_DEF_CMD,	"BRSUB",	"BRSUB",
 		    "wszst BRSUB [source]...",
 		" If no file is defined, print a table with known BRRES"
@@ -3348,6 +3360,14 @@
   //---------- COMMAND wszst JPC ----------
 
   { T_CMD_BEG,	"JPC",		0,0,0 },
+
+  //---------- COMMAND wszst BTI ----------
+
+  { T_CMD_BEG,	"BTI",		0,0,0 },
+
+  //---------- COMMAND wszst BNR ----------
+
+  { T_CMD_BEG,	"BNR",		0,0,0 },
 
   //---------- COMMAND wszst BRSUB ----------
 

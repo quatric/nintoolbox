@@ -7,4 +7,5 @@
 #include "wszst_cmd/extract_all.inc"
 #include "wszst_cmd/formats.inc"
 #include "wszst_cmd/jpc_cmd.inc"
+#include "wszst_cmd/bti_cmd.inc"
 #include "wszst_cmd/main.inc"

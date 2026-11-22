@@ -969,6 +969,12 @@ static enumError CheckCommand (int argc, char **argv)
 		case CMD_BRSUB:
 			err = cmd_brsub ();
 			break;
+		case CMD_BTI:
+			err = cmd_bti ();
+			break;
+		case CMD_BNR:
+			err = cmd_bnr ();
+			break;
 		case CMD_JPC:
 			err = cmd_jpc ();
 			break;

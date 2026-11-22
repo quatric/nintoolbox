@@ -694,6 +694,10 @@ typedef enum enumOptions
 //
 //	OB_CMD_JPC		= 0,
 //
+//	OB_CMD_BTI		= 0,
+//
+//	OB_CMD_BNR		= 0,
+//
 //	OB_CMD_BRSUB		= OB_IGNORE
 //				| OB_NO_HEADER
 //				| OB_LONG,
@@ -1168,6 +1172,8 @@ typedef enum enumCommands
 	CMD_FILEATTRIB,
 	CMD_DOLMAP,
 	CMD_JPC,
+	CMD_BTI,
+	CMD_BNR,
 	CMD_BRSUB,
 	CMD_SYMBOLS,
 	CMD_FUNCTIONS,
@@ -1253,7 +1259,7 @@ typedef enum enumCommands
 
 	CMD_VEHICLE,
 
-	CMD__N // == 91
+	CMD__N // == 93
 
 } enumCommands;
 
