@@ -71,6 +71,9 @@ jobs:
       TAG: ${{ needs.gate.outputs.tag }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/download-artifact@v7
         with:
           path: dist
@@ -91,10 +94,25 @@ jobs:
           cp dist/*/*.zip . 2>/dev/null || true
           sha256sum *.tar.gz *.zip 2>/dev/null > SHA256SUMS.txt || sha256sum *.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
+      - name: Write release notes
+        run: |
+          prev=$(git tag --list 'nightly-*' --sort=-creatordate | grep -vx "$TAG" | head -n 1)
+          {
+            echo "## Full Changelog"
+            echo
+            git log --no-merges --format='- %s (`%h`)' ${prev:+"$prev"..}"$GITHUB_SHA"
+            echo
+            if [ -n "$prev" ]; then
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev}...${TAG}"
+            else
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG}"
+            fi
+          } > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
       - name: Publish pre-release
         run: |
           gh release create "$TAG" --target "$GITHUB_SHA" --prerelease \
-            --title "Nightly $TAG" --generate-notes \
+            --title "Nightly $TAG" --notes-file RELEASE_NOTES.md \
             *.tar.gz *.zip SHA256SUMS.txt
       - name: Prune old nightlies (keep 7)
         run: |
