@@ -8,4 +8,5 @@
 #include "wszst_cmd/formats.inc"
 #include "wszst_cmd/jpc_cmd.inc"
 #include "wszst_cmd/bti_cmd.inc"
+#include "wszst_cmd/mat3_cmd.inc"
 #include "wszst_cmd/main.inc"

@@ -181,6 +181,14 @@
 		"Print the text of a GameCube banner (BNR1/BNR2)"
 		" and optionally write its 96x32 RGB5A3 image as a BTI file." },
 
+  { T_DEF_CMD,	"MAT3",		"MAT3",
+		    "wszst MAT3 LIST file.(bmd|bdl|bmt)\n"
+		    "wszst MAT3 SET in out key=value... [mat=N|name]... [force]",
+		"List or edit J3D MAT3 material properties in place:"
+		" pixel_mode, cull, z_compare, depth_test/func/write, dither, alpha_comp0/ref0/op/comp1/ref1,"
+		" blend_mode/src/dst/logic, mat_color0/1, ambient0/1 and konst0..3 (RRGGBBAA hex)."
+		" Values shared with unselected materials need the keyword force." },
+
   { T_DEF_CMD,	"BRSUB",	"BRSUB",
 		    "wszst BRSUB [source]...",
 		" If no file is defined, print a table with known BRRES"
@@ -3368,6 +3376,10 @@
   //---------- COMMAND wszst BNR ----------
 
   { T_CMD_BEG,	"BNR",		0,0,0 },
+
+  //---------- COMMAND wszst MAT3 ----------
+
+  { T_CMD_BEG,	"MAT3",		0,0,0 },
 
   //---------- COMMAND wszst BRSUB ----------
 
