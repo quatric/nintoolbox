@@ -1,4 +1,4 @@
-// Valhalla Knights: Eldar Saga (Wii) "*.bxml" binary XML (header version 3, flags 0x0804), big endian:
+// Valhalla Knights: Eldar Saga (Wii) "*.bxml" binary XML, big endian. Header version 3 (flags 0x0804):
 //   u16 version 3, u16 header size (0x10, or 0x210 in the localised ITEMPARAM / LAYOUT / QUEST files), u16 flags 0x0804,
 //   u16 element count N, u16 attribute entry count M, u16 0, u16 0, u16 string pool size, then
 //   N element records {u16 first child, u16 child count, u16 first attribute entry, u16 attribute count} (8 bytes),
@@ -9,15 +9,18 @@
 // attributes (a value offset of 0xffff means an empty value). The file size is exactly 16 + 8 * N + 4 * M + pool size. Written as "<file>.xml"; strings are
 // Shift-JIS in some files (names such as the doorway labels), so the XML declares Shift_JIS when the pool is not valid UTF-8 and the bytes are copied as they are. Text that is an
 // XML comment ("<!--...-->", kept as the text of the next element by the original tool) is written back as a comment.
-// The sibling header versions (2: 12 byte records, 1: 16 byte records with 32 bit attribute entries, flags 0x0808 in
-// enparam.bxml) are not handled.
+// Header versions 2 (flags 0x0c04) and 1 (flags 0x1008) keep the name and text in the element record instead of an attribute
+// entry: version 2 has 12 byte records {u16 first child, child count, first attribute, attribute count, name offset, text
+// offset (0xffff = none)}, version 1 has 16 byte records {the same four u16, u32 name offset, u32 text offset (0xffffffff =
+// none)} and 8 byte attribute entries {u32 name offset, u32 value offset}; their attributes are entries first .. first + count - 1.
+// Flags 0x0808 (enparam.bxml) are not handled.
 typedef struct
 {
 	const u8 *pool;
 	uint psz;
 	const u8 *nd;
 	const u8 *at;
-	uint n, m;
+	uint n, m, ver;
 	pcr_ctx_t *cx;
 	u8 *seen;
 	bool ok;
@@ -25,7 +28,7 @@ typedef struct
 
 static ccp vkbx_str (vkbx_t *v, uint off)
 {
-	if (off == 0xffff) // attribute without a value
+	if (off == 0xffff || off == 0xffffffff) // no value
 		return "";
 	if (off >= v->psz || !memchr (v->pool + off, 0, v->psz - off))
 	{
@@ -61,27 +64,38 @@ static void vkbx_node (vkbx_t *v, uint i, uint depth)
 		return;
 	}
 	v->seen[i] = 1;
-	const u8 *r = v->nd + (size_t)i * 8;
+	const uint nsz = v->ver == 3 ? 8 : v->ver == 2 ? 12 : 16, asz = v->ver == 1 ? 8 : 4, one = v->ver == 3;
+	const u8 *r = v->nd + (size_t)i * nsz;
 	const uint first = rd_be16 (r), cnt = rd_be16 (r + 2), as = rd_be16 (r + 4), ac = rd_be16 (r + 6);
-	if ((u64)first + cnt > v->n || (u64)as + 1 + ac > v->m)
+	if ((u64)first + cnt > v->n || (u64)as + one + ac > v->m)
 	{
 		v->ok = false;
 		return;
 	}
-	const u8 *e = v->at + (size_t)as * 4;
-	ccp name = vkbx_str (v, rd_be16 (e));
-	const uint tv = rd_be16 (e + 2);
+	uint no, tv;
+	if (v->ver == 3)
+	{
+		const u8 *e = v->at + (size_t)as * 4;
+		no = rd_be16 (e);
+		tv = rd_be16 (e + 2);
+	}
+	else
+	{
+		no = v->ver == 2 ? rd_be16 (r + 8) : rd_be32 (r + 8);
+		tv = v->ver == 2 ? rd_be16 (r + 10) : rd_be32 (r + 12);
+	}
+	ccp name = vkbx_str (v, no);
 	for (uint k = 0; k < depth; k++)
 		pcr_emit (v->cx, "\t");
 	pcr_emit (v->cx, "<%s", name);
-	for (uint k = 1; k <= ac; k++)
+	for (uint k = one; k < one + ac; k++)
 	{
-		const u8 *a = v->at + (size_t)(as + k) * 4;
-		pcr_emit (v->cx, " %s=\"", vkbx_str (v, rd_be16 (a)));
-		vkbx_text (v, vkbx_str (v, rd_be16 (a + 2)), true);
+		const u8 *a = v->at + (size_t)(as + k) * asz;
+		pcr_emit (v->cx, " %s=\"", vkbx_str (v, v->ver == 1 ? rd_be32 (a) : rd_be16 (a)));
+		vkbx_text (v, vkbx_str (v, v->ver == 1 ? rd_be32 (a + 4) : rd_be16 (a + 2)), true);
 		pcr_emit (v->cx, "\"");
 	}
-	ccp text = tv != 0xffff ? vkbx_str (v, tv) : "";
+	ccp text = vkbx_str (v, tv);
 	while (*text == ' ' || *text == '\t' || *text == '\r' || *text == '\n')
 		text++;
 	if (!cnt && !*text)
@@ -153,8 +167,11 @@ static enumError extract_valhalla_bxml_file (ccp arg, ccp basedir, uint depth)
 		FREE (raw);
 		raw = cp;
 	}
-	if (sz < 0x10 || rd_be16 (raw) != 3 || (rd_be16 (raw + 2) != 0x10 && rd_be16 (raw + 2) != 0x210) || rd_be16 (raw + 4) != 0x804
-		|| rd_be16 (raw + 10) || rd_be16 (raw + 12))
+	const uint ver = sz >= 0x10 ? rd_be16 (raw) : 0, hs = sz >= 0x10 ? rd_be16 (raw + 2) : 0, fl = sz >= 0x10 ? rd_be16 (raw + 4) : 0;
+	if (!(ver == 3 && (hs == 0x10 || hs == 0x210) && fl == 0x804) && !(ver == 2 && hs == 0x10 && fl == 0xc04)
+		&& !(ver == 1 && hs == 0x10 && fl == 0x1008))
+		goto done;
+	if (rd_be16 (raw + 10) || rd_be16 (raw + 12))
 		goto done;
 	{
 		vkbx_t v;
@@ -162,12 +179,14 @@ static enumError extract_valhalla_bxml_file (ccp arg, ccp basedir, uint depth)
 		v.n = rd_be16 (raw + 6);
 		v.m = rd_be16 (raw + 8);
 		v.psz = rd_be16 (raw + 14);
+		v.ver = ver;
+		const uint nsz = ver == 3 ? 8 : ver == 2 ? 12 : 16, asz = ver == 1 ? 8 : 4;
 		const uint psz_file = v.psz;
-		if (!v.n || (u64)16 + (u64)v.n * 8 + (u64)v.m * 4 + psz_file != sz)
+		if (!v.n || (u64)16 + (u64)v.n * nsz + (u64)v.m * asz + psz_file != sz)
 			goto done;
 		v.nd = raw + 16;
-		v.at = v.nd + (size_t)v.n * 8;
-		v.pool = v.at + (size_t)v.m * 4;
+		v.at = v.nd + (size_t)v.n * nsz;
+		v.pool = v.at + (size_t)v.m * asz;
 		v.psz = psz_file + 1; // includes the spare NUL behind the file
 		v.ok = true;
 		v.seen = CALLOC (v.n, 1);
