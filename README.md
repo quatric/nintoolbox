@@ -850,5 +850,7 @@ When extracting or repacking game trees with `wszst xx` / `wszst create`, unsupp
 
 ## License & Credits
 
-Based on **Wiimms SZS Tools** by Dirk Clemens (*Wiimm*), licensed under GPL v2 (`project/gpl-2.0.txt`). See [CREDITS.md](CREDITS.md) for attributions.
+This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version. See the [LICENSE](LICENSE) file (also `project/gpl-2.0.txt`) or <http://www.gnu.org/licenses/gpl-2.0.txt> for details.
+
+Based on **Wiimms SZS Tools** by Dirk Clemens (*Wiimm*), licensed under GPL v2. See [CREDITS.md](CREDITS.md) for attributions.
 
