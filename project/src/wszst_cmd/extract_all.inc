@@ -712,6 +712,7 @@
 #include "extract/zzz.inc"
 #include "extract/valhalla_bxml.inc"
 #include "extract/bls_bxml.inc"
+#include "extract/vxla.inc"
 #include "extract/mcttext.inc"
 #include "extract/hbmpack.inc"
 #include "extract/sgcaudio.inc"
