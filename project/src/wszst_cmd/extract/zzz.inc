@@ -4,7 +4,9 @@
 // ending exactly at the end of the file. The class hashes repeat heavily (shader / material parameter blocks,
 // texture and vertex data); the header words behind the class hash and the payloads are not decoded.
 // Every chunk is written whole (header included, so the files can be concatenated back to the original) as
-// "<index>.<class hash>.bin" and the members are not recursed into.
+// "<index>.<class hash>.bin" and the members are not recursed into. Two classes carry a known file and are written as the payload
+// only: 544872c7 = DDS texture or Scaleform GFX movie ("<index>.544872c7.dds" / ".gfx", when it starts with "DDS " / "GFX") and 0e819532 = Wwise sound bank
+// ("<index>.0e819532.bnk", when it starts with "BKHD"); run "wszst xx" on the folder to unpack those further.
 static enumError extract_zzz_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -43,10 +45,18 @@ static enumError extract_zzz_file (ccp arg, ccp basedir, uint depth)
 		good = false;
 	for (u64 p = 0; good && p < sz && cnt < n;)
 	{
-		const u32 len = ZZZ_HDR + rd_be32 (raw + p + 8);
+		const u32 len = ZZZ_HDR + rd_be32 (raw + p + 8), cls = rd_be32 (raw + p + 12);
+		ccp ext = "bin";
+		u32 skip = 0; // payload only for the classes whose payload is a known file
+		if (cls == 0x544872c7 && len >= ZZZ_HDR + 4 && !memcmp (raw + p + ZZZ_HDR, "DDS ", 4))
+			ext = "dds", skip = ZZZ_HDR;
+		else if (cls == 0x544872c7 && len >= ZZZ_HDR + 4 && !memcmp (raw + p + ZZZ_HDR, "GFX", 3))
+			ext = "gfx", skip = ZZZ_HDR;
+		else if (cls == 0x0e819532 && len >= ZZZ_HDR + 4 && !memcmp (raw + p + ZZZ_HDR, "BKHD", 4))
+			ext = "bnk", skip = ZZZ_HDR;
 		char name[0x40];
-		snprintf (name, sizeof (name), "%04u.%08x.bin", cnt, rd_be32 (raw + p + 12));
-		good = OwnedEntryAdd (entries, cnt, name, raw + p, len);
+		snprintf (name, sizeof (name), "%04u.%08x.%s", cnt, cls, ext);
+		good = OwnedEntryAdd (entries, cnt, name, raw + p + skip, len - skip);
 		if (good)
 			cnt++;
 		p += len;
