@@ -969,6 +969,9 @@ static enumError CheckCommand (int argc, char **argv)
 		case CMD_BRSUB:
 			err = cmd_brsub ();
 			break;
+		case CMD_DOLMAP:
+			err = cmd_dolmap ();
+			break;
 
 		case CMD_SYMBOLS:
 			err = DumpSymbols (SetupParserVars ());

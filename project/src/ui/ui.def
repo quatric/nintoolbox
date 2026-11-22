@@ -97,6 +97,14 @@
 	" printed keywords (like 'ARCHIVE' or 'EXTRACT'). All tools know the" \
 	" FILEATTRIB command." )
 
+#:def_cmd( "DOLMAP", "DOLMAP|DM", \
+	"wszst DOLMAP file.dol [value]...", \
+	"Print the text and data sections of a DOL executable (file offset," \
+	" RAM address and size). Each additional @value@ is a hexadecimal" \
+	" number. Values from 0x80000000 on are RAM addresses and are" \
+	" converted to DOL file offsets, all others are file offsets and are" \
+	" converted to RAM addresses." )
+
 #:def_cmd( "BRSUB", "BRSUB", \
 	"wszst BRSUB [source]...", \
 	" If no file is defined, print a table with known BRRES sub files" \

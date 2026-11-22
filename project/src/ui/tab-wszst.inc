@@ -149,6 +149,15 @@
 		" or one of the printed keywords (like 'ARCHIVE' or 'EXTRACT')."
 		" All tools know the FILEATTRIB command." },
 
+  { T_DEF_CMD,	"DOLMAP",	"DOLMAP|DM",
+		    "wszst DOLMAP file.dol [value]...",
+		"Print the text and data sections of a DOL executable"
+		" (file offset, RAM address and size)."
+		" Each additional @value@ is a hexadecimal number."
+		" Values from 0x80000000 on are RAM addresses and are converted"
+		" to DOL file offsets, all others are file offsets and are converted"
+		" to RAM addresses." },
+
   { T_DEF_CMD,	"BRSUB",	"BRSUB",
 		    "wszst BRSUB [source]...",
 		" If no file is defined, print a table with known BRRES"
@@ -3320,6 +3329,10 @@
   { T_CMD_BEG,	"FILEATTRIB",	0,0,0 },
 
   { T_COPT,	"NO_HEADER",	0,0,0 },
+
+  //---------- COMMAND wszst DOLMAP ----------
+
+  { T_CMD_BEG,	"DOLMAP",	0,0,0 },
 
   //---------- COMMAND wszst BRSUB ----------
 

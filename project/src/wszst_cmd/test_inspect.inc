@@ -2063,6 +2063,101 @@ static enumError cmd_sha1 ()
 
 //
 ///////////////////////////////////////////////////////////////////////////////
+///////////////			command dolmap			///////////////
+///////////////////////////////////////////////////////////////////////////////
+// DOL section map and offset <-> RAM address conversion (as in GCFT's DOL tab)
+
+#define DOLMAP_N_TEXT 7
+#define DOLMAP_N_SECT 18
+
+static u32 dolmap_be32 (const u8 *p)
+{
+	return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
+}
+
+static enumError cmd_dolmap ()
+{
+	if (!first_param)
+	{
+		ERROR0 (ERR_MISSING_PARAM, "Missing DOL file name!\n");
+		return ERR_MISSING_PARAM;
+	}
+
+	ccp path = first_param->arg;
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return ERROR1 (ERR_CANT_OPEN, "Can't open file: %s\n", path);
+	u8 hdr[0x100];
+	const size_t hlen = fread (hdr, 1, sizeof (hdr), f);
+	fseek (f, 0, SEEK_END);
+	const long fsize = ftell (f);
+	fclose (f);
+	if (hlen < sizeof (hdr))
+		return ERROR1 (ERR_INVALID_DATA, "File too small for a DOL header: %s\n", path);
+
+	u32 off[DOLMAP_N_SECT], addr[DOLMAP_N_SECT], size[DOLMAP_N_SECT];
+	for (int i = 0; i < DOLMAP_N_SECT; i++)
+	{
+		off[i] = dolmap_be32 (hdr + i * 4);
+		addr[i] = dolmap_be32 (hdr + 0x48 + i * 4);
+		size[i] = dolmap_be32 (hdr + 0x90 + i * 4);
+		if (size[i] && (u64)off[i] + size[i] > (u64)fsize)
+			return ERROR1 (ERR_INVALID_DATA, "Not a valid DOL (section %d exceeds file): %s\n",
+				i, path);
+	}
+
+	printf ("\n%-8s %-10s %-10s %-10s\n%.40s\n", "section", "offset", "address", "size",
+		"----------------------------------------");
+	for (int i = 0; i < DOLMAP_N_SECT; i++)
+	{
+		if (!off[i] && !addr[i] && !size[i])
+			continue;
+		if (i < DOLMAP_N_TEXT)
+			printf (".text%-2d  ", i);
+		else
+			printf (".data%-2d  ", i - DOLMAP_N_TEXT);
+		printf ("0x%06x   0x%08x 0x%06x\n", off[i], addr[i], size[i]);
+	}
+	printf ("\nbss:   address 0x%08x, size 0x%06x\nentry: 0x%08x\n", dolmap_be32 (hdr + 0xd8),
+		dolmap_be32 (hdr + 0xdc), dolmap_be32 (hdr + 0xe0));
+
+	enumError max_err = ERR_OK;
+	for (ParamList_t *par = first_param->next; par; par = par->next)
+	{
+		char *end;
+		const u64 val = strtoull (par->arg, &end, 16);
+		if (!*par->arg || *end || val > 0xffffffffull)
+		{
+			ERROR0 (ERR_SYNTAX, "Not a valid 32-bit hexadecimal number: %s\n", par->arg);
+			max_err = ERR_SYNTAX;
+			continue;
+		}
+		const bool is_addr = val >= 0x80000000ull;
+		int hit = -1;
+		for (int i = 0; i < DOLMAP_N_SECT && hit < 0; i++)
+		{
+			if (!size[i])
+				continue;
+			const u32 base = is_addr ? addr[i] : off[i];
+			if (val >= base && val - base < size[i])
+				hit = i;
+		}
+		if (hit < 0)
+			printf ("%s 0x%08x: %s\n", is_addr ? "address" : "offset ", (u32)val,
+				is_addr ? "not loaded from any DOL section"
+						: "not in any DOL section (not loaded to RAM)");
+		else if (is_addr)
+			printf ("address 0x%08x -> offset  0x%06x (section %d)\n", (u32)val,
+				(u32)(val - addr[hit] + off[hit]), hit);
+		else
+			printf ("offset  0x%06x -> address 0x%08x (section %d)\n", (u32)val,
+				(u32)(val - off[hit] + addr[hit]), hit);
+	}
+	return max_err;
+}
+
+//
+///////////////////////////////////////////////////////////////////////////////
 ///////////////			command analyze			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
