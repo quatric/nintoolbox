@@ -8905,9 +8905,10 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	" or replaces particles (and their textures) from .jpa files or"
 	" directories and writes the result to a new .jpc file. A 4-digit hex"
 	" file name XXXX.jpa sets the particle ID. SHOW prints emitter and"
-	" base-shape properties, SET edits them (rate, life_time, volume_type,"
-	" blend_*, prm_color, ... see SHOW for all keys) and DELETE removes"
-	" particles (their textures are kept).",
+	" base-shape properties, SET edits them (emitter, base shape, extra"
+	" shape, child_* shape, etx_* extra texture, prm_keyN_time/color,"
+	" env_keyN_*, tex_keyN animation keys; see SHOW for all keys) and"
+	" DELETE removes particles (their textures are kept).",
 	0,
 	0,
 	option_tab_cmd_JPC,
@@ -8953,13 +8954,17 @@ static const InfoCommand_t CommandInfo[CMD__N+1] =
 	false,
 	"MAT3",
 	0,
-	"wszst MAT3 LIST file.(bmd|bdl|bmt)\n"
+	"wszst MAT3 LIST file.(bmd|bdl|bmt) [prefix|all]...\n"
 	"wszst MAT3 SET in out key=value... [mat=N|name]... [force]",
-	"List or edit J3D MAT3 material properties in place: pixel_mode, cull,"
-	" z_compare, depth_test/func/write, dither,"
-	" alpha_comp0/ref0/op/comp1/ref1, blend_mode/src/dst/logic,"
-	" mat_color0/1, ambient0/1, konst0..3 (RRGGBBAA hex), num_color_chans,"
-	" num_tex_gens, num_tev_stages and tex0..7 (TEX1 texture index)."
+	"List or edit J3D MAT3 material properties in place. LIST shows the"
+	" basic keys, 'all' every key that is set, a prefix filters. Keys:"
+	" pixel_mode, cull, z_compare, depth_*, dither, alpha_*, blend_*,"
+	" mat_color0/1, ambient0/1, konst0..3 (RRGGBBAA hex),"
+	" num_color_chans/tex_gens/tev_stages, tex0..7, tevN_* (TEV stages),"
+	" orderN_*, tevcolorN_*, swapN_*, swaptabN_*, konstselN, konstaselN,"
+	" texgenN_*, posttexgenN_*, texmtxN_*, posttexmtxN_* (rotation in"
+	" degrees), chanN_*, lightN, fog_*, fograngeN, nbt_* and the indirect"
+	" block ind_*, indorderN_*, indmtxN_*, indscaleN_*, indstageN_*."
 	" Values shared with unselected materials need the keyword force.",
 	0,
 	0,

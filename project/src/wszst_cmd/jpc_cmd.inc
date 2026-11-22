@@ -432,6 +432,7 @@ typedef struct jf_t
 	u8 kind, w, shift, nbits; // container width in bytes, bit range (nbits 0 = whole container)
 	bool sgn;
 	ccp const *en; // enum names indexed by value, NULL-terminated
+	bool req_scroll; // 2-10 only: needs BSP1 enable_tex_scroll_anim
 } jf_t;
 
 static ccp const jn_vol[] = { "cube", "sphere", "cylinder", "torus", "point", "circle", "line", 0 };
@@ -446,7 +447,7 @@ static ccp const jn_bool[] = { "false", "true", 0 };
 
 static const jf_t *jpc_fields (uint *n)
 {
-	static jf_t t[96];
+	static jf_t t[400];
 	static uint c;
 	if (!c)
 	{
@@ -499,8 +500,114 @@ static const jf_t *jpc_fields (uint *n)
 		J ("texture_index", "BSP1", 0x26, 0x20, JK_INT, 1, 0, 0, 0, 0);
 		J ("prm_color", "BSP1", 0x2c, 0x26, JK_COLOR, 4, 0, 0, 0, 0);
 		J ("env_color", "BSP1", 0x30, 0x2a, JK_COLOR, 4, 0, 0, 0, 0);
+
+#define JR(k, ch, a, b, kd, w, sh, nb, sg, en) t[c++] = (jf_t){ k, ch, a, b, kd, w, sh, nb, sg, en, 1 }
+#define JB(k, a, b, sh, nb, en) J (k, "BSP1", a, b, JK_INT, 4, sh, nb, 0, en)
+#define JE(k, a, b, sh, nb, en) J (k, "ESP1", a, b, JK_INT, 4, sh, nb, 0, en)
+#define JS(k, a, b, sh, nb, en) J (k, "SSP1", a, b, JK_INT, 4, sh, nb, 0, en)
+#define JEF(k, a, b) J (k, "ESP1", a, b, JK_FLOAT, 4, 0, 0, 0, 0)
+#define JSF(k, a, b) J (k, "SSP1", a, b, JK_FLOAT, 4, 0, 0, 0, 0)
+		// BSP1: more flags (u32 @0xc / @8)
+		JB ("enable_global_color_anim", 0xc, 8, 12, 1, jn_bool); JB ("enable_global_tex_anim", 0xc, 8, 14, 1, jn_bool);
+		JB ("color_in_args", 0xc, 8, 15, 3, 0); JB ("alpha_in_args", 0xc, 8, 18, 1, 0);
+		JB ("enable_projection", 0xc, 8, 20, 1, jn_bool); JB ("draw_in_reverse_order", 0xc, 8, 21, 1, jn_bool);
+		JB ("draw_child_first", 0xc, 8, 22, 1, jn_bool); JB ("enable_clip", 0xc, 8, 23, 1, jn_bool);
+		JB ("enable_tex_scroll_anim", 0xc, 8, 24, 1, jn_bool);
+		JB ("color_anim_loop_offset", 0xc, 0, 11, 1, jn_bool); JB ("tex_index_anim_loop_offset", 0xc, 0, 13, 1, jn_bool);
+		JB ("enable_anim_tone", 0xc, 0, 19, 1, jn_bool);
+		JB ("tiling_x", 0, 8, 25, 1, 0); JB ("tiling_y", 0, 8, 26, 1, 0); JB ("no_draw_parent", 0, 8, 27, 1, jn_bool);
+		JB ("no_draw_child", 0, 8, 28, 1, jn_bool);
+		J ("loop_offset", "BSP1", 0x1c, 0, JK_INT, 2, 0, 0, 1, 0);
+		J ("blend_alpha_update", "BSP1", 0x1e, 0x18, JK_INT, 2, 14, 1, 0, jn_bool);
+		J ("texture_enable_index_anim", "BSP1", 0x24, 0x1e, JK_INT, 1, 0, 1, 0, jn_bool);
+		J ("texture_exists", "BSP1", 0x24, 0x1e, JK_INT, 1, 1, 1, 0, jn_bool);
+		J ("texture_anim_type", "BSP1", 0x24, 0x1e, JK_INT, 1, 2, 3, 0, 0);
+		J ("color_flags", "BSP1", 0x27, 0x21, JK_INT, 1, 0, 0, 0, 0);
+		J ("color_reg_anim_max_frame", "BSP1", 0x2a, 0x24, JK_INT, 2, 0, 0, 1, 0);
+		J ("anim_random", "BSP1", 0, 0x2e, JK_INT, 1, 0, 0, 0, 0);
+		J ("color_anim_random_mask", "BSP1", 0, 0x2f, JK_INT, 1, 0, 0, 0, 0);
+		J ("texture_anim_random_mask", "BSP1", 0, 0x30, JK_INT, 1, 0, 0, 0, 0);
+		// BSP1 texture scroll: 1-00 has fixed fields, 2-10 only when enable_tex_scroll_anim is set
+#define JBF(k, a, b, req) (req ? (void)(t[c++] = (jf_t){ k, "BSP1", a, b, JK_FLOAT, 4, 0, 0, 0, 0, 1 }) : (void)(t[c++] = (jf_t){ k, "BSP1", a, b, JK_FLOAT, 4, 0, 0, 0, 0, 0 }))
+		JBF ("tex_tiling_x", 0x34, 0, 0); JBF ("tex_tiling_y", 0x38, 0, 0);
+		JBF ("tex_init_trans_x", 0x3c, 0, 0); JBF ("tex_init_trans_y", 0x40, 0, 0);
+		JBF ("tex_init_scale_x", 0x44, 0, 0); JBF ("tex_init_scale_y", 0x48, 0, 0);
+		JBF ("tex_inc_trans_x", 0x4c, 0, 0); JBF ("tex_inc_trans_y", 0x50, 0, 0);
+		JBF ("tex_inc_scale_x", 0x54, 0, 0); JBF ("tex_inc_scale_y", 0x58, 0, 0);
+		JBF ("tex_inc_rotate", 0x5c, 0, 0);
+		JBF ("tex_init_trans_x", 0, 0x34, 1); JBF ("tex_init_trans_y", 0, 0x38, 1);
+		JBF ("tex_init_scale_x", 0, 0x3c, 1); JBF ("tex_init_scale_y", 0, 0x40, 1);
+		JBF ("tex_init_rotate", 0, 0x44, 1);
+		JBF ("tex_inc_trans_x", 0, 0x48, 1); JBF ("tex_inc_trans_y", 0, 0x4c, 1);
+		JBF ("tex_inc_scale_x", 0, 0x50, 1); JBF ("tex_inc_scale_y", 0, 0x54, 1);
+		JBF ("tex_inc_rotate", 0, 0x58, 1);
+#undef JBF
+		// ESP1 (extra shape)
+		JE ("enable_alpha", 0xc, 0, 0, 1, jn_bool); JE ("enable_sin_wave", 0xc, 0, 1, 1, jn_bool);
+		JE ("alpha_wave_type", 0xc, 0, 2, 2, 0);
+		JE ("enable_scale", 0xc, 0, 8, 1, jn_bool); JE ("diff_xy", 0xc, 0, 9, 1, jn_bool);
+		JE ("enable_scale_anim_y", 0xc, 0, 10, 1, jn_bool); JE ("enable_scale_anim_x", 0xc, 0, 11, 1, jn_bool);
+		JE ("enable_scale_by_speed_y", 0xc, 0, 12, 1, jn_bool); JE ("enable_scale_by_speed_x", 0xc, 0, 13, 1, jn_bool);
+		JE ("pivot_x", 0xc, 0, 14, 2, 0); JE ("pivot_y", 0xc, 0, 16, 2, 0);
+		JE ("scale_anim_type_x", 0xc, 0, 18, 1, 0); JE ("scale_anim_type_y", 0xc, 0, 19, 1, 0);
+		JE ("enable_rotate", 0xc, 8, 24, 1, jn_bool);
+		// the same flags with the 2-10 bit layout
+		JE ("enable_scale", 0, 8, 0, 1, jn_bool); JE ("diff_xy", 0, 8, 1, 1, jn_bool);
+		JE ("scale_anim_type_x", 0, 8, 8, 2, 0); JE ("scale_anim_type_y", 0, 8, 10, 2, 0);
+		JE ("pivot_x", 0, 8, 12, 2, 0); JE ("pivot_y", 0, 8, 14, 2, 0);
+		JE ("enable_alpha", 0, 8, 16, 1, jn_bool); JE ("enable_sin_wave", 0, 8, 17, 1, jn_bool);
+		JEF ("alpha_in_timing", 0x14, 0x2c); JEF ("alpha_out_timing", 0x18, 0x30); JEF ("alpha_in_value", 0x1c, 0x34);
+		JEF ("alpha_base_value", 0x20, 0x38); JEF ("alpha_out_value", 0x24, 0x3c);
+		JEF ("alpha_wave_param1", 0x28, 0); JEF ("alpha_wave_param2", 0x2c, 0); JEF ("alpha_wave_param3", 0x30, 0);
+		JEF ("alpha_wave_random", 0x34, 0);
+		JEF ("alpha_wave_frequency", 0, 0x40); JEF ("alpha_wave_freq_random", 0, 0x44); JEF ("alpha_wave_amplitude", 0, 0x48);
+		JEF ("scale_in_timing", 0x38, 0xc); JEF ("scale_out_timing", 0x3c, 0x10);
+		JEF ("scale_in_x", 0x40, 0x14); JEF ("scale_out_x", 0x44, 0x18);
+		JEF ("scale_in_y", 0x48, 0x1c); JEF ("scale_out_y", 0x4c, 0x20); JEF ("scale_random", 0x50, 0x24);
+		J ("anm_cycle_x", "ESP1", 0x54, 0x28, JK_INT, 2, 0, 0, 1, 0);
+		J ("anm_cycle_y", "ESP1", 0x56, 0x2a, JK_INT, 2, 0, 0, 1, 0);
+		JEF ("rotate_angle", 0x58, 0x4c); JEF ("rotate_speed", 0x5c, 0x54); JEF ("rotate_angle_random", 0x60, 0x50);
+		JEF ("rotate_speed_random", 0x64, 0x58); JEF ("rotate_direction", 0x68, 0x5c);
+		// SSP1 (sweep shape in 1-00, child shape in 2-10): keys prefixed child_
+		JS ("child_shape_type", 0xc, 8, 0, 4, jn_shape); JS ("child_dir_type", 0xc, 8, 4, 3, 0);
+		JS ("child_rot_type", 0xc, 8, 7, 3, 0); JS ("child_base_plane_type", 0xc, 8, 10, 1, 0);
+		JS ("child_enable_inherit_scale", 0xc, 8, 16, 1, jn_bool); JS ("child_enable_inherit_alpha", 0xc, 8, 17, 1, jn_bool);
+		JS ("child_enable_inherit_rgb", 0xc, 8, 18, 1, jn_bool);
+		JS ("child_draw_parent", 0xc, 0, 19, 1, jn_bool); JS ("child_enable_clip", 0xc, 0, 20, 1, jn_bool);
+		JS ("child_enable_field", 0xc, 8, 21, 1, jn_bool); JS ("child_enable_scale_out", 0xc, 8, 22, 1, jn_bool);
+		JS ("child_enable_alpha_out", 0xc, 8, 23, 1, jn_bool); JS ("child_enable_rotate", 0xc, 8, 24, 1, jn_bool);
+		JSF ("child_position_random", 0x10, 0xc); JSF ("child_base_velocity", 0x14, 0x10);
+		JSF ("child_base_velocity_random", 0x18, 0x14); JSF ("child_velocity_inf_rate", 0x1c, 0x18);
+		JSF ("child_gravity", 0x20, 0x1c); JSF ("child_timing", 0x24, 0x3c);
+		J ("child_lifetime", "SSP1", 0x28, 0x40, JK_INT, 2, 0, 0, 1, 0);
+		J ("child_rate", "SSP1", 0x2a, 0x42, JK_INT, 2, 0, 0, 1, 0);
+		J ("child_step", "SSP1", 0x2c, 0x44, JK_INT, 1, 0, 0, 0, 0);
+		JSF ("child_scale_x", 0x30, 0x20); JSF ("child_scale_y", 0x34, 0x24);
+		JSF ("child_rotate_speed", 0x38, 0);
+		J ("child_rotate_speed", "SSP1", 0, 0x46, JK_INT, 2, 0, 0, 1, 0);
+		JSF ("child_inherit_scale", 0x3c, 0x28); JSF ("child_inherit_alpha", 0x40, 0x2c); JSF ("child_inherit_rgb", 0x44, 0x30);
+		J ("child_prm_color", "SSP1", 0x48, 0x34, JK_COLOR, 4, 0, 0, 0, 0);
+		J ("child_env_color", "SSP1", 0x4c, 0x38, JK_COLOR, 4, 0, 0, 0, 0);
+		J ("child_texture_index", "SSP1", 0x50, 0x45, JK_INT, 1, 0, 0, 0, 0);
+		// ETX1 (extra texture shape): keys prefixed etx_
+		J ("etx_indirect_mode", "ETX1", 0xc, 0, JK_INT, 4, 0, 2, 0, 0); J ("etx_indirect_mode", "ETX1", 0, 8, JK_INT, 4, 0, 1, 0, 0);
+		J ("etx_indirect_matrix_id", "ETX1", 0xc, 0, JK_INT, 4, 2, 2, 0, 0);
+		J ("etx_enable_second_texture", "ETX1", 0xc, 8, JK_INT, 4, 8, 1, 0, jn_bool);
+		J ("etx_m00", "ETX1", 0x10, 0xc, JK_FLOAT, 4, 0, 0, 0, 0); J ("etx_m01", "ETX1", 0x14, 0x10, JK_FLOAT, 4, 0, 0, 0, 0);
+		J ("etx_m02", "ETX1", 0x18, 0x14, JK_FLOAT, 4, 0, 0, 0, 0); J ("etx_m10", "ETX1", 0x1c, 0x18, JK_FLOAT, 4, 0, 0, 0, 0);
+		J ("etx_m11", "ETX1", 0x20, 0x1c, JK_FLOAT, 4, 0, 0, 0, 0); J ("etx_m12", "ETX1", 0x24, 0x20, JK_FLOAT, 4, 0, 0, 0, 0);
+		J ("etx_matrix_scale_exponent", "ETX1", 0x28, 0x24, JK_INT, 1, 0, 0, 1, 0);
+		J ("etx_indirect_texture_index", "ETX1", 0x2c, 0x25, JK_INT, 1, 0, 0, 0, 0);
+		J ("etx_sub_texture_index", "ETX1", 0x2d, 0, JK_INT, 1, 0, 0, 0, 0);
+		J ("etx_second_texture_index", "ETX1", 0x2e, 0x26, JK_INT, 1, 0, 0, 0, 0);
 #undef JF
 #undef J
+#undef JR
+#undef JB
+#undef JE
+#undef JS
+#undef JEF
+#undef JSF
 	}
 	*n = c;
 	return t;
@@ -527,7 +634,11 @@ static u8 *jpc_field_ptr (const jpc_part_t *p, int ver, const jf_t *f)
 	const uint o = ver ? f->o210 : f->o100;
 	uint cs;
 	const uint co = o ? jpc_chunk_off (p, ver, f->chunk, &cs) : 0;
-	return co && o + f->w <= cs && co + o + f->w <= p->size ? p->data + co + o : 0;
+	if (!co || o + f->w > cs || co + o + f->w > p->size)
+		return 0;
+	if (f->req_scroll && ver && !(jpc_r32 (p->data + co + 8) >> 24 & 1))
+		return 0;
+	return p->data + co + o;
 }
 
 static u32 jpc_raw (const u8 *q, uint w)
@@ -630,6 +741,70 @@ static int jpc_parse_id (ccp s)
 	return *s && !*e && v >= 0 && v <= 0xffff ? (int)v : -1;
 }
 
+
+// Dynamic BSP1 animation keys: prm_keyN_time/_color, env_keyN_time/_color (6 byte keys) and tex_keyN (u8).
+static int jpc_dyn (const jpc_part_t *p, int ver, ccp key, jf_t *t)
+{
+	const bool prm = !strncmp (key, "prm_key", 7), env = !strncmp (key, "env_key", 7), tex = !strncmp (key, "tex_key", 7);
+	if (!prm && !env && !tex)
+		return 1;
+	char *e;
+	const uint n = (uint)strtoul (key + 7, &e, 10);
+	uint cs;
+	const uint co = e == key + 7 ? 0 : jpc_chunk_off (p, ver, "BSP1", &cs);
+	if (!co)
+		return 1;
+	const u8 *c = p->data + co;
+	memset (t, 0, sizeof (*t));
+	memcpy (t->chunk, "BSP1", 5);
+	t->w = 1;
+	uint base;
+	if (tex)
+	{
+		const uint cnt = c[ver ? 0x1f : 0x25];
+		if (*e || n >= cnt)
+			return 1;
+		base = ver ? 0x34 + ((jpc_r32 (c + 8) >> 24 & 1) ? 0x28 : 0) : 0x60;
+		base += n;
+	}
+	else
+	{
+		const uint cnt = c[prm ? (ver ? 0x22 : 0x28) : (ver ? 0x23 : 0x29)];
+		const int off = (s16)jpc_r16 (c + (prm ? (ver ? 0xc : 0x10) : (ver ? 0xe : 0x12)));
+		if (n >= cnt || off <= 0)
+			return 1;
+		base = (uint)off + n * 6;
+		if (!strcmp (e, "_time"))
+			t->w = 2;
+		else if (!strcmp (e, "_color"))
+			t->w = 4, t->kind = JK_COLOR, base += 2;
+		else
+			return 1;
+	}
+	t->o100 = t->o210 = base;
+	t->key = key;
+	return 0;
+}
+
+// Find the field for this key and JPC version (static table, then dynamic keys). Returns 0 if unknown key,
+// 1 if the key exists but not in this version / particle, 2 if usable (*out set).
+static int jpc_find (const jpc_part_t *p, int ver, ccp key, jf_t *tmp, const jf_t **out)
+{
+	uint nf;
+	const jf_t *tab = jpc_fields (&nf);
+	int known = 0;
+	for (uint k = 0; k < nf; k++)
+		if (!strcasecmp (tab[k].key, key))
+		{
+			known = 1;
+			if (ver ? tab[k].o210 : tab[k].o100)
+				return *out = &tab[k], 2;
+		}
+	if (!jpc_dyn (p, ver, key, tmp))
+		return *out = tmp, 2;
+	return known || !strncmp (key, "prm_key", 7) || !strncmp (key, "env_key", 7) || !strncmp (key, "tex_key", 7);
+}
+
 static enumError jpc_cmd_show (const jpc_t *j, ParamList_t *rest)
 {
 	uint nf;
@@ -654,6 +829,21 @@ static enumError jpc_cmd_show (const jpc_t *j, ParamList_t *rest)
 			jpc_print_field (&tab[k], q);
 			putchar ('\n');
 		}
+		for (int kind = 0; kind < 3; kind++)
+			for (uint n = 0; n < 64; n++)
+				for (int sfx = 0; sfx < (kind == 2 ? 1 : 2); sfx++)
+				{
+					char key[40];
+					snprintf (key, sizeof (key), "%s_key%u%s", kind == 0 ? "prm" : kind == 1 ? "env" : "tex", n,
+						kind == 2 ? "" : sfx ? "_color" : "_time");
+					jf_t tmp;
+					const u8 *q;
+					if (jpc_dyn (p, j->ver, key, &tmp) || !(q = jpc_field_ptr (p, j->ver, &tmp)))
+						continue;
+					printf ("  %-22s ", key);
+					jpc_print_field (&tmp, q);
+					putchar ('\n');
+				}
 	}
 	return only >= 0 && !shown ? ERROR0 (ERR_SEMANTIC, "No such particle: %s\n", rest->arg) : ERR_OK;
 }
@@ -663,8 +853,6 @@ static enumError jpc_cmd_set (jpc_t *j, ParamList_t *rest)
 {
 	if (!rest || !rest->next)
 		return ERROR0 (ERR_MISSING_PARAM, "Usage: wszst JPC SET in.jpc out.jpc id=XXXX|all key=value...\n");
-	uint nf;
-	const jf_t *tab = jpc_fields (&nf);
 	int only = -2;
 	for (ParamList_t *q = rest->next; q; q = q->next)
 		if (!strncasecmp (q->arg, "id=", 3))
@@ -682,20 +870,21 @@ static enumError jpc_cmd_set (jpc_t *j, ParamList_t *rest)
 		char *eq = strchr (q->arg, '=');
 		if (!eq || !strncasecmp (q->arg, "id=", 3))
 			continue;
-		const jf_t *f = 0;
-		for (uint k = 0; k < nf; k++)
-			if (strlen (tab[k].key) == (size_t)(eq - q->arg) && !strncasecmp (tab[k].key, q->arg, eq - q->arg))
-				f = &tab[k];
-		if (!f)
-			return ERROR0 (ERR_SYNTAX, "Unknown JPC key: %.*s\n", (int)(eq - q->arg), q->arg);
+		char key[48];
+		snprintf (key, sizeof (key), "%.*s", (int)(eq - q->arg < 47 ? eq - q->arg : 47), q->arg);
 		for (uint i = 0; i < j->npart; i++)
 		{
 			if (only >= 0 && j->part[i].id != only)
 				continue;
-			u8 *p = jpc_field_ptr (&j->part[i], j->ver, f);
+			jf_t tmp;
+			const jf_t *f = 0;
+			const int fr = jpc_find (&j->part[i], j->ver, key, &tmp, &f);
+			if (!fr)
+				return ERROR0 (ERR_SYNTAX, "Unknown JPC key: %s\n", key);
+			u8 *p = fr == 2 ? jpc_field_ptr (&j->part[i], j->ver, f) : 0;
 			if (!p)
-				return ERROR0 (ERR_SEMANTIC, "Key %s not available in particle %04X (this JPC version)\n", f->key,
-					j->part[i].id);
+				return ERROR0 (ERR_SEMANTIC, "Key %s not available in particle %04X (this JPC version or chunk layout)\n",
+					key, j->part[i].id);
 			if (jpc_set_field (f, p, eq + 1))
 				return ERROR0 (ERR_SEMANTIC, "Invalid value: %s\n", q->arg);
 			writes++;
