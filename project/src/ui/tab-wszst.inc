@@ -161,13 +161,19 @@
   { T_DEF_CMD,	"JPC",		"JPC",
 		    "wszst JPC LIST file.jpc\n"
 		    "wszst JPC EXTRACT file.jpc dir\n"
-		    "wszst JPC IMPORT file.jpc out.jpc jpa-file-or-dir...",
+		    "wszst JPC IMPORT file.jpc out.jpc jpa-file-or-dir...\n"
+		    "wszst JPC SHOW file.jpc [id]\n"
+		    "wszst JPC SET file.jpc out.jpc id=XXXX|all key=value...\n"
+		    "wszst JPC DELETE file.jpc out.jpc id...",
 		"Inspect and edit JParticle containers (JPAC1-00 and JPAC2-10)."
 		" LIST prints all particles with size and textures."
 		" EXTRACT writes each particle and its textures as XXXX.jpa into a directory."
 		" IMPORT adds or replaces particles (and their textures)"
 		" from .jpa files or directories and writes the result to a new .jpc file."
-		" A 4-digit hex file name XXXX.jpa sets the particle ID." },
+		" A 4-digit hex file name XXXX.jpa sets the particle ID."
+		" SHOW prints emitter and base-shape properties, SET edits them"
+		" (rate, life_time, volume_type, blend_*, prm_color, ... see SHOW for all keys)"
+		" and DELETE removes particles (their textures are kept)." },
 
   { T_DEF_CMD,	"BTI",		"BTI",
 		    "wszst BTI INFO file.(bti|bmd|bdl|bmt)\n"
@@ -186,7 +192,8 @@
 		    "wszst MAT3 SET in out key=value... [mat=N|name]... [force]",
 		"List or edit J3D MAT3 material properties in place:"
 		" pixel_mode, cull, z_compare, depth_test/func/write, dither, alpha_comp0/ref0/op/comp1/ref1,"
-		" blend_mode/src/dst/logic, mat_color0/1, ambient0/1 and konst0..3 (RRGGBBAA hex)."
+		" blend_mode/src/dst/logic, mat_color0/1, ambient0/1, konst0..3 (RRGGBBAA hex),"
+		" num_color_chans, num_tex_gens, num_tev_stages and tex0..7 (TEX1 texture index)."
 		" Values shared with unselected materials need the keyword force." },
 
   { T_DEF_CMD,	"BRSUB",	"BRSUB",

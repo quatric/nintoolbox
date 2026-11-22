@@ -71,6 +71,15 @@ static const m3f_t *m3_table (uint *n)
 			snprintf (kn[i], sizeof (kn[i]), "konst%u", i);
 			F (kn[i], 0x94 + 2 * i, 2, 18, 4, 0, 4, 0, 1);
 		}
+		F ("num_color_chans", 2, 1, 6, 1, 0, 1, 0, 0);
+		F ("num_tex_gens", 3, 1, 10, 1, 0, 1, 0, 0);
+		F ("num_tev_stages", 4, 1, 19, 1, 0, 1, 0, 0);
+		for (uint i = 0; i < 8; i++)
+		{
+			static char tn[8][8];
+			snprintf (tn[i], sizeof (tn[i]), "tex%u", i);
+			F (tn[i], 0x84 + 2 * i, 2, 15, 2, 0, 2, 0, 0); // index into the TEX1 texture list
+		}
 #undef F
 	}
 	*n = cnt;
@@ -194,7 +203,7 @@ static int m3_parse (const m3f_t *f, ccp s, u32 *out)
 				return *out = (u32)e->val, 0;
 	char *end;
 	const unsigned long long v = strtoull (s, &end, f->color ? 16 : 0);
-	if (!*s || *end || v > (f->w == 4 ? 0xffffffffull : 0xffull))
+	if (!*s || *end || v > (f->w == 4 ? 0xffffffffull : f->w == 2 ? 0xffffull : 0xffull))
 		return 1;
 	if (f->en && !f->color && f->w == 1)
 	{

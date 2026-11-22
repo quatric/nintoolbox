@@ -6,6 +6,9 @@
 //   wszst JPC LIST    file.jpc
 //   wszst JPC EXTRACT file.jpc dir          -> dir/XXXX.jpa  (particle + its TEX1 chunks)
 //   wszst JPC IMPORT  file.jpc out.jpc a.jpa|dir ...  add/replace particles (+ textures)
+//   wszst JPC SHOW    file.jpc [id]                    print emitter (BEM1) / base shape (BSP1) properties
+//   wszst JPC SET     file.jpc out.jpc id=XXXX|all key=value...   edit those properties
+//   wszst JPC DELETE  file.jpc out.jpc id...           remove particles
 //
 // A .jpa file is one particle followed by the TEX1 chunks it uses (as in GCFT). On import the
 // particle id is taken from a 4-digit hex file name (XXXX.jpa), else from the .jpa header.
@@ -418,6 +421,332 @@ static enumError jpc_import_path (jpc_t *j, ccp path, uint *add, uint *rep)
 	return ERR_OK;
 }
 
+
+// ---- particle property editing (BEM1 emitter + BSP1 base shape), offsets from GCFT's jpa_chunks ----
+enum { JK_INT, JK_FLOAT, JK_ROT, JK_COLOR };
+typedef struct jf_t
+{
+	ccp key;
+	char chunk[5];
+	uint o100, o210; // offset of the container inside the chunk (0 = not in that version)
+	u8 kind, w, shift, nbits; // container width in bytes, bit range (nbits 0 = whole container)
+	bool sgn;
+	ccp const *en; // enum names indexed by value, NULL-terminated
+} jf_t;
+
+static ccp const jn_vol[] = { "cube", "sphere", "cylinder", "torus", "point", "circle", "line", 0 };
+static ccp const jn_shape[] = { "point", "line", "billboard", "direction", "direction_cross", "stripe",
+	"stripe_cross", "rotation", "rotation_cross", "dir_billboard", "y_billboard", 0 };
+static ccp const jn_bmode[] = { "none", "blend", "logic", 0 };
+static ccp const jn_bfac[] = { "zero", "one", "src_color", "inv_src_color", "dst_color", "inv_dst_color",
+	"src_alpha", "inv_src_alpha", "dst_alpha", "inv_dst_alpha", 0 };
+static ccp const jn_cmp[] = { "never", "less", "lequal", "equal", "nequal", "gequal", "greater", "always", 0 };
+static ccp const jn_aop[] = { "and", "or", "xor", "xnor", 0 };
+static ccp const jn_bool[] = { "false", "true", 0 };
+
+static const jf_t *jpc_fields (uint *n)
+{
+	static jf_t t[96];
+	static uint c;
+	if (!c)
+	{
+#define J(k, ch, a, b, kd, w, sh, nb, sg, en) t[c++] = (jf_t){ k, ch, a, b, kd, w, sh, nb, sg, en }
+#define JF(k, a, b) J (k, "BEM1", a, b, JK_FLOAT, 4, 0, 0, 0, 0)
+		JF ("rate", 0x1c, 0x4c); JF ("rate_random", 0x20, 0x50);
+		JF ("volume_sweep", 0x10, 0x58); JF ("volume_min_rad", 0x14, 0x5c);
+		J ("volume_size", "BEM1", 0x18, 0x74, JK_INT, 2, 0, 0, 0, 0);
+		J ("div_number", "BEM1", 0x1a, 0x76, JK_INT, 2, 0, 0, 0, 0);
+		J ("rate_step", "BEM1", 0x24, 0x78, JK_INT, 1, 0, 0, 0, 0);
+		J ("max_frame", "BEM1", 0x26, 0x6e, JK_INT, 2, 0, 0, 1, 0);
+		J ("start_frame", "BEM1", 0x28, 0x70, JK_INT, 2, 0, 0, 1, 0);
+		J ("life_time", "BEM1", 0x2a, 0x72, JK_INT, 2, 0, 0, 1, 0);
+		JF ("life_time_random", 0x2c, 0x54);
+		JF ("init_vel_omni", 0x30, 0x34); JF ("init_vel_axis", 0x34, 0x38); JF ("init_vel_random", 0x38, 0x3c);
+		JF ("init_vel_dir", 0x3c, 0x40); JF ("init_vel_ratio", 0x40, 0x48); JF ("spread", 0x44, 0x44);
+		JF ("air_resist", 0x48, 0x60); JF ("moment", 0x50, 0x64);
+		JF ("air_resist_random", 0x4c, 0); JF ("moment_random", 0x54, 0); JF ("accel", 0x58, 0); JF ("accel_random", 0x5c, 0);
+		JF ("scale_x", 0x60, 0x10); JF ("scale_y", 0x64, 0x14); JF ("scale_z", 0x68, 0x18);
+		JF ("trans_x", 0x6c, 0x1c); JF ("trans_y", 0x70, 0x20); JF ("trans_z", 0x74, 0x24);
+		JF ("dir_x", 0x78, 0x28); JF ("dir_y", 0x7c, 0x2c); JF ("dir_z", 0x80, 0x30);
+		J ("rot_x", "BEM1", 0x84, 0x68, JK_ROT, 2, 0, 0, 0, 0);
+		J ("rot_y", "BEM1", 0x86, 0x6a, JK_ROT, 2, 0, 0, 0, 0);
+		J ("rot_z", "BEM1", 0x88, 0x6c, JK_ROT, 2, 0, 0, 0, 0);
+		J ("fixed_density", "BEM1", 0xc, 8, JK_INT, 4, 0, 1, 0, jn_bool);
+		J ("fixed_interval", "BEM1", 0xc, 8, JK_INT, 4, 1, 1, 0, jn_bool);
+		J ("inherit_scale", "BEM1", 0xc, 8, JK_INT, 4, 2, 1, 0, jn_bool);
+		J ("follow_emitter", "BEM1", 0xc, 8, JK_INT, 4, 3, 1, 0, jn_bool);
+		J ("follow_emitter_child", "BEM1", 0xc, 8, JK_INT, 4, 4, 1, 0, jn_bool);
+		J ("volume_type", "BEM1", 0xc, 8, JK_INT, 4, 8, 3, 0, jn_vol);
+		J ("shape_type", "BSP1", 0xc, 8, JK_INT, 4, 0, 4, 0, jn_shape);
+		J ("dir_type", "BSP1", 0xc, 8, JK_INT, 4, 4, 3, 0, 0);
+		J ("rot_type", "BSP1", 0xc, 8, JK_INT, 4, 7, 3, 0, 0);
+		J ("base_plane_type", "BSP1", 0xc, 8, JK_INT, 4, 10, 1, 0, 0);
+		J ("base_size_x", "BSP1", 0x14, 0x10, JK_FLOAT, 4, 0, 0, 0, 0);
+		J ("base_size_y", "BSP1", 0x18, 0x14, JK_FLOAT, 4, 0, 0, 0, 0);
+		J ("blend_mode", "BSP1", 0x1e, 0x18, JK_INT, 2, 0, 2, 0, jn_bmode);
+		J ("blend_src", "BSP1", 0x1e, 0x18, JK_INT, 2, 2, 4, 0, jn_bfac);
+		J ("blend_dst", "BSP1", 0x1e, 0x18, JK_INT, 2, 6, 4, 0, jn_bfac);
+		J ("blend_logic", "BSP1", 0x1e, 0x18, JK_INT, 2, 10, 4, 0, 0);
+		J ("alpha_comp0", "BSP1", 0x20, 0x1a, JK_INT, 1, 0, 3, 0, jn_cmp);
+		J ("alpha_op", "BSP1", 0x20, 0x1a, JK_INT, 1, 3, 2, 0, jn_aop);
+		J ("alpha_comp1", "BSP1", 0x20, 0x1a, JK_INT, 1, 5, 3, 0, jn_cmp);
+		J ("alpha_ref0", "BSP1", 0x21, 0x1b, JK_INT, 1, 0, 0, 0, 0);
+		J ("alpha_ref1", "BSP1", 0x22, 0x1c, JK_INT, 1, 0, 0, 0, 0);
+		J ("depth_test", "BSP1", 0x23, 0x1d, JK_INT, 1, 0, 1, 0, jn_bool);
+		J ("depth_func", "BSP1", 0x23, 0x1d, JK_INT, 1, 1, 3, 0, jn_cmp);
+		J ("depth_write", "BSP1", 0x23, 0x1d, JK_INT, 1, 4, 1, 0, jn_bool);
+		J ("z_compare", "BSP1", 0x23, 0x1d, JK_INT, 1, 5, 1, 0, jn_bool);
+		J ("texture_index", "BSP1", 0x26, 0x20, JK_INT, 1, 0, 0, 0, 0);
+		J ("prm_color", "BSP1", 0x2c, 0x26, JK_COLOR, 4, 0, 0, 0, 0);
+		J ("env_color", "BSP1", 0x30, 0x2a, JK_COLOR, 4, 0, 0, 0, 0);
+#undef JF
+#undef J
+	}
+	*n = c;
+	return t;
+}
+
+// Offset of a chunk inside a particle blob (0 = none); *csz receives its size.
+static uint jpc_chunk_off (const jpc_part_t *p, int ver, ccp magic, uint *csz)
+{
+	const u8 *d = p->data;
+	uint nch = ver ? jpc_r16 (d + 2) : jpc_r32 (d + 0xc);
+	uint off = ver ? 8 : 0x20;
+	for (uint i = 0; i < nch && off + 8 <= p->size; i++)
+	{
+		const u32 cs = jpc_r32 (d + off + 4);
+		if (!memcmp (d + off, magic, 4))
+			return *csz = cs, off;
+		off += cs;
+	}
+	return 0;
+}
+
+static u8 *jpc_field_ptr (const jpc_part_t *p, int ver, const jf_t *f)
+{
+	const uint o = ver ? f->o210 : f->o100;
+	uint cs;
+	const uint co = o ? jpc_chunk_off (p, ver, f->chunk, &cs) : 0;
+	return co && o + f->w <= cs && co + o + f->w <= p->size ? p->data + co + o : 0;
+}
+
+static u32 jpc_raw (const u8 *q, uint w)
+{
+	u32 v = 0;
+	for (uint i = 0; i < w; i++)
+		v = v << 8 | q[i];
+	return v;
+}
+
+static void jpc_print_field (const jf_t *f, const u8 *q)
+{
+	u32 v = jpc_raw (q, f->w);
+	if (f->kind == JK_FLOAT)
+	{
+		float x;
+		memcpy (&x, &v, 4);
+		printf ("%g", x);
+	}
+	else if (f->kind == JK_ROT)
+		printf ("%g", (double)v * 360.0 / 65536.0);
+	else if (f->kind == JK_COLOR)
+		printf ("%08X", v);
+	else
+	{
+		if (f->nbits)
+			v = (v >> f->shift) & ((1u << f->nbits) - 1);
+		uint k = 0;
+		if (f->en)
+			for (; f->en[k] && k < v; k++)
+				;
+		if (f->en && f->en[k] && k == v)
+			fputs (f->en[k], stdout);
+		else if (f->sgn)
+			printf ("%d", f->w == 2 ? (int)(s16)v : (int)(s8)v);
+		else
+			printf ("%u", v);
+	}
+}
+
+// Parse and store; returns nonzero on bad value.
+static int jpc_set_field (const jf_t *f, u8 *q, ccp s)
+{
+	u32 raw;
+	if (f->kind == JK_FLOAT)
+	{
+		char *e;
+		const float x = strtof (s, &e);
+		if (!*s || *e)
+			return 1;
+		memcpy (&raw, &x, 4);
+	}
+	else if (f->kind == JK_ROT)
+	{
+		char *e;
+		const double x = strtod (s, &e);
+		if (!*s || *e)
+			return 1;
+		raw = (u32)(long long)(x * 65536.0 / 360.0 + (x < 0 ? -0.5 : 0.5)) & 0xffff;
+	}
+	else if (f->kind == JK_COLOR)
+	{
+		char *e;
+		const unsigned long long x = strtoull (s, &e, 16);
+		if (!*s || *e || x > 0xffffffffull)
+			return 1;
+		raw = (u32)x;
+	}
+	else
+	{
+		long long x = -1;
+		for (uint k = 0; f->en && f->en[k]; k++)
+			if (!strcasecmp (s, f->en[k]))
+				x = k;
+		if (x < 0)
+		{
+			char *e;
+			x = strtoll (s, &e, 0);
+			if (!*s || *e)
+				return 1;
+		}
+		const uint nb = f->nbits ? f->nbits : f->w * 8;
+		if (f->sgn ? (x < -(1ll << (nb - 1)) || x >= (1ll << (nb - 1))) : (x < 0 || x >= (1ll << nb)))
+			return 1;
+		const u32 mask = nb >= 32 ? 0xffffffffu : (1u << nb) - 1;
+		if (f->nbits)
+			raw = (jpc_raw (q, f->w) & ~(mask << f->shift)) | (((u32)x & mask) << f->shift);
+		else
+			raw = (u32)x & (f->w == 4 ? 0xffffffffu : (1u << (f->w * 8)) - 1);
+	}
+	for (uint i = 0; i < f->w; i++)
+		q[i] = (u8)(raw >> (8 * (f->w - 1 - i)));
+	return 0;
+}
+
+static int jpc_parse_id (ccp s)
+{
+	char *e;
+	const long v = strtol (s, &e, 16);
+	return *s && !*e && v >= 0 && v <= 0xffff ? (int)v : -1;
+}
+
+static enumError jpc_cmd_show (const jpc_t *j, ParamList_t *rest)
+{
+	uint nf;
+	const jf_t *tab = jpc_fields (&nf);
+	const int only = rest ? jpc_parse_id (rest->arg) : -1;
+	if (rest && only < 0)
+		return ERROR0 (ERR_SYNTAX, "Not a valid hex particle ID: %s\n", rest->arg);
+	uint shown = 0;
+	for (uint i = 0; i < j->npart; i++)
+	{
+		const jpc_part_t *p = &j->part[i];
+		if (only >= 0 && p->id != only)
+			continue;
+		shown++;
+		printf ("\nparticle %04X\n", p->id);
+		for (uint k = 0; k < nf; k++)
+		{
+			const u8 *q = jpc_field_ptr (p, j->ver, &tab[k]);
+			if (!q)
+				continue;
+			printf ("  %-22s ", tab[k].key);
+			jpc_print_field (&tab[k], q);
+			putchar ('\n');
+		}
+	}
+	return only >= 0 && !shown ? ERROR0 (ERR_SEMANTIC, "No such particle: %s\n", rest->arg) : ERR_OK;
+}
+
+// SET: rest = out.jpc id=XXXX|all key=value...
+static enumError jpc_cmd_set (jpc_t *j, ParamList_t *rest)
+{
+	if (!rest || !rest->next)
+		return ERROR0 (ERR_MISSING_PARAM, "Usage: wszst JPC SET in.jpc out.jpc id=XXXX|all key=value...\n");
+	uint nf;
+	const jf_t *tab = jpc_fields (&nf);
+	int only = -2;
+	for (ParamList_t *q = rest->next; q; q = q->next)
+		if (!strncasecmp (q->arg, "id=", 3))
+			only = !strcasecmp (q->arg + 3, "all") ? -1 : jpc_parse_id (q->arg + 3);
+	if (only == -2 || only < -1)
+		return ERROR0 (ERR_SYNTAX, "Need id=XXXX (hex) or id=all\n");
+	uint writes = 0, matched = 0;
+	for (uint i = 0; i < j->npart; i++)
+		if (only < 0 || j->part[i].id == only)
+			matched++;
+	if (!matched)
+		return ERROR0 (ERR_SEMANTIC, "No such particle\n");
+	for (ParamList_t *q = rest->next; q; q = q->next)
+	{
+		char *eq = strchr (q->arg, '=');
+		if (!eq || !strncasecmp (q->arg, "id=", 3))
+			continue;
+		const jf_t *f = 0;
+		for (uint k = 0; k < nf; k++)
+			if (strlen (tab[k].key) == (size_t)(eq - q->arg) && !strncasecmp (tab[k].key, q->arg, eq - q->arg))
+				f = &tab[k];
+		if (!f)
+			return ERROR0 (ERR_SYNTAX, "Unknown JPC key: %.*s\n", (int)(eq - q->arg), q->arg);
+		for (uint i = 0; i < j->npart; i++)
+		{
+			if (only >= 0 && j->part[i].id != only)
+				continue;
+			u8 *p = jpc_field_ptr (&j->part[i], j->ver, f);
+			if (!p)
+				return ERROR0 (ERR_SEMANTIC, "Key %s not available in particle %04X (this JPC version)\n", f->key,
+					j->part[i].id);
+			if (jpc_set_field (f, p, eq + 1))
+				return ERROR0 (ERR_SEMANTIC, "Invalid value: %s\n", q->arg);
+			writes++;
+		}
+	}
+	u8 *o;
+	size_t on;
+	if (jpc_save (j, &o, &on))
+		return ERROR0 (ERR_INTERNAL, "Internal error: missing texture\n");
+	const int bad = jpc_write_file (rest->arg, o, on);
+	FREE (o);
+	if (bad)
+		return ERROR1 (ERR_CANT_CREATE, "Can't write file: %s\n", rest->arg);
+	printf ("JPC SET %s: %u value write(s)\n", rest->arg, writes);
+	return ERR_OK;
+}
+
+// DELETE: rest = out.jpc id...  (textures are kept, as in GCFT)
+static enumError jpc_cmd_delete (jpc_t *j, ParamList_t *rest)
+{
+	if (!rest || !rest->next)
+		return ERROR0 (ERR_MISSING_PARAM, "Usage: wszst JPC DELETE in.jpc out.jpc id...\n");
+	uint del = 0;
+	for (ParamList_t *q = rest->next; q; q = q->next)
+	{
+		const int id = jpc_parse_id (q->arg);
+		if (id < 0)
+			return ERROR0 (ERR_SYNTAX, "Not a valid hex particle ID: %s\n", q->arg);
+		uint i = 0;
+		while (i < j->npart && j->part[i].id != id)
+			i++;
+		if (i == j->npart)
+			return ERROR0 (ERR_SEMANTIC, "No such particle: %s\n", q->arg);
+		FREE (j->part[i].data);
+		FREE (j->part[i].tex_names);
+		memmove (&j->part[i], &j->part[i + 1], (j->npart - i - 1) * sizeof (*j->part));
+		j->npart--;
+		del++;
+	}
+	u8 *o;
+	size_t on;
+	if (jpc_save (j, &o, &on))
+		return ERROR0 (ERR_INTERNAL, "Internal error: missing texture\n");
+	const int bad = jpc_write_file (rest->arg, o, on);
+	FREE (o);
+	if (bad)
+		return ERROR1 (ERR_CANT_CREATE, "Can't write file: %s\n", rest->arg);
+	printf ("JPC DELETE %s: %u particle(s) removed, %u left\n", rest->arg, del, j->npart);
+	return ERR_OK;
+}
+
 static enumError cmd_jpc ()
 {
 	ParamList_t *pa = first_param;
@@ -473,8 +802,14 @@ static enumError cmd_jpc ()
 			}
 		}
 	}
+	else if (!strcasecmp (sub, "SHOW"))
+		err = jpc_cmd_show (&j, rest);
+	else if (!strcasecmp (sub, "SET"))
+		err = jpc_cmd_set (&j, rest);
+	else if (!strcasecmp (sub, "DELETE"))
+		err = jpc_cmd_delete (&j, rest);
 	else
-		err = ERROR0 (ERR_SYNTAX, "Unknown JPC action (use LIST, EXTRACT or IMPORT): %s\n", sub);
+		err = ERROR0 (ERR_SYNTAX, "Unknown JPC action (use LIST, SHOW, EXTRACT, IMPORT, SET or DELETE): %s\n", sub);
 	jpc_free (&j);
 	return err;
 }
