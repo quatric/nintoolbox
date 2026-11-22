@@ -710,6 +710,7 @@
 #include "extract/midwaysec.inc"
 #include "extract/vaps.inc"
 #include "extract/zzz.inc"
+#include "extract/valhalla_bxml.inc"
 #include "extract/mcttext.inc"
 #include "extract/hbmpack.inc"
 #include "extract/sgcaudio.inc"
