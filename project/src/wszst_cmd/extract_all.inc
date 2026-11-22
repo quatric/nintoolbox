@@ -714,6 +714,7 @@
 #include "extract/bls_bxml.inc"
 #include "extract/vxla.inc"
 #include "extract/gfxinfo.inc"
+#include "extract/meshbin.inc"
 #include "extract/mcttext.inc"
 #include "extract/hbmpack.inc"
 #include "extract/sgcaudio.inc"

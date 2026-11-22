@@ -1446,6 +1446,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_gfxinfo_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_meshbin_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_jppak_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
