@@ -1,0 +1,710 @@
+ext,titles,files,bytes,in_FORMATS_md,top_magic,example
+.txt,1474,7205,10342739,True,74685f48,Wonder Boy in Monster Land|Arcade: 00000004.app/HomeButton2/config.txt
+.arc,1462,32841,4280795618,True,10209806,Wonder Boy in Monster Land|Arcade: 00000006.app/HomeButtonSe/Huf8_HomeButtonSe.arc
+.csv,1461,8699,27226927,True,feff0022,Wonder Boy in Monster Land|Arcade: 00000004.app/HomeButton2/home.csv
+.tpl,1455,17493,666461582,True,0020af30,Wonder Boy in Monster Land|Arcade: 00000004.app/HomeButton2/homeBtnIcon.tpl
+.brsar,1448,3237,2691707300,True,28e07205,Wonder Boy in Monster Land|Arcade: 00000004.app/HomeButton2/Huf8_HomeButtonSe.brsar
+.lz7,995,6723,4607908125,True,10202490,Wonder Boy in Monster Land|Arcade: 00000002.app/wwwlib-rvl.lz7
+.ttc,947,947,2527493756,False,74746366,Wonder Boy in Monster Land|Arcade: 00000003.app/WiiNTLG-Regular.ttc
+.bin,831,14260,2449336575,True,1180c012,Wonder Boy in Monster Land|Arcade: 00000007.app/strapImage_It_LZ.bin
+.brfna,237,480,753700721,True,52464e41,Tsuushin Taikyoku - Igo Dojo 2700-Mon: 00000004.app/wbf2.brfna
+.dat,213,1297,175738113,True,1f8b0800,Dr. Mario Online Rx: 00000002.app/GAME.DAT
+.pcm,184,198,96643330,True,00000000,La-Mulana: 00000002.app/sound/lamulana1.pcm
+.ini,179,239,685977,True,4e414d45,PC Denjin - Punkic Cyborgs|TGX: 00000005.app/config.ini
+.rom,178,261,264373820,True,41420000,"Combatribes, The|SNES: 00000005.app/LZH8JC7E.rom"
+.jpg,171,7824,159586601,True,ffd8ffe0,Tsuushin Taikyoku - Igo Dojo 2700-Mon: 00000006.app/HomeButton3/sample.jpg
+.ccf,167,167,306358944,True,43434600,Wonder Boy in Monster Land|Arcade: 00000005.app/data.ccf
+.var,164,164,157662,True,88010030,"Combatribes, The|SNES: 00000005.app/JC7E.var"
+(none),117,5919,765404498,False,47575363,Frobot: 00000002.app/unity/etc/mono/config
+.brres,113,8222,733844564,True,62726573,Saikyou Ginsei Mahjong: 00000006.app/C_1_bgEffectCam_1.brres
+.breft,108,243,18105052,True,52454654,Ant Nation: 00000002.app/content2/effect/anteffect.breft
+.breff,108,243,5333883,True,52454646,Ant Nation: 00000002.app/content2/effect/anteffect.breff
+.ogg,83,5974,1110029407,True,4f676753,Gate of Thunder|TGX: 00000005.app/gthunder_21.ogg
+.z,77,159,1095374658,True,43523030,Sengoku Denshou 2001|NG: 00000007.app/game.bin.z
+.pce,57,57,22282240,False,4cf3e04c,Gate of Thunder|TGX: 00000005.app/syscard3P.pce
+.dsp,50,2727,213736997,True,0000d647,La-Mulana: 00000002.app/sound/se09.dsp
+.brfnt,50,152,42118511,True,52464e54,Ant Nation: 00000002.app/content2/menufont.brfnt
+.spt,42,68,121573,True,00000002,Ogre Battle 64 - Person of Lordly Caliber|N64: 00000005.app/capture_sfxs.spt
+.spd,42,68,101227368,True,02dacccb,Ogre Battle 64 - Person of Lordly Caliber|N64: 00000005.app/global_sfxs.spd
+.hcd,41,42,54127,False,74726163,Gate of Thunder|TGX: 00000005.app/gthunder.hcd
+.db,38,84,4711926,True,d0cf11e0,Phalanx: 00000002.app/tpl/Thumbs.db
+.cfg,37,258,425698,True,6576656e,Frobot: 00000002.app/unity/startup.cfg
+.lz,35,4148,260767549,True,1140fd02,Bit. Trip Void - Rhythm Seijin no Danmaku: 00000002.app/Models/Background/Level2.brres.lz
+.wav,33,1532,29706044,True,00000001,Ogre Battle 64 - Person of Lordly Caliber|N64: 00000005.app/message_fail.wav
+.png,32,10909,238550631,True,89504e47,Home Sweet Home: 00000002.app/strapreminder/strapA_640x480_French.png
+.xml,30,1037,18996441,True,3c3f786d,JellyCar 2: 00000002.app/EditorSoftBodies.xml
+.lz77,29,752,57937127,True,11800100,Moon Cresta|Arcade: 00000005.app/html/mooncresta_manual_jpn.arc.lz77
+.t64,27,2057,3947680,False,56433634,Ogre Battle 64 - Person of Lordly Caliber|N64: 00000005.app/jihad.T64
+.brtex,26,3760,119571185,True,62726573,Shootanto - Evolutionary Mayhem: 00000002.app/data/chr00901.brtex
+.pak,24,40,517107254,True,00000400,Cocoto Platform Jumper: 00000002.app/data/MUSICS/ALL_MUSICS.it.pak
+.brstm,20,666,157681952,True,5253544d,Castlevania - The Adventure ReBirth: 00000002.app/stream/st2.brstm
+.tga,20,379,13733765,True,00010900,Toribash - Violence Perfected: 00000007.app/stain06.tga
+.mid,19,263,5765689,True,4d546864,La-Mulana: 00000002.app/music/m16.mid
+.wt,19,31,3714906,True,00000018,La-Mulana: 00000002.app/sound/lamulana1.wt
+.bnr,18,28,7453534,False,00000000,JellyCar 2: 00000002.app/opening.bnr
+.brmdl,17,2720,82188167,False,62726573,TV Show King: 00000002.app/data/3d/scenes/tvstudio/anim_pupitre/export/desk01.brmdl
+.scc,16,125,22752,False,34120100,Saikyou Ginsei Mahjong: 00000007.app/vssver2.scc
+.lua,16,949,4420607,True,1f8b0808,Spaceball Revolution: 00000002.app/content2/levels/round10_4.lua
+.loc,16,1829,14738108,True,faaffaaf,Saku Saku Animal Panic: 00000002.app/Maps/eng/811FE5519773F343.loc
+.thp,14,18,75050224,True,54485000,TV Show King: 00000002.app/data/video/TVSK_logo.thp
+.nut,14,280,3082523,True,2f2a2a0d,Wii de Ultra Hand: 00000002.app/SCRIPT/dbgmenu.nut
+.brplt,13,495,259776,True,62726573,School of Darkness: 00000002.app/resources/C_Skitter.brplt
+.swf,13,169,70002449,True,46575307,Spaceball Revolution: 00000002.app/content2/Common/UI/pause.swf
+.map,13,389,85344505,True,faaffaaf,Drop Zone - Under Fire: 00000002.app/data/data/maps/018.map
+.bat,12,45,5942,True,50415448,Actionloop Twist: 00000002.app/rvlpzlp/Mdl/blz_mdl.bat
+.tex,12,4165,56240951,True,5d000080,Gyakuten Saiban 3: 00000002.app/nativeWii/hbm_nwm/hbm_nwm.tex
+.it,12,14,7224624,True,494d504d,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.IT
+.pakb,12,2410,354909912,True,00000000,Successfully Learning German - Year 4: 00000002.app/precache/main_menu_deu.pakb
+.zz,11,558,63423129,True,11200700,Frobot: 00000002.app/unity/manualPageSpa.tpl.zz
+.zip,11,20,122248438,True,504b0304,Jinsei Game: 00000005.app/ETC.zip
+.svn-base,11,1084,7623650,False,4b203133,Step Up!: 00000007.app/.svn/text-base/strapImage_Fr_LZ.bin.svn-base
+.brsca,11,461,431488,False,62726573,Learning with the PooYoos - Episode 1: 00000005.app/Standard/UI/HDisplayButton/Scene/HDisplayButton.brsca
+.assets,10,201,194374613,True,000001d4,Frobot: 00000002.app/unity/Data/sharedassets3.assets
+.ttarch,10,40,382831180,True,03000000,Tales of Monkey Island - Chapter 5 - Rise of the Pirate God: 00000002.app/c:\telltale\projects\monkeyisland105\InstallerOut\WorkingFolder\Wii_Pack\/3_MonkeyIsland105_wii_ms.ttarch
+.rsam,10,10,94931,True,2320534f,Tomena Sanner: 00000006.app/tomena.rsam
+.p00,9,9,208734577,True,504b4620,Urbanix: 00000002.app/WII.P00
+.config,9,9,187677,True,3c3f786d,Frobot: 00000002.app/unity/etc/mono/2.0/machine.config
+.lvl,9,931,9649001,True,234e414d,Newton vs The Horde: 00000007.app/Levels/Menu.lvl
+.fnt,9,24,9128156,True,3c3f786d,Newton vs The Horde: 00000007.app/Fonts/MainFont.fnt
+.rsid,9,9,176388,False,73746174,Jinsei Game: 00000005.app/SOUND/JIN_SND.rsid
+.h,9,39,72290,True,23707261,Dragon Master Spell Caster: 00000002.app/Models/vourak_Anim.h
+.str,8,33,3124663,True,,Tsuppari Oozumou Wii Heya: 00000002.app/script/logo.str
+.bmp,8,586,17363717,True,11363001,Heavy Fire - Special Operations: 00000002.app/data/localisation/it/zapper_use.bmp
+.rmdl,8,621,17632121,True,ff4c5a4d,Midnight Bowling: 00000003.app/data/Bowling/block03.rmdl
+.srl,8,9,7402299,True,504f4b45,MaBoShi - The Three Shape Arcade: 00000002.app/LZ77_mbs_dsEU.srl
+.pk2,7,7,199138,False,0101014b,Urbanix: 00000002.app/WII.PK2
+.rsca,7,105,165858,False,ff4c5a4d,TV Show King: 00000002.app/data/3d/scenes/tvstudio/plateau02/export/camera_group.rsca
+.brcha,7,510,6208256,True,62726573,School of Darkness: 00000002.app/resources/Jake_grabbed_struggle.brcha
+.brtsa,7,21,12928,False,62726573,School of Darkness: 00000002.app/resources/FX_WindowCover.brtsa
+.rtex,7,2977,72041347,True,5d000080,Midnight Bowling: 00000003.app/data/Bowling/split0008.rtex
+.rcha,7,1338,13351691,True,5d000080,Midnight Bowling: 00000003.app/data/Bowling/wom_std01_sad.rcha
+.fr,7,7,128386,True,434d5052,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.FR
+.exe,7,18,2297856,True,,Ghost Mania: 00000002.app/TemplateProject.exe
+.res,7,48,36202982,True,30545352,Jungle Speed: 00000002.app/art/fe/fonts/arialunicodems36.res
+.dds,6,229,8394543,True,1f8b0800,Ben 10 Alien Force - The Rise of Hex: 00000007.app/btaf_hud_wii_I1.dds
+.lng,6,16,284040,True,fffe2d00,Newton vs The Horde: 00000007.app/Language/Language_en.lng
+.b,6,6,19148224,True,0000ffdd,Jinsei Game: 00000005.app/ETC/job_ALL.b
+.anm,6,235,758546,True,58020000,Carmen Sandiego Adventures in Math - The Great Gateway Grab: 00000002.app/wii/common/characters/csi_male.anm
+.ls,6,21,11526308,True,faaffaaf,Saku Saku Animal Panic: 00000002.app/LoadingScreens/0000000100000001.ls
+.gam,6,6,54929583,True,faaffaaf,Saku Saku Animal Panic: 00000002.app/Games/0000000100000001.gam
+.dso,6,1297,14435480,True,29000000,And Yet It Moves: 00000002.app/main.cs.dso
+.cs,6,129,537254,True,2f2f2d2d,And Yet It Moves: 00000002.app/main.cs
+.lso,6,37,178178,True,19000000,And Yet It Moves: 00000002.app/Language/Spanish.lso
+.uft,6,85,2769550,False,03000000,And Yet It Moves: 00000002.app/common/data/fonts/Akbar Plain 28 (ansi).uft
+.hfl,6,19,39055,False,3c6c6d61,And Yet It Moves: 00000002.app/common/data/help/2. License.hfl
+.gcs,5,104,118095872,True,42474942,High Voltage Hot Rod Show: 00000002.app/11_01.gcs
+.gcm,5,58,38109184,True,42474942,High Voltage Hot Rod Show: 00000002.app/14_99.gcm
+.bmg,5,54,176736,True,4d455347,530 Eco Shooter: 00000002.app/Msg/Common_usa.bmg
+.arc_l,5,114,26275593,False,1100f400,530 Eco Shooter: 00000002.app/Game/DemoUI.arc_l
+.brfnt_l,5,34,827598,False,11bc3200,530 Eco Shooter: 00000002.app/Font/StaffRollFont00_30_jp.brfnt_l
+.brsar_l,5,5,8958446,False,10a0001f,530 Eco Shooter: 00000002.app/Sound/revofps.brsar_l
+.pac,5,97,18181312,True,47524650,PictureBook Games - Pop-Up Pursuit: 00000002.app/deck_TCH.pac
+.tmp,5,10,1810068,True,62726573,TV Show King: 00000002.app/data/3d/scenes/mii_menu/export/mii_logo/mii_menu_logo.brres.tmp
+.scn,5,29,94658,True,,Tsuppari Oozumou Wii Heya: 00000002.app/script/main.scn
+.bak,5,5,886706,True,18fb78d8,Gradius III|SNES: 00000005.app/SNSG30.008.bak
+.mus,5,60,27490412,True,fffb6104,Cocoto Platform Jumper: 00000002.app/data/MUSICS/GAME_OVER.mus
+.nub,5,141,34456128,True,00020100,Mr. Driller W: 00000002.app/Sound/bank_bgm_41.nub
+.bar,5,32,58135695,True,ff4c5a4d,Texas Hold'em Poker: 00000002.app/fragshaders.bar
+.utf,5,10,310868,True,01ca0005,Carmen Sandiego Adventures in Math - The Great Gateway Grab: 00000002.app/wii/common/texts/exclusions.utf
+.3dn,5,127,69019943,False,1f8b0800,Drop Zone - Under Fire: 00000002.app/data/data_game/3d/props_low.3dn
+.ch,5,30,7581,True,1f8b0800,Drop Zone - Under Fire: 00000002.app/data/data/font1.ch
+.epk,5,5,94882665,False,4947454c,Stunt Cars: 00000002.app/game.epk
+.nl,5,5,45137,True,434d5052,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.NL
+.eff,5,40,167173,True,01000000,And Yet It Moves: 00000002.app/game/data/particles/hamsterBreak.eff
+.tbl,5,47,77749,True,00030001,Happy Holidays - Christmas: 00000002.app/idtbl_sheet.tbl
+.fsb,4,70,12840800,True,46534234,Ben 10 Alien Force - The Rise of Hex: 00000007.app/AudioData/Music_Bank.fsb
+.pack,4,15,15242720,True,00002fab,Home Sweet Home: 00000002.app/simplepackfile.pack
+.brasd,4,298,82368,True,52415344,530 Eco Shooter: 00000002.app/Sound/Boss1_Move1.brasd
+.eo@,4,89,377856,False,11492300,"Pop 'Em, Drop 'Em SameGame: 00000004.app/GamePause.eo@"
+.tpl@,4,29,482432,False,11405804,"Pop 'Em, Drop 'Em SameGame: 00000004.app/HomeButton3/fr_guide.tpl@"
+.msg,4,206,144111,True,54656172,Jinsei Game: 00000005.app/map/map0050/masu0000/ev_0003.msg
+.l,4,444,14411164,True,6d646600,Castlevania - The Adventure ReBirth: 00000002.app/st4_map2z.psb.l
+.raw,4,9,189148,True,fd4cf8f2,Castlevania - The Adventure ReBirth: 00000002.app/speak.raw
+.plt,4,8,3328,True,00544c50,Gyakuten Saiban 3: 00000002.app/nativeWii/caplogo/caplogo.plt
+.tev,4,68,44784,True,00564554,Gyakuten Saiban 3: 00000002.app/nativeWii/system/shader_wii/tXfPrimitiveAlpha.tev
+.lst,4,22,113277,True,43583030,AquaSpace: 00000002.app/_ue/zkn/zkn_srt_arc.lst
+.car,4,12,1191062,True,3c3f786d,JellyCar 2: 00000002.app/Scenes/0car_and_truck.car
+.ttf,4,8,3468606,True,5d000080,Antarctic Adventure|NES: 00000003.app/Wii-kr_Round Gothic B.ttf
+.mdl,4,471,57439775,True,02000000,Space Invaders Get Even - Gyakushuu no Space Invaders: 00000001.app/content3/character/a_s_ene04.mdl
+.cmp,4,509,32263306,True,0000d701,Swords & Soldiers: 00000002.app/WiiTextures/texturesLoading.cmp
+.dll,4,34,995329,True,,Drop Zone - Under Fire: 00000002.app/data/devil.dll
+.data,4,114,61478304,True,46454e4c,Drop Zone - Under Fire: 00000002.app/data/data_game/font.data
+.par,4,96,1434410,True,10402000,Heavy Fire - Special Operations: 00000002.app/data/particle/rakieta/dym3.par
+.collision,4,84,298737,True,11100200,Bit. Trip Runner: 00000002.app/Collision/Tile013.collision
+.sld,4,4,2944,True,64000000,Stunt Cars: 00000002.app/default.sld
+.rcla,4,40,11906,False,5d000080,Midnight Bowling: 00000003.app/data/Bowling/splash02_n.rcla
+.bsprite,4,177,170937,False,ff4c5a4d,Midnight Bowling: 00000003.app/data/Bowling/ui.bsprite
+.font,4,14,33419,True,63666e74,Burn the Rope: 00000007.app/font/font_btr_white.font
+.pfx,4,56,125252,False,bd7b9af0,Racers' Islands - Crazy Racers: 00000007.app/shared/3d/bonus/wii/engine_braker_appearance.pfx
+.ge,4,4,106544,True,000000ae,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.GE
+.sp,4,4,109930,True,000000ae,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.SP
+.brlan,4,182,132128,True,11a40a00,Racers' Islands - Crazy Racers: 00000007.app/shared/Layouts/anim/HUD_Loading.brlan
+.brlyt,4,125,150016,True,11e40800,Racers' Islands - Crazy Racers: 00000007.app/shared/Layouts/blyt/HUD_Loading.brlyt
+.spx,4,1758,20469655,True,4f676753,Learning with the PooYoos - Episode 1: 00000005.app/ENG/Voice/Water/Water_Chore_04.spx
+.lyr,4,1004,3981554,True,40424d5a,And Yet It Moves: 00000002.app/game/data/tilemaps/cave4jungle.lyr
+.gwsample,4,439,13535822,False,00000004,Where's Wally - Fantastic Journey 1: 00000007.app/024/000947_0.GWSample
+.gwfont,4,93,3133736,False,89504e47,Where's Wally - Fantastic Journey 1: 00000006.app/024/000944_0.GWFont
+.vorbis,4,29,17764081,True,4f676753,Where's Wally - Fantastic Journey 1: 00000006.app/014/001314_0.vorbis
+.kar,4,35,34408672,True,6b617263,Kanken - Minna de Wai Wai Kanji Nou: 00000002.app/mondai.kar
+.cx,4,307,44912064,True,40601901,Pokemon Rumble: 00000005.app/game2d.arc.cx
+.lang,4,20,88201,True,5354525f,Groovin' Blocks: 00000002.app/Lang/eng/Strings/Wii.lang
+.vma,4,5,2064918,True,434d5052,Fun! Fun! Minigolf: 00000002.app/entities.barto/entities.vma
+.w3da,4,357,3220337,False,434d5052,Fun! Fun! Minigolf: 00000002.app/objects/vehicle_car2.w3da
+.w3d,4,884,29052577,False,434d5052,Fun! Fun! Minigolf: 00000002.app/objects/medal3.w3d
+.de,4,4,14748,True,434d5052,Fun! Fun! Minigolf: 00000002.app/localize/localize.loc.de
+.en,4,4,20319,True,434d5052,Fun! Fun! Minigolf: 00000002.app/localize/localize.loc.en
+.ogl,4,61,33388648,True,390f0000,Fun! Fun! Minigolf: 00000002.app/audio/bgTitle.ogl
+.vmc,4,223,1100288,False,5348564d,Fun! Fun! Minigolf: 00000002.app/levels/asia1.vmc
+.f3d,4,11,15232,False,05101700,Fun! Fun! Minigolf: 00000002.app/fonts/pigpen16.f3d
+.trk,4,70,49194165,True,30545352,Doc Clock - The Toasted Sandwich of Time: 00000002.app/tracksettings/example.trk
+.zzz,3,8,272,True,646f776e,Family Pirate Party: 00000001.app/zzzzzzzz.zzz
+.aaa,3,8,272,True,646f776e,Family Pirate Party: 00000001.app/aaaaaaaa.aaa
+.txt@,3,3,576,False,11fa0000,"Pop 'Em, Drop 'Em SameGame: 00000002.app/savebnr_comment.txt@"
+.bprm,3,3,384,False,11d00100,PictureBook Games - Pop-Up Pursuit: 00000002.app/console_param_table.bprm
+.btxt,3,41,80800,False,24100300,PictureBook Games - Pop-Up Pursuit: 00000002.app/static_text_table_NED.btxt
+.bcom,3,3,1344,False,11080600,PictureBook Games - Pop-Up Pursuit: 00000002.app/com_data.bcom
+.blz,3,260,13206336,True,10808f01,Actionloop Twist: 00000002.app/rvlpzlp/Mdl/pzlp_ojyama_ball.blz
+.dlz,3,633,3378432,True,10741700,Actionloop Twist: 00000002.app/rvlpzlp/Dot/rk066_2.dlz
+.txlz,3,528,495552,False,10991700,Actionloop Twist: 00000002.app/rvlpzlp/Stg/stg_stg039.txlz
+.tlz,3,4,39360,False,10402000,Actionloop Twist: 00000002.app/rvlpzlp/Gfx/cmn/02_wipe.tlz
+.alz,3,120,1524224,True,10c05a00,Actionloop Twist: 00000002.app/rvlpzlp/Lyt/lang_ge/lyt_game_end_gr.alz
+.eflz,3,4,39072,False,1018b600,Actionloop Twist: 00000002.app/rvlpzlp/Eft/pzlp.eflz
+.etlz,3,4,57600,False,10808900,Actionloop Twist: 00000002.app/rvlpzlp/Eft/pzlp.etlz
+.array,3,9,17985,True,00000000,TV Show King: 00000002.app/data/test.array
+.xls,3,39,207983,False,610d0a,TV Show King: 00000002.app/data/texts/scholar.q.xls
+.sprite,3,108,481680,True,00000001,TV Show King: 00000002.app/data/2d/sprite/general_ranking_Loc.sprite
+.tea,3,12,539734,True,00000000,Jinsei Game: 00000005.app/ETC/job.tea
+.rsd,3,21,19056,True,000007d8,Jinsei Game: 00000005.app/Mii/ht_ALL.rsd
+.cod,3,24,1339355,True,00000000,Tsuppari Oozumou Wii Heya: 00000002.app/script/logo.cod
+.pk,3,349,79089035,True,00000002,Crystal Defenders R1: 00000002.app/img2.pk
+.scene,3,145,820060,True,3c536365,JellyCar 2: 00000002.app/Scenes/Multi_FLAG2.scene
+.brcla,3,16,92416,False,62726573,School of Darkness: 00000002.app/resources/FX_CollectShine.brcla
+.img,3,8,4194816,True,0000007f,Ikki|Arcade: 00000007.app/ikki_conf.img
+.rgb565,3,24,3964416,True,ffffa366,Ikki|Arcade: 00000005.app/sample320x224.rgb565
+.wad,3,6,8336559,True,da010000,Flowerworks: 00000002.app/text_wad/fw_text.wad
+.st,3,36,68335,True,11440f00,Bang Attack - Project Bang: 00000006.app/Strings/gamestrings_SP.st
+.gcn,3,72,47073844,True,00004d09,Cocoto Platform Jumper: 00000002.app/data/BATTLE/L32/L32.GCN
+.pc,3,144,32370500,True,00000000,Cocoto Platform Jumper: 00000002.app/data/BATTLE/L32/L32tin.pc
+.cp2,3,72,500076,False,00000064,Cocoto Platform Jumper: 00000002.app/data/BATTLE/L32/L32.cp2
+.ifl,3,240,4238,False,666c6172,Spaceball Revolution: 00000002.app/content2/Area15/textures/ray1.ifl
+.pca,3,3,1848912,True,50434100,Puyo Puyo|Arcade: 00000005.app/se.pca
+.m,3,150,1303852,True,6d646600,Puyo Puyo|Arcade: 00000005.app/PY_Wifi_Msg.psb.m
+.ctpl,3,153,3613865,False,1040cd00,Mr. Driller W: 00000006.app/controllerGuide_eu.ctpl
+.layers,3,227,392072,True,10320000,UNO: 00000003.app/level6.layers
+.clng,3,26,51334,False,efbbbf3c,Fish Tank: 00000002.app/lang/en/system.clng
+.atl,3,84,48262,True,61746c73,Fish Tank: 00000002.app/atlas/atlas_menu_2.atl
+.wmat,3,6,4057,False,1f8b0800,Drop Zone - Under Fire: 00000002.app/Engine/shaders/blur_y.wmat
+.twk,3,50,24106,False,1f8b0800,Heavy Fire - Special Operations: 00000002.app/data/game.twk
+.scr,3,187,319562,True,1f8b0800,Heavy Fire - Special Operations: 00000002.app/data/levels/level4/07.scr
+.mp3,3,4204,69872369,True,49443302,Kodomo Kyouiku Terebi Wii - Aiue Ouchan: 00000007.app/drill/don_q2_sub_1.mp3
+.anim,3,225,1715535,True,ff4c5a4d,Toki Tori: 00000002.app/animdata/misc/menu.anim
+.h8,3,3,18868884,True,28000174,Hajiite! Block Rush: 00000002.app/sound/GameSound.brsar.h8
+.col,3,155,1190664,True,00000008,Midnight Bowling: 00000003.app/data/Bowling/sp04.col
+.cam,3,3,7284,True,10704300,Midnight Bowling: 00000003.app/data/Bowling/camera.cam
+.uk,3,3,106232,True,000000ae,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.UK
+.cob,3,182,2706112,True,11440600,Racers' Islands - Crazy Racers: 00000007.app/shared/scene/setting/common/Weapon.cob
+.pos,3,136,82982,True,00010001,Gabrielle's Ghostly Groove - Monster Mix: 00000005.app/menu/menuShigeru.pos
+.rep,3,81,89506,True,1144fa01,Art Style Series - ORBITAL: 00000002.app/replay/hoge_003.rep
+.j32,3,2637,13725422,False,4a333231,Where's Wally - Fantastic Journey 1: 00000007.app/014/001266_0.j32
+.ppm,3,1185,38079384,False,464d5050,Where's Wally - Fantastic Journey 1: 00000007.app/034/002502_0.ppm
+.gwvideo,3,322,17769289,False,00000008,Where's Wally - Fantastic Journey 1: 00000006.app/012/002584_0.GWVideo
+.blob,3,24,1418476,True,3c3f786d,Where's Wally - Fantastic Journey 1: 00000006.app/012/002554_0.blob
+.obj,3,40,200070,True,23204d61,Family Glide Hockey: 00000005.app/work/gimmick/mr_trap.obj
+.wii,3,223,24228068,True,30000000,Military Madness - Nectaris: 00000002.app/canary.model.wii
+.psd,3,20,174599,True,,Ghost Mania: 00000002.app/data/gfx/end.psd
+.bdat,3,51,437992,False,022f0000,Planetarium: 00000002.app/3d/name_p.bdat
+.cache,3,84,186785,True,67736307,HB Arcade Cards: 00000002.app/flash/tutorial/EuchreT.swf.cache
+.ia,3,6,71112,True,49415243,Bust-a-Move Plus!: 00000001.app/PAC1.ia
+.gui,3,57,253247,True,2f2f2d2d,"Three Musketeers, The - One For All: 00000003.app/content3/credits_wide.gui"
+.wiz,3,97,28698777,True,21436587,Cruise Party: 00000008.app/data/objects/chips/chip_pique.wiz
+.wsp,3,462,11124166,True,21436587,Cruise Party: 00000008.app/data/objects/slot/D_B.wsp
+.bld,3,24,72,True,74636c,Target Toss Pro - Bags: 00000002.app/Master_Level/Master_LevelOL.BLD
+.olc,3,22,5201660,False,03000000,Target Toss Pro - Bags: 00000002.app/Master_Level/Master_Level.OLC
+.html,3,3,290040,False,efbbbf3c,Fantasic Cube: 00000002.app/snd/se/FC_SE.html
+.ash,3,188,36518900,True,41534830,My Pokemon Ranch: 00000004.app/pokemonfarm.brsar.ash
+.w3p,3,183,124639,False,434d5052,Art of Balance: 00000002.app/particles/water_splashInBig.w3p
+.es,3,3,17568,True,434d5052,Art of Balance: 00000002.app/localize/localize.loc.es
+.mis,3,43,5504008,True,2f2f2d2d,Zoo Disc Golf: 00000002.app/DiscGolf/data/missions/zoo_layout01_12.mis
+.dts,3,538,15808694,False,18007c00,Zoo Disc Golf: 00000002.app/DiscGolf/data/shapes/buildings/grannys_house01.dts
+.dml,3,12,675,False,6d696666,Zoo Disc Golf: 00000002.app/DiscGolf/data/skies/sky_day.dml
+.pkt,2,484,60873664,True,4b503000,Shootanto - Evolutionary Mayhem: 00000002.app/data/cex1301401.pkt
+.smx,2,14,1412220,False,534d5830,Shootanto - Evolutionary Mayhem: 00000002.app/data/itemintro_scr.smx
+.gfx,2,45,10068214,True,43465807,Ben 10 Alien Force - The Rise of Hex: 00000007.app/btaf_cutscene_charmcaster_wii.gfx
+.fev,2,2,121708,True,46455631,Ben 10 Alien Force - The Rise of Hex: 00000007.app/AudioData/Wii_BTAF.fev
+.pkd,2,4,106048,True,000082e2,Home Sweet Home: 00000002.app/gamedata.pkd
+.ctb_l,2,42,731371,False,10583a00,530 Eco Shooter: 00000002.app/Game/stage3_col_C01.ctb_l
+.cmb_l,2,42,527083,False,107c7400,530 Eco Shooter: 00000002.app/Game/stage3_col_1.cmb_l
+.brres_l,2,70,17526898,False,1000c805,530 Eco Shooter: 00000002.app/Game/Stage2_Sec1_1.brres_l
+.psb_l,2,26,75353,False,10a00900,530 Eco Shooter: 00000002.app/Game/Stg2canpos_Main.psb_l
+.znb_l,2,6,12044,False,10041a00,530 Eco Shooter: 00000002.app/Game/Stg3canpos.znb_l
+.tif,2,4,83386,True,49492a00,Ogre Battle 64 - Person of Lordly Caliber|N64: 00000005.app/jihad.TIF
+.graphml,2,104,298624,False,ff4c5a4d,TV Show King: 00000002.app/data/automat/ApplySpecialEvent.graphml
+.adr,2,17,25107,True,,Tsuppari Oozumou Wii Heya: 00000002.app/script/bodyresourceList.adr
+.zap,2,2,12947200,True,5a415000,LostWinds: 00000005.app/auddata.zap
+.bz2,2,24,26697967,False,01000000,"Amazing Brain Train, The!: 00000002.app/data/blockfiles/a_ball.blk.bz2"
+.blk,2,4,22025056,True,00010001,"Amazing Brain Train, The!: 00000002.app/data/blockfiles/init.blk"
+.vis,2,24,786,True,4c657665,Bit. Trip Void - Rhythm Seijin no Danmaku: 00000002.app/Sections/Level3/Section4.vis
+.fmsb,2,88,6003584,True,00000000,School of Darkness: 00000002.app/resources/Level_Boss_Principal.fmsb
+.brtpa,2,2,1024,False,62726573,School of Darkness: 00000002.app/resources/Object_TV_static.brtpa
+.mypants,2,2,5092,False,5363686f,School of Darkness: 00000002.app/resources/credits.mypants
+.bre2a,2,2,1776,False,42524532,Boku mo Sekai wo Sukuitai - Battle Tournament: 00000006.app/nowloading.bre2a
+.otf,2,2,43136,True,4f54544f,Flowerworks: 00000002.app/fonts/DigitalSansEFOP-Bold.otf
+.afnt,2,2,544624,False,52464e41,"You, Me, and the Cubes: 00000002.app/KBRWorkData_US/ArcFont/fw_skip_kbr.afnt"
+.bef,2,8,11842,True,11340b00,Bang Attack - Project Bang: 00000006.app/Fonts/MainMenu.bef
+.are,2,36,466858,True,534c3031,Space Invaders Get Even - Gyakushuu no Space Invaders: 00000001.app/content3/area/f02_01.are
+.ahx,2,228,4768756,False,80000020,Space Invaders Get Even - Gyakushuu no Space Invaders: 00000001.app/content3/sound/voice/voice_39.ahx
+.wtso,2,17,22672328,False,77617564,Spaceball Revolution: 00000002.app/content2/Common/audio/MUSICA_1.wtso
+.wtxo,2,170,2706480,False,77617564,Spaceball Revolution: 00000002.app/content2/Common/audio/TERREMOTO.wtxo
+.kcj,2,22,11340328,False,4b43434a,Hachi-One Diver Wii: 00000006.app/Joseki/îq.kcj
+.chptid,2,292,4672,False,07050000,Hachi-One Diver Wii: 00000006.app/SceneData/Chapter/p55_cB1.chptid
+.scnid,2,4694,9050032,False,0001120e,Hachi-One Diver Wii: 00000006.app/SceneData/Scene/p10_cA1_s016.scnid
+.bfp,2,2,6860736,True,52544650,Retro City Rampage: 00000006.app/gamedata_wii.bfp
+.bap,2,4,4609920,True,1120335b,Retro City Rampage: 00000006.app/LZ77_audio_music_Wii.bap
+.tpz,2,93,7794589,False,1100c80c,Mr. Driller W: 00000002.app/Game/Susumu.tpz
+.x2b,2,104,37128,True,58324220,Animal Life - Doubutsu Fureai Seikatsu: 00000004.app/resolve_cheetah_it.x2b
+.bsm,2,20,3744,True,00000003,Animal Life - Doubutsu Fureai Seikatsu: 00000004.app/animal07_c.bsm
+.ana,2,36,13986560,True,414e4140,Kentoushi - Furi Furi Boxing: 00000002.app/tournament_01.ana
+.osl,2,2,2760580,False,6f6f736e,Viral Survival: 00000002.app/SE/_se.osl
+.gun,2,19,4572,True,1f8b0800,Heavy Fire - Special Operations: 00000002.app/data/assets/guns/M61_Vulcan.gun
+.enm,2,34,7108,False,1f8b0800,Heavy Fire - Special Operations: 00000002.app/data/assets/enemies/enemi99.enm
+.log,2,2,13021,True,8a4a8e6e,Kodomo Kyouiku Terebi Wii - Aiue Ouchan: 00000001.app/drill/macro.log
+.atlas,2,32,598876,True,11205601,Hydroventure: 00000006.app/FluidData/Atlases/chapter04.page01.atlas
+.lpf2,2,42,24329544,False,4c657665,Hydroventure: 00000006.app/FluidData/Levels/c02e01.lpf2
+.bmf,2,4,46686,False,424d4620,Hydroventure: 00000006.app/FluidData/Fonts/Annual.bmf
+.fx,2,252,1011824,True,56697375,Hydroventure: 00000006.app/FluidData/Effects/part_cloudSpecial_gust_01.fx
+.@@@@@@@@@@@@@,2,9,31769,False,c0006101,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/1a.@@@@@@@@@@@@@
+.cinematics,2,64,5376,True,10010000,Midnight Bowling: 00000003.app/data/Bowling/menu_7.cinematics
+.rsha,2,4,7488,False,10800300,Midnight Bowling: 00000003.app/data/Bowling/bg02_2.rsha
+.fat,2,2,2952,True,000003e0,Board Warriors: 00000002.app/cfc.fat
+.stw,2,2,884,False,fffe3c00,"Legend of Zelda, The - Majora's Mask|N64: 00000005.app/saveComments.stw"
+.stb,2,2,9824,True,fffe3c00,"Legend of Zelda, The - Majora's Mask|N64: 00000005.app/saveComments.stb"
+.psi,2,66,71867,True,18a13102,Burn the Rope: 00000007.app/particles/yellow_weld.psi
+.jp,2,2,28936,True,000000ae,Racers' Islands - Crazy Racers: 00000007.app/shared/loc/wii/Lang_DB.JP
+.ta,2,38,71680,True,00000006,Gabrielle's Ghostly Groove - Monster Mix: 00000005.app/layout/data.ta
+.dpr,2,22,49856,False,52544450,Gabrielle's Ghostly Groove - Monster Mix: 00000005.app/dnc/RTW17.dpr
+.ev,2,52,687360,True,00000011,Gabrielle's Ghostly Groove - Monster Mix: 00000005.app/Event/scp/sce_08500.ev
+.ut,2,10,20480,True,00000054,Gabrielle's Ghostly Groove - Monster Mix: 00000005.app/Event/scp/sce_08102.ut
+.l77,2,169,44316064,False,1000c706,Voodoo Dice: 00000002.app/World1/Bin/layout.arc.l77
+.pbm,2,301,1353742,False,117e9600,3D Pixel Racing: 00000007.app/models/maps/map_04_tree.pbm
+.stg,2,109,131420,True,53544700,Bakutan: 00000002.app/content2/stage/37.stg
+.msgs,2,9,220383,True,5c7c2036,Chick Chick BOOM: 00000002.app/text/nl.msgs
+.fst,2,58,31540348,True,46415354,Cosy Fire: 00000002.app/faktum.fst
+.lh,2,94,15956260,True,40380008,WarMen Tactics: 00000006.app/data/interfejs_de.bmp.LH
+.zwf,2,30,1371662,False,42584f56,WarMen Tactics: 00000006.app/data/zvox07.zwf
+.std,2,4,30676,True,72656d20,WarMen Tactics: 00000006.app/data/IC.STD
+.nfh,2,2,6752,False,4e464800,Muscle March: 00000002.app/bitmapfont.nfh
+.sir,2,80,63193088,False,00000001,Military Madness - Nectaris: 00000002.app/streams/L12_A.sir
+.tsv,2,2,1130938,True,efbbbf0d,Military Madness - Nectaris: 00000002.app/text/globals_wii.tsv
+.asset,2,278,37177382,True,0000003c,HB Arcade Cards: 00000002.app/debugtext.asset
+.bitmapinfo,2,82,48650,False,67736207,HB Arcade Cards: 00000002.app/flash/tutorial/SolitaireT.swf.bitmapinfo
+.bank,2,27,11125920,True,00000008,HB Arcade Cards: 00000002.app/audio/SFX_FE.bank
+.@@@@@@@@@@@@,2,6,18133,False,156ffff0,California Games|C64: 00000005.app/files/c8.@@@@@@@@@@@@
+.],2,8,56490,True,25b3cbf4,California Games|C64: 00000005.app/files/c2].          .]
+.stage,2,48,24998,True,4c657665,Bit. Trip Core - Rhythm Seijin no Gyakushuu: 00000002.app/Stages/Level3/Stage5.stage
+.tcs,2,3,1051,False,70617468,Dragon Master Spell Caster: 00000002.app/UI/save/saveicon.tcs
+.material,2,17,2914,True,64657363,Kung Fu Funk - Everybody is Kung Fu Fighting!: 00000002.app/materials/mousepointer2.material
+.scb,2,20,202044,True,0102007f,Harvest Moon - My Little Shop: 00000004.app/Script_en/sc0127.scb
+.du,2,2,7666,True,000000ca,Fun! Fun! Minigolf: 00000002.app/localize/localize.loc.du
+.dict,2,106,10772,True,a9f32458,Jungle Speed: 00000002.app/art/cards.dict
+.bnk,2,11,14038024,True,00000030,Jungle Speed: 00000002.app/art/wwiseaudio/GEN.bnk
+.snd,2,5,1089,True,21436587,Cruise Party: 00000008.app/data/sfx/Common.snd
+.ani,2,150,1926166,True,00000000,Doc Clock - The Toasted Sandwich of Time: 00000002.app/animatedsprites/deadhosebot.ani
+.bkg,2,12,4236204,True,00000a00,Heracles Chariot Racing: 00000002.app/data/OVERLAY/main.bkg
+.o3dd,2,321,126224,False,5b726d64,Ghost Mansion Party: 00000002.app/data/3d/actors/minigames/motion01/lv01_motiongame/lv01_motiongame.o3dd
+.rtsa,2,4,2244,False,ff4c5a4d,Ghost Mansion Party: 00000002.app/data/3d/actors/world/common/cell/cell_event/amins/cell_event_light.rtsa
+.lev,2,82,8821901,True,00000001,Ghost Mansion Party: 00000002.app/data/3d/level/map_mini_flyballoon_hard.LEV
+.nac,2,2,12905268,True,4d546864,Robox: 00000002.app/music/gelatina.nac
+.brsas,2,2,1676800,False,52534152,Chokkan! Balance Labyrinth: 00000007.app/music.brsas
+.cmparc,2,23,12562072,False,11802248,Deer Captor: 00000002.app/title/hunter_title.cmparc
+.cmpres,2,20,32409860,False,11801957,Deer Captor: 00000002.app/game/animal.cmpres
+.arb,2,32,99768,True,31000000,Hamaru Billiards: 00000002.app/data/StoryModeCashDefinition.arb
+.barc,2,594,31296351,True,11800300,Ivy the Kiwi - Mini: 00000002.app/medal.bin.barc
+.ac,2,53,21845261,True,11e00c0b,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/C12Text.ac
+.bc,2,9,8071222,True,11009100,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/MiniGame.bc
+.eftc,2,2,199898,False,11003809,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/Railway.eftc
+.cc,2,6,7724,True,11720400,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/network.cc
+.effc,2,2,11771,False,11908f00,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/Railway.effc
+.tc,2,14,338064,True,11405804,Boku wa Plarail Untenshi - Shinkansen & Joukikikansha Hen: 00000002.app/content/manual_ita.tc
+.old,2,31,64637,True,2f636172,Frogger Returns: 00000002.app/3d/CVS/Entries.Old
+.smf,2,2,336,False,02cf0005,"Major League Eating - Game, The: 00000002.app/DATA_WII/scenes/SceneDB.smf"
+.sbk,2,12,8578048,True,00000001,"Major League Eating - Game, The: 00000002.app/DATA_WII/Audio/Sfx/Kittyv2.sbk"
+.blo,2,10,4913160,True,6372756d,"Major League Eating - Game, The: 00000002.app/DATA_WII/Scripts/G_Start.blo"
+.end,2,120,353152,True,110c7c00,Art Style Series - CUBELEO: 00000002.app/end_05_DIRECTION.end
+.cube,2,74,57280,True,11de1400,Art Style Series - CUBELEO: 00000002.app/color6_c.cube
+.ml,2,29,3717285,True,11000000,Zoo Disc Golf: 00000002.app/DiscGolf/data/missions/zoo_layout01_5.ml
+.ter,2,11,6623205,True,03400640,Zoo Disc Golf: 00000002.app/DiscGolf/data/missions/zoo_layout01.ter
+.dsq,2,104,1850666,False,18000000,Zoo Disc Golf: 00000002.app/DiscGolf/data/shapes/Rockhopper/rh_disc_roll.dsq
+.dtx,2,2,1006,True,3c6c6d61,Zoo Disc Golf: 00000002.app/DiscGolf/client/ui/disclaimer.dtx
+.loadingscreen,2,2,5556,False,636f756e,2 Fast 4 Gnomz: 00000006.app/Wskazowki_i_porady.loadingscreen
+.gob,2,495,145273,True,73707269,2 Fast 4 Gnomz: 00000006.app/object/World0/ziemia_39.gob
+.ltex,2,167,10111580,True,4c544558,2 Fast 4 Gnomz: 00000006.app/texture/white8x8.ltex
+.sta,2,81,39845,True,320d0a30,MDK2: 00000002.app/mdk2/stars.sta
+.idx,2,854,1193402,True,40424d5a,Blaster Master - Overdrive: 00000002.app/topview/st5_top_05a_mul.idx
+.pacz,2,9,25398622,False,4c5a5300,Moki Moki: 00000002.app/common.pacz
+.msd,1,36,15164576,True,00001e00,La-Mulana: 00000002.app/mapdata/map07.msd
+.rcd,1,1,295616,True,00000800,La-Mulana: 00000002.app/mapdata/script.rcd
+.mdd,1,280,578433,False,2d016801,La-Mulana: 00000002.app/anime/05.mdd
+.tplc,1,391,9043709,True,ff00000b,Ben 10 Alien Force - The Rise of Hex: 00000007.app/Techadon_Small_Spark_4_rgba4.tplc
+.xpf,1,605,17738060,True,ffbadbee,Ben 10 Alien Force - The Rise of Hex: 00000007.app/PSYS_Goop_Grate_Drip.xpf
+.cat,1,1,5518,True,badbeef1,Ben 10 Alien Force - The Rise of Hex: 00000007.app/catalog.cat
+.sfc,1,1,12000,False,dfbadbee,Ben 10 Alien Force - The Rise of Hex: 00000007.app/savefile.sfc
+.txtc,1,1,89867,True,dfbadbee,Ben 10 Alien Force - The Rise of Hex: 00000007.app/BTAF_Text_NOE.txtc
+.fmod,1,1,12751,True,00000000,Ben 10 Alien Force - The Rise of Hex: 00000007.app/AudioData/Wii_BTAF.fmod
+.tpk,1,3,5587968,True,00000000,Ant Nation: 00000002.app/content2/model/mdlants.tpk
+.bf,1,3,29607299,True,41424500,Rabbids Lab: 00000002.app/RGH.$hd$.bik.bf
+.lipsync,1,561,479448,False,00000021,TV Show King: 00000002.app/data/sounds/strm/vo/vfx_lightquiz_2.lipsync
+.spn,1,92,8953704,False,89504e47,Newton vs The Horde: 00000007.app/Textures/HUD_DRD_F.spn
+.txa,1,11,47472,True,00000400,Newton vs The Horde: 00000007.app/Textures/Intro_Mistake.txa
+.rag,1,4,1328,True,00000009,Newton vs The Horde: 00000007.app/Ragdolls/Monster_Flyer.rag
+.geo,1,26,2288,True,00000001,Newton vs The Horde: 00000007.app/GeomSetups/Block_Sculp_03.geo
+.tact,1,142,28896,False,00040000,Jinsei Game: 00000005.app/layout/EVENT_SALARY_Income_1.tact
+.b2,1,186,4988928,True,00000000,Jinsei Game: 00000005.app/map/map0050/masu0000/ev_0002.b2
+.dgf,1,1,70353,False,2f2f2a2a,LostWinds: 00000005.app/ucp.dgf
+.008,1,1,524288,True,18fb78d8,Gradius III|SNES: 00000005.app/SNSG30.008
+.softbody,1,681,1002355,False,3c536f66,JellyCar 2: 00000002.app/Scenes/n_lv8_flat_01.softbody
+.softbody2,1,1,1942,False,3c536f66,JellyCar 2: 00000002.app/Scenes/new11_tree01.softbody2
+.softbody3,1,1,2347,False,3c536f66,JellyCar 2: 00000002.app/Scenes/new11_cloud.softbody3
+.softbody1,1,1,825,False,3c536f66,JellyCar 2: 00000002.app/Scenes/tutorial_ground01.softbody1
+.scene1,1,1,7372,True,3c536365,JellyCar 2: 00000002.app/Scenes/new4.scene1
+.038,1,1,1048576,True,789c0042,"Legend of Zelda, The - A Link to the Past|SNES: 00000005.app/SNSZL0.038"
+.stp,1,1,40000597,True,869f9a81,Rush Rush Rally Racing: 00000006.app/data.stp
+.667,1,1,4194304,True,00010000,Donkey Kong Country 2 - Diddy's Kong Quest|SNES: 00000005.app/SNADNE1.667
+.wtxa,1,148,6435360,True,57545849,Spaceball Revolution: 00000002.app/content2/Area11/anims/anima_figuratipo2_02.wtxa
+.wtxg,1,316,11384298,True,57545849,Spaceball Revolution: 00000002.app/content2/Area11/meshes/celda_4x4on.wtxg
+.vtps,1,83,240089,False,0d0a2d2d,Spaceball Revolution: 00000002.app/content2/Common/particles/warning_explosion3.vtps
+.cpar,1,6,8662,False,3c3f786d,Fish Tank: 00000002.app/particle/bubbles_speed.cpar
+.script,1,4,77881,True,2f2f204d,"Monsteca Corral, A - Monsters vs. Robots: 00000002.app/pickups.script"
+.ly,1,17,1363,True,1f8b0800,Drop Zone - Under Fire: 00000002.app/data/data_game/3d/enemies_animations.3dn.ly
+.scnprop,1,3,542,False,1f8b0800,Drop Zone - Under Fire: 00000002.app/data/data_game/3d/scene.scnprop
+.dsc,1,18,2212,True,1f8b0800,Heavy Fire - Special Operations: 00000002.app/data/assets/destructibles/Kolumna.dsc
+.tokilevel,1,84,713418,False,00000014,Toki Tori: 00000002.app/maps/cutscenes/enter_slimysewer.tokilevel
+.trigger,1,105,32845,True,0008746f,Toki Tori: 00000002.app/fx/particles/tokitori/creepycastle/run.trigger
+.xap,1,1,136685,False,476c6f62,Toki Tori: 00000002.app/audio/tokitori.xap
+.ttim,1,16,6972,False,23204461,Toki Tori: 00000002.app/audio/music/CreepyCastle1.ttim
+.ctsn,1,144,107269,False,00000000,Planet Pachinko: 00000007.app/binary/cutscenes/gg/Dialog_FR_12.ctsn
+.bdt,1,223,284550,True,17000000,Planet Pachinko: 00000007.app/binary/character/ch_deenee.bdt
+.akm,1,1,265,False,00000002,Planet Pachinko: 00000007.app/binary/menu/mainmenu.akm
+.the office,1,1,31936,False,eb6cf992,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/5b.the office
+.the basement,1,1,32712,False,d2a3fa9a,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/4b.the basement
+.the sewers,1,1,31125,False,80fbf267,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/3b.the sewers
+.the street,1,1,32977,False,e803fba3,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/2b.the street
+.central park,1,1,35120,False,d4faff12,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/1b.central park
+.the mansion,1,1,33130,False,d48dfc3c,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/6b.the mansion
+.final battle,1,1,29005,False,d464f61f,Last Ninja 2 - Back with a Vengeance|C64: 00000005.app/files/7b.final battle
+.058,1,1,1048576,False,18fb78d8,Contra III - The Alien Wars|SNES: 00000005.app/SNSCS0.058
+.m2m,1,44,33629,False,00000013,Chindouchuu!! Paul no Daibouken: 00000002.app/map/field041_2.m2m
+.rlyt,1,1,138108,True,efbbbf3c,"Legend of Zelda, The - Majora's Mask|N64: 00000005.app/banner.rlyt"
+.utf8,1,5,62074,False,00000000,Burn the Rope: 00000007.app/text/fr.utf8
+.alphabet,1,3,604,False,fffe4100,Burn the Rope: 00000007.app/font/burntherope_numbers.alphabet
+.svg,1,237,845699,True,3c3f786d,Burn the Rope: 00000007.app/levels/111.svg
+.stk,1,1,16864758,False,06080000,Babel Rising: 00000002.app/S3DMain.stk
+.etx,1,467,3904365,True,00030000,Rubik's Puzzle Galaxy - RUSH: 00000002.app/operationsguide/C6A6D3FE0DDDFC10.etx
+.eso,1,2,2508,True,00030000,Rubik's Puzzle Galaxy - RUSH: 00000002.app/default/CBB649F112744E56.eso
+.esc,1,1,208,True,00030000,Rubik's Puzzle Galaxy - RUSH: 00000002.app/default/CBB649F112744E56.esc
+.ema,1,1,191,True,00030000,Rubik's Puzzle Galaxy - RUSH: 00000002.app/default/5766E9D512744E56.ema
+.ma,1,10,2857717,True,4d454d43,Rubik's Puzzle Galaxy - RUSH: 00000002.app/archives/config.ma
+.xmp,1,24,284844,True,504d5843,Rubik's Puzzle Galaxy - RUSH: 00000002.app/audio/music/multiplayer3.xmp
+.xmi,1,1,2256768,False,494d5843,Rubik's Puzzle Galaxy - RUSH: 00000002.app/audio/music/music.xmi
+.ptxh,1,270,21600,False,32303130,Around the World: 00000002.app/Wii/MenusMaster/RESOURCES/FONTS/0002-BDCARTOONSHOUT_1.PTXH
+.ptx,1,273,29296736,False,0000ffff,Around the World: 00000002.app/Wii/MenusMaster/RESOURCES/FONTS/TRAVELERFONT_TITLE_0.PTX
+.pma,1,20,3489,True,554e4445,Around the World: 00000002.app/Wii/MenusMaster/ASSETS/SPLASHSCREEN.PMA
+.p3d,1,2,1276386,True,52494646,Around the World: 00000002.app/Wii/MenusMaster/ASSETS/TERRE_LOADING.P3D
+.pft,1,2,14794,False,554e4445,Around the World: 00000002.app/Wii/Engine/FONTS/EN/LOADING_FONT.PFT
+.pl,1,3,9755,True,23212f75,Around the World: 00000002.app/Locations/Texts/GenerateIdForLoc.pl
+.sdf,1,7,2322903,True,116c3c10,Around the World: 00000002.app/Assets/MenusMaster/WarmingUp_SoloWii.sdf
+.arch,1,1,29038784,True,5d000080,Wild West Guns: 00000002.app/wiitargetsdata.arch
+.off,1,1,63724,True,00000c72,Wild West Guns: 00000002.app/wiitargetsdata.off
+.usm,1,9,8989664,True,43524944,Pokemon Puzzle League|N64: 00000005.app/spaGIO.usm
+.s3d_pack,1,1,34355292,False,73686172,Aya and the Cubes of Light: 00000002.app/rvl_packfile.s3d_pack
+.edso,1,1,1890,False,29000000,And Yet It Moves: 00000002.app/wiisources/layerFloater/scripts/sceneLayerFloater.ed.cs.edso
+.milk,1,58,261793,False,5b707265,Helix: 00000002.app/presets/fast/Geiss - Calligraphy.milk
+.ctexatl,1,15,68079,False,3c3f786d,Bloons: 00000002.app/atlas_menu_2_e.ctexatl
+.668,1,1,3145728,False,20cf02a9,Breath of Fire II|SNES: 00000005.app/SNAF2E0.668
+.047,1,1,1048576,False,9c004264,Kirby's Dream Course|SNES: 00000005.app/SNSCG0.047
+.605,1,1,3145728,True,4c3f004c,Romance of the Three Kingdoms IV - Wall of Fire|SNES: 00000005.app/SNAS4E0.605
+.pdb,1,2,1405526,False,1f8b0800,Ghost Mania: 00000002.app/TemplateProject.pdb
+.sym,1,4,2031731,True,dc310000,Battle Poker: 00000002.app/BATTLEP_wii_f.sym
+.new,1,1,0,True,,Tumblebugs 2: 00000003.app/___content3.arc.new
+.gsa,1,1,14210208,False,00000339,Tumblebugs 2: 00000003.app/media/all.gsa
+.games_rem,1,1,16188,False,01080b08,California Games|C64: 00000005.app/files/califo.games_rem
+.settings,1,13,4960,True,106d0000,Dragon Master Spell Caster: 00000002.app/Models/deathDragon.settings
+.kf,1,14,6818528,True,10262900,Dragon Master Spell Caster: 00000002.app/Models/pig.kf
+.nif,1,19,6690240,True,108e4b0d,Dragon Master Spell Caster: 00000002.app/Models/iceDragon.nif
+.kfm,1,13,20896,True,10194800,Dragon Master Spell Caster: 00000002.app/Models/elziath.kfm
+.nsb,1,1,1568,True,105f1800,Dragon Master Spell Caster: 00000002.app/Shaders/VCAlphaTextureBlender.NSB
+.nsf,1,1,3424,True,10663800,Dragon Master Spell Caster: 00000002.app/Shaders/VCAlphaTextureBlender.NSF
+.hlsl,1,10,26560,False,10052c00,Dragon Master Spell Caster: 00000002.app/Shaders/Generated/NiStandardMaterial/01000141-00000000-52001000-00000000-V.hlsl
+.cpp,1,1,1760,False,10a31400,Dragon Master Spell Caster: 00000002.app/Shaders/Wii/VCAlphaTextureBlender.cpp
+.nff,1,1,258336,True,109c0520,Dragon Master Spell Caster: 00000002.app/Fonts/Mikadan_A_36.nff
+.resource,1,60,287375,True,4d6f6a69,Trenches Generals: 00000002.app/content2/TEXTURES/british_army_full.resource
+.wiifb,1,8,56832,False,e28ce28c,Trenches Generals: 00000002.app/content2/SAVE_DATA/save_icon6.wiifb
+.abc,1,10,46536,True,05000000,Trenches Generals: 00000002.app/content2/FONTS/default_font_8.abc
+.locabin,1,11,250786,False,4d6f6a69,Trenches Generals: 00000002.app/content2/LOCALIZATION/trenches_language_japanese.locabin
+.eui,1,8,1092124,True,0000000c,Groovin' Blocks: 00000002.app/UI/GemsMenus.eui
+.esf,1,1,3912,True,00000008,Groovin' Blocks: 00000002.app/Settings/GemsSettings.esf
+.ssb,1,1,13816,True,00000018,Groovin' Blocks: 00000002.app/Lang/eng/SongSets/Default.ssb
+.iaudiosb,1,12,29984,False,00000018,Groovin' Blocks: 00000002.app/Audio/Soliton_Boxtech31.iAudioSB
+.iaudiotd,1,11,22348,False,00000010,Groovin' Blocks: 00000002.app/Audio/GEMS-MF_Mercer1.iAudioTD
+.ebs,1,11,21348718,True,4f676753,Groovin' Blocks: 00000002.app/Audio/Soliton_LightBulletsCollision.ebs
+.ecm,1,7,433796,True,00000018,Groovin' Blocks: 00000002.app/Geometry/GroundMirror.ecm
+.ecf,1,4,32632,True,00000024,Groovin' Blocks: 00000002.app/Fonts/NeogreyRegular.ecf
+.vmd,1,24,510143,False,20202020,Fun! Fun! Minigolf: 00000002.app/levels/asia1.vmd
+.vm,1,24,148950,True,66756e63,Fun! Fun! Minigolf: 00000002.app/levels/c1_1.vm
+.bpk,1,1,33697440,True,42504b41,Vampire Crystals: 00000006.app/Vampires.bpk
+.pkg,1,5,14485581,True,789cecbd,Bonsai Barber: 00000006.app/bb_text.pkg
+.btga,1,291,6637892,False,62746761,Rainbow Islands - Towering Adventure!: 00000002.app/data/rect.btga
+.mmd,1,11,374640,False,00000020,Rainbow Islands - Towering Adventure!: 00000002.app/data/map/map00_00.mmd
+.gm,1,36,121198,True,676c6f62,Rock N' Roll Climber: 00000002.app/script/igpause_tut.gm
+.gradius2,1,1,131072,False,41429040,Salamander|MSX: 00000005.app/MEGAROM.ROM.gradius2
+.debug,1,48,223388,True,00000000,Jungle Speed: 00000002.app/art/flow.debug
+.develop,1,1,64,False,0d0a5573,Jungle Speed: 00000002.app/ini/user.ini.develop
+.playgame,1,1,64,False,0d0a5573,Jungle Speed: 00000002.app/ini/user.ini.playGame
+.#_trc,1,1,14131,False,01080b08,Mayhem in Monsterland|C64: 00000005.app/m.in monst.#_trc
+.in monst+4_trc,1,1,36027,False,01080b08,Mayhem in Monsterland|C64: 00000005.app/m.in monst+4_trc
+.jaminfo,1,175,34455,False,4d6f6465,Just JAM: 00000007.app/Bank0Loop2.jaminfo
+.jambank,1,35,12903,False,53616d70,Just JAM: 00000007.app/Bank4.jambank
+.jamstage,1,7,3458,False,5469746c,Just JAM: 00000007.app/jam.jamstage
+. wares from,1,2,40663,False,0004aaaa,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/12. wares from
+.  denmark!,1,2,20652,False,e800b0a5,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/13.  denmark!
+.level-shorted,1,1,6129,False,c00080ec,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/02.level-shorted
+.dunex - cool,1,2,40136,False,0004aaaa,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/04.dunex - cool
+. ninja 3+4_dnx,1,1,37680,False,01080b08,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/l. ninja 3+4_dnx
+. side two of,1,1,39676,False,ffffff1b,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/07. side two of
+. trained and,1,1,6233,False,e1ffff54,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/01. trained and
+. by system 3,1,1,40295,False,c0ffff00,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/09. by system 3
+.  by dunex!,1,1,40310,False,fcffff5f,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/03.  by dunex!
+.last ninja 3,1,1,1026,False,0004aaaa,Last Ninja 3 - Real Hatred is Timeless|C64: 00000005.app/files/08.last ninja 3
+.comic,1,57,24396,False,50940300,"Three Musketeers, The - One For All: 00000004.app/content4/spanish_strap.comic"
+.animation,1,107,829539,True,11623500,"Three Musketeers, The - One For All: 00000005.app/content5/dynamiccollision/pendulumsingle.animation"
+.cmaterials,1,60,2408,False,11020000,"Three Musketeers, The - One For All: 00000005.app/content5/dynamiccollision/pendulumsingle.cmaterials"
+.particlesystem,1,2,122,False,11380000,"Three Musketeers, The - One For All: 00000005.app/content5/hero/porthos/footstepsr.particlesystem"
+.emitter,1,16,21468,False,50c30a00,"Three Musketeers, The - One For All: 00000005.app/content5/hero/porthos/footsteps.emitter"
+.events,1,6,235,True,112b0000,"Three Musketeers, The - One For All: 00000005.app/content5/hero/porthos/anims/landrun.animation.events"
+.camerastates,1,3,450,False,11e80000,"Three Musketeers, The - One For All: 00000005.app/content5/levels/tower.cfg.camerastates"
+.camera,1,19,5487,True,110b0100,"Three Musketeers, The - One For All: 00000005.app/content5/levels/1.1/23cs2tower9.cfg.camera"
+.sfk,1,1,528,False,50140200,"Three Musketeers, The - One For All: 00000003.app/content3/french/attack4.ogg.sfk"
+.sfx,1,6,7074005,True,00010000,Deer Drive Legends: 00000002.app/Ingame_Boss_Loop.sfx
+.ksnd,1,14,7591392,False,52010200,"Mystery of Whiterock Castle, The: 00000002.app/music_19.ksnd"
+.012,1,1,1048576,True,18fba900,Final Fight|SNES: 00000005.app/SNSFT0.012
+.pub,1,27,36469632,True,00000001,Big Town Shoot Out: 00000002.app/STRAP_EnglishWII.PUB
+.ids,1,1,3097,True,5458545f,Big Town Shoot Out: 00000002.app/Language.ids
+.jpeg,1,1,45084,True,ffd8ffe0,Big Town Shoot Out: 00000002.app/HomeBtn/manual.jpeg
+.dsk,1,1,737280,True,ebfe904d,Metal Gear 2 - Solid Snake|MSX: 00000005.app/2dd09sec.dsk
+.jd,1,1,31355,True,00003c43,Saikyou Ginsei Igo: 00000008.app/Joseki.jd
+.mesh,1,95,4466446,True,5d000080,TV Show King 2: 00000002.app/data/3d/djette/djette.mesh
+.bdae,1,139,2894547,False,5d000080,TV Show King 2: 00000002.app/data/3d/host/host_great_game_end.rvl.big.bdae
+.cer,1,1,865,True,5d000080,TV Show King 2: 00000002.app/data/RootCA/gameloftca.cer
+.guitheme,1,1,677,False,230d0a23,Doc Clock - The Toasted Sandwich of Time: 00000002.app/guithemes/default.guitheme
+.pte,1,100,49219,True,454d4641,Doc Clock - The Toasted Sandwich of Time: 00000002.app/particleemitters/fleaves.pte
+.lay,1,29,6185,True,4c4f5554,Doc Clock - The Toasted Sandwich of Time: 00000002.app/layout/lab02Textures.lay
+.dyn,1,176,24416,True,44594f46,Doc Clock - The Toasted Sandwich of Time: 00000002.app/objects/oib2head03.dyn
+.soundshader,1,97,7618,False,66696c65,Doc Clock - The Toasted Sandwich of Time: 00000002.app/soundshaders/WSD_HIT_OTHER_LIGHT_2.soundshader
+.con,1,226,17713,True,434f4e46,Doc Clock - The Toasted Sandwich of Time: 00000002.app/conversations/i3TempleC.con
+.spr,1,820,48510,True,53505246,Doc Clock - The Toasted Sandwich of Time: 00000002.app/sprites/fdirt9.spr
+.lls,1,1,139,True,7469746c,Doc Clock - The Toasted Sandwich of Time: 00000002.app/levels/levels.lls
+.effect,1,7,1483,True,230d0a23,Doc Clock - The Toasted Sandwich of Time: 00000002.app/effects/sfx.sprite.effect
+.ast,1,99,34723,True,41535446,Doc Clock - The Toasted Sandwich of Time: 00000002.app/animations/rocketStopped.ast
+.puz,1,120,12480,True,01303030,Balloon Pop Festival: 00000006.app/data/puz/lv70.puz
+.455,1,1,2097152,True,01041040,R-Type III - The Third Lightning|SNES: 00000005.app/SNSER0.455
+.bin_l,1,15,3320047,False,1100004c,WarioWare Do it Yourself - Showcase: 00000002.app/EU/I/Sw/G.bin_l
+.pk3,1,20,18458198,False,e4ff5800,Simple Series Vol. 3 - The Mahjong: 00000002.app/title.pk3
+.restlevel,1,6,10475,False,6576656e,Diatomic: 00000007.app/wave_2_8_a.restlevel
+.rpf,1,1,0,False,,Eat! Fat! FIGHT!: 00000002.app/tuppari_eu.rpf
+.r2142,1,1,104574,False,23535441,Eat! Fat! FIGHT!: 00000002.app/script/main_e.loc.r2142
+.r2140,1,1,104521,False,23535441,Eat! Fat! FIGHT!: 00000002.app/script/main_e.loc.r2140
+.mine,1,1,104521,False,23535441,Eat! Fat! FIGHT!: 00000002.app/script/main_e.loc.mine
+.et,1,127,4788672,True,faaffaaf,Jam City Rollergirls: 00000007.app/EntityTemplates/254A688E92926A09.et
+.025,1,1,1048576,True,18fb78d8,Super Castlevania IV|SNES: 00000005.app/SNSAD0.025
+.024,1,1,1048576,True,18fb78d8,"Legend of Mystical Ninja, The|SNES: 00000005.app/SNSGG0.024"
+.text,1,1,2,True,610a,Sexy Poker: 00000002.app/data/texts/localization.text
+.phy,1,25,54574,True,01008096,Ghost Mansion Party: 00000002.app/data/3d/level/map_worldmap_w01.PHY
+.gmd,1,25,498184,True,6265100a,Ghost Mansion Party: 00000002.app/data/3d/level/cfg_mini_boating_normal.gmd
+.info,1,1,7394,True,a8006775,Ghost Mansion Party: 00000002.app/data/3d/level/physics.info
+.bgame,1,3,4145,False,002a0017,Ghost Mansion Party: 00000002.app/data/2d/game2d/investigate_l03.bgame
+.icd,1,30,10590,True,00696e66,Kotoba no Puzzle - Mojipittan Wii: 00000001.app/cnt01/puzzle/info_chara/infochr08.icd
+.mbf,1,6,615,False,01000000,Kotoba no Puzzle - Mojipittan Wii: 00000001.app/cnt01/puzzle/bg_data/stgBgData_main.mbf
+.bmoj,1,3,342,False,00030001,Kotoba no Puzzle - Mojipittan Wii: 00000001.app/cnt01/menu/stage_select/stgPageTitle_main.bmoj
+.cswg,1,45,868803,False,10589002,Kotoba no Puzzle - Mojipittan Wii: 00000001.app/cnt01/swg/word_check/word_check_character.cswg
+.biathlon,1,1,25037,True,61c89fff,Winter Games|C64: 00000005.app/files/3.......biathlon
+.world records,1,1,142,False,000ece4d,Winter Games|C64: 00000005.app/files/8..world records
+.menu,1,1,7680,True,1dfb3fe6,Winter Games|C64: 00000005.app/files/1...........menu
+.ski jump,1,1,18222,False,47297aff,Winter Games|C64: 00000005.app/files/6.......ski jump
+.opening,1,1,10179,True,27beb421,Winter Games|C64: 00000005.app/files/0........opening
+.speed skating,1,1,9322,False,2465adc9,Winter Games|C64: 00000005.app/files/4..speed skating
+.hot dog,1,1,16589,False,40c86cff,Winter Games|C64: 00000005.app/files/2........hot dog
+.figure skating,1,1,19973,False,4e0079ff,Winter Games|C64: 00000005.app/files/5.figure skating
+.bob sled,1,1,21985,False,55dca6ff,Winter Games|C64: 00000005.app/files/7.......bob sled
+.grs,1,1,70,False,1f8b0800,Heavy Fire - Black Arms: 00000002.app/data/assets/grass/grass_01.grs
+.ai,1,58,17362,True,1f8b0800,Heavy Fire - Black Arms: 00000002.app/data/assets/ai/plotek_2/INSTANT.ai
+.dum,1,1,21507,True,4d546864,Robox: 00000002.app/music/tension.dum
+.jul,1,1,1947,False,4d546864,Robox: 00000002.app/music/comienzo.jul
+.zbg,1,1,19845,False,4d546864,Robox: 00000002.app/music/jefeepic1.zbg
+.ati,1,1,8469,True,4d546864,Robox: 00000002.app/music/interiorrobot.ati
+.bdr,1,1,20730,False,4d546864,Robox: 00000002.app/music/jefe.bdr
+.san,1,1,13660,True,4d546864,Robox: 00000002.app/music/cueva.san
+.dan,1,1,15031,True,4d546864,Robox: 00000002.app/music/bosque.dan
+.conf,1,8,2754,True,66656174,Girlfriends Forever - Magic Skate: 00000002.app/songs/song7.conf
+. games ii note,1,1,591,False,01080a08,Summer Games II|C64: 00000005.app/files/s. games ii note
+.mat,1,157,766442,True,02000000,Planet Fish: 00000009.app/data/prop/obstacles/sponge/sponge.mat
+.vtx,1,185,1134714,False,02000000,Planet Fish: 00000009.app/data/prop/obstacles/sponge/sponge.vtx
+.skl,1,17,8532,False,02000000,Planet Fish: 00000009.app/data/prop/obstacles/sponge/skins/bone_gsrt_sponge_none_none.skl
+.arc_lz,1,36,2027013,False,110c0f00,Tataite! Mogupon: 00000002.app/staff_mii.arc_LZ
+.jpg_lz,1,1,45477,False,1153ed00,Tataite! Mogupon: 00000002.app/manual_jp.jpg_LZ
+.brres_lz,1,12,4728381,False,1100340f,Tataite! Mogupon: 00000002.app/mii_body.brres_LZ
+.csv_lz,1,3,3862,False,11600c00,Tataite! Mogupon: 00000002.app/HomeButton3/home_nosave.csv_LZ
+.tpl_lz,1,2,21512,False,11406000,Tataite! Mogupon: 00000002.app/savebanner/banner.tpl_LZ
+.breft_lz,1,3,53079,False,11604d00,Tataite! Mogupon: 00000002.app/effect/itembox_explosion.breft_LZ
+.breff_lz,1,3,6788,False,11d40c00,Tataite! Mogupon: 00000002.app/effect/bom_explosion.breff_LZ
+.brsar_h8,1,1,5507412,False,28002957,Tataite! Mogupon: 00000002.app/sound/mogpon.brsar_H8
+.attr,1,7,13104,True,00000017,Alien Crush Returns: 00000002.app/param/fieldbns.attr
+.arcc,1,235,5839680,False,11603f00,Hirameki Card Battle - Mekuruka: 00000002.app/chiba/general/turn2p.arcc
+.mo,1,141,38979532,True,4d4f4335,Fast Draw Showdown: 00000007.app/FDScene2.mo
+. karate +,1,1,38384,False,01081408,International Karate +|C64: 00000005.app/int. karate +
+.screen,1,10,559,True,0d0a6c61,Rage of the Gladiator: 00000002.app/uiscreens/InputKey.screen
+.gest,1,6,10056,True,64000000,Karate Phants - Gloves of Glory: 00000003.app/gesture/d.gest
+.sav,1,1,1200,True,a68bbbff,Paper Wars - Cannon Fodder: 00000002.app/save.sav
+.d3dtx,1,1,590215,True,4552544d,Strong Bad's Cool Game for Attractive People - Episode 1 - Homestar Ruiner: 00000002.app/C:\Telltale\Projects\Homestar101\Pack/ui_menu_colorbackground.d3dtx
+.rdt,1,1,9340852,False,52445401,Bejeweled 2: 00000006.app/resources/Game.rdt
+.bpz,1,89,7325,False,118c0000,Bejeweled 2: 00000006.app/puzzles/8_test2.bpz
+.sol,1,79,716377,True,11370000,Bejeweled 2: 00000006.app/puzzles/51_rock_checker_house.sol
+.oph,1,1,30044,True,2a4f5a44,Pirates - The Key of Dreams: 00000006.app/pack_wii.oph
+.opb,1,1,8812696,False,ba0f0000,Pirates - The Key of Dreams: 00000006.app/pack_wii.opb
+.006,1,1,1048576,True,78d818fb,ActRaiser|SNES: 00000005.app/SNSAR0.006
+.daw,1,1,13260864,True,0210f500,Snail Mail: 00000006.app/WiiSM.daw
+.fs,1,1,17360,True,000000c0,Pallurikio: 00000002.app/data.fs
+.nxb,1,185,1197376,False,11ce0d00,Stop Stress - A Day of Fury: 00000003.app/physx/carpeta2/carpeta2.nxb
+.sda,1,1,2663928,True,40327f4b,Street Fighter Alpha 2|SNES: 00000005.app/LZH8JDCE.sda
+.pix,1,5,70816,True,80008000,Dart Rage: 00000007.app/dartstars8.pix
+.bod,1,4,846016,True,c28d0001,Big Bass Arcade: 00000007.app/lakes/bridge/lake_bridge_collide.bod
+.brsha,1,34,37248,False,62726573,Big Bass Arcade: 00000007.app/lures/tube_idle.brsha
+.cpk,1,1,37644544,True,43504b20,Sonic the Hedgehog 4 - Episode I: 00000006.app/data.cpk
+.mbd,1,1,78048,True,4d424400,Reel Fishing - Ocean Challenge: 00000001.app/BG03X.mbd
+.rel,1,3,1604764,True,00000001,Star Soldier R: 00000003.app/dll/bootdll.rel
+.sram,1,1,65544,False,5352414d,Puyo Puyo Tsuu|Arcade: 00000005.app/PuyoPuyo2.ccf.sram
+.brrec,1,82,13267696,False,40800e00,Frogger Returns: 00000002.app/3d/good_powerup_reverse.brrec
+.extra,1,9,6576,True,2f636172,Frogger Returns: 00000002.app/3d/CVS/Entries.Extra
+.brfnc,1,30,529596,False,409c0306,Frogger Returns: 00000002.app/font/comic_sans_50.brfnc
+.xcf,1,1,4932,False,67696d70,Frogger Returns: 00000002.app/2d/buttons_a_and_b.xcf
+.tpc,1,19,731388,True,40405804,Frogger Returns: 00000002.app/2d/tpc/manual_fr_NOE.tpc
+.cmo,1,2,2974993,True,4e656d6f,Liight: 00000003.app/liight_final.cmo
+.jskn,1,12,338432,False,10be2600,TikiTowers: 00000002.app/mt/database/ANI_Switch01.jskn
+.jtn,1,114,144928,False,10ac0500,TikiTowers: 00000002.app/mt/database/OBJ_DustSprite.jtn
+.jml,1,12,4087712,False,1090e008,TikiTowers: 00000002.app/mt/database/ANI_Vulture.jml
+.jsg,1,71,6144000,False,106cd500,TikiTowers: 00000002.app/mt/database/GUI_ErrorBackground.jsg
+.jfnt,1,4,4928,False,10640b00,TikiTowers: 00000002.app/mt/database/FNT_IslandFont_Size17.jfnt
+.cs~,1,1,3254,False,2f2f2041,Astro Bugz Revenge: 00000002.app/Language/English.cs~
+.lang~,1,1,2831,False,5354525f,Astro Bugz Revenge: 00000002.app/Language/English.lang~
+.cs#,1,1,2149,False,66756e63,Astro Bugz Revenge: 00000002.app/game/gameScripts/#fog.cs#
+.tsc,1,397,421283,True,11e20000,Cave Story: 00000004.app/mod/Head.tsc
+.pxm,1,384,163408,False,11580100,Cave Story: 00000004.app/mod/Stage/CurlyS.pxm
+.pxe,1,388,71470,False,11740000,Cave Story: 00000004.app/mod/Stage/MazeB.pxe
+.pxa,1,92,6405,False,11000100,Cave Story: 00000004.app/mod/Stage/Pens.pxa
+.xm,1,42,760702,True,11597300,Cave Story: 00000002.app/data/base/Org/Fanfale3.xm
+.org,1,43,149760,True,11720400,Cave Story: 00000002.app/data/base/Org/Oside.org
+.bad,1,1,74,True,11500100,Cave Story: 00000002.app/data/base/Org/XXXX.xm.bad
+.pcf,1,66,55043,False,23232323,Back to Nature: 00000002.app/config/config.common.pcf
+.fez,1,7,36077728,False,46455a43,Yard Sale Hidden Treasures - Sunnyville: 00000002.app/data.fez
+.bdic,1,4,3046,False,0000000c,Chronos Twins DX: 00000002.app/strings/dialogGame.bdic
+.textbin,1,12,23020,False,42545854,Chronos Twins DX: 00000002.app/strings/intro_FR_USA.textbin
+.lvlb,1,121,1313885,False,00000000,Eduardo the Samurai Toaster: 00000004.app/level1_1_bg1.lvlb
+.tesb,1,127,8273,False,00000000,Eduardo the Samurai Toaster: 00000004.app/Test/seq1.tesb
+.tewvb,1,148,58437,False,00000000,Eduardo the Samurai Toaster: 00000004.app/level15/blevel13_1.tewvb
+.tewcb,1,116,7083,False,00000000,Eduardo the Samurai Toaster: 00000004.app/level15/blevel13_1.tewcb
+.tstmb,1,90,1233486,False,00000000,Eduardo the Samurai Toaster: 00000002.app/killer_bee/killer_bee_idle.tstmb
+.rfxb,1,260,16457,False,00000000,Eduardo the Samurai Toaster: 00000003.app/misc/hit_explosion.rfxb
+.wtxs,1,63,7345236,True,77747873,Yummy Yummy Cooking Jam: 00000002.app/content2/Audio/Music/YY_05_menu.wtxs
+.exports,1,1,245732,True,3c657870,Zoo Disc Golf: 00000002.app/Torque 4 Wii.torsion.exports
+.opt,1,1,319,True,3c546f72,Zoo Disc Golf: 00000002.app/Torque 4 Wii.torsion.opt
+.torsion,1,1,636,False,3c546f72,Zoo Disc Golf: 00000002.app/Torque 4 Wii.torsion
+.dif,1,6,802599,True,2c000000,Zoo Disc Golf: 00000002.app/DiscGolf/data/interiors/hole15_platforms1.dif
+.gft,1,16,156132,True,01000000,Zoo Disc Golf: 00000002.app/common/ui/cache/Arial Italic_16.gft
+.stat,1,1,713,True,534f434b,2 Fast 4 Gnomz: 00000006.app/level/levels.stat
+.atd,1,3,3407232,True,41544144,Minna no Theater Wii: 00000013.app/AtokNintendo.atd
+.rso,1,1,267510,True,1060d906,Minna no Theater Wii: 0000000b.app/LZ77_h264rso.rso
+.sel,1,1,4992,True,00000000,Minna no Theater Wii: 00000003.app/VODRevolution.sel
+.brvia,1,13,8704,False,62726573,Gods vs. Humans: 00000007.app/wii/tower/TEST/T_TS_DE04.brvia
+.lzs,1,8,3911194,True,53535a4c,Karaoke Joysound Wii: 00000002.app/en/karaoke.lzs
+.mjk,1,1,951808,False,4d4a4b20,Karaoke Joysound Wii: 00000002.app/global/SongBook/mjk/750674.mjk
+.wjp,1,11,9608416,False,574a5032,Karaoke Joysound Wii: 00000002.app/global/SongBook/wjp/02001.wjp
+.xz,1,1,35288020,True,43523030,"King of Fighters '98, The|NG: 00000007.app/game.bin.xz"
+.chore,1,1,490570,False,4552544d,Tales of Monkey Island - Chapter 3 - Lair of the Leviathan: 00000002.app/c:\telltale\projects\monkeyisland103\InstallerOut\WorkingFolder\Wii_Pack\/env_oceanfloormanatee_cs_enterCaveGetSponge_e1_29.chore
+.mod,1,420,3009126,True,5d000080,MDK2: 00000002.app/mdk2/l10_tun15_02.mod
+.bsp,1,30,295726,True,5d000080,MDK2: 00000002.app/mdk2/l1_g06.bsp
+.t7z,1,74,15413658,False,5d000080,MDK2: 00000002.app/mdk2/level2-sectionB.t7z
+.d7z,1,6,119314,False,5d000080,MDK2: 00000002.app/mdk2/hbm_home.d7z
+.mlb,1,1,9388,True,5d000080,MDK2: 00000002.app/mdk2/shading.mlb
+.cwi,1,8,31441668,False,40000000,Mister Bumblebee Racing Champion: 00000002.app/base.cwi
+.mdb,1,1,133851,True,14a67ffd,Frogger - Hyper Arcade Edition: 00000002.app/Data/Managed/UnityEngine.dll.mdb
+.vsx,1,9,407991,False,686f7269,Horizon Riders: 00000002.app/horizonDash/data/audio/music/ciudad.vsx
+.lmtree,1,1,1024,False,00040000,Horizon Riders: 00000002.app/horizonDash/data/liveMove/horizon.lmtree
+.lmc,1,1,11264,True,002c0000,Horizon Riders: 00000002.app/horizonDash/data/liveMove/horizon.lmc
+. ],1,4,3921,False,03493fff,Jumpman|C64: 00000005.app/06] ...@...... ]
+.]]]  ],1,2,2227,False,039c3fff,Jumpman|C64: 00000005.app/09]  ]]]..]]]  ]
+.p02,1,1,508,True,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P02
+.p05,1,1,508,True,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P05
+.p04,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P04
+.p03,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P03
+.p10,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P10
+.  ],1,6,6827,False,03a63fff,Jumpman|C64: 00000005.app/07] .@.    ..  ]
+.p17,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P17
+.p21,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P21
+.p19,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P19
+.p18,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P18
+.p20,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P20
+.p16,1,1,508,True,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P16
+.p11,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P11
+.p08,1,1,508,True,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P08
+.p06,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P06
+.p01,1,1,508,True,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P01
+.p07,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P07
+.p09,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P09
+.p14,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P14
+.p13,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P13
+.p22,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P22
+.p12,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P12
+.p15,1,1,508,False,43363446,Jumpman|C64: 00000005.app/H­ÀÀÀÀÀÀ.P15
+.aif,1,1,670184,True,464f524d,Minna de Taisen Puzzle - Shanghai Wii: 00000002.app/shanghai/snd/SW10b.aif
+.alb,1,351,32460256,False,00000000,Line Attack Heroes: 00000002.app/battle/ai_data.alb
+.mdw,1,692,2251815,True,00000642,Mart Racer: 00000002.app/megamart/beer.mdw
+.mtw,1,281,27315,False,6d656761,Mart Racer: 00000002.app/megamart/nerd_boy.mtw
+.skw,1,19,772340,False,00044721,Mart Racer: 00000002.app/megamart/jump_pad.skw
+.mlw,1,13,21622,False,00000bcc,Mart Racer: 00000002.app/megamart/supermarket4.mlw
+.bmc,1,7,30513,False,000245ed,Mart Racer: 00000002.app/megamart/MRf_12_2.bmc
+.as,1,1,124,True,000000b7,Mart Racer: 00000002.app/megamart/test3.mlw.as
+.wsk,1,2,8621,False,00001b1d,Mart Racer: 00000002.app/megamart/hiphop_armature.wsk
+.testo,1,1,134,False,000000c9,Mart Racer: 00000002.app/megamart/supermarket8.mlw.testo
+.mqo,1,3,112545,False,4d657461,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/mesh/map_sea_hit.mqo
+.nbfc,1,1,512,False,ffffffff,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/RomImage/icon.nbfc
+.nbfp,1,1,32,False,0000247a,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/RomImage/icon.nbfp
+.movdata,1,11,7242,False,82528263,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/data/bubble00.movdata
+.3ph,1,5,2700,False,82528263,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/data/A_co0.3ph
+.3pd,1,5,87952,False,03005f03,Kaku! Ugoku! Tsukamaeru! Sensei Wii: 00000002.app/oekaki_teacher/data/Shima_Tree2.3pd
+.7z,1,1,26107026,True,377abcaf,HoopWorld: 00000002.app/Data.7z
+.s3d_loca_run,1,5,0,False,,Bobby Carrot Forever: 00000004.app/content/loca.s3d_loca_run
+.s3d_lang_run,1,20,5687,False,2f2f204d,Bobby Carrot Forever: 00000004.app/content/en.s3d_lang_run
+.bc_tilemap_run,1,395,1044708,False,2f2f204d,Bobby Carrot Forever: 00000004.app/content/maps/30-11neu.bc_tilemap_run
+.png32,1,19,2763004,False,89504e47,Protoethea: 00000002.app/base/client/ui/splash-dbsab.png32
+.apprpak,1,2,405664,False,4f494242,Bruiser and Scratch: 00000002.app/cursors.apprpak
+.ag,1,16,37273584,True,4f494242,Bruiser and Scratch: 00000002.app/assetgroups/vector-board.ag
+.mf,1,2,476,True,4c657665,Miffy's World: 00000002.app/game/data/levels/puzzles/jigsaw/Levels.mf
+.lib,1,1,2154,True,1f8b0800,Hubert the Teddy Bear - Winter Games: 00000002.app/hid.lib
+.ico,1,1,9318,True,1f8b0800,Hubert the Teddy Bear - Winter Games: 00000002.app/ico.ico
+.rum,1,1,586,True,313a302c,Pop: 00000006.app/Proto3Settings/RumbleSequences.rum
+.pup,1,8,611,True,4d756c74,Pop: 00000006.app/Proto3Settings/PowerUps/Multiplier10.pup
+.wvs,1,20,45867,False,426f7474,Pop: 00000006.app/Waves/Wave12/WaveSettings.wvs
+.yumetai,1,1,131072,False,41426a40,Gradius 2|MSX: 00000005.app/MEGAROM.ROM.yumetai
+.knightmare2,1,1,262144,False,41429540,Gradius 2|MSX: 00000005.app/MEGAROM.ROM.knightmare2
+.qbert,1,1,32768,False,41425e40,Gradius 2|MSX: 00000005.app/SLOT2.ROM.qbert
+.mxs,1,816,24453152,False,000006b2,Mix Superstar: 00000007.app/Samples/00000/DANCE_SYNTH096_140_A_SL1_16000.mxs
+.rcfg,1,1,103163,False,2fa9c056,BurgerTime World Tour: 00000002.app/RenderConfig/0000000100000001.rcfg
+.lvs,1,49,919036,False,000003f0,Tales of Elastic Boy - Mission 1: 00000002.app/Standard/LD/Level/W1L3_EASY.lvs
+.gsf,1,5,2477856,True,584d4401,Lonpos: 00000012.app/BG05.GSF
+.adpcm,1,31,2518960,True,000207a8,"Will of Dr. Frankenstein, The: 00000008.app/odyssey/sfx/badcloud.adpcm"
+.spl,1,13,180520,True,000006b6,"Will of Dr. Frankenstein, The: 00000008.app/odyssey/objects/intro.spl"
+.wmo,1,8,25549,True,21436587,"Will of Dr. Frankenstein, The: 00000008.app/odyssey/motion/Vampy/Face.wmo"
+.wsn,1,8,2246032,True,21436587,"Will of Dr. Frankenstein, The: 00000008.app/odyssey/motion/Vampy/base.wsn"
+.wa2,1,8,6542099,True,21436587,"Will of Dr. Frankenstein, The: 00000008.app/odyssey/motion/Vampy/anim.wa2"
+.etr,1,16,58768,True,4b365354,Discipline - Teikoku no Tanjyou: 00000009.app/episode01.etr
+.sbp,1,16,131328,True,7042696e,Discipline - Teikoku no Tanjyou: 00000009.app/scr_gekime.sbp
+.mdt,1,11,157904,False,4d534744,Discipline - Teikoku no Tanjyou: 00000009.app/common.mdt
+.039,1,1,1048576,True,00f70000,Super Ghouls 'n Ghosts|SNES: 00000005.app/SNSCM0.039
