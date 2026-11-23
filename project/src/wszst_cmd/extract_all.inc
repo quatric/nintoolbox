@@ -866,3 +866,4 @@
 #include "extract/fmpp.inc"
 #include "extract/lmpngr.inc"
 #include "extract/packlz.inc"
+#include "extract/ncfam.inc"
