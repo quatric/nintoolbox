@@ -872,4 +872,5 @@
 #include "extract/nbfraw.inc"
 #include "extract/ntfraw.inc"
 #include "extract/rlebang.inc"
+#include "extract/tagged.inc"
 #include "extract/ncfam.inc"
