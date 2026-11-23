@@ -1,4 +1,64 @@
-// "NCCL" / "NCCG" / "NCSC" files (".ncl" / ".ncg" / ".nsc" of about 100 DS games, for example 10 Second Run, Prinzessin Lillifee, A Ressha de Ikou DS): the intermediate NITRO-CHARACTER source files from which NCLR/NCGR/NSCR are built. Little endian: {char magic[4], u16 0xfffe, u16 version, u32 size, u16 0x10, u16 nblocks}, then blocks {char tag[4], u32 size incl. 8 byte header, ...}. "PALT" {u32 a, u32 b, a*b u16 BGR555 colors}, "CHAR" {u32 tiles wide, u32 tiles high, tile data (4 or 8 bit, from the size), ATTR block}, "SCRN" {u32 tiles wide, u32 tiles high, u32, u32, u16 map entries}. Written as the standard "<name>.nclr" / ".ncgr" / ".nscr" (without their ancillary blocks), which the rest of the tool already converts. "NCOB" cell files are not handled.
+// "NCCL" / "NCCG" / "NCSC" / "NCOB" files (".ncl" / ".ncg" / ".nsc" of about 100 DS games, for example 10 Second Run, Prinzessin Lillifee, A Ressha de Ikou DS): the intermediate NITRO-CHARACTER source files from which NCLR/NCGR/NSCR are built. Little endian: {char magic[4], u16 0xfffe, u16 version, u32 size, u16 0x10, u16 nblocks}, then blocks {char tag[4], u32 size incl. 8 byte header, ...}. "PALT" {u32 a, u32 b, a*b u16 BGR555 colors}, "CHAR" {u32 tiles wide, u32 tiles high, tile data (4 or 8 bit, from the size), ATTR block}, "SCRN" {u32 tiles wide, u32 tiles high, u32, u32, u16 map entries}. Written as the standard "<name>.nclr" / ".ncgr" / ".nscr" (without their ancillary blocks), which the rest of the tool already converts.
+// "NCOB" cell files (".nce"): same block layout; only the embedded "CHAR" block {u32 1, u32 size, 4 bit tiles} is exported, as "<name>.ncgr" 16 tiles wide (padded with empty tiles). The CELL/ANIM blocks are not decoded.
+static enumError extract_ncob_chars (ccp arg, ccp basedir, uint depth, const u8 *raw, size_t sz)
+{
+	if (sz < 0x30 || rd_le16 (raw + 4) != 0xfeff)
+		return ERR_NOTHING_TO_DO;
+	size_t o = 16;
+	while (o + 16 <= sz && memcmp (raw + o, "CHAR", 4))
+	{
+		const u32 s = rd_le32 (raw + o + 4);
+		if (s < 8 || s > sz - o)
+			return ERR_NOTHING_TO_DO;
+		o += s;
+	}
+	if (o + 16 > sz)
+		return ERR_NOTHING_TO_DO;
+	const u32 n = rd_le32 (raw + o + 12);
+	if (!n || n % 32 || rd_le32 (raw + o + 4) != n + 16 || o + 16 + n > sz)
+		return ERR_NOTHING_TO_DO;
+	const u32 rows = (n / 32 + 15) / 16, pn = rows * 16 * 32, tot = 0x30 + pn;
+	u8 *out = CALLOC (1, tot);
+	nintendo_sarc_entry_t *entries = CALLOC (1, sizeof (*entries));
+	enumError err = ERR_OUT_OF_MEMORY;
+	if (out && entries)
+	{
+		memcpy (out, "RGCN", 4);
+		wr_le16 (out + 4, 0xfeff);
+		wr_le16 (out + 6, 0x0101);
+		wr_le32 (out + 8, tot);
+		wr_le16 (out + 12, 0x10);
+		wr_le16 (out + 14, 1);
+		memcpy (out + 16, "RAHC", 4);
+		wr_le32 (out + 20, pn + 0x20);
+		wr_le16 (out + 24, (u16)rows);
+		wr_le16 (out + 26, 16);
+		wr_le32 (out + 28, 3);
+		wr_le32 (out + 40, pn);
+		wr_le32 (out + 44, 0x18);
+		memcpy (out + 48, raw + o + 16, n);
+		const char *p = strrchr (arg, '/');
+		char name[PATH_MAX];
+		snprintf (name, sizeof (name), "%s", p ? p + 1 : arg);
+		char *e = strrchr (name, '.');
+		if (e)
+			*e = 0;
+		const size_t l = strlen (name);
+		snprintf (name + l, sizeof (name) - l, ".ncgr");
+		err = ERR_NOTHING_TO_DO;
+		if (OwnedEntryAdd (entries, 0, name, out, tot))
+		{
+			out = 0;
+			err = write_owned_entries (arg, basedir, depth, "NCOB", entries, 1);
+			entries = 0;
+		}
+	}
+	if (entries)
+		ResetOwnedEntries (entries, 1);
+	FREE (out);
+	return err;
+}
+
 static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0, *out = 0;
@@ -9,7 +69,7 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		u8 magic[4];
 		FILE *f = fopen (arg, "rb");
 		const bool hit = f && fread (magic, 1, 4, f) == 4
-			&& (!memcmp (magic, "NCCL", 4) || !memcmp (magic, "NCCG", 4) || !memcmp (magic, "NCSC", 4));
+			&& (!memcmp (magic, "NCCL", 4) || !memcmp (magic, "NCCG", 4) || !memcmp (magic, "NCSC", 4) || !memcmp (magic, "NCOB", 4));
 		if (f)
 			fclose (f);
 		if (!hit)
@@ -17,6 +77,13 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 	}
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 		goto done;
+	if (sz > 0x4000000 && !memcmp (raw, "NCOB", 4))
+		goto done;
+	if (!memcmp (raw, "NCOB", 4))
+	{
+		err = extract_ncob_chars (arg, basedir, depth, raw, sz);
+		goto done;
+	}
 	if (sz < 0x30 || sz > 0x4000000 || rd_le16 (raw + 4) != 0xfeff || !memcmp (raw + 16, "CMNT", 4))
 		goto done;
 	const char *tag = !memcmp (raw, "NCCL", 4) ? "PALT" : !memcmp (raw, "NCCG", 4) ? "CHAR" : "SCRN";
