@@ -6,15 +6,29 @@ usage: classify_gaps.py [--csv out.csv]
 Per (extension, detected type) it prints games / files / MB and one class:
   raw-by-design  xx leaves it raw on purpose (README "Audit artifacts")
   needs-sibling  fails when the audit copies one file alone; re-check with siblings
-  documented     extension appears in docs/FORMATS.md, so a later extractor may cover it: re-audit
-  unknown        detected type is `?` or the extension is not in FORMATS.md: real gap candidate
-Reads only the census JSON and FORMATS.md; classes are heuristics, not proof.
+  type-supported an extractor gated on this extension names the detected type: re-audit, likely fixed
+  ext-covered    an extractor takes this extension but none names the type (or the type is `?`): variant or bug
+  type-elsewhere no extractor takes this extension, but one names the detected type: probably routed by magic
+  no-ext         no extension: only magic-sniffing extractors could take it
+  no-extractor   nothing in the source handles the extension or the type: real gap
+Reads the census JSON and the extractor sources (project/src/wszst_cmd); classes are heuristics, not proof.
 """
 import csv, json, os, re, sys, collections
 
 here = os.path.dirname(os.path.abspath(__file__))
 census = json.load(open(os.path.join(here, "wii-format-census.json")))
-formats_md = open(os.path.join(here, "..", "FORMATS.md"), encoding="utf-8", errors="replace").read().lower()
+src = os.path.join(here, "..", "..", "project", "src", "wszst_cmd")
+norm = lambda t: re.sub(r"[^a-z0-9]", "", t.lower())
+ext_text = collections.defaultdict(str)  # extension -> normalized source of every extractor gated on it
+all_text = ""
+for fn in sorted(os.listdir(os.path.join(src, "extract"))):
+    if not fn.endswith(".inc"):
+        continue
+    t = open(os.path.join(src, "extract", fn), encoding="utf-8", errors="replace").read()
+    all_text += norm(t)
+    for e in set(re.findall(r'is_ext\s*\([^,()]*,\s*"\.([^"]+)"', t)):
+        ext_text[e.lower()] += norm(t)
+assert "adx" in ext_text,"extractor scan found nothing: wrong path?"
 
 RAW = {"brfnt", "brfna"}
 SIBLING = {"spd", "spt", "dir", "msh", "vtx"}
@@ -24,12 +38,13 @@ def klass(ext, typ):
         return "raw-by-design"
     if ext in SIBLING:
         return "needs-sibling"
-    if typ != "?" and typ:
-        return "documented"  # a named type means the sniffer knows it; xx failed on it
-    # shortcut: substring match, a short ext like "bf" matches loosely; tighten if it misleads
-    if re.search(r"\.%s\b" % re.escape(ext), formats_md):
-        return "documented"
-    return "unknown"
+    t = norm(typ) if typ != "?" else ""
+    if ext in ext_text:
+        # shortcut: substring match on the type name, a short one like "u8" can hit by accident; tighten if it misleads
+        return "type-supported" if t and t in ext_text[ext] else "ext-covered"
+    if ext == "(none)":
+        return "no-ext"
+    return "type-elsewhere" if t and t in all_text else "no-extractor"
 
 agg = collections.defaultdict(lambda: [set(), 0, 0.0])
 for id6, g in census.items():
@@ -60,7 +75,7 @@ tot = collections.Counter()
 print(f"{'ext':10}{'type':16}{'class':15}{'games':>6}{'files':>9}{'MB':>9}")
 for r in rows:
     tot[r[2]] += r[5]
-    if r[5] >= 50 or r[2] == "unknown":
+    if r[5] >= 50 or r[2] == "no-extractor":
         print(f"{r[0]:10}{r[1]:16}{r[2]:15}{r[3]:>6}{r[4]:>9}{r[5]:>9}")
 print("\nMB by class:", dict(tot))
 no_audit = [k for k, v in census.items() if not v.get("audited")]

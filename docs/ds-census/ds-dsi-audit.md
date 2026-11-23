@@ -220,5 +220,53 @@ Of the 836 extensions without output, 186 are named by an `is_ext` gate in an ex
 
 ### Notes for the next pass
 
-* Several of the four-letter magics are the little-endian spelling of standard NITRO-System resources (`RAMN`/`RCMN` = NMAR/NMCR, `NCCL`/`NCCG`/`NCOB`/`NBSQ` look like NCLR/NCGR/NCER/NBSR variants) and probably need only a check of what `wszst` already converts through other commands.
-* `DSS0`, `DSF0`, `DSA1`, `DSM1`, `BLDT` (`.dsir/.dscr/.dsbr/.dsar`), `SAF0`, `DAUP`, `KTUN` (`.urf`, 1.6 GB of audio) and `FMV!` (`.fmv`, 2.2 GB of video) are the biggest cross-title engines in the list and are the best next reverse-engineering targets.
+An extension is not an engine: `.dss`, `.dsf`, `.dsa` and `.dsm` each carry their own magic (`DSS0`, `DSF0`, `DSA\0`, `DSM1`) in only three or four unrelated titles (Pipe Mania, Puzzle Quest, LEGO Ninjago, FIFA), so they are one-off formats, not a shared engine. The ranking that matters is by (extension, magic) and number of distinct games. Top of that ranking (formats nintoolbox leaves untouched), most games first:
+
+| extension | magic | games | files |
+| --- | --- | ---: | ---: |
+| `.nscr` | `RCSN` | 1530 | 257700 |
+| `.wav` | `RIFF` | 489 | 35084 |
+| `.nsbta` | `BTA0` | 431 | 28120 |
+| `.nsbma` | `BMA0` | 301 | 24447 |
+| `.nmcr` | `RCMN` | 273 | 8727 |
+| `.nmar` | `RAMN` | 272 | 8751 |
+| `.xml` | `<?xm` | 245 | 36520 |
+| `.ncl` | `NCCL` | 114 | 10239 |
+| `.h` | `//--` | 112 | 12200 |
+| `.sbdl` | `#def` | 103 | 144 |
+| `.ncg` | `NCCG` | 94 | 8830 |
+| `.dat` | `S41J` | 92 | 143 |
+| `.aap` | `JBOA` | 82 | 29671 |
+| `.atb` | `SLBT` | 81 | 29465 |
+| `.ini` | `[Las` | 75 | 196 |
+| `(none)` | `TTLP` | 74 | 70782 |
+| `.nsc` | `NCSC` | 65 | 6920 |
+| `.swd` | `swdl` | 59 | 9168 |
+| `.nce` | `NCOB` | 50 | 4184 |
+| `.nbfc` | `wwww` | 49 | 157 |
+| `.ogg` | `OggS` | 47 | 39253 |
+| `.fnt` | `NFID` | 43 | 635 |
+| `.h` | `#ifn` | 43 | 2101 |
+| `.ani` | `ANIM` | 42 | 4028 |
+| `.dic` | `BPSD` | 41 | 54 |
+| `(none)` | `MOEG` | 41 | 138096 |
+| `(none)` | `NARC` | 41 | 11809 |
+| `.txt` | `dumm` | 40 | 167 |
+| `.sent` | `NUOS` | 40 | 52 |
+| `.sed` | `sedl` | 40 | 4104 |
+| `(none)` | `PMB` | 40 | 15116 |
+| `.atk` | `TKLT` | 39 | 3379 |
+| `.apl` | `D2FP` | 39 | 3897 |
+| `.til` | `RLE!` | 38 | 12131 |
+| `.set` | `PACK` | 37 | 905 |
+| `.fnt` | `PACK` | 37 | 296 |
+| `.nbfc` | `DDDD` | 36 | 345 |
+| `(none)` | `LXET` | 35 | 52040 |
+| `.nbsa` | `WAVE` | 35 | 2750 |
+| `.ngr` | `LMP2` | 34 | 21508 |
+| `.ngr` | `NGR1` | 34 | 654 |
+| `.adpcm` | `RIFF` | 34 | 7810 |
+| `.dat` | `NINT` | 34 | 70 |
+| `.h` | `#def` | 34 | 157 |
+
+Reading it: `RCSN`, `BTA0`, `BMA0`, `RCMN`, `RAMN`, `NCCL`/`NCCG`/`NCOB`/`NCSC` and `swdl`/`sedl` are standard or near-standard NITRO-System / Procyon resources (check what `wszst` already converts through other commands before writing anything); `JBOA`, `SLBT`, `D2FP`, `TKLT`, `TTLP`, `MOEG`, `LXET` and `PMB` are one publisher's engine (the Battle of Giants family, about 80 games and 300,000 files) and the best real reverse-engineering target; `PACK` is done (see FORMATS.md); `NGR1` is the second format in `.ngr`.

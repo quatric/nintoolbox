@@ -865,3 +865,4 @@
 #include "extract/lineattackalb.inc"
 #include "extract/fmpp.inc"
 #include "extract/lmpngr.inc"
+#include "extract/packlz.inc"
