@@ -1,6 +1,4 @@
-// "SLBT" (".atb", animation/sprite banks of the Battle of Giants engine, about 80 DS games), little-endian: {char "SLBT", u32 unpacked size, u8 flag, u8 count, u16 0,
-// count * u32 chunk table, u8 0, u32 payload size, then one Nintendo LZ10 stream (type byte 0x10)}, so the header is 0x11 + 4 * count bytes. The stream must unpack to
-// exactly the stored size and use the whole payload. The unpacked data (tile pixels and offset tables, layout not decoded) is written as "<file>.d/<name>.bin".
+// "SLBT" (".atb", animation/sprite banks of the Battle of Giants engine, about 80 DS games): see slbt_unpack for the layout (raw, or one Nintendo LZ10 stream). The unpacked data is tile pixels, written as "<file>.d/<name>.bin".
 // The bit depth is not stored in the file (the palette in the sibling data decides), so the data is also written as a 16 tiles wide tile sheet for both readings, "<name>.4bpp.ncgr" and "<name>.8bpp.ncgr"
 // (tiles padded with empty ones), which the rest of the tool converts to PNG with the default palette; pick the one that looks right. A 4 bit reading of the Battle of Giants "attachement_gold.atb" gives clean sprites.
 // Reuses packlz_lz10 from packlz.inc. The "DTBT" variant of the same engine is left alone.
@@ -28,19 +26,48 @@ static u8 *slbt_ncgr (const u8 *d, u32 n, uint bpp, u32 *tot)
 	return out;
 }
 
+// Unpacks an SLBT file: u32 unpacked size at 4, u8 flag at 8 (0 raw, 1 Nintendo LZ10), u16 chunk count at 9, count * u32 chunk sizes (size << 8) from 0x0c, one pad byte; a raw file then
+// carries the data, an LZ10 one carries {u32 payload size, LZ10 stream} that must unpack to exactly the stored size. Returns a malloc block in *out.
+static bool slbt_unpack (const u8 *raw, size_t sz, u8 **out, size_t *outn, bool *is_raw)
+{
+	if (sz < 0x16 || memcmp (raw, "SLBT", 4) || raw[8] > 1)
+		return false;
+	const size_t hl = 0x0d + 4 * (size_t)rd_le16 (raw + 9), tot = rd_le32 (raw + 4);
+	*is_raw = !raw[8];
+	if (hl >= sz || !tot)
+		return false;
+	if (!raw[8])
+	{
+		if (sz - hl != tot)
+			return false;
+		*out = MALLOC (tot);
+		if (!*out)
+			return false;
+		memcpy (*out, raw + hl, tot);
+		*outn = tot;
+		return true;
+	}
+	size_t used;
+	if (hl + 4 >= sz || rd_le32 (raw + hl) != sz - hl - 4 || !packlz_lz10 (raw + hl + 4, sz - hl - 4, &used, out, outn))
+		return false;
+	if (*outn != tot || used != sz - hl - 4)
+	{
+		FREE (*out);
+		*out = 0;
+		return false;
+	}
+	return true;
+}
+
 static enumError extract_slbt_file (ccp arg, ccp basedir, uint depth)
 {
 	u8 *raw = 0, *out = 0;
-	size_t sz = 0, used, n;
+	size_t sz = 0, n;
 	enumError err = ERR_NOTHING_TO_DO;
 	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 		goto done;
-	if (sz < 0x16 || memcmp (raw, "SLBT", 4) || !raw[9])
-		goto done;
-	const size_t hl = 0x11 + 4 * (size_t)raw[9];
-	if (hl >= sz || rd_le32 (raw + hl - 4) != sz - hl)
-		goto done;
-	if (!packlz_lz10 (raw + hl, sz - hl, &used, &out, &n) || n != rd_le32 (raw + 4) || used != sz - hl)
+	bool is_raw;
+	if (!slbt_unpack (raw, sz, &out, &n, &is_raw))
 		goto done;
 	nintendo_sarc_entry_t *entries = CALLOC (3, sizeof (*entries));
 	if (!entries)
