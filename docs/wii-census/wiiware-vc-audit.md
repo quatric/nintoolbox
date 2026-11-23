@@ -26,4 +26,4 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 | Extension | Example | What is known |
 | --- | --- | --- |
 | `.ppm` | Where's Wally: Fantastic Journey | `FMPP`, 40-byte header: version bytes, three big-endian width/height pairs, two unknown u16, payload size at 0x20 and header size 40 at 0x28; the payload is a lossy image codec (about 0.3 byte per pixel) that I could not identify from the data and whose decoder I did not find in the executable (no `FMPP` string or compare; it has `FPpmModule`, `FJpegDecompress` and `FVideoTheora` assertions). `.GWVideo` is now supported as a container (PNG and FMPP frames are split out), the FMPP pixels are not decoded |
-| `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes), nothing to extract |
+| `.alb` | Line Attack Heroes | split into its wrapper and sections (`BAI` offsets table in `ai_data.alb`, one block in the stage maps); the content is serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats, hashes and tile indices) and is not decoded |
