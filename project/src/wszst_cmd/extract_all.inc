@@ -873,4 +873,5 @@
 #include "extract/ntfraw.inc"
 #include "extract/rlebang.inc"
 #include "extract/tagged.inc"
+#include "extract/tklt.inc"
 #include "extract/ncfam.inc"
