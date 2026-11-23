@@ -95,6 +95,7 @@
 #include "extract/twl.inc"
 #include "extract/wsi.inc"
 #include "extract/xpk.inc"
+#include "extract/fezc.inc"
 #include "extract/bcbig.inc"
 #include "extract/natbin.inc"
 #include "extract/pckg.inc"

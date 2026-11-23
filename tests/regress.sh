@@ -13568,6 +13568,26 @@ PYEOF
     fno "XPK archive" "mk_xpk.py failed"
   fi
 
+  # "FEZC" package (WiiWare GVF titles, *.fez): path table, zlib (sync-flushed)
+  # and stored members.
+  mkdir -p "$d/fezc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fezc.py" "$d/fezc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fezc_test/T.fez" >/dev/null 2>&1
+    fd="$d/fezc_test/T.fez.d"
+    python3 - "$fd" <<'PYEOF' >/dev/null 2>&1
+import sys
+d = sys.argv[1]
+r = lambda p: open(d + '/' + p, 'rb').read()
+ok = r('data/strings.gvf') == b'FEZ-STRINGS\n' * 30 and r('data/music/raw.bin') == bytes(range(120))
+sys.exit(0 if ok else 1)
+PYEOF
+    [ $? -eq 0 ] \
+    && fok "FEZC package: path table, zlib (sync-flushed) + stored members" \
+    || fno "FEZC package" "failed to extract synthetic package"
+  else
+    fno "FEZC package" "mk_fezc.py failed"
+  fi
+
   # Blue Castle Games ".big" archive (The Bigs, Wii): duplicate names, a
   # nested archive and a stereo ".dspi" split into per-channel .dsp files.
   mkdir -p "$d/bcbig_test"
