@@ -17,12 +17,13 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 `.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train), `.PTX` with its `.PTXH` header (Around the World), `.mxs` (Mix Superstar, DSP-ADPCM behind a chunk table) `.sir` (Military Madness: Nectaris, zlib `ZBLK` streams) `.epk` (Stunt Cars, raw-deflate entries with a path directory) `.pacz` (Moki Moki, LZS v5 plus the `add` pack inside) and `.lpf2` (Hydroventure, Huffman then LZ77); see the rows in `FORMATS.md`.
 
+`.s3d_pack` (Aya and the Cubes of Light) and `.stk` (Babel Rising) were solved by statistics rather than by finding the loader: `.s3d_pack` is a fixed 256-byte substitution table (found in the executable by searching for a 256-byte involution) plus a 4-byte checksum at the end of every 0x1000-byte page, and `.stk` is a plain repeating 4-byte XOR whose key is stored in its header. Both then hold ordinary zlib streams.
+
 ## Looked at, not supported
 
 `.epk`, `.pacz` and `.lpf2` were solved by reading the games' own code: the decoder is found by locating the code that checks the magic (byte compares for `LZS\0`, the version-mismatch message of the level pack loader) and porting what it does. The remaining formats did not give way to that. Standard zlib, raw deflate, bzip2, LZMA, LZ4 and LZF find nothing in them (short matches of 6-30 bytes that "inflate" to 100+ bytes are noise; real streams, like the `.epk` entries, end with a proper end-of-stream marker).
 
 | Extension | Example | What is known |
 | --- | --- | --- |
-| `.stk` | Babel Rising | Shark 3D stack file from a different engine build (no `shark3d_packstream_ident` in the executable). The bytes are substituted (zero padding reads as `20`) but not with the `.s3d_pack` table or any of the 256-byte permutations in the executable; not decoded. (`.s3d_pack` itself is now supported: see FORMATS.md.) |
 | `.ppm`, `.GWVideo` | Where's Wally: Fantastic Journey | `FMPP`, 40-byte header: version bytes, three big-endian width/height pairs (641x251, the same padded to 8/4 = 648x252, 641x298), two unknown u16, payload size (file size - 40) and header size 40; the payload starts with `27 xx` and a repeated `00 02 00 20 00 0b 40 00` pattern. `.GWVideo` wraps one `FMPP` frame at offset 0x1d after a `{8, 2, frames, 0, fps, 0, 28}` header. The executable has no `FMPP` string or word compare; it does contain `FGWVideo.cpp` and `FJpegDecompress.cpp` assertions |
 | `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes), nothing to extract |
