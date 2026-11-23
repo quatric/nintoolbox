@@ -858,3 +858,4 @@
 #include "extract/igelepk.inc"
 #include "extract/lzs5.inc"
 #include "extract/addpack.inc"
+#include "extract/levelpack2.inc"

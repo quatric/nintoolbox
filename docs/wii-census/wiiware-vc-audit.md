@@ -15,7 +15,7 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 ## Added in this pass
 
-`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train), `.PTX` with its `.PTXH` header (Around the World), `.mxs` (Mix Superstar, DSP-ADPCM behind a chunk table) `.sir` (Military Madness: Nectaris, zlib `ZBLK` streams) `.epk` (Stunt Cars, raw-deflate entries with a path directory) and `.pacz` (Moki Moki, LZS v5 plus the `add` pack inside); see the rows in `FORMATS.md`.
+`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train), `.PTX` with its `.PTXH` header (Around the World), `.mxs` (Mix Superstar, DSP-ADPCM behind a chunk table) `.sir` (Military Madness: Nectaris, zlib `ZBLK` streams) `.epk` (Stunt Cars, raw-deflate entries with a path directory) `.pacz` (Moki Moki, LZS v5 plus the `add` pack inside) and `.lpf2` (Hydroventure, Huffman then LZ77); see the rows in `FORMATS.md`.
 
 ## Looked at, not supported
 
@@ -25,5 +25,4 @@ None of these decodes with zlib, raw deflate, bzip2, LZMA, LZ4 or LZF at any off
 | --- | --- | --- |
 | `.s3d_pack`, `.stk` | Aya and the Cubes of Light, Babel Rising | Shark 3D packs. XOR with `0x9f` (the zero padding reads as `9f 9f 9f 9f`) turns the padding into zeros but leaves repeated bit-shifted word patterns, so there is a second bit-level layer; `.stk` shows `0x20` runs in the same way |
 | `.ppm`, `.GWVideo` | Where's Wally: Fantastic Journey | `FMPP` header (`.GWVideo` wraps one at offset 0x1d), custom compressed stream |
-| `.lpf2` | Hydroventure | `LevelPackV2` header, then a stream with long incrementing byte runs (`01 02 03 04 05 ...`) that looks like a delta/LZ hybrid |
 | `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes), nothing to extract |
