@@ -54,3 +54,171 @@ The 1,224 extensions that occur in at least 8 titles were each tried on up to 6 
 | `.tga` | 172 | 37677 | 592.2 | 00010100(....)=8663 |
 
 The rest of the 852 are in the CSV. Sample files (up to six per extension) are kept outside the repo in the audit folder.
+
+## Triage of the no-output list
+
+Two corrections to the raw "no output" count first. `wszst xx` on a single file with an unknown extension already unpacks a plain Nintendo LZ10/LZ11 stream (the result is written as `<file>.bin`), so most extensions in the list that are really just LZ-wrapped data (`.pak`, `.scn`, `.cbin`, `.msd`, `.saf`, `.anim`, `.set`, `.mdl`, `.bg`, `.lua`, `.jpg` ...) are decoded one layer deep; what is inside them is what needs triage. And the first probe used the first sample files of each extension instead of the commonest magic, so the table above uses the second probe.
+
+Of the 836 extensions without output, 186 are named by an `is_ext` gate in an extractor (usually because the sample failed that extractor's checks, so they need a second look), and 152 more have a readable four-letter magic that no extractor mentions. Those 152 are listed below, most titles first (extension, titles, files, MB, magics with counts). Each one is a game-specific format; none of them has been reverse engineered yet except where marked.
+
+| extension | titles | files | MB | magic |
+| --- | ---: | ---: | ---: | --- |
+| `.nmar` | 401 | 8946 | 3.4 | [('RAMN', 8751)] |
+| `.nmcr` | 400 | 8972 | 2.8 | [('RCMN', 8727), ('SDPC', 66)] |
+| `.ncl` | 149 | 10266 | 9.3 | [('NCCL', 10239)] |
+| `.ncg` | 141 | 8850 | 209.9 | [('NCCG', 8830)] |
+| `.sbin` | 136 | 629 | 252.5 | [('TAMS', 213)] |
+| `.aap` | 118 | 29671 | 17.0 | [('JBOA', 29671)] |
+| `.msg` | 100 | 27235 | 118.9 | [('0GSM', 5811)] |
+| `.apl` | 77 | 5320 | 18.0 | [('D2FP', 3897), ('VNFP', 1423)] |
+| `.def` | 76 | 3779 | 4.2 | [('H19S', 160), ('H20S', 160), ('H14S', 160)] |
+| `.nbsq` | 62 | 5931 | 13.4 | [('NBSQ', 5843), ('33"3', 2)] |
+| `.nce` | 61 | 4184 | 16.7 | [('NCOB', 4184)] |
+| `.lst` | 61 | 2609 | 65.2 | [('..\\S', 708), ('.\\to', 190)] |
+| `.dss` | 61 | 7506 | 167.8 | [('DSS0', 588)] |
+| `.ngr` **done (LMPK/LMP2)** | 59 | 23684 | 242.2 | [('LMP2', 21508), ('LMPK', 1522), ('NGR1', 654)] |
+| `.texture` | 55 | 30348 | 109.2 | [('""""', 448)] |
+| `.gif` | 53 | 21929 | 176.5 | [('GIF8', 21817)] |
+| `.sent` | 52 | 52 | 0.3 | [('NUOS', 52)] |
+| `.dsf` | 51 | 7851 | 127.7 | [('DSF0', 4204)] |
+| `.fon` | 50 | 205 | 2.8 | [('FDFT', 109), ('BCFG', 9)] |
+| `.dsa` | 48 | 1726 | 253.5 | [('DSA1', 135)] |
+| `.dsm` | 40 | 2475 | 14.9 | [('DSM1', 500)] |
+| `.sft` | 39 | 225 | 1.6 | [('SKYF', 95)] |
+| `.5pl` | 39 | 9641 | 2.0 | [('NTPL', 9641)] |
+| `.fmv` | 38 | 1312 | 2200.3 | [('FMV!', 1271)] |
+| `.urf` | 37 | 195 | 1599.9 | [('KTUN', 195)] |
+| `.bncd` | 36 | 94 | 2.1 | [('JNCD', 94)] |
+| `.skl` | 35 | 3218 | 3.1 | [('*OZD', 1422)] |
+| `.lay` | 34 | 2574 | 31.7 | [('LAY!', 1473)] |
+| `.emt` | 34 | 931 | 0.2 | [('SDPC', 809)] |
+| `.textbin` | 33 | 210 | 1.0 | [('TXTB', 210)] |
+| `.quo` | 30 | 120 | 14.5 | [('SERQ', 120)] |
+| `.ocp` | 29 | 1185 | 24.4 | [('#OCP', 883)] |
+| `.ds` | 29 | 750 | 116.0 | [('CRUS', 222)] |
+| `.clb` | 28 | 1436 | 5.0 | [('CLBD', 988)] |
+| `.bpa` | 28 | 1337 | 25.2 | [('#BPA', 75)] |
+| `.dscol` | 27 | 698 | 27.6 | [('SDPC', 333), ('TSED', 297)] |
+| `.5tx` | 27 | 4818 | 49.3 | [('NTTX', 4818)] |
+| `.3d` | 27 | 598 | 124.9 | [('NS3D', 598)] |
+| `.adb` | 26 | 28 | 1.8 | [('PAM_', 5)] |
+| `.evt` | 25 | 3533 | 43.0 | [('SC01', 1916)] |
+| `.cbin` | 25 | 14065 | 32.2 | [('DATB', 1722)] |
+| `.bsf` | 25 | 516 | 0.3 | [('SDPC', 450)] |
+| `.tix` | 24 | 2355 | 28.5 | [('VTIX', 2349)] |
+| `.dau` | 24 | 673 | 231.7 | [('DAUP', 559)] |
+| `.ntfpack` | 22 | 77785 | 195.3 | [('SDPC', 77641)] |
+| `.an3g` | 22 | 3088 | 29.4 | [('G3NA', 3088)] |
+| `.psc` | 21 | 10943 | 30.4 | [('psas', 8575)] |
+| `.naf` | 20 | 3361 | 42.4 | [('NAF!', 3330), ('NAF ', 31)] |
+| `.msd` | 20 | 2541 | 92.6 | [('MSDA', 2276)] |
+| `.mob` | 20 | 2218 | 34.2 | [('<13,', 547)] |
+| `.mcs` | 20 | 20 | 0.0 | [('X:\\p', 18), ('x:/p', 2)] |
+| `.hex` | 20 | 20 | 0.5 | [(':100', 20)] |
+| `.event` | 20 | 1097 | 1.7 | [('<13,', 65)] |
+| `.tbb` | 19 | 942 | 2.9 | [('TBB1', 942)] |
+| `.saf` | 19 | 16709 | 131.1 | [('SAF0', 16026), ('SAF ', 311)] |
+| `.hash` | 19 | 62 | 0.1 | [('5f22', 3), ('5853', 3)] |
+| `.dtx` | 19 | 968 | 3.9 | [('DSTX', 717)] |
+| `.wsnd` | 18 | 1776 | 43.3 | [('WSND', 1776)] |
+| `.mesh` | 18 | 1001 | 7.0 | [('M3DF', 495)] |
+| `.itpr` | 18 | 852 | 0.1 | [('RPTI', 852)] |
+| `.icxr` | 18 | 935 | 0.1 | [('RXCI', 935)] |
+| `.ffn` | 18 | 190 | 5.8 | [('FntF', 190)] |
+| `.dsir` | 18 | 11732 | 141.6 | [('BLDT', 6585)] |
+| `.dscr` | 18 | 12241 | 3.7 | [('BLDT', 6373)] |
+| `.dsbr` | 18 | 11692 | 33.4 | [('BLDT', 8211)] |
+| `.dsar` | 18 | 7327 | 29.8 | [('BLDT', 4095)] |
+| `.fmf` | 17 | 494 | 11.2 | [('FMF_', 294)] |
+| `.bpd` | 17 | 54 | 0.2 | [('#BPD', 39)] |
+| `.bb` | 17 | 366 | 75.3 | [('BKBK', 2), ('[2,4', 2)] |
+| `.bad` | 17 | 32 | 1.0 | [('BPAD', 28)] |
+| `.an3a` | 17 | 711 | 26.5 | [('A3NA', 711)] |
+| `.tim2` | 16 | 1650 | 34.6 | [('2ITD', 1650)] |
+| `.ohs` | 16 | 1192 | 4.8 | [('*OZD', 764)] |
+| `.objs` | 16 | 625 | 31.8 | [('SJBO', 146), ('OBIS', 65)] |
+| `.psf` | 15 | 87 | 0.2 | [('BCFG', 75)] |
+| `.lev` | 15 | 1276 | 24.5 | [('SDPC', 552), ('LEV!', 156)] |
+| `.edat` | 14 | 5443 | 14.5 | [('DtnE', 5433)] |
+| `.bsd` | 14 | 803 | 0.3 | [('DSND', 45)] |
+| `.xtl` | 13 | 311 | 0.0 | [('1,fa', 200), ('2,hi', 81), ('1,hi', 15)] |
+| `.xds` | 13 | 773 | 3.2 | [('XDS!', 773)] |
+| `.fa` | 13 | 37 | 572.3 | [('GFSA', 37)] |
+| `.da` | 13 | 91 | 0.5 | [('#ART', 75)] |
+| `.ptl` | 12 | 16 | 0.1 | [('*OZD', 16)] |
+| `.pbg` | 12 | 1629 | 16.4 | [('D2KP', 430), ('PBG ', 5)] |
+| `.ozt` | 12 | 14 | 4.2 | [('*OZD', 14)] |
+| `.olt` | 12 | 92 | 4.5 | [('*OZD', 92)] |
+| `.odx` | 12 | 85 | 0.0 | [('*OZD', 85)] |
+| `.kdb` | 12 | 18 | 2.3 | [('YKBH', 2)] |
+| `.itrr` | 12 | 40 | 0.0 | [('RRTI', 40)] |
+| `.bcf` | 12 | 1559 | 8.4 | [('BCF!', 1559)] |
+| `.ancl` | 12 | 3243 | 0.5 | [('ANCL', 3243)] |
+| `.txa` | 11 | 643 | 2.0 | [('*OZD', 64)] |
+| `.spp` | 11 | 270 | 1233.2 | [('KMSP', 250)] |
+| `.pth` | 11 | 2822 | 1.2 | [('HTAP', 804)] |
+| `.ph` | 11 | 11 | 0.3 | [('2D_0', 9)] |
+| `.mxa` | 11 | 3013 | 30.2 | [('mxa ', 2141), ('lzm ', 520)] |
+| `.icg` | 11 | 164 | 3.9 | [('""""', 2)] |
+| `.gmk` | 11 | 656 | 1.4 | [('[GUI', 183)] |
+| `.dssa` | 11 | 1696 | 18.2 | [('DSSA', 1696)] |
+| `.crsb` | 11 | 736 | 0.2 | [('CRSB', 736)] |
+| `.bga` | 11 | 1512 | 18.8 | [('BGA1', 76)] |
+| `.atv` | 11 | 1697 | 2.0 | [('lzm ', 1598)] |
+| `.zcb` | 10 | 400 | 0.8 | [('BLCM', 400)] |
+| `.zc2` | 10 | 10 | 0.0 | [('BLCM', 10)] |
+| `.visnd` | 10 | 5012 | 34.3 | [('VSND', 5012)] |
+| `.s3db` | 10 | 17 | 82.1 | [('SQLi', 17)] |
+| `.pchr` | 10 | 6991 | 32.5 | [('RHCP', 6991)] |
+| `.lxml` | 10 | 4343 | 33.2 | [('<lay', 3562), ('BPCK', 775)] |
+| `.gfnt` | 10 | 4725 | 31.8 | [('GFNT', 1678)] |
+| `.file` | 10 | 21 | 0.0 | [('st06', 4)] |
+| `.dialog` | 10 | 216 | 0.3 | [('SDPC', 215)] |
+| `.cib` | 10 | 10 | 0.0 | [('ZCIB', 10)] |
+| `.tpr` | 9 | 27 | 0.6 | [('CRPT', 27)] |
+| `.sct` | 9 | 1251 | 53.1 | [('SFCT', 1251)] |
+| `.s3d` | 9 | 211 | 3.7 | [('SH3D', 48)] |
+| `.osc` | 9 | 4451 | 36.5 | [('OCSC', 4451)] |
+| `.ooa` | 9 | 8766 | 2.9 | [('OOAD', 8766)] |
+| `.ocg` | 9 | 439 | 22.0 | [('OCCG', 439)] |
+| `.oce` | 9 | 2607 | 13.2 | [('OCOB', 2607)] |
+| `.oab` | 9 | 279 | 1.6 | [('OABC', 279)] |
+| `.md2` | 9 | 76 | 10.8 | [('IDP2', 76)] |
+| `.ilb` | 9 | 45 | 0.0 | [('ZILB', 45)] |
+| `.hpc` | 9 | 9 | 0.2 | [('HPC@', 9)] |
+| `.dr` | 9 | 651 | 2.3 | [('#ART', 75)] |
+| `.csv_sgn` | 9 | 27 | 0.0 | [('1;0;', 9), ('0;1;', 9), ('0;0;', 6)] |
+| `.bhio` | 9 | 18 | 0.2 | [('DNFH', 18)] |
+| `.bcm` | 9 | 461 | 3.3 | [('@BCM', 286)] |
+| `.an3t` | 9 | 1203 | 4.9 | [('T3NA', 1203)] |
+| `.an3m` | 9 | 1203 | 6.6 | [('M3NA', 1203)] |
+| `.ucg` | 8 | 678 | 6.8 | [('UNCG', 678)] |
+| `.uce` | 8 | 176 | 0.1 | [('UCEL', 176)] |
+| `.sbmpic` | 8 | 550 | 37.8 | [('SOLC', 550)] |
+| `.rca` | 8 | 1519 | 1.3 | [('BRCA', 1519)] |
+| `.que` | 8 | 1244 | 12.0 | [('#QUE', 20)] |
+| `.opl` | 8 | 787 | 0.1 | [('*OZD', 787)] |
+| `.nmdp` | 8 | 31 | 0.2 | [('NMDP', 31)] |
+| `.nmc` | 8 | 18 | 0.1 | [('NCMC', 18)] |
+| `.nbf` | 8 | 1978 | 26.9 | [('NBF!', 8)] |
+| `.nax2` | 8 | 94 | 53.4 | [('2XAN', 94)] |
+| `.lya` | 8 | 426 | 0.1 | [('lyad', 426)] |
+| `.lwrld` | 8 | 8 | 3.4 | [('LWRL', 8)] |
+| `.ic` | 8 | 812 | 14.6 | [('DSIC', 812)] |
+| `.gava` | 8 | 189 | 1.4 | [('GAVA', 189)] |
+| `.ebp` | 8 | 8 | 0.2 | [('PMOC', 5), ('BPNZ', 1)] |
+| `.cga` | 8 | 2902 | 96.9 | [('BCGA', 2902)] |
+| `.cea` | 8 | 2902 | 9.4 | [('BCEA', 2902)] |
+| `.bnm` | 8 | 3279 | 64.4 | [('BNMM', 2433)] |
+| `.benm` | 8 | 8 | 4.3 | [('EMPC', 8)] |
+| `.bcfg` | 8 | 20 | 0.1 | [('BCFG', 3)] |
+| `.acgr` | 8 | 17842 | 35.5 | [('RGCA', 7919)] |
+
+### Done in this pass
+
+`.ngr` (59 titles, 23,684 files): `LMPK` is `u32 unpacked size` plus a zlib stream and `LMP2` is a raw LZMA stream with its 13-byte header in front (properties, dictionary size, `u64` unpacked size); both unpack to exactly the stored size on every sample. `NGR1` files (the third magic in the extension) are a different format and are not handled.
+
+### Notes for the next pass
+
+* Several of the four-letter magics are the little-endian spelling of standard NITRO-System resources (`RAMN`/`RCMN` = NMAR/NMCR, `NCCL`/`NCCG`/`NCOB`/`NBSQ` look like NCLR/NCGR/NCER/NBSR variants) and probably need only a check of what `wszst` already converts through other commands.
+* `DSS0`, `DSF0`, `DSA1`, `DSM1`, `BLDT` (`.dsir/.dscr/.dsbr/.dsar`), `SAF0`, `DAUP`, `KTUN` (`.urf`, 1.6 GB of audio) and `FMV!` (`.fmv`, 2.2 GB of video) are the biggest cross-title engines in the list and are the best next reverse-engineering targets.

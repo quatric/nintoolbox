@@ -383,6 +383,33 @@ enumError EncodeLZMA (u8 **dest_ptr, // result: store destination buffer addr
 ///////////////			    Decode LZMA			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// Raw LZMA with a known unpacked size: 5 property bytes and the stream are given separately.
+enumError DecodeLZMAprops (u8 **dest_ptr, uint dest_size, const void *props, const void *src, uint src_size)
+{
+	*dest_ptr = 0;
+	if (!props || !src || !src_size || !dest_size)
+		return ERR_NOTHING_TO_DO;
+#ifdef NO_LZMA
+	return ERROR0 (ERR_LZMA, "LZMA compression not supported\n");
+#else
+	u8 *dest = MALLOC (dest_size);
+	if (!dest)
+		return ERR_OUT_OF_MEMORY;
+	SizeT dl = dest_size, sl = src_size;
+	ELzmaStatus status;
+	if (LzmaDecode (dest, &dl, (const Byte *)src, &sl, (const Byte *)props, LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &lzma_alloc) != SZ_OK
+		|| dl != dest_size)
+	{
+		FREE (dest);
+		return ERR_WARNING;
+	}
+	*dest_ptr = dest;
+	return ERR_OK;
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 enumError DecodeLZMAbin (u8 **dest_ptr, // result: store destination buffer addr
 	uint *dest_written, // store num bytes written to 'dest', never NULL
 	uint header_size, // insert 'header_size' bytes before dest data

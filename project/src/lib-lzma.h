@@ -155,6 +155,8 @@ enumError EncodeLZMA (u8 **dest_ptr, // result: store destination buffer addr
 ///////////////			    Decode LZMA			///////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+enumError DecodeLZMAprops (u8 **dest_ptr, uint dest_size, const void *props, const void *src, uint src_size);
+
 enumError DecodeLZMAbin (u8 **dest_ptr, // result: store destination buffer addr
 	uint *dest_written, // store num bytes written to 'dest', never NULL
 	uint header_size, // insert 'header_size' bytes before dest data

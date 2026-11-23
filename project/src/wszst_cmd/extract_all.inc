@@ -864,3 +864,4 @@
 #include "extract/gwvideo.inc"
 #include "extract/lineattackalb.inc"
 #include "extract/fmpp.inc"
+#include "extract/lmpngr.inc"
