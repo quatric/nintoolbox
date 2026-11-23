@@ -861,3 +861,4 @@
 #include "extract/levelpack2.inc"
 #include "extract/shark3dpack.inc"
 #include "extract/sharkstk.inc"
+#include "extract/gwvideo.inc"
