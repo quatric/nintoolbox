@@ -73,6 +73,53 @@ static void ntf_render (int fmt, const u8 *tx, size_t tsz, const u8 *pal, uint n
 #undef NTF_COL
 }
 
+// the width is not stored: try every power of two and keep the one whose pixels differ least from their neighbours (at most 4:1 shapes); returns a malloc block of w * h RGBA pixels
+static u8 *ntf_best_render (int fmt, const u8 *tx, size_t tsz, const u8 *pal, uint ncol, const u8 *idx, size_t isz, uint px, uint *bwo)
+{
+	u8 *rgba = CALLOC (4, (size_t)px), *best = CALLOC (4, (size_t)px);
+	uint bw = 0;
+	u64 bs = ~(u64)0;
+	if (!rgba || !best)
+	{
+		FREE (rgba);
+		FREE (best);
+		return 0;
+	}
+	for (uint w = 8; w <= 1024; w <<= 1)
+	{
+		const uint h = px / w;
+		if (px % w || h < 8 || h > 1024 || h > 4 * w || w > 4 * h || (fmt == F4X4 && (w % 4 || h % 4)))
+			continue;
+		memset (rgba, 0, 4 * (size_t)px);
+		ntf_render (fmt, tx, tsz, pal, ncol, idx, isz, px, w, rgba);
+		u64 sc = 0;
+		for (uint y = 0; y < h; y++)
+			for (uint x = 0; x < w; x++)
+			{
+				const u8 *q = rgba + 4 * ((size_t)y * w + x);
+				if (x + 1 < w)
+					sc += abs ((int)q[0] - q[4]) + abs ((int)q[1] - q[5]) + abs ((int)q[2] - q[6]);
+				if (y + 1 < h)
+					sc += abs ((int)q[0] - q[4 * w]) + abs ((int)q[1] - q[4 * w + 1]) + abs ((int)q[2] - q[4 * w + 2]);
+			}
+		sc = sc * 1024 / px;
+		if (sc < bs)
+		{
+			bs = sc;
+			bw = w;
+			memcpy (best, rgba, 4 * (size_t)px);
+		}
+	}
+	FREE (rgba);
+	if (!bw)
+	{
+		FREE (best);
+		return 0;
+	}
+	*bwo = bw;
+	return best;
+}
+
 static enumError extract_ntfraw_file (ccp arg, ccp basedir, uint depth)
 {
 	ccp dot = strrchr (arg, '.');
@@ -106,43 +153,10 @@ static enumError extract_ntfraw_file (ccp arg, ccp basedir, uint depth)
 		fmt = I8, px = (uint)tsz;
 	if (px < 16)
 		goto done;
-	// the width is not stored: try every power of two and keep the one whose pixels differ least from their neighbours
-	rgba = CALLOC (4, (size_t)px);
-	u8 *best = CALLOC (4, (size_t)px);
-	if (!rgba || !best)
-	{
-		err = ERR_OUT_OF_MEMORY;
-		FREE (best);
-		goto done;
-	}
 	uint bw = 0;
-	u64 bs = ~(u64)0;
-	for (uint w = 8; w <= 1024; w <<= 1)
-	{
-		const uint h = px / w;
-		if (px % w || h < 8 || h > 1024 || h > 4 * w || w > 4 * h || (fmt == F4X4 && (w % 4 || h % 4)))
-			continue;
-		memset (rgba, 0, 4 * (size_t)px);
-		ntf_render (fmt, tx, tsz, pal, ncol, idx, isz, px, w, rgba);
-		u64 sc = 0;
-		for (uint y = 0; y < h; y++)
-			for (uint x = 0; x < w; x++)
-			{
-				const u8 *q = rgba + 4 * ((size_t)y * w + x);
-				if (x + 1 < w)
-					sc += abs ((int)q[0] - q[4]) + abs ((int)q[1] - q[5]) + abs ((int)q[2] - q[6]);
-				if (y + 1 < h)
-					sc += abs ((int)q[0] - q[4 * w]) + abs ((int)q[1] - q[4 * w + 1]) + abs ((int)q[2] - q[4 * w + 2]);
-			}
-		sc = sc * 1024 / px;
-		if (sc < bs)
-		{
-			bs = sc;
-			bw = w;
-			memcpy (best, rgba, 4 * (size_t)px);
-		}
-	}
-	if (bw)
+	u8 *best = ntf_best_render (fmt, tx, tsz, pal, ncol, idx, isz, px, &bw);
+	if (!best)
+		goto done;
 	{
 		const char *sl = strrchr (arg, '/');
 		char name[PATH_MAX];
