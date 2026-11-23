@@ -15,7 +15,7 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 ## Added in this pass
 
-`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong) and `.blk.bz2` (The Amazing Brain Train); see the rows in `FORMATS.md`.
+`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train) and `.PTX` with its `.PTXH` header (Around the World); see the rows in `FORMATS.md`.
 
 ## Looked at, not supported
 
@@ -29,4 +29,3 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 | `.mxs` | Mix Superstar | BE header, audio samples, codec not identified |
 | `.sir` | Military Madness: Nectaris | table of `{id, size, offset, next}`-like rows whose offsets do not fit the file; layout not understood |
 | `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes) |
-| `.PTX` | Around the World | 1 MiB of mostly zeros, probably a raw font texture; dimensions and pixel format not known |
