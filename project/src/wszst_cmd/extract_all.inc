@@ -871,4 +871,5 @@
 #include "extract/nsbanim.inc"
 #include "extract/nbfraw.inc"
 #include "extract/ntfraw.inc"
+#include "extract/rlebang.inc"
 #include "extract/ncfam.inc"
