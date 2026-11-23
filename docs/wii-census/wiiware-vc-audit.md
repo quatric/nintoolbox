@@ -19,10 +19,10 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 ## Looked at, not supported
 
-None of these decodes with zlib, raw deflate, bzip2, LZMA, LZ4 or LZF at any offset in the first 0x80 bytes, and a web search found no public description of any of them. Decoding them needs the games' own code (disassembly or emulation).
+`.epk`, `.pacz` and `.lpf2` were solved by reading the games' own code: the decoder is found by locating the code that checks the magic (byte compares for `LZS\0`, the version-mismatch message of the level pack loader) and porting what it does. The remaining formats did not give way to that. Standard zlib, raw deflate, bzip2, LZMA, LZ4 and LZF find nothing in them (short matches of 6-30 bytes that "inflate" to 100+ bytes are noise; real streams, like the `.epk` entries, end with a proper end-of-stream marker).
 
 | Extension | Example | What is known |
 | --- | --- | --- |
-| `.s3d_pack`, `.stk` | Aya and the Cubes of Light, Babel Rising | Shark 3D packs. XOR with `0x9f` (the zero padding reads as `9f 9f 9f 9f`) turns the padding into zeros but leaves repeated bit-shifted word patterns, so there is a second bit-level layer; `.stk` shows `0x20` runs in the same way |
-| `.ppm`, `.GWVideo` | Where's Wally: Fantastic Journey | `FMPP` header (`.GWVideo` wraps one at offset 0x1d), custom compressed stream |
+| `.s3d_pack`, `.stk` | Aya and the Cubes of Light, Babel Rising | Shark 3D packs. XOR with `0x9f` (the zero padding reads as `9f 9f 9f 9f`) turns the padding into zeros but leaves repeated bit-shifted word patterns, so there is a second bit-level layer; `.stk` shows `0x20` runs in the same way. The string `shark3d_packstream_ident` is only used as an error-message argument in a packet state machine (around `0x8019dd80` in Aya's executable, reached through `r14 - 0x2730`), not in a header check, so the decoder is that state machine |
+| `.ppm`, `.GWVideo` | Where's Wally: Fantastic Journey | `FMPP`, 40-byte header: version bytes, three big-endian width/height pairs (641x251, the same padded to 8/4 = 648x252, 641x298), two unknown u16, payload size (file size - 40) and header size 40; the payload starts with `27 xx` and a repeated `00 02 00 20 00 0b 40 00` pattern. `.GWVideo` wraps one `FMPP` frame at offset 0x1d after a `{8, 2, frames, 0, fps, 0, 28}` header. The executable has no `FMPP` string or word compare; it does contain `FGWVideo.cpp` and `FJpegDecompress.cpp` assertions |
 | `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes), nothing to extract |
