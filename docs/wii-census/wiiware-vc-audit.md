@@ -15,7 +15,7 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 ## Added in this pass
 
-`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train) and `.PTX` with its `.PTXH` header (Around the World); see the rows in `FORMATS.md`.
+`.fez` (Yard Sale Hidden Treasures), `.pk3` (Simple Series Vol. 3: The Mahjong), `.blk.bz2` (The Amazing Brain Train) `.PTX` with its `.PTXH` header (Around the World) and `.mxs` (Mix Superstar, DSP-ADPCM behind a chunk table); see the rows in `FORMATS.md`.
 
 ## Looked at, not supported
 
@@ -26,6 +26,5 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 | `.ppm`, `.GWVideo` | Where's Wally: Fantastic Journey | `FMPP` header (`.GWVideo` wraps one at offset 0x1d), custom compressed stream |
 | `.pacz` | Moki Moki | `LZS\0` header with a `temp.tmp` entry, custom compression |
 | `.lpf2` | Hydroventure | `LevelPackV2` header, custom compression |
-| `.mxs` | Mix Superstar | BE header, audio samples, codec not identified |
 | `.sir` | Military Madness: Nectaris | table of `{id, size, offset, next}`-like rows whose offsets do not fit the file; layout not understood |
 | `.alb` | Line Attack Heroes | not a container: a named wrapper around serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats and hashes) |

@@ -853,3 +853,4 @@
 #include "extract/pk3u8.inc"
 #include "extract/blkbz2.inc"
 #include "extract/ptxtex.inc"
+#include "extract/mxsdsp.inc"
