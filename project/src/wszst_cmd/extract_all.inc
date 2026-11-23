@@ -870,4 +870,5 @@
 #include "extract/jboa.inc"
 #include "extract/nsbanim.inc"
 #include "extract/nbfraw.inc"
+#include "extract/ntfraw.inc"
 #include "extract/ncfam.inc"
