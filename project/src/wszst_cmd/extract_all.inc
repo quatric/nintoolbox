@@ -854,3 +854,4 @@
 #include "extract/blkbz2.inc"
 #include "extract/ptxtex.inc"
 #include "extract/mxsdsp.inc"
+#include "extract/sirzblk.inc"
