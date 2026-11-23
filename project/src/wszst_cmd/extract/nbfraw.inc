@@ -1,19 +1,21 @@
 // NITRO raw graphics triple (".nbfc" characters, ".nbfp" palette, ".nbfs" screen) of about 1,800 DS games: headerless dumps of the tile data (4 or 8 bit, 8x8 tiles), a little endian BGR555 palette and
-// a little endian u16 tile map (tile 0-9, h flip 10, v flip 11, palette bank 12-15, 32 tiles wide). The three files share one base name, so a ".nbfc" is rendered together with its ".nbfp" (required) and ".nbfs" (optional);
+// a little endian u16 tile map (tile 0-9, h flip 10, v flip 11, palette bank 12-15, 32 tiles wide). The three files share one base name, so a ".nbfc" is rendered together with its ".nbfp" (required) and ".nbfs" (optional) (a few games name the same raw triple ".char" / ".pal" / ".scr", handled the same way);
 // without a map the tiles are shown as a 32 tiles wide sheet. Bit depth: 4 bit for palettes of 16 colors or maps that use palette banks, else 8 bit; a bank beyond the palette falls back to bank 0.
 // Written as "<name>.png".
 static u8 *nbfraw_load (ccp arg, ccp ext, size_t *sz)
 {
 	char path[PATH_MAX];
 	u8 *d = 0;
-	snprintf (path, sizeof (path), "%s", arg);
-	char *dot = strrchr (path, '.');
-	if (!dot || strlen (dot) != 5 || strlen (ext) != 5)
+	ccp dot = strrchr (arg, '.');
+	if (!dot || (size_t)(dot - arg) + strlen (ext) >= sizeof (path))
 		return 0;
 	for (uint up = 0; up < 2; up++)
 	{
-		for (uint i = 0; i < 5; i++)
-			dot[i] = up ? toupper ((u8)ext[i]) : ext[i];
+		snprintf (path, sizeof (path), "%.*s", (int)(dot - arg), arg);
+		char *q = path + strlen (path);
+		for (ccp e = ext; *e; e++)
+			*q++ = up ? toupper ((u8)*e) : *e;
+		*q = 0;
 		if (!LoadFileAlloc (path, 0, 0, &d, sz, 0, 0, 0, false) && d)
 			return d;
 		FREE (d);
@@ -25,17 +27,22 @@ static u8 *nbfraw_load (ccp arg, ccp ext, size_t *sz)
 static enumError extract_nbfraw_file (ccp arg, ccp basedir, uint depth)
 {
 	ccp dot = strrchr (arg, '.');
-	if (!dot || strcasecmp (dot, ".nbfc"))
+	ccp pext = ".nbfp", mext = ".nbfs";
+	if (dot && !strcasecmp (dot, ".char"))
+		pext = ".pal", mext = ".scr";
+	else if (!dot || strcasecmp (dot, ".nbfc"))
 		return ERR_NOTHING_TO_DO;
 	u8 *tiles = 0, *pal = 0, *map = 0, *rgba = 0;
 	size_t tsz = 0, psz = 0, msz = 0;
 	enumError err = ERR_NOTHING_TO_DO;
 	if (LoadFileAlloc (arg, 0, 0, &tiles, &tsz, 0, 0, 0, false) || !tiles || tsz < 32 || tsz > 0x400000)
 		goto done;
-	pal = nbfraw_load (arg, ".nbfp", &psz);
-	if (!pal || psz < 2 || psz > 0x200)
+	pal = nbfraw_load (arg, pext, &psz);
+	if (!pal || psz < 2 || psz > 0x200 || (psz & 1))
 		goto done;
-	map = nbfraw_load (arg, ".nbfs", &msz);
+	map = nbfraw_load (arg, mext, &msz);
+	if (map && msz >= 4 && !memcmp (map, "VSCR", 4))
+		map = (FREE (map), (u8 *)0), msz = 0;
 	const uint ncol = (uint)psz / 2, nent = (uint)msz / 2;
 	bool banks = false;
 	for (uint i = 0; i < nent; i++)
