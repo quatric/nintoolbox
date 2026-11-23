@@ -1529,6 +1529,7 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x5247434e: // "RGCN"
 				return FF_NCGR;
 			case 0x524c434e: // "RLCN"
+			case 0x4e54504c: // "NTPL" (forward-tagged palette, see ScanNitroNCLR)
 				return FF_NCLR;
 			case 0x5243534e: // "RCSN"
 				return FF_NSCR;

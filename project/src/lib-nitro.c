@@ -71,11 +71,26 @@ enumError ScanNitroNCLR (nitro_nclr_t *nclr, const u8 *data, uint size)
 	if (!nclr)
 		return EINVAL;
 	memset (nclr, 0, sizeof (*nclr));
-	if (!data || size < 0x28 || memcmp (data, "RLCN", 4) || memcmp (data + 0x10, "TTLP", 4))
+	if (!data || size < 0x20)
 		return EINVAL;
-
-	const uint data_size = nrd32 (data + 0x20);
-	const uint data_off = 0x18 + nrd32 (data + 0x24);
+	uint data_size = 0, data_off = 0;
+	if (!memcmp (data, "NTPL", 4) && !memcmp (data + 0x10, "PALT", 4))
+	{
+		// Forward-tagged palette: PALT section size = 12 + 2 * count, count at +0x18,
+		// BGR555 entries from +0x1c. Verified against retail NTPL samples (5pl).
+		const uint sec_size = nrd32 (data + 0x14), count = nrd32 (data + 0x18);
+		if (!count || sec_size != 12 + 2 * count || sec_size > size - 0x10)
+			return EINVAL;
+		data_size = 2 * count;
+		data_off = 0x1c;
+	}
+	else if (size >= 0x28 && !memcmp (data, "RLCN", 4) && !memcmp (data + 0x10, "TTLP", 4))
+	{
+		data_size = nrd32 (data + 0x20);
+		data_off = 0x18 + nrd32 (data + 0x24);
+	}
+	else
+		return EINVAL;
 	if (!data_size || (data_size & 1) || data_off > size || data_size > size - data_off)
 		return EINVAL;
 

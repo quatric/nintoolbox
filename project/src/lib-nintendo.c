@@ -283,7 +283,7 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_BNR, true, false, 0);
 		if (!memcmp (d, "RGCN", 4))
 			return make_info (NFMT_NCGR, true, false, 0);
-		if (!memcmp (d, "RLCN", 4))
+		if (!memcmp (d, "RLCN", 4) || !memcmp (d, "NTPL", 4))
 			return make_info (NFMT_NCLR, true, false, 0);
 		if (!memcmp (d, "RECN", 4))
 			return make_info (NFMT_NCER, true, false, 0);

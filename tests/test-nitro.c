@@ -1783,6 +1783,41 @@ int main (void)
 			free (nmar_buf);
 		}
 	}
+	// NTPL (forward-tagged PALT palette, DS .5pl)
+	{
+		FILE *f_ntpl = fopen ("../tests/fixtures/nitro_samples/retail_ntpl_palette.5pl", "rb");
+		if (f_ntpl)
+		{
+			fseek (f_ntpl, 0, SEEK_END);
+			uint ntpl_sz = (uint)ftell (f_ntpl);
+			fseek (f_ntpl, 0, SEEK_SET);
+			u8 *ntpl_buf = (u8 *)malloc (ntpl_sz);
+			fread (ntpl_buf, 1, ntpl_sz, f_ntpl);
+			fclose (f_ntpl);
+			nfmt_info_t nfmt = DetectNintendoFormat (ntpl_buf, ntpl_sz, "retail.5pl");
+			nitro_nclr_t ntpl;
+			if (nfmt.type != NFMT_NCLR || ScanNitroNCLR (&ntpl, ntpl_buf, ntpl_sz) != ERR_OK
+				|| ntpl.n_entries != 16)
+			{
+				printf ("  FAIL: NTPL palette detect / scan on retail sample\n");
+				fail++;
+			}
+			else
+				printf ("  PASS: NTPL palette detect + scan (16 colours)\n");
+			ResetNitroNCLR (&ntpl);
+			u8 bad[0x20];
+			memcpy (bad, ntpl_buf, sizeof (bad));
+			bad[0x18] = 0x20; // count disagrees with section size
+			if (ScanNitroNCLR (&ntpl, bad, sizeof (bad)) == ERR_OK)
+			{
+				printf ("  FAIL: NTPL with bad count accepted\n");
+				fail++;
+			}
+			else
+				printf ("  PASS: NTPL with bad count rejected\n");
+			free (ntpl_buf);
+		}
+	}
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }
