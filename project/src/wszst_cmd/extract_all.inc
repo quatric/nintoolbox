@@ -869,6 +869,7 @@
 #include "extract/slbt.inc"
 #include "extract/ahx.inc"
 #include "extract/nmcr.inc"
+#include "extract/swdl.inc"
 #include "extract/jboa.inc"
 #include "extract/nsbanim.inc"
 #include "extract/nbfraw.inc"
