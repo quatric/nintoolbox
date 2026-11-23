@@ -856,3 +856,5 @@
 #include "extract/mxsdsp.inc"
 #include "extract/sirzblk.inc"
 #include "extract/igelepk.inc"
+#include "extract/lzs5.inc"
+#include "extract/addpack.inc"
