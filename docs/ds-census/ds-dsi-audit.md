@@ -285,4 +285,6 @@ One 2D engine shared by about 80 titles (Battle of Giants, 100 All-Time Favorite
 | `MOEG` | | `MOEG`, u32 size, then small tile-map / geometry records. |
 | `NUOS` | `.sent` | sound-entry table. |
 
+Correction on `SLBT` (re-checked on the 100 All-Time Favorites `card_back.atb`, the Battle of Giants `attachement_gold.atb` and the Prince of Persia `vizir_animation.atb`, whose magic is `DTBT`): the u32 at offset 0x1d equals file size minus header length exactly (3783 - 0x21 = 0xea6, 626 - 0x15 = 0x25d), so it is the payload length, not a compressed size, and nothing here shows an LZ stream. The `DTBT` payload reads as plain 4-bit tile rows (`11 99 a9 45 44 54 0f ...`) and the `attachement_gold` payload starts with an offset table (`f0 25 f0 37 f0 49 ...`, step 0x12). So `SLBT` is probably an uncompressed container of offset tables plus tile data; the missing piece is the record layout, not a decompressor. Still not decoded; no extractor written.
+
 The `JBOA` manifests would only give a source file list, so nothing was written. A useful extractor needs the `SLBT` compression scheme (most likely found by reading the engine's decoder in one of the ROMs) and then ties the `TTLP` palettes and `LXET` textures to images.
