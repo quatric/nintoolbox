@@ -19,11 +19,12 @@ All non-demo WiiWare titles (597) and Virtual Console entries (951, one per game
 
 `.s3d_pack` (Aya and the Cubes of Light) and `.stk` (Babel Rising) were solved by statistics rather than by finding the loader: `.s3d_pack` is a fixed 256-byte substitution table (found in the executable by searching for a 256-byte involution) plus a 4-byte checksum at the end of every 0x1000-byte page, and `.stk` is a plain repeating 4-byte XOR whose key is stored in its header. Both then hold ordinary zlib streams.
 
+`.ppm` (FMPP, Where's Wally) was not found in the executable either; it was solved from the data. The header's unpacked-size field and the 0x1f bytes recurring every 33 bytes (a 32 byte literal run) pointed at an LZ77 variant with 5-bit literal-run control bytes, and the first byte's leading `001` matched FastLZ level 2; the unpacked size then came out exactly right for all five samples, and the decoded buffer is a palette, an alpha image and a colour image in GX 8x4 tiles.
+
 ## Looked at, not supported
 
 `.epk`, `.pacz` and `.lpf2` were solved by reading the games' own code: the decoder is found by locating the code that checks the magic (byte compares for `LZS\0`, the version-mismatch message of the level pack loader) and porting what it does. The remaining formats did not give way to that. Standard zlib, raw deflate, bzip2, LZMA, LZ4 and LZF find nothing in them (short matches of 6-30 bytes that "inflate" to 100+ bytes are noise; real streams, like the `.epk` entries, end with a proper end-of-stream marker).
 
 | Extension | Example | What is known |
 | --- | --- | --- |
-| `.ppm` | Where's Wally: Fantastic Journey | `FMPP`, 40-byte header: version bytes, three big-endian width/height pairs, two unknown u16, payload size at 0x20 and header size 40 at 0x28; the payload is a lossy image codec (about 0.3 byte per pixel) that I could not identify from the data and whose decoder I did not find in the executable (no `FMPP` string or compare; it has `FPpmModule`, `FJpegDecompress` and `FVideoTheora` assertions). `.GWVideo` is now supported as a container (PNG and FMPP frames are split out), the FMPP pixels are not decoded |
 | `.alb` | Line Attack Heroes | split into its wrapper and sections (`BAI` offsets table in `ai_data.alb`, one block in the stage maps); the content is serialized game objects (`tpb`, `BAR`, `BAI` blocks of floats, hashes and tile indices) and is not decoded |
