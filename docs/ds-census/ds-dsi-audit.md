@@ -270,3 +270,19 @@ An extension is not an engine: `.dss`, `.dsf`, `.dsa` and `.dsm` each carry thei
 | `.h` | `#def` | 34 | 157 |
 
 Reading it: `RCSN`, `BTA0`, `BMA0`, `RCMN`, `RAMN`, `NCCL`/`NCCG`/`NCOB`/`NCSC` and `swdl`/`sedl` are standard or near-standard NITRO-System / Procyon resources (check what `wszst` already converts through other commands before writing anything); `JBOA`, `SLBT`, `D2FP`, `TKLT`, `TTLP`, `MOEG`, `LXET` and `PMB` are one publisher's engine (the Battle of Giants family, about 80 games and 300,000 files) and the best real reverse-engineering target; `PACK` is done (see FORMATS.md); `NGR1` is the second format in `.ngr`.
+
+### Battle of Giants family: findings, not yet decoded
+
+One 2D engine shared by about 80 titles (Battle of Giants, 100 All-Time Favorites, Chessmaster, BFF TV, Hugo ...). Every resource is a tagged file; the tag decides the kind:
+
+| magic | extension | what it is (from samples) |
+| --- | --- | --- |
+| `JBOA` | `.aap` | not content: a manifest. Header (`00 08`, 2 flag bytes, `01 00`), a u32 length plus the source path (`2d/animation/.../x.atb`), then one `{u32 1, u32 length, path}` entry per referenced resource (palettes under `2d/palette/`). |
+| `D2FP` / `TKLT` | `.apl` / `.atk` | tilekit and tile data for minimap and tile maps; the source path is stored in the header (`/tilekit/minimap/mmap_10_0303.atk`); `TKLT` carries `2d/palette/...` and then raw 4-bit tile rows. |
+| `SLBT` | `.atb` | animation/sprite bank. Header ends with a u32 compressed size (header length varies, 0x15 or 0x21 bytes) and the payload looks like a custom LZ stream (an offset table of `f0 xx` pairs stepping by 0x12 in the one sample read closely); the compression scheme is not identified. |
+| `LXET` | `texel` | `LXET`, u16 byte count (0x0800 or 0x1000) and u16 0, then 16-bit RGB555 (magenta `1f fc` as key color) or 8-bit indexed pixels, 8 trailing bytes; dimensions not stored. |
+| `TTLP` | `palette` | `TTLP`, u16 byte count (0x0200 for 256 colors), u16 0, then BGR555 colors. |
+| `MOEG` | | `MOEG`, u32 size, then small tile-map / geometry records. |
+| `NUOS` | `.sent` | sound-entry table. |
+
+The `JBOA` manifests would only give a source file list, so nothing was written. A useful extractor needs the `SLBT` compression scheme (most likely found by reading the engine's decoder in one of the ROMs) and then ties the `TTLP` palettes and `LXET` textures to images.
