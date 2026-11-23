@@ -849,3 +849,5 @@
 #include "extract/spddsp.inc"
 #include "extract/stbltext.inc"
 #include "extract/wsbdsp.inc"
+#include "extract/fez.inc"
+#include "extract/pk3u8.inc"
