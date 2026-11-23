@@ -1010,6 +1010,40 @@ __attribute__ ((weak)) bool IsThorPkg (const u8 *data, size_t size)
 	return false;
 }
 
+// Video containers also handled by mobipeg (identified only, passed through unchanged). Each check follows mobipeg's probe: magic plus a sanity check on the header.
+#define VID_LE32(p) ((u32)(p)[0] | (u32)(p)[1] << 8 | (u32)(p)[2] << 16 | (u32)(p)[3] << 24)
+static file_format_t GetVideoFF (const u8 *d, uint n, uint file_size)
+{
+	if (n < 32)
+		return FF_UNKNOWN;
+	if (((!memcmp (d, "BIK", 3) && d[3] >= 'b' && d[3] <= 'k') || (!memcmp (d, "KB2", 3) && d[3] >= 'a' && d[3] <= 'z'))
+		&& VID_LE32 (d + 8) > 0 && VID_LE32 (d + 8) < 1000000 && VID_LE32 (d + 20) > 0 && VID_LE32 (d + 20) <= 8192 && VID_LE32 (d + 24) > 0
+		&& VID_LE32 (d + 24) <= 8192)
+		return d[0] == 'B' ? FF_BINK : FF_BINK2;
+	if (!memcmp (d, "DPG", 3) && d[3] >= '0' && d[3] <= '4')
+		return FF_DPG;
+	if (!memcmp (d, "HVQM4 1.3", 10) || !memcmp (d, "HVQM4 1.5", 10))
+		return FF_HVQM4;
+	if (!memcmp (d, "MIVF", 4))
+		return FF_MIVF;
+	if (!memcmp (d, "RVID", 4) && VID_LE32 (d + 4) >= 1 && VID_LE32 (d + 4) <= 5)
+		return FF_RVID;
+	if (!memcmp (d, "MOC", 3) && (d[3] == '2' || d[3] == '3') && (!memcmp (d + 8, "fla2", 4) || !memcmp (d + 8, "fla3", 4) || !memcmp (d + 8, "vid2", 4)
+			|| !memcmp (d + 8, "vid3", 4) || !memcmp (d + 8, "gvi3", 4)))
+		return FF_MOBICLIP;
+	if (!memcmp (d, "MOC5", 4) && VID_LE32 (d + 4) >= 0x28 && VID_LE32 (d + 4) < 0x10000000)
+		return FF_MOBICLIP;
+	if (!memcmp (d, "BPK1", 4) && VID_LE32 (d + 4) > 0 && VID_LE32 (d + 4) < 1000000)
+		return FF_BPK;
+	if (!memcmp (d, "PARA", 4) && file_size > 0x6a0 && VID_LE32 (d + 4) < file_size)
+		return FF_FLIPNOTE;
+	if (!memcmp (d, "FVDS", 4) && VID_LE32 (d + 8) > 0 && VID_LE32 (d + 8) <= 1024 && VID_LE32 (d + 12) > 0 && VID_LE32 (d + 12) <= 1024)
+		return FF_FVDS;
+	if (!memcmp (d, "VXDS", 4))
+		return FF_VXDS;
+	return FF_UNKNOWN;
+}
+
 file_format_t GetByMagicFF (const void *data, // pointer to data
 	uint data_size, // size of data
 	uint file_size // NULL or total size of file
@@ -1031,6 +1065,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 		return FF_KCL;
 
 	const u8 *data8 = (u8 *)data;
+	{
+		const file_format_t vff = GetVideoFF (data8, data_size, file_size);
+		if (vff != FF_UNKNOWN)
+			return vff;
+	}
 	if (data_size >= 16)
 	{
 		// Havok classic packfile (.HKX): exact two-word magic, no
@@ -2874,17 +2913,17 @@ const file_type_t *GetFileTypeByExt (
 
 	// first: try member 'ext'
 	for (p = FileTypeTab; p->name; p++)
-		if ((!need_magic || p->magic_len) && p->ext && !strcasecmp (ext, p->ext + 1))
+		if ((!need_magic || p->magic_len) && p->ext && *p->ext && !strcasecmp (ext, p->ext + 1))
 			return p;
 
 	// second: try member 'ext_compr'
 	for (p = FileTypeTab; p->name; p++)
-		if ((!need_magic || p->magic_len) && p->ext_compr && !strcasecmp (ext, p->ext_compr + 1))
+		if ((!need_magic || p->magic_len) && p->ext_compr && *p->ext_compr && !strcasecmp (ext, p->ext_compr + 1))
 			return p;
 
 	// third: try member 'ext_magic'
 	for (p = FileTypeTab; p->name; p++)
-		if ((!need_magic || p->magic_len) && p->ext_magic && !strcasecmp (ext, p->ext_magic + 1))
+		if ((!need_magic || p->magic_len) && p->ext_magic && *p->ext_magic && !strcasecmp (ext, p->ext_magic + 1))
 			return p;
 
 	return 0;

@@ -590,6 +590,17 @@ typedef enum file_format_t
 	FF_SEDB,	 // 475 - Square Enix SEDB resource container (.rps / .txb / .shd / .phb / .lyb; Dragon Quest X)
 	FF_MPH_ARC,	 // 476 - Metroid Prime Hunters SNDFILE archive (.arc)
 	FF_MPH_MODEL,	 // 477 - Metroid Prime Hunters Nitro model (_Model.bin)
+	FF_BINK, // 478 - Bink 1 video (.bik)
+	FF_BINK2, // 479 - Bink 2 video (.bk2)
+	FF_DPG, // 480 - Nintendo DS DPG video (.dpg)
+	FF_HVQM4, // 481 - GameCube / Wii HVQM4 video (.h4m)
+	FF_MIVF, // 482 - Nintendo 3DS MIVF video (.mivf)
+	FF_RVID, // 483 - Nintendo DS RocketVideo (.rvid)
+	FF_MOBICLIP, // 484 - MobiClip video (.mo)
+	FF_BPK, // 485 - Nintendo 3DS Swapdoodle / Swapnote BPK1 (.bpk)
+	FF_FLIPNOTE, // 486 - Flipnote Studio movie (.ppm)
+	FF_FVDS, // 487 - FastVideo DS (.fv)
+	FF_VXDS, // 488 - VX video (.vx)
 
 	//--- number of elements
 

@@ -2777,6 +2777,61 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		0, MinusString, MinusString,
 		"Metroid Prime Hunters model (_Model.bin, Nintendo DS; converted to .glb with PNG textures)" },
 
+	// FF_BINK = 478
+	{ FF_BINK, FF_BINK, 0, "BINK", ".bik", ".bik", ".bik",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Bink 1 video (.bik / BIKb-BIKk; RAD Game Tools; identified only, passed through unchanged)" },
+
+	// FF_BINK2 = 479
+	{ FF_BINK2, FF_BINK2, 0, "BINK2", ".bk2", ".bk2", ".bk2",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Bink 2 video (.bk2 / KB2; RAD Game Tools; identified only, passed through unchanged)" },
+
+	// FF_DPG = 480
+	{ FF_DPG, FF_DPG, 0, "DPG", ".dpg", ".dpg", ".dpg",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo DS DPG video (.dpg / DPG0-DPG4; MoonShell; identified only, passed through unchanged)" },
+
+	// FF_HVQM4 = 481
+	{ FF_HVQM4, FF_HVQM4, 0, "HVQM4", ".h4m", ".h4m", ".h4m",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"GameCube / Wii HVQM4 video (.h4m / HVQM4 1.3, 1.5; Hudson Soft; identified only, passed through unchanged)" },
+
+	// FF_MIVF = 482
+	{ FF_MIVF, FF_MIVF, 0, "MIVF", ".mivf", ".mivf", ".mivf",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo 3DS MIVF video (.mivf / MIVF; identified only, passed through unchanged)" },
+
+	// FF_RVID = 483
+	{ FF_RVID, FF_RVID, 0, "RVID", ".rvid", ".rvid", ".rvid",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo DS RocketVideo (.rvid / RVID; identified only, passed through unchanged)" },
+
+	// FF_MOBICLIP = 484
+	{ FF_MOBICLIP, FF_MOBICLIP, 0, "MOBICLIP", ".mo", ".mo", ".mo",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"MobiClip video (.mo / MOC2, MOC3, MOC5; Nintendo DS / Wii; identified only, passed through unchanged)" },
+
+	// FF_BPK = 485
+	{ FF_BPK, FF_BPK, 0, "BPK", ".bpk", ".bpk", ".bpk",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Nintendo 3DS Swapdoodle / Swapnote BPK1 (.bpk / BPK1; identified only, passed through unchanged)" },
+
+	// FF_FLIPNOTE = 486
+	{ FF_FLIPNOTE, FF_FLIPNOTE, 0, "FLIPNOTE", ".ppm", ".ppm", ".ppm",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"Flipnote Studio movie (.ppm / PARA; Nintendo DS / DSi; identified only, passed through unchanged)" },
+
+	// FF_FVDS = 487
+	{ FF_FVDS, FF_FVDS, 0, "FVDS", ".fv", ".fv", ".fv",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"FastVideo DS (.fv / FVDS; Nintendo DS; identified only, passed through unchanged)" },
+
+	// FF_VXDS = 488
+	{ FF_VXDS, FF_VXDS, 0, "VXDS", ".vx", ".vx", ".vx",
+		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
+		"VX video (.vx / VXDS; Nintendo DS; identified only, passed through unchanged)" },
+
 	// FF_N
 	{ 0 }
 };
@@ -3065,6 +3120,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_SEDB, "SEDB", "SEDB", 0xe05 },
 	{ FF_MPH_ARC, "SNDFILE", "SNDFILE", 0xe05 }, { FF_MPH_ARC, "MPH-ARC", "MPH-ARC", 0xe05 },
 	{ FF_MPH_MODEL, "MODEL", "MPHMODEL", 0x861 }, { FF_MPH_MODEL, "MPH-MODEL", "MPH-MODEL", 0x861 },
+	{ FF_BINK, "BINK", "BINK", 0x3001 }, { FF_BINK2, "BINK2", "BINK2", 0x3001 }, { FF_DPG, "DPG", "DPG", 0x3001 }, { FF_HVQM4, "HVQM4", "HVQM4", 0x3001 }, { FF_MIVF, "MIVF", "MIVF", 0x3001 }, { FF_RVID, "RVID", "RVID", 0x3001 }, { FF_MOBICLIP, "MOBICLIP", "MOBICLIP", 0x3001 }, { FF_BPK, "BPK", "BPK", 0x3001 }, { FF_FLIPNOTE, "FLIPNOTE", "FLIPNOTE", 0x3001 }, { FF_FVDS, "FVDS", "FVDS", 0x3001 }, { FF_VXDS, "VXDS", "VXDS", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };
