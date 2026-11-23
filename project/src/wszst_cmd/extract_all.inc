@@ -851,3 +851,4 @@
 #include "extract/wsbdsp.inc"
 #include "extract/fez.inc"
 #include "extract/pk3u8.inc"
+#include "extract/blkbz2.inc"
