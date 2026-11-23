@@ -297,3 +297,7 @@ The `JBOA` manifests would only give a source file list, so nothing was written.
 
 ### NBSQ (`.nbsq`) layout notes (not decoded)
 `NBSQ` magic, u32 version (6 or 0x12), u32 count (6), then an ascending u32 offset table (7 entries, last = body end) and four more u32 fields; 0x48-byte records start near +0x50 (`10 00 00 00 48 00 00 00`). Record semantics are unknown, so no extractor yet. A few `.nbsq` files have no magic at all (zero-padded 0x60 header, then nibble-packed data).
+
+### D2FP (`.apl`, Battle of Giants minimap playfields) and XPF layout notes (not decoded)
+`D2FP`: u32 flags (0x80080000), u32 path length, path of the `.atk` tile set (e.g. `2d/tilekit/minimap/mmap_10_0303.atk`), then `01 05 00`, fixed fields (`10 00 00 00 10 00 00 80 00 60 00 00 01 01 01 00 01 80 00 60 00 00 00 00 10 00 00 01 00`), a u32 stream size (0x758 / 0x7c0) and a payload that looks compressed (starts `28 xx 0d 00 ff 40 00 ff`); the codec is not identified, so no extractor.
+`.xpf` (MegaScene, magic `f1eedbba`): u8 count, then entries of {u8 length, big endian UTF-16 name, a few small ascending numeric fields, `01 01 00 00 00`}; the offsets and sizes could not be identified (no unit tried lands on file data), so no extractor.
