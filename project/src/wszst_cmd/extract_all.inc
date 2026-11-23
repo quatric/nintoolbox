@@ -872,6 +872,7 @@
 #include "extract/swdl.inc"
 #include "extract/dst1.inc"
 #include "extract/sedl.inc"
+#include "extract/moeg.inc"
 #include "extract/jboa.inc"
 #include "extract/nsbanim.inc"
 #include "extract/nbfraw.inc"
