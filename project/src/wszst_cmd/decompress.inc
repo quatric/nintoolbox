@@ -331,6 +331,10 @@ static enumError decompress_nintendo_file3 (
 				ext = ".ncer";
 			else if (dec_info.type == NFMT_NANR)
 				ext = ".nanr";
+			else if (dec_info.type == NFMT_NMCR)
+				ext = ".nmcr";
+			else if (dec_info.type == NFMT_NMAR)
+				ext = ".nmar";
 			else if (dec_info.type == NFMT_NSCR)
 				ext = ".nscr";
 			else if (dec_info.type == NFMT_NSBTX)

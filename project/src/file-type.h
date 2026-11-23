@@ -590,6 +590,8 @@ typedef enum file_format_t
 	FF_SEDB,	 // 475 - Square Enix SEDB resource container (.rps / .txb / .shd / .phb / .lyb; Dragon Quest X)
 	FF_MPH_ARC,	 // 476 - Metroid Prime Hunters SNDFILE archive (.arc)
 	FF_MPH_MODEL,	 // 477 - Metroid Prime Hunters Nitro model (_Model.bin)
+	FF_NMCR,	 // 478 - Nintendo DS Multi Cell resource (.nmcr / RCMN)
+	FF_NMAR,	 // 479 - Nintendo DS Multi Animation resource (.nmar / RAMN)
 
 	//--- number of elements
 

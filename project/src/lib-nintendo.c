@@ -131,7 +131,7 @@ ccp GetNintendoFormatName (nfmt_type_t type)
 		"MPR-PACK", "MPR-TXTR", "MPR-CMDL", "MPR-SKEL", "NTTF", "SHDVAR", "BFSHA", "SHARC",
 		"SHARCFB", "VFXB", "RZPK", "CSB", "CTB", "LMMDL", "LMBIN", "PIKMOD", "PIKARC", "WWRSC",
 		"LMJMP", "LMKEY", "LMTMB", "LMGEB", "LMSLK", "LMSLS", "WWMODEL", "AFS",
-		[NFMT_LZE] = "LZE" };
+		[NFMT_LZE] = "LZE", [NFMT_NMCR] = "NMCR", [NFMT_NMAR] = "NMAR" };
 	return type < sizeof (tab) / sizeof (*tab) ? tab[type] : "UNKNOWN";
 }
 
@@ -289,6 +289,12 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 			return make_info (NFMT_NCER, true, false, 0);
 		if (!memcmp (d, "RNAN", 4))
 			return make_info (NFMT_NANR, true, false, 0);
+		// Nitro Multi Cell Runtime (NMCR) and Multi Animation Runtime (NMAR); the
+		// NMAR animation bank uses the same KNBA/LBAL layout as NANR.
+		if (!memcmp (d, "RCMN", 4))
+			return make_info (NFMT_NMCR, true, false, 0);
+		if (!memcmp (d, "RAMN", 4))
+			return make_info (NFMT_NMAR, true, false, 0);
 		if (!memcmp (d, "RCSN", 4))
 			return make_info (NFMT_NSCR, true, false, 0);
 		if (!memcmp (d, "BTX0", 4) || !memcmp (d, "BMD0", 4))

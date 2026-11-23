@@ -8,6 +8,7 @@ extern "C"
 #include "types.h"
 #include "lib-nintendo.h"
 #include "lib-nitro.h"
+#include "lib-ncer.h"
 #include "lib-smdh.h"
 #include "lib-gtx.h"
 #include "lib-nsbanim.h"
@@ -1729,6 +1730,59 @@ int main (void)
 		}
 	}
 
+	// NMCR (RCMN multi cell bank) and NMAR (RAMN multi animation bank)
+	{
+		FILE *f_nmcr = fopen ("../tests/fixtures/nitro_samples/retail_break_em_all.nmcr", "rb");
+		if (f_nmcr)
+		{
+			fseek (f_nmcr, 0, SEEK_END);
+			uint nmcr_sz = (uint)ftell (f_nmcr);
+			fseek (f_nmcr, 0, SEEK_SET);
+			u8 *nmcr_buf = (u8 *)malloc (nmcr_sz);
+			fread (nmcr_buf, 1, nmcr_sz, f_nmcr);
+			fclose (f_nmcr);
+			nfmt_info_t nfmt = DetectNintendoFormat (nmcr_buf, nmcr_sz, "retail.nmcr");
+			nintendo_nmcr_t nmcr;
+			if (nfmt.type != NFMT_NMCR || ScanNMCR (&nmcr, nmcr_buf, nmcr_sz) != ERR_OK
+				|| nmcr.n_multi_cells != 8)
+			{
+				printf ("  FAIL: NMCR detect / MCBK scan on retail sample\n");
+				fail++;
+			}
+			else
+				printf ("  PASS: NMCR detect + MCBK scan (8 multi cells)\n");
+			if (ScanNMCR (&nmcr, nmcr_buf, 0x20) == ERR_OK
+				|| ScanNMCR (&nmcr, nmcr_buf, nmcr_sz - 1) == ERR_OK)
+			{
+				printf ("  FAIL: truncated NMCR accepted\n");
+				fail++;
+			}
+			else
+				printf ("  PASS: truncated NMCR rejected\n");
+			free (nmcr_buf);
+		}
+		FILE *f_nmar = fopen ("../tests/fixtures/nitro_samples/retail_break_em_all.nmar", "rb");
+		if (f_nmar)
+		{
+			fseek (f_nmar, 0, SEEK_END);
+			uint nmar_sz = (uint)ftell (f_nmar);
+			fseek (f_nmar, 0, SEEK_SET);
+			u8 *nmar_buf = (u8 *)malloc (nmar_sz);
+			fread (nmar_buf, 1, nmar_sz, f_nmar);
+			fclose (f_nmar);
+			nfmt_info_t nfmt = DetectNintendoFormat (nmar_buf, nmar_sz, "retail.nmar");
+			nintendo_nanr_t nmar;
+			if (nfmt.type != NFMT_NMAR || ScanNANR (&nmar, nmar_buf, nmar_sz) != ERR_OK
+				|| nmar.n_animations == 0)
+			{
+				printf ("  FAIL: NMAR detect / KNBA scan on retail sample\n");
+				fail++;
+			}
+			else
+				printf ("  PASS: NMAR detect + KNBA scan (%u animations)\n", nmar.n_animations);
+			free (nmar_buf);
+		}
+	}
 	printf ("=== Results: %s (failures: %d) ===\n", fail == 0 ? "ALL PASSED" : "SOME FAILED", fail);
 	return fail;
 }

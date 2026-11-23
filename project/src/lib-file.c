@@ -1516,6 +1516,11 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			case 0x524e414e: // "RNAN"
 			case 0x4e414e52: // "NANR"
 				return FF_NANR;
+			// Nitro Multi Cell / Multi Animation Runtime (NMCR / RCMN, NMAR / RAMN)
+			case 0x52434d4e: // "RCMN"
+				return FF_NMCR;
+			case 0x52414d4e: // "RAMN"
+				return FF_NMAR;
 
 			// Nitro tile graphics / palette / tilemap (NCGR / NCLR / NSCR).
 			// All three are decoded elsewhere in the toolset (lib-ncgr,
@@ -2583,6 +2588,10 @@ file_format_t GetByMagicFF (const void *data, // pointer to data
 			return FF_NCER;
 		case NFMT_NANR:
 			return FF_NANR;
+		case NFMT_NMCR:
+			return FF_NMCR;
+		case NFMT_NMAR:
+			return FF_NMAR;
 		case NFMT_FZIP:
 			return FF_FZIP;
 		case NFMT_ZLIB:

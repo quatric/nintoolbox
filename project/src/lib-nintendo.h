@@ -186,7 +186,9 @@ typedef enum nfmt_type_t
 	NFMT_LMSLS,
 	NFMT_WWMODEL,
 	NFMT_AFS,
-	NFMT_LZE
+	NFMT_LZE,
+	NFMT_NMCR,
+	NFMT_NMAR
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
