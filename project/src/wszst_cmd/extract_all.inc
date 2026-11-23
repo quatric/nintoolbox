@@ -868,6 +868,7 @@
 #include "extract/packlz.inc"
 #include "extract/slbt.inc"
 #include "extract/ahx.inc"
+#include "extract/nmcr.inc"
 #include "extract/jboa.inc"
 #include "extract/nsbanim.inc"
 #include "extract/nbfraw.inc"
