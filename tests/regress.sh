@@ -20271,6 +20271,36 @@ assert set(a[0::2]) == {3} and set(a[1::2]) == {-2}
 }
 t_ads_sshd
 
+t_rw_pitxd_world(){
+  # Aliens in the Attic RenderWare .rws: TOC (0x24), platform-independent texture dictionary (0x23) and a world (0xb) with one sector, wrapped in a chunk group (0x29)
+  local d; d=$(mktemp -d /tmp/_r_rwpi.XXXXXX) || { fno "RW PI texdict/world" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+V = 0x1c02000a
+ck = lambda t, b: struct.pack("<3I", t, len(b), V) + b
+img = ck(0x18, ck(1, struct.pack("<4I", 2, 2, 8, 2)) + bytes([0, 1, 1, 0]) + bytes([255, 0, 0, 255, 0, 0, 255, 255]) + bytes(254 * 4))
+tex = ck(6, ck(1, b"\x02\x11\x01\x00") + ck(2, b"red\0") + ck(2, b"\0\0\0\0") + ck(3, b""))
+pitd = ck(0x23, struct.pack("<HHI", 1, 1, 1) + img + tex)
+pos = struct.pack("<9f", 0, 0, 0, 1, 0, 0, 0, 0, 1)
+sec = ck(9, ck(1, struct.pack("<3I6f2I", 0, 1, 3, 1, 0, 1, 0, 0, 0, 0, 0) + pos + struct.pack("<6f", 0, 0, 1, 0, 0, 1) + struct.pack("<4H", 0, 1, 2, 0)) + ck(3, b""))
+world = ck(0xb, ck(1, struct.pack("<I3fIIIIII", 1, 0, 0, 0, 1, 3, 0, 1, 0, 0x10005) + bytes(24)) + ck(8, b"") + sec + ck(3, b""))
+toc = ck(0x24, struct.pack("<I", 0))
+open(sys.argv[1] + "/level.rws", "wb").write(toc + pitd + ck(0x29, b"") + world + ck(0x2a, b""))
+PY
+  "$B/wszst" XX "$d/level.rws" >/dev/null 2>&1
+  if grep -q '^g sector' "$d/level.obj" 2>/dev/null && grep -q '^f 1/1 2/2 3/3$' "$d/level.obj" && python3 -c '
+import sys, zlib, struct
+b = open(sys.argv[1], "rb").read()
+assert struct.unpack(">II", b[16:24]) == (2, 2)
+' "$d/level.rws.d/red_000.png" 2>/dev/null; then
+    fok "RenderWare PI texture dictionary -> PNG and world sectors -> OBJ"
+  else
+    fno "RW PI texdict/world" "wrong or missing output beside $d/level.rws"
+  fi
+  rm -rf "$d"
+}
+t_rw_pitxd_world
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
