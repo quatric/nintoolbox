@@ -13602,6 +13602,37 @@ PYEOF
     fno "FEZC package" "mk_fezc.py failed"
   fi
 
+  # EA BIGF (.big, SSX Blur layout): extract -> CREATE is byte-exact; backslash member paths extract
+  mkdir -p "$d/bigf_test"
+  python3 - "$d/bigf_test" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def bigf(members, sep):
+    tab = b''.join(struct.pack('>II', 0, 0) + n.replace(b'/', sep) + b'\0' for n, _ in members)
+    end = 16 + len(tab)
+    out = bytearray((end + 4 + 127) & ~127)
+    t = 16
+    for i, (n, data) in enumerate(members):
+        if i:
+            out += bytes(-len(out) % 128)
+        struct.pack_into('>II', out, t, len(out), len(data))
+        t += 8 + len(n) + 1
+        out[t - len(n) - 1:t - 1] = n.replace(b'/', sep)
+        out += data
+    out[0:4] = b'BIGF'
+    struct.pack_into('<I', out, 4, len(out))
+    struct.pack_into('>II', out, 8, len(members), end)
+    return bytes(out)
+m = [(b'a.txt', b'first member\n' * 7), (b'sub/b.dat', bytes(range(200)))]
+open(sys.argv[1] + '/t.big', 'wb').write(bigf(m, b'/'))
+open(sys.argv[1] + '/w.big', 'wb').write(bigf(m, b'\\'))
+PYE
+  "$B/wszst" x "$d/bigf_test/t.big" "$d/bigf_test/w.big" --overwrite >/dev/null 2>&1
+  cmp -s "$d/bigf_test/w.big.d/sub/b.dat" "$d/bigf_test/t.big.d/sub/b.dat" \
+  && "$B/wszst" CREATE "$d/bigf_test/t.big.d" --dest "$d/bigf_test/r.big" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/bigf_test/t.big" "$d/bigf_test/r.big" \
+  && fok "EA BIGF: extract -> CREATE byte-exact (retail layout), backslash paths" \
+  || fno "EA BIGF" "round trip or backslash extraction failed"
+
   # Blue Castle Games ".big" archive (The Bigs, Wii): duplicate names, a
   # nested archive and a stereo ".dspi" split into per-channel .dsp files.
   mkdir -p "$d/bcbig_test"
