@@ -20454,6 +20454,60 @@ assert a[3] == 255 and b[3] == 255 and a != b
 }
 t_grph_sprite
 
+t_ds_dat_misc(){
+  # SSAM (Final Fantasy IV), DSARC FL / DSARCIDX (Disgaea DS), STCM2L script text, PMD pack + AT4PX / PKDPX (PX compression, all nine control cases)
+  local d; d=$(mktemp -d /tmp/_r_dsdat.XXXXXX) || { fno "DS .dat misc" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+D = sys.argv[1]
+ent = lambda name, off, size, w: struct.pack("<II", off, size) + name.encode().ljust(w, b"\0") if w == 32 else name.encode().ljust(w, b"\0") + struct.pack("<II", size, off)
+# SSAM: offsets count from the end of the table
+a, b = b"AAAA", b"BBBBBB"
+open(D + "/s.dat", "wb").write(b"SSAM" + struct.pack("<I", 2) + ent("x.NCLR", 0, 4, 32) + ent("y.bin", 4, 6, 32) + a + b)
+# DSARC FL and DSARCIDX (u16 ids, padded to 4); a repeated name with the same data is written once
+t = 16 + 48 * 2
+open(D + "/fl.dat", "wb").write(b"DSARC FL" + struct.pack("<II", 2, 1) + ent("m.msnd", t, 4, 40) + ent("m.msnd", t, 4, 40) + a)
+t = 16 + 4 + 48 * 2
+open(D + "/ix.dat", "wb").write(b"DSARCIDX" + struct.pack("<II", 2, 0) + struct.pack("<HH", 7, 8) + ent("p.imy", t, 4, 40) + ent("q.imy", t + 4, 6, 40) + a + b)
+# STCM2L: one action (opcode 210) carrying one Shift-JIS string
+txt = "テスト".encode("cp932").ljust(8, b"\0")
+act = struct.pack("<4I", 0, 210, 0, 16 + 16 + len(txt)) + struct.pack("<4I", 0, len(txt) // 4, 1, len(txt)) + txt
+code = b"CODE_START_\0" + act
+hdr = b"STCM2L test".ljust(0x20, b"\0") + struct.pack("<4I", 0x50 + len(code), 0, 0, 0)
+open(D + "/sc.dat", "wb").write(hdr.ljust(0x50, b"\0") + code + b"EXPORT_DATA\0")
+# PX: flags 0..8 = nibbles 1..9; ctl 0x00 = 8 commands: flag k with lo 5 for k = 0..7, then flag 8
+flags = bytes(range(1, 10))
+cmds = bytes([(k + 1) << 4 | 5 for k in range(9)]) + bytes([0xff, 0xfe])  # control nibbles k + 1 with lo 5, then a back reference: 18 bytes from 2 back
+stream = b"\x00" + cmds[:8] + b"\x00" + cmds[8:9] + cmds[9:11]
+dl = 9 * 2 + 18
+ref = b""
+for k in range(9):
+    n = [5] * 4
+    if 1 <= k <= 4: n[k - 1] = 4
+    elif k >= 5: n[k - 5] = 6
+    ref += bytes([n[0] << 4 | n[1], n[2] << 4 | n[3]])
+for i in range(18): ref += bytes([ref[-2]])
+at = b"AT4PX" + struct.pack("<H", 18 + len(stream)) + flags + struct.pack("<H", dl) + stream
+pk = b"PKDPX" + struct.pack("<H", 20 + len(stream)) + flags + struct.pack("<I", dl) + stream
+open(D + "/ref.bin", "wb").write(ref)
+# PMD pack: u32 0, count, records, zero record, 0xff padding, members
+body = at.ljust(len(at) + 3, b"\xff")
+pack = struct.pack("<II", 0, 2) + struct.pack("<II", 8 + 16 + 8, len(at)) + struct.pack("<II", 8 + 16 + 8 + len(body), len(pk)) + b"\0" * 8 + body + pk
+open(D + "/monster.bin", "wb").write(pack)
+PY
+  "$B/wszst" XX "$d/s.dat" "$d/fl.dat" "$d/ix.dat" "$d/sc.dat" "$d/monster.bin" >/dev/null 2>&1
+  "$B/wszst" XX "$d/monster.bin.d/0000.at4px" "$d/monster.bin.d/0001.pkdpx" >/dev/null 2>&1
+  if [ "$(cat "$d/s.dat.d/y.bin" 2>/dev/null)" = BBBBBB ] && [ "$(cat "$d/fl.dat.d/m.msnd" 2>/dev/null)" = AAAA ] && [ ! -e "$d/fl.dat.d/m_1.msnd" ] \
+     && [ "$(cat "$d/ix.dat.d/q.imy" 2>/dev/null)" = BBBBBB ] && grep -q '^210: テスト$' "$d/sc.dat.txt" 2>/dev/null \
+     && cmp -s "$d/ref.bin" "$d/monster.bin.d/0000.bin" && cmp -s "$d/ref.bin" "$d/monster.bin.d/0001.bin"; then
+    fok "SSAM / DSARC / STCM2L / PMD pack + PX (AT4PX, PKDPX) decode"
+  else
+    fno "DS .dat misc" "wrong or missing output under $d"
+  fi
+  rm -rf "$d"
+}
+t_ds_dat_misc
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

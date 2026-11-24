@@ -169,6 +169,8 @@ static enumError decompress_nintendo_file3 (
 
 #include "decompress/lz4.inc"
 
+#include "decompress/px.inc"
+
 #include "decompress/sadl.inc"
 
 #include "decompress/wux.inc"

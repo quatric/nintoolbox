@@ -999,6 +999,18 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_dst0_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_ssam_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_dsarc_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_pmdpack_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
+	err = extract_stcm_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_glob_pack_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

@@ -11,4 +11,8 @@ enumError CreateSIR0Archive (
 
 enumError create_sir0_dir (ccp source, ccp dest);
 
+// Pokemon Mystery Dungeon "PX" compression: "AT4PX" (u16 decoded size) and "PKDPX" (u32 decoded size)
+// containers. Returns ERR_NOTHING_TO_DO unless DATA starts with one and decodes exactly.
+enumError DecodePX (u8 **dest, uint *dest_size, const u8 *data, uint size);
+
 #endif // LIB_SIR0_H

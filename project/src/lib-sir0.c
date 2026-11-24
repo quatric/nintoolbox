@@ -166,3 +166,71 @@ enumError create_sir0_dir (ccp source, ccp dest)
 	reset_sarc_build_list (&list);
 	return err;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// PX compression (Pokemon Mystery Dungeon: Explorers): "AT4PX" / "PKDPX", u16 container size, 9 control nibbles, then the
+// decoded size (u16 for AT4PX, u32 for PKDPX) and the stream. Each control byte gives 8 commands, MSB first: 1 = copy a byte;
+// 0 = read a byte {hi, lo}: if hi is control nibble k, write two bytes of four nibbles lo, with nibble k - 1 set to lo - 1
+// (k = 1..4) or nibble k - 5 set to lo + 1 (k = 5..8) (k = 0: all four lo); else copy hi + 3 bytes from
+// ((lo << 8 | next byte) - 0x1000) back. The +-1 direction was settled on Explorers of Sky portraits (the other way round is
+// visibly noisier).
+
+enumError DecodePX (u8 **dest, uint *dest_size, const u8 *data, uint size)
+{
+	if (size < 18 || (memcmp (data, "AT4PX", 5) && memcmp (data, "PKDPX", 5)))
+		return ERR_NOTHING_TO_DO;
+	const bool pk = data[0] == 'P';
+	const uint clen = le16 (data + 5), hdr = pk ? 20 : 18, dlen = pk ? le32 (data + 16) : le16 (data + 16);
+	if (clen < hdr || clen > size || !dlen || dlen > 64 * 1024 * 1024)
+		return ERR_NOTHING_TO_DO;
+	const u8 *flags = data + 7;
+	u8 *out = MALLOC (dlen);
+	uint p = hdr, n = 0;
+	while (n < dlen && p < clen)
+	{
+		const u8 ctl = data[p++];
+		for (uint b = 0; b < 8 && n < dlen && p < clen; b++)
+		{
+			if (ctl & (0x80 >> b))
+			{
+				out[n++] = data[p++];
+				continue;
+			}
+			const uint hi = data[p] >> 4, lo = data[p] & 15;
+			p++;
+			int k = -1;
+			for (uint i = 0; i < 9 && k < 0; i++)
+				if (flags[i] == hi)
+					k = (int)i;
+			if (k >= 0)
+			{
+				u8 nyb[4] = { lo, lo, lo, lo };
+				if (k >= 1 && k <= 4)
+					nyb[k - 1] = (lo - 1) & 15;
+				else if (k >= 5)
+					nyb[k - 5] = (lo + 1) & 15;
+				if (n + 2 > dlen)
+					goto bad;
+				out[n++] = nyb[0] << 4 | nyb[1];
+				out[n++] = nyb[2] << 4 | nyb[3];
+			}
+			else
+			{
+				if (p >= clen)
+					goto bad;
+				const uint back = 0x1000 - (lo << 8 | data[p++]), len = hi + 3;
+				if (back > n || n + len > dlen)
+					goto bad;
+				for (uint i = 0; i < len; i++, n++)
+					out[n] = out[n - back];
+			}
+		}
+	}
+	if (n != dlen)
+		goto bad;
+	*dest = out, *dest_size = dlen;
+	return ERR_OK;
+bad:
+	FREE (out);
+	return ERR_NOTHING_TO_DO;
+}
