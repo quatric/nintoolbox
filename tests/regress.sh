@@ -20424,6 +20424,36 @@ assert struct.unpack(">II", b[16:24]) == (4, 4)
 }
 t_figa_dst0
 
+t_grph_sprite(){
+  # EA DS GRPH sprite (Littlest Pet Shop): GPAL with base index 0xd8, GIMG frame (0x14) of two 8x8 tiled OAM pieces placed side by side
+  local d; d=$(mktemp -d /tmp/_r_grph.XXXXXX) || { fno "GRPH sprite" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+pal = b"GPAL" + struct.pack("<IHHHH", 20, 2, 1, 0xd8, 0) + struct.pack("<2H", 0x801f, 0xfc00)
+piece = lambda c: b"GIMG" + struct.pack("<IHHHBB", 16 + 64, 8, 8, 8, 6, 8) + bytes([c]) * 64
+ents = struct.pack("<4H", 0x2000, 0x0000, 0, 0) + struct.pack("<4H", 0x2000, 0x0008, 1, 0)
+frame = struct.pack("<IIII", 16 + len(ents), 16, 8, 2) + ents + piece(0xd8) + piece(0xd9)
+img = b"GIMG" + struct.pack("<IHHBBBB", 16 + len(frame), 16, 8, 0, 0, 0x14, 8) + frame
+body = pal + img
+open(sys.argv[1] + "/Picture.dat", "wb").write(b"GRPH" + struct.pack("<HHIHH", 0xfffe, 0x100, 16 + len(body), 16, 2) + body)
+PY
+  "$B/wszst" XX "$d/Picture.dat" >/dev/null 2>&1
+  if python3 -c '
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGBA")
+assert im.size == (16, 8)
+a, b = im.getpixel((2, 2)), im.getpixel((12, 5))
+assert a[3] == 255 and b[3] == 255 and a != b
+' "$d/Picture.dat.d/Picture.png" 2>/dev/null; then
+    fok "GRPH sprite frame assembled from tiled OAM pieces -> PNG"
+  else
+    fno "GRPH sprite" "wrong or missing output under $d"
+  fi
+  rm -rf "$d"
+}
+t_grph_sprite
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
