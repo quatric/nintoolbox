@@ -2,6 +2,16 @@
 // PNG per texture (name_0.png, name_1.png, ...).
 static enumError extract_bj_tx_file (ccp arg, ccp basedir, uint depth)
 {
+	if (is_ext (arg, ".tx2")) // pixel data of a sibling .tx1, which decodes both; its 8-bit indices can pass for an LZX header (Crash Car Racer)
+	{
+		char tx1[PATH_MAX];
+		u8 *h = 0;
+		size_t hs = 0;
+		snprintf (tx1, sizeof (tx1), "%.*s.tx1", (int)(strlen (arg) - 4), arg);
+		const bool sib = !LoadFileAlloc (tx1, 0, 0, &h, &hs, 0, 0, 0, false) && h && IsBjTx1 (h, hs) && BjTx1Count (h, hs);
+		FREE (h);
+		return sib ? ERR_OK : ERR_NOTHING_TO_DO;
+	}
 	if (!is_ext (arg, ".tx1"))
 		return ERR_NOTHING_TO_DO;
 	u8 *t1 = 0, *t2 = 0;

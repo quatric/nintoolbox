@@ -108,3 +108,27 @@ static enumError extract_bj_mtm_file (ccp arg, ccp basedir, uint depth)
 		fprintf (stdlog, "%sEXTRACT BJ-MESH:%s -> GLB:%s\n", verbose > 0 ? "\n" : "", arg, dest);
 	return ERR_OK;
 }
+
+// Bj engine ".3df" 3D fonts (Crash Car Racer Fonts/m1/A.3df, C.3df): one untextured mesh per character code -> one GLB, glyphs on a 16-column grid.
+static enumError extract_bj_font3d_file (ccp arg, ccp basedir, uint depth)
+{
+	(void)basedir; (void)depth;
+	if (!is_ext (arg, ".3df"))
+		return ERR_NOTHING_TO_DO;
+	u8 *raw = 0;
+	size_t raw_size = 0;
+	if (LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false) || !raw)
+		return ERR_NOTHING_TO_DO;
+	model_t *model = ParseBjFont3D (raw, raw_size);
+	FREE (raw);
+	if (!model)
+		return ERR_NOTHING_TO_DO;
+	char dest[PATH_MAX];
+	beside_source_dest_ext (dest, sizeof (dest), arg, ".glb");
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT BJ-FONT3D:%s (%zu glyphs) -> GLB:%s\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, (size_t)model->num_meshes, dest);
+	if (!testmode)
+		ExportModelToGLB (model, dest);
+	FreeModel (model);
+	return ERR_OK;
+}

@@ -372,6 +372,67 @@ model_t *ParseBjMtm (const u8 *d, size_t size, BjTexFunc texname, void *ctx)
 	return model;
 }
 
+// .3df 3D font (BjFont3DActivate): u32 0, u32 flags (bit 0: already byte-swapped), 256 u32 file offsets of one mesh per character code (0 =
+// no glyph). The glyphs are laid out on a 16-column grid, one cell per character code, with the cell size taken from the largest glyph.
+bool IsBjFont3D (const u8 *d, size_t size)
+{
+	if (size < 8 + 256 * 4 + 192 || bj_rd32 (d) || bj_rd32 (d + 4) > 1)
+		return false;
+	uint n = 0;
+	for (uint i = 0; i < 256; i++)
+	{
+		const u32 o = bj_rd32 (d + 8 + 4 * i);
+		if (o && (o < 8 + 256 * 4 || o > size - 192))
+			return false;
+		n += o != 0;
+	}
+	return n > 0;
+}
+
+model_t *ParseBjFont3D (const u8 *d, size_t size)
+{
+	if (!IsBjFont3D (d, size))
+		return 0;
+	float cell = 0;
+	for (uint i = 0; i < 256; i++)
+	{
+		const u32 mo = bj_rd32 (d + 8 + 4 * i), npos = mo ? bj_rd32 (d + mo + 76) : 0, ppos = mo ? bj_rd32 (d + mo + 116) : 0;
+		if (npos > 0x100000 || (u64)ppos + (u64)npos * 16 > size)
+			continue;
+		for (uint k = 0; k < npos; k++)
+			for (uint a = 0; a < 3; a++)
+			{
+				const float v = fabsf (bj_rdf (d + ppos + 16 * k + 4 * a));
+				if (v > cell && v < 1e6f)
+					cell = v;
+			}
+	}
+	model_t *model = CALLOC (1, sizeof (*model));
+	if (!model)
+		return 0;
+	bj_ctx_t c = { .d = d, .size = size, .model = model };
+	for (uint i = 0; i < 256; i++)
+	{
+		const u32 mo = bj_rd32 (d + 8 + 4 * i);
+		if (!mo)
+			continue;
+		// the game looks at glyphs from -Z: turn them 180 degrees about Y so they read left to right in a +Z view
+		const float W[16] = { -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, (i % 16) * cell * 2.5f, -(float)(i / 16) * cell * 2.5f, 0, 1 };
+		const uint before = model->num_meshes;
+		if (!bj_add_mesh (&c, mo, W, i, 0))
+			break;
+		if (model->num_meshes > before)
+			snprintf (model->meshes[before].name, sizeof (model->meshes[before].name), "char_%02x", i);
+	}
+	FREE (c.tex_ids);
+	if (!model->num_meshes)
+	{
+		FreeModel (model);
+		return 0;
+	}
+	return model;
+}
+
 //-----------------------------------------------------------------------------
 // audio
 

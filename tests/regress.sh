@@ -20326,6 +20326,37 @@ PY
 }
 t_thor_v3_buckets
 
+t_bj_font3d(){
+  # Bj engine .3df 3D font (Crash Car Racer): 256 glyph mesh offsets; one untextured triangle for 'A' -> GLB mesh "char_41"
+  local d; d=$(mktemp -d /tmp/_r_bj3df.XXXXXX) || { fno "Bj 3D font" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+mo = 8 + 256 * 4
+m = bytearray(192)
+struct.pack_into("<I", m, 64, 0xffffffff)
+ppos = mo + 192; pvert = ppos + 48; pprim = pvert + 12
+for off, v in ((76, 3), (88, 3), (104, 1), (116, ppos), (128, pvert), (144, pprim)):
+    struct.pack_into("<I", m, off, v)
+offs = [0] * 256; offs[0x41] = mo
+data = struct.pack("<2I256I", 0, 0, *offs) + bytes(m) + struct.pack("<12f", 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1) \
+    + struct.pack("<3I", 0, 1, 2) + struct.pack("<6H", 4, 0, 0, 0, 3, 0)
+open(sys.argv[1] + "/A.3df", "wb").write(data)
+PY
+  "$B/wszst" XX "$d/A.3df" >/dev/null 2>&1
+  if python3 -c '
+import json, struct, sys
+b = open(sys.argv[1], "rb").read()
+j = json.loads(b[20:20 + struct.unpack_from("<I", b, 12)[0]])
+assert [m["name"] for m in j["meshes"]] == ["char_41"], j["meshes"]
+' "$d/A.glb" 2>/dev/null; then
+    fok "Bj engine .3df 3D font -> GLB with one mesh per glyph"
+  else
+    fno "Bj 3D font" "wrong or missing $d/A.glb"
+  fi
+  rm -rf "$d"
+}
+t_bj_font3d
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
