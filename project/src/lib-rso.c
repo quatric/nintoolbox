@@ -123,7 +123,6 @@ enumError ScanRSO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 	if (!OwnedEntryAdd (out, n, "rso_info.txt", (const u8 *)info, (uint)len))
 	{
 		ResetOwnedEntries (out, n);
-		FREE (out);
 		return ERR_CANT_CREATE;
 	}
 	n++;
@@ -135,7 +134,6 @@ enumError ScanRSO (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *d
 		if (!OwnedEntryAdd (out, n, name, data + sec[i].off, sec[i].size))
 		{
 			ResetOwnedEntries (out, n);
-			FREE (out);
 			return ERR_CANT_CREATE;
 		}
 		n++;

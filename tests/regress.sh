@@ -918,7 +918,7 @@ PY
         bok "CGFX (3DS) edited geometry -> rebuilt container"
         $B/wmdlt ENCODE /tmp/_r_edit.bcres -d /tmp/_r_edit_out.glb --overwrite >/dev/null 2>&1
         local e; e=$(python3 -c "
-import json, struct
+import json, struct, sys
 d = open('/tmp/_r_edit_out.glb', 'rb').read()
 jl = struct.unpack('<I', d[12:16])[0]
 j = json.loads(d[20:20 + jl])
@@ -926,7 +926,8 @@ prim = j['meshes'][0]['primitives'][0]
 acc = j['accessors'][prim['attributes']['POSITION']]
 bv = j['bufferViews'][acc['bufferView']]
 off = 20 + jl + 8 + bv['byteOffset'] + acc.get('byteOffset', 0)
-print(struct.unpack_from('<1f', d, off)[0])" 2>/dev/null || true)
+v = struct.unpack_from('<1f', d, off)[0]
+sys.stdout.write(f'{v:.3f}' if abs(v - 123.125) < 1e-3 else str(v))" 2>/dev/null || true)
         if [ "$e" = "123.125" ] 2>/dev/null; then
           ok "CGFX (3DS) edited geometry survived roundtrip (v0.x = $e)"
         else

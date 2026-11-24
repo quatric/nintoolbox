@@ -224,7 +224,6 @@ enumError ScanWTA (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *w
 		if (!gtx)
 		{
 			ResetOwnedEntries (out, n);
-			FREE (out);
 			return ERR_CANT_CREATE;
 		}
 		u8 *wp = gtx;
@@ -248,7 +247,6 @@ enumError ScanWTA (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *w
 		if (!ok)
 		{
 			ResetOwnedEntries (out, n);
-			FREE (out);
 			return ERR_CANT_CREATE;
 		}
 		n++;
