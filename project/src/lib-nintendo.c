@@ -759,8 +759,10 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		// Same 4-byte wrapped header as LZ10/Huffman above, for Nintendo Run Length (0x30)
 		// streams (e.g. Professor Layton / Level-5 DS .arc / .arj containers, where 0x01
 		// flags RLE compression). Nonzero decompressed size disambiguates against false positives.
+		// RL output is at most 130 bytes per 2 input bytes, which rejects text such as "v2.00\r\nRVL_CONFIG_FILE" (NDEV .dlf layouts).
 		if (d[0] != 0x30 && size >= 8 && memcmp (d, "RIFF", 4) && d[4] == 0x30
-			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16))
+			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16)
+			&& ((u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16) <= (u64)size * 65)
 		{
 			nfmt_info_t inf = make_info (NFMT_RL, false, true,
 				(u32)d[5] | (u32)d[6] << 8 | (u32)d[7] << 16);
