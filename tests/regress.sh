@@ -20357,6 +20357,42 @@ assert [m["name"] for m in j["meshes"]] == ["char_41"], j["meshes"]
 }
 t_bj_font3d
 
+t_vnfp_playfield(){
+  # Battle of Giants: Dragons VNFP playfield (.apl) + VNKT tile set (.atk, LZ10 tiles) + TTLP palette: one 1x1 BG layer whose entry 1 is 4 bit tile 0 (colour 1 = red)
+  local d; d=$(mktemp -d /tmp/_r_vnfp.XXXXXX) || { fno "VNFP playfield" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import os, struct, sys
+def lz10(data):  # literal-only Nintendo LZ10
+    out = bytearray([0x10]) + len(data).to_bytes(3, "little")
+    for i in range(0, len(data), 8):
+        out += b"\0" + data[i:i + 8]
+    return bytes(out)
+root = sys.argv[1] + "/data"
+for sub in ("2d/palette", "2d/tilekit", "2d/playfield"):
+    os.makedirs(root + "/" + sub, exist_ok=True)
+open(root + "/2d/palette/p", "wb").write(b"TTLP" + struct.pack("<HH", 32, 0) + struct.pack("<16H", 0, 0x001f, *[0] * 14))
+pp = b"2d/palette/p"
+tiles = lz10(bytes([0x11]) * 32)
+open(root + "/2d/tilekit/t.atk", "wb").write(b"VNKT" + struct.pack("<HH", 1, 0) + bytes([1, 0xff, 0, 0, 1]) + struct.pack("<I", len(pp)) + pp + struct.pack("<I", len(tiles)) + tiles)
+tp = b"2d/tilekit/t.atk"
+m = lz10(struct.pack("<H", 1))
+rec = bytes([1, 5, 1]) + struct.pack("<HH", 1, 1) + bytes([0, 0, 0]) + struct.pack("<I", len(m)) + m
+open(root + "/2d/playfield/f.apl", "wb").write(b"VNFP" + struct.pack("<HH", 3, 0x8004) + struct.pack("<I", len(tp)) + tp + bytes(5) + rec)
+PY
+  "$B/wszst" XX "$d/data/2d/playfield/f.apl" >/dev/null 2>&1
+  if python3 -c '
+import sys, zlib, struct
+b = open(sys.argv[1], "rb").read()
+assert struct.unpack(">II", b[16:24]) == (8, 8)
+' "$d/data/2d/playfield/f.apl.d/f_bg0.png" 2>/dev/null; then
+    fok "VNFP playfield BG layer drawn with its VNKT (LZ10) tile set and TTLP palette"
+  else
+    fno "VNFP playfield" "missing $d/data/2d/playfield/f.apl.d/f_bg0.png"
+  fi
+  rm -rf "$d"
+}
+t_vnfp_playfield
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
