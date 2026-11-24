@@ -20301,6 +20301,31 @@ assert struct.unpack(">II", b[16:24]) == (2, 2)
 }
 t_rw_pitxd_world
 
+t_thor_v3_buckets(){
+  # Behaviour "Thor" v3 package with a 110-bucket hash table (Alvin and the Chipmunks: Chipwrecked, header 03 05 06): members run to the next offset
+  local d; d=$(mktemp -d /tmp/_r_thor3.XXXXXX) || { fno "Thor v3 buckets" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+nb = 110
+lst = 0x40 + nb * 8
+a, b = b"A" * 40, b"B" * 24
+data_at = lst + 16
+tab = b"".join(struct.pack(">II", 0, 0xffffffff) if i != 7 else struct.pack(">II", 2, lst) for i in range(nb))
+lists = struct.pack(">IIII", 0x11, data_at, 0x22, data_at + len(a))
+hdr = bytes([3, 5, 6, 0x4d]) + bytes(12) + b"pkg".ljust(12, b"\0") + b"chip".ljust(12, b"\0") + bytes(0x40 - 40)
+open(sys.argv[1] + "/pkg.wii", "wb").write(hdr + tab + lists + a + b)
+PY
+  "$B/wszst" XX "$d/pkg.wii" >/dev/null 2>&1
+  local n; n=$(find "$d/pkg.wii.d" -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" = 2 ] && find "$d/pkg.wii.d" -type f -size 40c | grep -q . && find "$d/pkg.wii.d" -type f -size 24c | grep -q .; then
+    fok "Thor v3 package with a 110-bucket table (Alvin) splits into its members"
+  else
+    fno "Thor v3 buckets" "expected 2 members in $d/pkg.wii.d, got $n"
+  fi
+  rm -rf "$d"
+}
+t_thor_v3_buckets
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

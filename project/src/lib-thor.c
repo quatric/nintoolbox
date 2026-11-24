@@ -63,28 +63,44 @@ enum
 
 static const u8 thor_sig[8] = { 0x01, 0, 0, 0, 0, 0, 0, 0x02 };
 
-// Layout "v3" (Happy Feet, Wii; header bytes 03 02 02 xx): the 0x40..0x840 area is a table of 256 8-byte BE hash
-// buckets {u32 count, u32 list_offset} (empty = {0, 0xFFFFFFFF}); each list holds count 8-byte BE {u32 id,
+// Layout "v3" (Happy Feet, Wii; header bytes 03 02 02 xx; Alvin and the Chipmunks: Chipwrecked 03 05 06 xx): from 0x40 a table of 8-byte BE hash
+// buckets {u32 count, u32 list_offset} (empty = {0, 0xFFFFFFFF}) that ends where the first list starts (256 buckets in Happy Feet, 110 or 112
+// in Alvin); each list holds count 8-byte BE {u32 id,
 // u32 offset} entries. No sizes are stored: a member runs up to the next higher offset (or the end of the file).
 // Members are mostly 0xABABABAB-enveloped resources, and many are nested v3 packages.
 enum
 {
-	THOR3_BUCKETS = 256,
-	THOR3_TABLE_END = THOR_HEADER_SIZE + THOR3_BUCKETS * 8,
+	THOR3_MAX_BUCKETS = 4096,
 };
+
+// Number of hash buckets: the table runs up to the lowest list offset; 0 when that does not line up.
+static uint Thor3Buckets (const u8 *data, size_t size)
+{
+	u64 first = size;
+	uint b = 0;
+	while (THOR_HEADER_SIZE + b * 8ull < first && THOR_HEADER_SIZE + b * 8ull + 8 <= size && b < THOR3_MAX_BUCKETS)
+	{
+		const u32 cnt = rd_be32 (data + THOR_HEADER_SIZE + b * 8), off = rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4);
+		if ((cnt || off != 0xFFFFFFFF) && off < first)
+			first = off;
+		b++;
+	}
+	return THOR_HEADER_SIZE + b * 8ull == first ? b : 0;
+}
 
 static bool IsThor3Pkg (const u8 *data, size_t size)
 {
-	if (!data || size < THOR3_TABLE_END + 8 || data[0] != 3 || data[1] != 2 || data[2] != 2)
+	if (!data || size < THOR_HEADER_SIZE + 16 || data[0] != 3 || !((data[1] == 2 && data[2] == 2) || (data[1] == 5 && data[2] == 6)))
 		return false;
+	const uint nb = Thor3Buckets (data, size);
 	uint used = 0;
-	for (uint b = 0; b < THOR3_BUCKETS; b++)
+	for (uint b = 0; b < nb; b++)
 	{
 		const u32 cnt = rd_be32 (data + THOR_HEADER_SIZE + b * 8);
 		const u32 off = rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4);
 		if (!cnt && off == 0xFFFFFFFF)
 			continue;
-		if (!cnt || off < THOR3_TABLE_END || off > size || (u64)off + (u64)cnt * 8 > size)
+		if (!cnt || off < THOR_HEADER_SIZE + nb * 8 || off > size || (u64)off + (u64)cnt * 8 > size)
 			return false;
 		for (u32 i = 0; i < cnt; i++)
 		{
@@ -119,7 +135,8 @@ static int thor3_cmp_offset (const void *a, const void *b)
 static enumError ScanThor3Pkg (thor_t *thor, const u8 *data, size_t size)
 {
 	uint total = 0;
-	for (uint b = 0; b < THOR3_BUCKETS; b++)
+	const uint nb = Thor3Buckets (data, size);
+	for (uint b = 0; b < nb; b++)
 		if (rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4) != 0xFFFFFFFF)
 			total += rd_be32 (data + THOR_HEADER_SIZE + b * 8);
 	if (!total || total > 1000000)
@@ -128,7 +145,7 @@ static enumError ScanThor3Pkg (thor_t *thor, const u8 *data, size_t size)
 	if (!thor->entries)
 		return ERR_CANT_CREATE;
 	uint n = 0;
-	for (uint b = 0; b < THOR3_BUCKETS; b++)
+	for (uint b = 0; b < nb; b++)
 	{
 		const u32 cnt = rd_be32 (data + THOR_HEADER_SIZE + b * 8);
 		const u32 off = rd_be32 (data + THOR_HEADER_SIZE + b * 8 + 4);
