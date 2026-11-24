@@ -14051,14 +14051,15 @@ PYE
 
   # SEGA GHSL token tree (Sakura Wars .bin): nodes, attributes, plain values -> JSON
   mkdir -p "$d/sega_ghsl"
-  if python3 "$PWD_PROJECT/../tests/mk_sega_ghsl.py" "$d/sega_ghsl/t.bin" >/dev/null 2>&1; then
-    "$B/wszst" xx "$d/sega_ghsl/t.bin" >/dev/null 2>&1
-    if python3 - "$d/sega_ghsl/t.bin.d/t.json" <<'PYE' 2>/dev/null
+  if python3 "$PWD_PROJECT/../tests/mk_sega_ghsl.py" "$d/sega_ghsl/t.bin" "$d/sega_ghsl/e.bin" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_ghsl/t.bin" "$d/sega_ghsl/e.bin" >/dev/null 2>&1
+    if python3 - "$d/sega_ghsl/t.bin.d/t.json" "$d/sega_ghsl/e.bin.d/e.json" <<'PYE' 2>/dev/null
 import sys, json
-t = json.load(open(sys.argv[1]))['tree']
-assert t['name'] == 'ROOT' and t['children'][0] == {'name': 'ITEM', 'attrs': {'nVal': 300, 'sTxt': 'hi'}, 'children': [5, 7]}, t
+for f in sys.argv[1:]:
+    t = json.load(open(f))['tree']
+    assert t['name'] == 'ROOT' and t['children'][0] == {'name': 'ITEM', 'attrs': {'nVal': 300, 'sTxt': 'hi'}, 'children': [5, 7]}, t
 PYE
-    then fok "SEGA GHSL: Sakura Wars .bin token tree (nodes, attributes, string table) -> JSON"
+    then fok "SEGA GHSL: Sakura Wars .bin token tree (nodes, attributes, string table, encrypted flag 0x200) -> JSON"
     else fno "SEGA GHSL" "wrong JSON from synthetic tree"
     fi
   else

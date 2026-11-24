@@ -25,3 +25,19 @@ tab += b''.join(struct.pack('<I', o) for o in offs) + strs
 body = struct.pack('<I', tabpos - 0x10) + stream + tab
 hdr = b'GHSL' + struct.pack('<III', 0x10 + len(body), 0x10, 0)
 open(sys.argv[1], 'wb').write(hdr + body)
+
+# optional second file: the same tree encrypted as IF/ECATCH/gameinfo.bin is (header flag 0x200, key 0x7f),
+# the inverse of sega_ghsl_decrypt, with the substitution table taken from the extractor source
+if len(sys.argv) > 2:
+    import os, re
+    src = open(os.path.join(os.path.dirname(__file__), '../project/src/wszst_cmd/extract/sega_ghsl.inc')).read()
+    sbox = [int(x, 16) for x in re.findall(r'0x([0-9a-f]{2})', src.split('sega_ghsl_sbox[3 * 256] = {')[1].split('};')[0])]
+    inv = [[0] * 256 for _ in range(3)]
+    for k in range(3):
+        for x in range(256):
+            inv[k][sbox[k * 256 + x]] = x
+    y = bytearray(body)
+    for i in range(1, len(y)):
+        y[i] = (y[i] + y[i - 1] + 0x7f + i) & 0xff
+    enc = bytes(inv[i % 3][v] for i, v in enumerate(y))
+    open(sys.argv[2], 'wb').write(b'GHSL' + struct.pack('<III', len(body), 0x10, 0x200) + enc)
