@@ -12297,12 +12297,17 @@ PYE
   mkdir -p "$d/bermuda_test"
   python3 - "$d/bermuda_test/T.MWG" <<'PYE' >/dev/null 2>&1
 import struct, sys
-t = b'PLANETG_SPRITECOLLECTION'
-open(sys.argv[1], 'wb').write(struct.pack('<I', len(t)) + t + struct.pack('<II', 2, 3) + struct.pack('<I', 5) + b'BTN_N' + struct.pack('<I', 7))
+s = lambda b: struct.pack('<I', len(b)) + b
+u = lambda *v: struct.pack('<%dI' % len(v), *v)
+pic = s(b'DATA\\A.MWT') + u(0xffffff, 0, 1, 0, 0, 8, 8) + struct.pack('<ii', -1, -1)
+obj = s(b'T') + u(1, 1) + pic + u(1, 0) + u(1, 1) + struct.pack('<ff', 1.5, 2) + u(1, 0) + u(0, 0) + u(0, 0, 0, 0, 0)
+spr = s(b'BTN') + u(1) + s(b'N') + u(1, 1) + obj
+open(sys.argv[1], 'wb').write(s(b'PLANETG_SPRITECOLLECTION') + u(2, 1, 1) + spr)
 PYE
   "$B/wszst" xx "$d/bermuda_test/T.MWG" --overwrite >/dev/null 2>&1 \
-  && grep -q 'tag\[0x0\] len=24 "PLANETG_SPRITECOLLECTION"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
-  && grep -q '"BTN_N"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q '^root = PLANETG_SPRITECOLLECTION' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q 'picture\[0\] "DATA\\\\A.MWT" colour=0xffffff flag=0 size=-1,-1 rect=0,0,8,8' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q 'position\[0\] = 1.5 2' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
   && fok "PLANETG text manifest" \
   || fno "PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
 

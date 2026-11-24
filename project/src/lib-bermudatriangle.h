@@ -19,9 +19,18 @@
 //
 // (1) ".MWG" / ".MSP" -- "PLANETG" tagged-object serialization: u32 length + root type
 //     ("PLANETG_SPRITECOLLECTION" version 2 on .MWG, "PLANETG_SPRITE" version 1 on .MSP), u32 version, then
-//     length-prefixed ASCII tags interleaved with u32 fields. Backslash paths ending in .MWT are the sprite
-//     textures. The tree shape and the meaning of the numeric fields are not decoded; the text output walks
-//     the file heuristically (length-prefixed ASCII runs are tags, everything else a raw u32).
+//     a little-endian object tree (from the SpriteCollection / Sprite / SpriteObj / SpritePicture readers in
+//     Rock Blast's main.dol, FUN_8002284c / 80026cbc / 800253d0 / 80023a84). str = u32 length + bytes,
+//     opt<T> = u32 present + T if present, list<T> = u32 count + count x T:
+//       collection = list<opt<sprite>>                  (.MWG; .MSP holds one sprite)
+//       sprite     = str name, u32 n, n x { str animation name, list<opt<object>> }
+//       object     = str name, list<opt<picture>>, list<f32> picture times,
+//                    list<opt<f32 x, f32 y>> positions, list<f32> position times,
+//                    list<opt<f32>> values (0 / 1 in retail), list<f32> value times, u32 flags[5]
+//       picture    = str .MWT path, u32 colour (0xRRGGBB, dropped by the Wii reader), u32 flag,
+//                    u32 has_rect + (has_rect == 1 ? s32 l, t, r, b : nothing), s32 w, s32 h (-1 = unset)
+//     Times start at 0 and match their key list in length. All 435 .MWG / .MSP files of the five games
+//     parse to the exact end of file. Files that do not are printed by a heuristic walk.
 //
 // (2) ".PKI" -- "IMAGE_WII_COMPACT_FILE_VERSION_1" pack of .MWT files:
 //       char magic[32];     // not NUL-terminated
