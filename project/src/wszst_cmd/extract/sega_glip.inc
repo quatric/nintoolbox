@@ -1,6 +1,8 @@
 // SEGA "GLIP" lip-sync tables (Sakura Wars: So Long, My Love "*.cnk", little endian), structure after the 41 retail files: {"GLIP", u32 file size, u32 header size 0x10, 0}, u32 entry count, u32 8,
 // then count 8-byte entries {u32 key, u32 record offset}; keys are sorted (0x16000 + n for the first ones, voice ids such as 0x1f7ee later) and the offsets are relative to 0x10 (the count field);
-// a record runs to the next offset. The records are short byte streams (14, 12, 11 ... bytes) whose coding is not decoded. Written as JSON with the key and the record bytes in hex.
+// a record runs to the next offset. A record byte is {mouth pattern : 3 bits, frames : 5 bits}, the pattern held for that many frames; pattern 6 ends the record
+// (lipsync stepper FUN_8006f7e4 / getter FUN_8006f794 in main.dol, the pattern goes to the face as mouth 0..5, 6 -> -1). All 8848 retail records end that way.
+// Written as JSON with the key, the record bytes in hex and the decoded [pattern, frames] keys.
 static enumError extract_sega_glip_file (ccp arg, ccp basedir, uint depth)
 {
 	(void)depth;
@@ -34,7 +36,10 @@ static enumError extract_sega_glip_file (ccp arg, ccp basedir, uint depth)
 		sumo_printf (&b, "%s\n\t\t{\"key\": %u, \"data\": \"", i ? "," : "", rd_le32 (c + tab + 8 * i));
 		for (size_t k = o; k < e; k++)
 			sumo_printf (&b, "%02x", c[k]);
-		sumo_printf (&b, "\"}");
+		sumo_printf (&b, "\", \"keys\": [");
+		for (size_t k = o; k < e && c[k] >> 5 != 6; k++)
+			sumo_printf (&b, "%s[%u, %u]", k > o ? ", " : "", c[k] >> 5, c[k] & 0x1f);
+		sumo_printf (&b, "]}");
 	}
 	sumo_printf (&b, "\n\t]\n}\n");
 	FREE (c);

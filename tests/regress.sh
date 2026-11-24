@@ -14008,9 +14008,9 @@ PYE
     if python3 - "$d/sega_glip/t.cnk.d/t.json" <<'PYE' 2>/dev/null
 import sys, json
 e = json.load(open(sys.argv[1]))['entries']
-assert [(x['key'], x['data']) for x in e] == [(0x16000, '2e4684'), (0x16001, '4526')], e
+assert [(x['key'], x['data'], x['keys']) for x in e] == [(0x16000, '2e46c0', [[1, 14], [2, 6]]), (0x16001, '4526c0', [[2, 5], [1, 6]])], e
 PYE
-    then fok "SEGA GLIP: Sakura Wars .cnk lip-sync table (key/offset entries, record bytes) -> JSON"
+    then fok "SEGA GLIP: Sakura Wars .cnk lip-sync table (key/offset entries, mouth pattern keys) -> JSON"
     else fno "SEGA GLIP" "wrong JSON from synthetic table"
     fi
   else
