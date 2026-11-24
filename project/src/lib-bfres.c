@@ -4169,3 +4169,23 @@ int ImportBFRESSkeletalAnims (model_t *model, const uint8_t *data, size_t size)
 	}
 	return (int)(model->num_animations - before);
 }
+
+// Adds the clip of a standalone .bfska (a bare FSKA object at offset 0, as exported by Switch Toolbox /
+// BfresLibrary; BOTW Wii U v4.5.0.3, BOTW Switch v5.0.3, TOTK v10) to `model`. Offsets are taken as
+// file-absolute like inside a FRES. The Switch variant (little endian: u32 flags at +4, u64 name offset at
+// +8) is tried first as the >=v9 then the older layout; otherwise the Wii U big-endian layout.
+// shortcut: bare-file layout is unverified (no sample .bfska available), upgrade once real files exist.
+int ImportBFSKA (model_t *model, const uint8_t *data, size_t size, const char *clip_name)
+{
+	if (!model || !model->num_joints || !data || size < 0x50 || memcmp (data, "FSKA", 4))
+		return 0;
+	const size_t before = model->num_animations;
+	if (le32 (data + 4) < 0x10000 && (uint64_t)les64 (data + 8) < size)
+	{
+		if (!parse_fska_into_model_switch (model, data, size, 0, clip_name, 10))
+			parse_fska_into_model_switch (model, data, size, 0, clip_name, 5);
+	}
+	else
+		parse_fska_into_model (model, data, size, 0x04050003, 0, clip_name);
+	return (int)(model->num_animations - before);
+}

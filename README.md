@@ -304,6 +304,7 @@ Exercised by `t_container_roundtrip()` in `tests/regress.sh`.
 | **BCMDL / CGFX** | `.bcmdl`, `.cgfx` | **GLB** | 3DS |
 | **BCRES** | `.bcres` | **GLB** | 3DS |
 | **BFRES** | `.bfres` | **GLB** | Wii U / Switch |
+| **BFSKA (standalone FSKA)** | `.bfska` | **GLB** (clip bound to the first `.bfres` / `.bfres.zs` in the same folder) | Wii U / Switch (*BOTW*, *TOTK*); bare-file layout unverified |
 | **BMD** | `.bmd`, `.bdhc` | **GLB** | DS |
 | **BNFM** | `.bnfm` | **GLB** | *Mario Party 10*, *Animal Crossing: amiibo Festival* |
 | **CAMELOT-MDLR** | `.mdlr`, `.col` | *(text dump)* | *Golden Sun: Dark Dawn* |

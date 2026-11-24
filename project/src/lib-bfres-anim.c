@@ -105,3 +105,62 @@ model_t *LoadBFRESSwitchAnimSkeleton (ccp arg, const u8 *data, size_t size)
 	}
 	return NULL;
 }
+
+// A standalone .bfska has no skeleton of its own: bind it to the first .bfres / ".bfres.zs" in its directory
+// (alphabetical order not guaranteed) whose bones it animates. Returns the model with the clip, or NULL.
+model_t *LoadBFSKASkeleton (ccp arg, const u8 *data, size_t size)
+{
+	char dir[PATH_MAX];
+	snprintf (dir, sizeof (dir), "%s", arg);
+	char *slash = strrchr (dir, '/');
+	if (slash)
+		*slash = 0;
+	else
+		snprintf (dir, sizeof (dir), ".");
+	char clip[128];
+	snprintf (clip, sizeof (clip), "%s", slash ? slash + 1 : arg);
+	char *dot = strrchr (clip, '.');
+	if (dot)
+		*dot = 0;
+	DIR *dp = opendir (dir);
+	if (!dp)
+		return NULL;
+	model_t *res = NULL;
+	for (const struct dirent *de; !res && (de = readdir (dp));)
+	{
+		if (!is_ext (de->d_name, ".bfres") && !is_ext (de->d_name, ".bfres.zs"))
+			continue;
+		char path[PATH_MAX];
+		snprintf (path, sizeof (path), "%s/%s", dir, de->d_name);
+		u8 *buf = 0, *dec = 0;
+		size_t n = 0;
+		if (LoadFileAlloc (path, 0, 0, &buf, &n, 0, 0, 0, false) || !buf)
+		{
+			FREE (buf);
+			continue;
+		}
+		const u8 *sp = buf;
+		size_t sn = n;
+		uint dn = 0;
+		if (n >= 4 && !memcmp (buf, "\x28\xb5\x2f\xfd", 4) && n < 0x40000000 && !DecodeZSTD (&dec, &dn, buf, (uint)n)
+			&& dec)
+			sp = dec, sn = dn;
+		model_t *m = ParseBFRES (sp, sn);
+		if (!m)
+			m = ParseBFRESSwitch (sp, sn);
+		FREE (dec);
+		FREE (buf);
+		if (!m)
+			continue;
+		if (ImportBFSKA (m, data, size, clip) > 0)
+		{
+			if (verbose >= 0)
+				fprintf (stdlog, "  - BFSKA bound to skeleton %s (%zu joints)\n", path, (size_t)m->num_joints);
+			res = m;
+		}
+		else
+			FreeModel (m);
+	}
+	closedir (dp);
+	return res;
+}

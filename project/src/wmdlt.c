@@ -788,6 +788,8 @@ static void import_anim_file (model_t *model, ccp path)
 	const int n = is_pod ? ImportPowerVRPODAnim (model, data, size, base)
 		: size >= 4 && !memcmp (data, "FRES", 4)
 		? ImportBFRESSkeletalAnims (model, data, size)
+		: size >= 4 && !memcmp (data, "FSKA", 4)
+		? ImportBFSKA (model, data, size, base)
 		: ImportBCRESSkeletalAnims (model, data, size, base);
 	if (!n)
 		ERROR0 (ERR_WARNING, "No skeletal animation for this model in %s\n", path);
@@ -1864,7 +1866,7 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 				|| (raw.data_size >= 4
 					&& (!memcmp (raw.data, "CGFX", 4) || !memcmp (raw.data, "FRES", 4)
 						|| !memcmp (raw.data, "BCH\0", 4) || !memcmp (raw.data, "SSBH", 4)
-						|| !memcmp (raw.data, "HBSS", 4)))
+						|| !memcmp (raw.data, "HBSS", 4) || !memcmp (raw.data, "FSKA", 4)))
 				|| (raw.data_size >= 0x20 && IsMPRCMDL (raw.data, raw.data_size))
 				|| (raw.data_size >= 8 && IsMPRSKEL (raw.data, raw.data_size))
 				|| (raw.data_size >= 0x80 && IsPlatinumWMB (raw.data, raw.data_size))
@@ -1903,6 +1905,8 @@ static enumError cmd_convert (int cmd_id, ccp cmd_name, ccp def_path)
 					model = ParseBFRESSwitch (raw.data, raw.data_size);
 				if (!model && raw.data_size >= 0x100 && !memcmp (raw.data, "FRES", 4))
 					model = LoadBFRESSwitchAnimSkeleton (arg, raw.data, raw.data_size);
+				if (!model && raw.data_size >= 0x50 && !memcmp (raw.data, "FSKA", 4))
+					model = LoadBFSKASkeleton (arg, raw.data, raw.data_size);
 				if (!model && raw.data_size >= 4
 					&& (!memcmp (raw.data, "NDP3", 4) || !memcmp (raw.data, "NDWU", 4)))
 					model = ParseNUD (raw.data, raw.data_size);
