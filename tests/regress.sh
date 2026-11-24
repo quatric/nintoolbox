@@ -20243,6 +20243,34 @@ t_zbic_nso(){
 }
 t_zbic_nso
 
+t_ads_sshd(){
+  # Aliens in the Attic "SShd"/"SSbd" .ads: stereo PS-ADPCM, 0x20-byte interleave. Filter 0 / shift 12 frames decode to their raw nibbles (L 3, R -2).
+  local d; d=$(mktemp -d /tmp/_r_ads.XXXXXX) || { fno "ADS SShd" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+fr = lambda nib: bytes([0x0c, 0]) + bytes([(nib & 15) * 17]) * 14
+data = (fr(3) * 2 + fr(-2) * 2) * 3
+hdr = b"SShd" + struct.pack("<7I", 0x18, 0x10, 22050, 2, 0x20, 0xffffffff, 0xffffffff) + b"SSbd" + struct.pack("<I", len(data))
+open(sys.argv[1] + "/s.ads", "wb").write(hdr + data)
+bad = bytearray(hdr + data); bad[0x28] = 0x5c  # filter 5 does not exist
+open(sys.argv[1] + "/bad.ads", "wb").write(bad)
+PY
+  "$B/wszst" XX "$d/s.ads" "$d/bad.ads" >/dev/null 2>&1
+  if [ ! -e "$d/bad.ads.wav" ] && python3 -c '
+import sys, wave, array
+w = wave.open(sys.argv[1])
+assert (w.getnchannels(), w.getframerate(), w.getnframes()) == (2, 22050, 168), (w.getnchannels(), w.getframerate(), w.getnframes())
+a = array.array("h", w.readframes(168))
+assert set(a[0::2]) == {3} and set(a[1::2]) == {-2}
+' "$d/s.ads.wav" 2>/dev/null; then
+    fok "ADS (SShd/SSbd) stereo PS-ADPCM -> WAV, rejects an unknown filter"
+  else
+    fno "ADS SShd" "wrong or missing $d/s.ads.wav"
+  fi
+  rm -rf "$d"
+}
+t_ads_sshd
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 
