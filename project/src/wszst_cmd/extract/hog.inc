@@ -133,7 +133,7 @@ static enumError extract_hog_shoc (ccp arg, ccp basedir, uint depth, u8 *raw, si
 	else
 	{
 		if (entries)
-			ResetOwnedEntries (entries, n), FREE (entries);
+			ResetOwnedEntries (entries, n);
 		if (!err)
 			err = ERR_NOTHING_TO_DO;
 	}

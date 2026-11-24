@@ -2776,7 +2776,6 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 		FFT_VALID | FFT_CUT | FFT_EXTRACT, 0, { 0 },
 		0, MinusString, MinusString,
 		"Metroid Prime Hunters model (_Model.bin, Nintendo DS; converted to .glb with PNG textures)" },
-
 	// FF_BINK = 478
 	{ FF_BINK, FF_BINK, 0, "BINK", ".bik", ".bik", ".bik",
 		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
@@ -2831,6 +2830,15 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 	{ FF_VXDS, FF_VXDS, 0, "VXDS", ".vx", ".vx", ".vx",
 		FFT_VALID, 0, { 0 }, 0, MinusString, MinusString,
 		"VX video (.vx / VXDS; Nintendo DS; identified only, passed through unchanged)" },
+
+	// FF_NMCR = 489 (Nitro multi cell resource)
+	{ FF_NMCR, FF_NMCR, 0, "NMCR", ".nmcr", ".szs", ".rcmn",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x52, 0x43, 0x4d, 0x4e }, // "RCMN"
+		0, MinusString, MinusString, "Nintendo DS Multi Cell resource" },
+	// FF_NMAR = 490 (Nitro multi animation resource)
+	{ FF_NMAR, FF_NMAR, 0, "NMAR", ".nmar", ".szs", ".ramn",
+		FFT_VALID | FFT_CUT | FFT_DECODE, 4, { 0x52, 0x41, 0x4d, 0x4e }, // "RAMN"
+		0, MinusString, MinusString, "Nintendo DS Multi Animation resource" },
 
 	// FF_N
 	{ 0 }
@@ -3121,6 +3129,7 @@ const KeywordTab_t cmdtab_FileType[] = { // INFO: cmd->opt := ff_attrib_t
 	{ FF_MPH_ARC, "SNDFILE", "SNDFILE", 0xe05 }, { FF_MPH_ARC, "MPH-ARC", "MPH-ARC", 0xe05 },
 	{ FF_MPH_MODEL, "MODEL", "MPHMODEL", 0x861 }, { FF_MPH_MODEL, "MPH-MODEL", "MPH-MODEL", 0x861 },
 	{ FF_BINK, "BINK", "BINK", 0x3001 }, { FF_BINK2, "BINK2", "BINK2", 0x3001 }, { FF_DPG, "DPG", "DPG", 0x3001 }, { FF_HVQM4, "HVQM4", "HVQM4", 0x3001 }, { FF_MIVF, "MIVF", "MIVF", 0x3001 }, { FF_RVID, "RVID", "RVID", 0x3001 }, { FF_MOBICLIP, "MOBICLIP", "MOBICLIP", 0x3001 }, { FF_BPK, "BPK", "BPK", 0x3001 }, { FF_FLIPNOTE, "FLIPNOTE", "FLIPNOTE", 0x3001 }, { FF_FVDS, "FVDS", "FVDS", 0x3001 }, { FF_VXDS, "VXDS", "VXDS", 0x3001 },
+	{ FF_NMCR, "NMCR", "RCMN", 0x3001 }, { FF_NMAR, "NMAR", "RAMN", 0x3001 },
 
 	{ 0, 0, 0, 0 }
 };

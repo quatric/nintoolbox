@@ -601,6 +601,8 @@ typedef enum file_format_t
 	FF_FLIPNOTE, // 486 - Flipnote Studio movie (.ppm)
 	FF_FVDS, // 487 - FastVideo DS (.fv)
 	FF_VXDS, // 488 - VX video (.vx)
+	FF_NMCR,	 // 489 - Nintendo DS Multi Cell resource (.nmcr / RCMN)
+	FF_NMAR,	 // 490 - Nintendo DS Multi Animation resource (.nmar / RAMN)
 
 	//--- number of elements
 

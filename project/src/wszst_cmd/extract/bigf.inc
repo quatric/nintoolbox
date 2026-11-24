@@ -25,13 +25,13 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 	}
 	const long end = ftell (in);
 	const u64 file_size = end < 0 ? 0 : (u64)end;
-	// BIGF's total-size field is the one little-endian field in this variant;
-	// its member table remains big-endian.  (Littlest Pet Shop's data.big is
-	// 947,545 bytes: header bytes 59 75 0e 00.)
-	const u32 archive_size = get_le32 (header + 4);
+	// The total-size field is usually little-endian while the member table is
+	// big-endian (Littlest Pet Shop's data.big is 947,545 bytes: header bytes
+	// 59 75 0e 00); some SSX Blur BIG4 files (animdbg.big, nested scdat.big
+	// members) store it big-endian.
 	const u32 n_entries = be32 (header + 8);
 	const u32 data_off = be32 (header + 12);
-	if (!file_size || archive_size != file_size || !n_entries || n_entries > 0x100000
+	if (!file_size || (get_le32 (header + 4) != file_size && be32 (header + 4) != file_size) || !n_entries || n_entries > 0x100000
 		|| data_off < sizeof (header) || data_off > file_size)
 	{
 		fclose (in);
@@ -69,7 +69,7 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 				err = ERR_INVALID_DATA;
 				break;
 			}
-			name[name_len++] = ch;
+			name[name_len++] = ch == '\\' ? '/' : ch; // SSX Blur's audio .big files use "data\audio\..."
 			if (!ch)
 				break;
 		}
@@ -89,22 +89,21 @@ static enumError extract_bigf_file (ccp arg, ccp basedir, uint depth)
 			err = write_abe_member (in, member_off, member_size, path, arg);
 		}
 	}
-	// Retail BIGFs terminate their variable records with the four-byte L234
-	// marker; DATA_OFF points just past it rather than directly after the last
-	// filename.
+	// Some tool versions end the table with a four-byte "L2nn" marker (L234;
+	// L231 and L222 in SSX Blur, followed by a u32 that is not always 0) and
+	// DATA_OFF then points past them; newer SSX Blur files have DATA_OFF == end
+	// of the table, a few (sounddbg.big) a zero-padded 4-byte aligned DATA_OFF.
 	if (!err && table_pos != data_off)
 	{
-		u8 marker[4];
-		if (data_off - table_pos < sizeof (marker)
-			|| !read_abe_at (in, table_pos, marker, sizeof (marker))
-			|| memcmp (marker, "L234", sizeof (marker)))
+		u8 marker[4] = { 0 };
+		const u64 gap = data_off - table_pos;
+		if (!read_abe_at (in, table_pos, marker, gap < sizeof (marker) ? gap : sizeof (marker)))
 			err = ERR_INVALID_DATA;
-		for (u64 pos = table_pos + sizeof (marker); !err && pos < data_off; pos++)
-		{
-			u8 pad;
-			if (!read_abe_at (in, pos, &pad, 1) || pad)
-				err = ERR_INVALID_DATA;
-		}
+		else if (gap >= sizeof (marker) && marker[0] == 'L' && isdigit ((u8)marker[1]) && isdigit ((u8)marker[2])
+			&& isdigit ((u8)marker[3]))
+			;
+		else if (gap >= sizeof (marker) || marker[0] || marker[1] || marker[2])
+			err = ERR_INVALID_DATA;
 	}
 	fclose (in);
 	if (!err && !testmode)

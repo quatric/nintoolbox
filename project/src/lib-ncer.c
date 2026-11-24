@@ -56,9 +56,36 @@ enumError GetNCERCell (
 	return ERR_OK;
 }
 
+enumError ScanNMCR (nintendo_nmcr_t *nmcr, const u8 *data, uint size)
+{
+	if (!nmcr || !data || size < 0x30 || memcmp (data, "RCMN", 4)
+		|| memcmp (data + 0x10, "KBCM", 4))
+		return EINVAL;
+	const u8 *mcbk = data + 0x18;
+	const uint section_size = rd_le32 (data + 0x14);
+	if (section_size < 0x1c || section_size > size - 0x10)
+		return EINVAL;
+	const uint container_size = section_size - 8;
+	const uint n_multi = rd_le16 (mcbk), mark = rd_le16 (mcbk + 2);
+	const uint multi_off = rd_le32 (mcbk + 4), props_off = rd_le32 (mcbk + 8);
+	if (!n_multi || mark != 0xbeef || multi_off < 0x14 || multi_off > container_size
+		|| n_multi > (container_size - multi_off) / 8 || props_off > container_size)
+		return EINVAL;
+	memset (nmcr, 0, sizeof (*nmcr));
+	nmcr->data = data;
+	nmcr->size = size;
+	nmcr->multi_cells = mcbk + multi_off;
+	nmcr->n_multi_cells = n_multi;
+	nmcr->properties = mcbk + props_off;
+	nmcr->properties_size = container_size - props_off;
+	return ERR_OK;
+}
+
 enumError ScanNANR (nintendo_nanr_t *nanr, const u8 *data, uint size)
 {
-	if (!nanr || !data || size < 0x38 || memcmp (data, "RNAN", 4)
+	// NMAR (RAMN) files carry the same KNBA animation bank as NANR.
+	if (!nanr || !data || size < 0x38
+		|| (memcmp (data, "RNAN", 4) && memcmp (data, "RAMN", 4))
 		|| memcmp (data + 0x10, "KNBA", 4))
 		return EINVAL;
 	const u8 *knba = data + 0x10;

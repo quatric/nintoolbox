@@ -75,4 +75,10 @@ typedef struct
 
 int ParseBFRESAnims (const uint8_t *data, size_t size, bfres_anim_entry_t **out_entries);
 
+// Standalone .bfska (bare FSKA object, Wii U or Switch) added to `model`; returns clips added (0 or 1).
+int ImportBFSKA (model_t *model, const uint8_t *data, size_t size, const char *clip_name);
+
+// Binds a standalone .bfska to the first .bfres / .bfres.zs model in its directory that accepts it.
+model_t *LoadBFSKASkeleton (const char *arg, const uint8_t *data, size_t size);
+
 #endif

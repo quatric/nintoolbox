@@ -624,7 +624,7 @@ enumError ExtractRZPKArchive (ccp arg, ccp basedir, uint depth)
 		}
 		if (!testmode)
 		{
-			if (!SaveFile (out, 0, 0, entries[i].data, entries[i].size, 0))
+			if (!SaveFile (out, 0, opt_overwrite ? FM_OVERWRITE : 0, entries[i].data, entries[i].size, 0))
 				written++;
 		}
 		else
@@ -634,7 +634,6 @@ enumError ExtractRZPKArchive (ccp arg, ccp basedir, uint depth)
 	}
 
 	ResetOwnedEntries (entries, n_entries);
-	FREE (entries);
 
 	(void)depth;
 	if (!written)

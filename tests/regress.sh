@@ -918,7 +918,7 @@ PY
         bok "CGFX (3DS) edited geometry -> rebuilt container"
         $B/wmdlt ENCODE /tmp/_r_edit.bcres -d /tmp/_r_edit_out.glb --overwrite >/dev/null 2>&1
         local e; e=$(python3 -c "
-import json, struct
+import json, struct, sys
 d = open('/tmp/_r_edit_out.glb', 'rb').read()
 jl = struct.unpack('<I', d[12:16])[0]
 j = json.loads(d[20:20 + jl])
@@ -10110,6 +10110,15 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
   else
     fno "Eurocom Filelist" "mk_eurocom_filelist.py failed"
   fi
+  mkdir -p "$d/eurocomfl_named"
+  if python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" named "$d/eurocomfl_named" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eurocomfl_named/Filelist.bin" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" checknamed "$d/eurocomfl_named" >/dev/null 2>&1 \
+    && fok "Eurocom Filelist names (obfuscated string table) decode to file paths" \
+    || fno "Eurocom Filelist names" "named files missing from synthetic Filelist"
+  else
+    fno "Eurocom Filelist names" "mk_eurocom_filelist.py named failed"
+  fi
 
   # GLOB resource pack (Green Lantern .glob + .name.glob)
   mkdir -p "$d/globpack_test"
@@ -12297,12 +12306,17 @@ PYE
   mkdir -p "$d/bermuda_test"
   python3 - "$d/bermuda_test/T.MWG" <<'PYE' >/dev/null 2>&1
 import struct, sys
-t = b'PLANETG_SPRITECOLLECTION'
-open(sys.argv[1], 'wb').write(struct.pack('<I', len(t)) + t + struct.pack('<II', 2, 3) + struct.pack('<I', 5) + b'BTN_N' + struct.pack('<I', 7))
+s = lambda b: struct.pack('<I', len(b)) + b
+u = lambda *v: struct.pack('<%dI' % len(v), *v)
+pic = s(b'DATA\\A.MWT') + u(0xffffff, 0, 1, 0, 0, 8, 8) + struct.pack('<ii', -1, -1)
+obj = s(b'T') + u(1, 1) + pic + u(1, 0) + u(1, 1) + struct.pack('<ff', 1.5, 2) + u(1, 0) + u(0, 0) + u(0, 0, 0, 0, 0)
+spr = s(b'BTN') + u(1) + s(b'N') + u(1, 1) + obj
+open(sys.argv[1], 'wb').write(s(b'PLANETG_SPRITECOLLECTION') + u(2, 1, 1) + spr)
 PYE
   "$B/wszst" xx "$d/bermuda_test/T.MWG" --overwrite >/dev/null 2>&1 \
-  && grep -q 'tag\[0x0\] len=24 "PLANETG_SPRITECOLLECTION"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
-  && grep -q '"BTN_N"' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q '^root = PLANETG_SPRITECOLLECTION' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q 'picture\[0\] "DATA\\\\A.MWT" colour=0xffffff flag=0 size=-1,-1 rect=0,0,8,8' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
+  && grep -q 'position\[0\] = 1.5 2' "$d/bermuda_test/T.MWG.d/T.MWG.txt" \
   && fok "PLANETG text manifest" \
   || fno "PLANETG text manifest" "no T.MWG.d/T.MWG.txt from wszst x"
 
@@ -13568,6 +13582,57 @@ PYEOF
     fno "XPK archive" "mk_xpk.py failed"
   fi
 
+  # "FEZC" package (WiiWare GVF titles, *.fez): path table, zlib (sync-flushed)
+  # and stored members.
+  mkdir -p "$d/fezc_test"
+  if python3 "$PWD_PROJECT/../tests/mk_fezc.py" "$d/fezc_test" >/dev/null 2>&1; then
+    "$B/wszst" x "$d/fezc_test/T.fez" >/dev/null 2>&1
+    fd="$d/fezc_test/T.fez.d"
+    python3 - "$fd" <<'PYEOF' >/dev/null 2>&1
+import sys
+d = sys.argv[1]
+r = lambda p: open(d + '/' + p, 'rb').read()
+ok = r('data/strings.gvf') == b'FEZ-STRINGS\n' * 30 and r('data/music/raw.bin') == bytes(range(120))
+sys.exit(0 if ok else 1)
+PYEOF
+    [ $? -eq 0 ] \
+    && fok "FEZC package: path table, zlib (sync-flushed) + stored members" \
+    || fno "FEZC package" "failed to extract synthetic package"
+  else
+    fno "FEZC package" "mk_fezc.py failed"
+  fi
+
+  # EA BIGF (.big, SSX Blur layout): extract -> CREATE is byte-exact; backslash member paths extract
+  mkdir -p "$d/bigf_test"
+  python3 - "$d/bigf_test" <<'PYE' >/dev/null 2>&1
+import struct, sys
+def bigf(members, sep):
+    tab = b''.join(struct.pack('>II', 0, 0) + n.replace(b'/', sep) + b'\0' for n, _ in members)
+    end = 16 + len(tab)
+    out = bytearray((end + 4 + 127) & ~127)
+    t = 16
+    for i, (n, data) in enumerate(members):
+        if i:
+            out += bytes(-len(out) % 128)
+        struct.pack_into('>II', out, t, len(out), len(data))
+        t += 8 + len(n) + 1
+        out[t - len(n) - 1:t - 1] = n.replace(b'/', sep)
+        out += data
+    out[0:4] = b'BIGF'
+    struct.pack_into('<I', out, 4, len(out))
+    struct.pack_into('>II', out, 8, len(members), end)
+    return bytes(out)
+m = [(b'a.txt', b'first member\n' * 7), (b'sub/b.dat', bytes(range(200)))]
+open(sys.argv[1] + '/t.big', 'wb').write(bigf(m, b'/'))
+open(sys.argv[1] + '/w.big', 'wb').write(bigf(m, b'\\'))
+PYE
+  "$B/wszst" x "$d/bigf_test/t.big" "$d/bigf_test/w.big" --overwrite >/dev/null 2>&1
+  cmp -s "$d/bigf_test/w.big.d/sub/b.dat" "$d/bigf_test/t.big.d/sub/b.dat" \
+  && "$B/wszst" CREATE "$d/bigf_test/t.big.d" --dest "$d/bigf_test/r.big" --overwrite >/dev/null 2>&1 \
+  && cmp -s "$d/bigf_test/t.big" "$d/bigf_test/r.big" \
+  && fok "EA BIGF: extract -> CREATE byte-exact (retail layout), backslash paths" \
+  || fno "EA BIGF" "round trip or backslash extraction failed"
+
   # Blue Castle Games ".big" archive (The Bigs, Wii): duplicate names, a
   # nested archive and a stereo ".dspi" split into per-channel .dsp files.
   mkdir -p "$d/bcbig_test"
@@ -13983,9 +14048,9 @@ PYE
     if python3 - "$d/sega_glip/t.cnk.d/t.json" <<'PYE' 2>/dev/null
 import sys, json
 e = json.load(open(sys.argv[1]))['entries']
-assert [(x['key'], x['data']) for x in e] == [(0x16000, '2e4684'), (0x16001, '4526')], e
+assert [(x['key'], x['data'], x['keys']) for x in e] == [(0x16000, '2e46c0', [[1, 14], [2, 6]]), (0x16001, '4526c0', [[2, 5], [1, 6]])], e
 PYE
-    then fok "SEGA GLIP: Sakura Wars .cnk lip-sync table (key/offset entries, record bytes) -> JSON"
+    then fok "SEGA GLIP: Sakura Wars .cnk lip-sync table (key/offset entries, mouth pattern keys) -> JSON"
     else fno "SEGA GLIP" "wrong JSON from synthetic table"
     fi
   else
@@ -14026,14 +14091,15 @@ PYE
 
   # SEGA GHSL token tree (Sakura Wars .bin): nodes, attributes, plain values -> JSON
   mkdir -p "$d/sega_ghsl"
-  if python3 "$PWD_PROJECT/../tests/mk_sega_ghsl.py" "$d/sega_ghsl/t.bin" >/dev/null 2>&1; then
-    "$B/wszst" xx "$d/sega_ghsl/t.bin" >/dev/null 2>&1
-    if python3 - "$d/sega_ghsl/t.bin.d/t.json" <<'PYE' 2>/dev/null
+  if python3 "$PWD_PROJECT/../tests/mk_sega_ghsl.py" "$d/sega_ghsl/t.bin" "$d/sega_ghsl/e.bin" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/sega_ghsl/t.bin" "$d/sega_ghsl/e.bin" >/dev/null 2>&1
+    if python3 - "$d/sega_ghsl/t.bin.d/t.json" "$d/sega_ghsl/e.bin.d/e.json" <<'PYE' 2>/dev/null
 import sys, json
-t = json.load(open(sys.argv[1]))['tree']
-assert t['name'] == 'ROOT' and t['children'][0] == {'name': 'ITEM', 'attrs': {'nVal': 300, 'sTxt': 'hi'}, 'children': [5, 7]}, t
+for f in sys.argv[1:]:
+    t = json.load(open(f))['tree']
+    assert t['name'] == 'ROOT' and t['children'][0] == {'name': 'ITEM', 'attrs': {'nVal': 300, 'sTxt': 'hi'}, 'children': [5, 7]}, t
 PYE
-    then fok "SEGA GHSL: Sakura Wars .bin token tree (nodes, attributes, string table) -> JSON"
+    then fok "SEGA GHSL: Sakura Wars .bin token tree (nodes, attributes, string table, encrypted flag 0x200) -> JSON"
     else fno "SEGA GHSL" "wrong JSON from synthetic tree"
     fi
   else

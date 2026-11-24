@@ -131,21 +131,225 @@ int IsBermudaPlanetG (const u8 *data, size_t size, size_t file_size)
 	return version >= 1 && version <= 16;
 }
 
-// Heuristic walk: repeatedly read a u32; if it is a plausible length for an
-// immediately-following printable ASCII run, print that run as a tag/string
-// node, otherwise print the u32 itself as a raw numeric field. This finds
-// every real tag name byte-for-byte (confirmed against GameSytem.MWG,
-// Continue.MWG, Title.MWG and LOAD.MSP) but does not claim to recover the
-// exact parent/child tree shape or the meaning of the numeric fields -- see
-// note (1) in the header.
+// Structured reader following the game's own readers (see note (1) in the header). With f == NULL it
+// only validates; every read is bounds checked and a failure clears c->ok.
+typedef struct
+{
+	const u8 *d;
+	size_t n, p;
+	int ok;
+	FILE *f;
+} pg_cursor;
+
+static u32 pg_u32 (pg_cursor *c)
+{
+	if (!c->ok || c->n - c->p < 4)
+		return c->ok = 0;
+	const u32 v = rd_le32 (c->d + c->p);
+	c->p += 4;
+	return v;
+}
+
+static double pg_f32 (pg_cursor *c)
+{
+	union { u32 u; float f; } v = { pg_u32 (c) };
+	return v.f;
+}
+
+// u32 element count; each element takes at least 4 bytes, which bounds the loops on corrupt input
+static u32 pg_count (pg_cursor *c)
+{
+	const u32 n = pg_u32 (c);
+	if (c->ok && n > (c->n - c->p) / 4)
+		c->ok = 0;
+	return c->ok ? n : 0;
+}
+
+static void pg_str (pg_cursor *c, const char *prefix)
+{
+	const u32 len = pg_u32 (c);
+	if (!c->ok || len > c->n - c->p)
+	{
+		c->ok = 0;
+		return;
+	}
+	if (c->f)
+	{
+		fprintf (c->f, "%s\"", prefix);
+		print_escaped (c->f, c->d + c->p, len);
+		fputc ('"', c->f);
+	}
+	c->p += len;
+}
+
+// u32 count + count x f32, printed on one line
+static void pg_floats (pg_cursor *c, int ind, const char *name)
+{
+	const u32 n = pg_count (c);
+	if (c->f)
+		fprintf (c->f, "%*s%s =", ind, "", name);
+	for (u32 i = 0; i < n && c->ok; i++)
+	{
+		const double v = pg_f32 (c);
+		if (c->f)
+			fprintf (c->f, " %g", v);
+	}
+	if (c->f)
+		fputc ('\n', c->f);
+}
+
+// SpritePicture: path, u32 colour (read and dropped by the Wii build), u32 flag (low byte kept),
+// u32 has_rect + 4 x s32 LTRB active rect, two u32 stored as s16 (-1 = unset).
+static void pg_picture (pg_cursor *c, int ind, u32 idx)
+{
+	if (c->f)
+		fprintf (c->f, "%*spicture[%u] ", ind, "", idx);
+	pg_str (c, "");
+	const u32 colour = pg_u32 (c), flag = pg_u32 (c);
+	const int has_rect = pg_u32 (c) == 1;
+	s32 rect[4] = { -1, -1, -1, -1 };
+	for (int i = 0; has_rect && i < 4; i++)
+		rect[i] = (s32)pg_u32 (c);
+	const s32 w = (s32)pg_u32 (c), h = (s32)pg_u32 (c);
+	if (c->f && c->ok)
+	{
+		fprintf (c->f, " colour=0x%06x flag=%u size=%d,%d", colour, flag & 0xff, w, h);
+		if (has_rect)
+			fprintf (c->f, " rect=%d,%d,%d,%d", rect[0], rect[1], rect[2], rect[3]);
+		fputc ('\n', c->f);
+	}
+}
+
+// SpriteObj: name, picture keys, their times, position keys (optional vec2), their times,
+// scalar keys (optional f32), their times, 5 u32 flags.
+static void pg_object (pg_cursor *c, int ind, u32 idx)
+{
+	if (c->f)
+		fprintf (c->f, "%*sobject[%u] ", ind, "", idx);
+	pg_str (c, "");
+	if (c->f)
+		fputc ('\n', c->f);
+	ind += 2;
+
+	u32 n = pg_count (c);
+	for (u32 i = 0; i < n && c->ok; i++)
+		if (pg_u32 (c))
+			pg_picture (c, ind, i);
+		else if (c->f)
+			fprintf (c->f, "%*spicture[%u] none\n", ind, "", i);
+	pg_floats (c, ind, "picture_times");
+
+	n = pg_count (c);
+	for (u32 i = 0; i < n && c->ok; i++)
+		if (pg_u32 (c))
+		{
+			const double x = pg_f32 (c), y = pg_f32 (c);
+			if (c->f)
+				fprintf (c->f, "%*sposition[%u] = %g %g\n", ind, "", i, x, y);
+		}
+		else if (c->f)
+			fprintf (c->f, "%*sposition[%u] none\n", ind, "", i);
+	pg_floats (c, ind, "position_times");
+
+	n = pg_count (c);
+	for (u32 i = 0; i < n && c->ok; i++)
+		if (pg_u32 (c))
+		{
+			const double v = pg_f32 (c);
+			if (c->f)
+				fprintf (c->f, "%*svalue[%u] = %g\n", ind, "", i, v);
+		}
+		else if (c->f)
+			fprintf (c->f, "%*svalue[%u] none\n", ind, "", i);
+	pg_floats (c, ind, "value_times");
+
+	if (c->f)
+		fprintf (c->f, "%*sflags =", ind, "");
+	for (int i = 0; i < 5; i++)
+	{
+		const u32 v = pg_u32 (c);
+		if (c->f)
+			fprintf (c->f, " %u", v);
+	}
+	if (c->f)
+		fputc ('\n', c->f);
+}
+
+// Sprite: name, u32 animation count, per animation a name and an array of optional objects.
+static void pg_sprite (pg_cursor *c, int ind)
+{
+	if (c->f)
+		fprintf (c->f, "%*ssprite ", ind, "");
+	pg_str (c, "");
+	const u32 anims = pg_count (c);
+	if (c->f)
+		fprintf (c->f, " animations=%u\n", anims);
+	for (u32 a = 0; a < anims && c->ok; a++)
+	{
+		if (c->f)
+			fprintf (c->f, "%*sanimation ", ind + 2, "");
+		pg_str (c, "");
+		const u32 n = pg_count (c);
+		if (c->f)
+			fprintf (c->f, " objects=%u\n", n);
+		for (u32 i = 0; i < n && c->ok; i++)
+			if (pg_u32 (c))
+				pg_object (c, ind + 4, i);
+			else if (c->f)
+				fprintf (c->f, "%*sobject[%u] none\n", ind + 4, "", i);
+	}
+}
+
+// Root: type string, u32 version, then a SpriteCollection (u32 count + optional sprites) or one Sprite.
+static int pg_root (pg_cursor *c)
+{
+	const u32 len = rd_le32 (c->d);
+	const int coll = len == 24 && !memcmp (c->d + 4, "PLANETG_SPRITECOLLECTION", 24);
+	if (!coll && !(len == 14 && !memcmp (c->d + 4, "PLANETG_SPRITE", 14)))
+		return 0;
+	c->p = 4 + len;
+	const u32 version = pg_u32 (c);
+	if (c->f)
+		fprintf (c->f, "root = %.*s\nversion = %u\n", (int)len, c->d + 4, version);
+	if (!coll)
+		pg_sprite (c, 0);
+	else
+	{
+		const u32 n = pg_count (c);
+		if (c->f)
+			fprintf (c->f, "sprites = %u\n", n);
+		for (u32 i = 0; i < n && c->ok; i++)
+			if (pg_u32 (c))
+				pg_sprite (c, 2);
+			else if (c->f)
+				fprintf (c->f, "  sprite none\n");
+	}
+	return c->ok && c->p == c->n;
+}
+
 enumError DecodeBermudaPlanetG_Text (FILE *f, const u8 *data, size_t size, size_t file_size)
 {
 	if (!f || !data || !IsBermudaPlanetG (data, size, file_size))
 		return EINVAL;
+	if (file_size && size > file_size)
+		size = file_size;
 
+	pg_cursor check = { data, size, 0, 1, NULL };
+	if (pg_root (&check))
+	{
+		fprintf (f,
+			"# Planet-G PLANETG sprite resource (layout of the SpriteCollection / Sprite / SpriteObj /\n"
+			"# SpritePicture readers in the games' main.dol; *_times are the key times of the list above)\n");
+		pg_cursor out = { data, size, 0, 1, f };
+		pg_root (&out);
+		return ERR_OK;
+	}
+
+	// Fallback for files that do not follow that layout: length-prefixed ASCII runs are
+	// printed as strings, everything else as raw u32 fields.
 	fprintf (f,
 		"# Planet-G PLANETG tagged-object resource\n"
-		"# heuristic walk: length-prefixed ASCII runs are tags/strings,\n"
+		"# not the sprite layout: heuristic walk, length-prefixed ASCII runs are tags/strings,\n"
 		"# everything else is printed as a raw u32 field (see lib-bermudatriangle.h)\n");
 
 	size_t pos = 0;

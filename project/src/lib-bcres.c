@@ -1016,6 +1016,14 @@ model_t *ParseBCRES (const uint8_t *data, size_t size)
 					nv->y = m[4] * nx + m[5] * ny + m[6] * nz;
 					nv->z = m[8] * nx + m[9] * ny + m[10] * nz;
 				}
+				if (ms->tangents)
+				{
+					vec3_t *tv = &ms->tangents[v];
+					const float tx = tv->x, ty = tv->y, tz = tv->z;
+					tv->x = m[0] * tx + m[1] * ty + m[2] * tz;
+					tv->y = m[4] * tx + m[5] * ty + m[6] * tz;
+					tv->z = m[8] * tx + m[9] * ty + m[10] * tz;
+				}
 			}
 		}
 		for (uint32_t mi2 = 0; mi2 < n_mesh; mi2++)
@@ -2576,6 +2584,31 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			float x = mesh->positions[vi].x;
 			float y = mesh->positions[vi].y;
 			float z = mesh->positions[vi].z;
+			if (mesh_skind[m] == 1 && bone_inv)
+			{
+				int pni = (mesh->position_node && vi < mesh->num_positions)
+					? mesh->position_node[vi]
+					: -1;
+				int gb = -1;
+				if (pni >= 0 && (size_t)pni < model->num_node_influences)
+				{
+					const node_influence_t *e = &model->node_influences[(size_t)pni];
+					if (e->num_weights > 0)
+						gb = e->weights[0].bone_idx;
+				}
+				if (gb < 0 && mesh_npal[m])
+					gb = (int)mesh_pal[m][0];
+				if (gb >= 0 && (uint32_t)gb < n_bones)
+				{
+					const float *inv = bone_inv[gb];
+					float bx = inv[0] * x + inv[1] * y + inv[2] * z + inv[3];
+					float by = inv[4] * x + inv[5] * y + inv[6] * z + inv[7];
+					float bz = inv[8] * x + inv[9] * y + inv[10] * z + inv[11];
+					x = bx;
+					y = by;
+					z = bz;
+				}
+			}
 			if (x < min_x)
 				min_x = x;
 			if (x > max_x)
@@ -2938,6 +2971,7 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 			int loc[4] = { 0, 0, 0, 0 };
 			float wgt[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			unsigned nw = 0;
+			int rigid_gb = -1;
 			if (maxinf > 0 && mesh->position_node && model->node_influences)
 			{
 				const int pni = (pi >= 0 && (size_t)pi < mesh->num_positions)
@@ -2949,6 +2983,8 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 					for (size_t w = 0; w < e->num_weights && nw < maxinf && nw < 4; w++)
 					{
 						int gb = e->weights[w].bone_idx;
+						if (nw == 0)
+							rigid_gb = gb;
 						unsigned li = 0;
 						for (unsigned q = 0; q < mesh_npal[m]; q++)
 							if ((int)mesh_pal[m][q] == gb)
@@ -2966,7 +3002,29 @@ int CreateBCRES (const model_t *model, uint8_t **out_data, size_t *out_size)
 					loc[0] = 0;
 					wgt[0] = 1.0f;
 					nw = 1;
+					rigid_gb = (int)mesh_pal[m][0];
 				}
+			}
+			if (rigid_gb < 0 && mesh_npal[m])
+				rigid_gb = (int)mesh_pal[m][0];
+
+			if (mesh_skind[m] == 1 && bone_inv && rigid_gb >= 0 && (uint32_t)rigid_gb < n_bones)
+			{
+				const float *inv = bone_inv[rigid_gb];
+				const float x = p.x, y = p.y, z = p.z;
+				p.x = inv[0] * x + inv[1] * y + inv[2] * z + inv[3];
+				p.y = inv[4] * x + inv[5] * y + inv[6] * z + inv[7];
+				p.z = inv[8] * x + inv[9] * y + inv[10] * z + inv[11];
+
+				const float nx = n.x, ny = n.y, nz = n.z;
+				n.x = inv[0] * nx + inv[1] * ny + inv[2] * nz;
+				n.y = inv[4] * nx + inv[5] * ny + inv[6] * nz;
+				n.z = inv[8] * nx + inv[9] * ny + inv[10] * nz;
+
+				const float tx = tg.x, ty = tg.y, tz = tg.z;
+				tg.x = inv[0] * tx + inv[1] * ty + inv[2] * tz;
+				tg.y = inv[4] * tx + inv[5] * ty + inv[6] * tz;
+				tg.z = inv[8] * tx + inv[9] * ty + inv[10] * tz;
 			}
 
 			// Rigid submeshes store each vertex in its bone's space and the

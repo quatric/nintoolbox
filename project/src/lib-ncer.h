@@ -28,6 +28,17 @@ enumError ScanNANR (nintendo_nanr_t *nanr, const u8 *data, uint size);
 enumError GetNANRAnimation (
 	const nintendo_nanr_t *nanr, uint index, uint *n_frames, const u8 **frame_records);
 
+// Bounded view of a Nitro NMCR multi-cell bank (RCMN file, KBCM section). The
+// multi-cell table holds 8-byte entries; property records are 8 bytes each and
+// their count is not stored, so they run to the end of the container.
+typedef struct nintendo_nmcr_t
+{
+	const u8 *data, *multi_cells, *properties;
+	uint size, n_multi_cells, properties_size;
+} nintendo_nmcr_t;
+
+enumError ScanNMCR (nintendo_nmcr_t *nmcr, const u8 *data, uint size);
+
 enumError create_ncer_xml (ccp source, ccp dest);
 
 #endif

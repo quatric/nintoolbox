@@ -186,7 +186,9 @@ typedef enum nfmt_type_t
 	NFMT_LMSLS,
 	NFMT_WWMODEL,
 	NFMT_AFS,
-	NFMT_LZE
+	NFMT_LZE,
+	NFMT_NMCR,
+	NFMT_NMAR
 } nfmt_type_t;
 
 typedef struct nfmt_info_t
@@ -550,6 +552,7 @@ bool IsSHDVAR (const u8 *data, uint size);
 #include "lib-twl.h"
 #include "lib-wsi.h"
 #include "lib-xpk.h"
+#include "lib-fezc.h"
 #include "lib-bcbig.h"
 #include "lib-natbin.h"
 #include "lib-pckg.h"
