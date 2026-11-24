@@ -20393,6 +20393,37 @@ assert struct.unpack(">II", b[16:24]) == (8, 8)
 }
 t_vnfp_playfield
 
+t_figa_dst0(){
+  # FIGA game.dat + game.fat (Petz DSiWare): members named by h = h * 33 + c hashes of strings found in the pack; DST\0 1.7 image bank (Gakken quiz games)
+  local d; d=$(mktemp -d /tmp/_r_figa.XXXXXX) || { fno "FIGA/DST0" "mktemp failed"; return; }
+  python3 - "$d" <<'PY'
+import struct, sys
+h33 = lambda s: __import__("functools").reduce(lambda h, c: (h * 33 + c) & 0xffffffff, s.encode(), 0)
+m1 = b"TXET" + struct.pack("<I", 24) + b"3d/texture/a\0\0\0\0"
+m2 = b"TTLP" + struct.pack("<I", 12) + b"\0" * 4
+dat = b"FIGA" + struct.pack("<I", len(m1)) + m1 + struct.pack("<I", len(m2)) + m2
+fat = sorted([(h33("3d/texture/a"), 4), (0x12345678, 8 + len(m1))])
+open(sys.argv[1] + "/game.dat", "wb").write(dat)
+open(sys.argv[1] + "/game.fat", "wb").write(b"".join(struct.pack("<II", *e) for e in fat))
+pal = struct.pack("<4H", 0, 0x001f, 0x03e0, 0x7c00)
+px = bytes([0b11100100]) * 4  # 4x4 2 bit pixels, colours 0..3 per row
+e = b"DST\0" + b"1.7\0" + struct.pack("<IHHIIIIII", 0x40 + len(pal) + len(px), 4, 4, len(pal), 0, len(px), 0x40, 0x40 + len(pal), 0x40 + len(pal)) + b"pic".ljust(24, b"\0")
+open(sys.argv[1] + "/bank.dat", "wb").write(e + pal + px)
+PY
+  "$B/wszst" XX "$d/game.dat" "$d/bank.dat" >/dev/null 2>&1
+  if [ -f "$d/game.dat.d/3d/texture/a.text" ] && [ -f "$d/game.dat.d/unnamed/12345678.pltt" ] && python3 -c '
+import sys, struct
+b = open(sys.argv[1], "rb").read()
+assert struct.unpack(">II", b[16:24]) == (4, 4)
+' "$d/bank.dat.d/000_pic.png" 2>/dev/null; then
+    fok "FIGA pack split by game.fat with recovered names; DST\\0 image bank -> PNG"
+  else
+    fno "FIGA/DST0" "wrong or missing output under $d"
+  fi
+  rm -rf "$d"
+}
+t_figa_dst0
+
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP BYTE_PASS=$BYTE_PASS BYTE_FAIL=$BYTE_FAIL FIXED_PASS=$FIXED_PASS FIXED_FAIL=$FIXED_FAIL"
 [ "$FAIL" -eq 0 ]
 

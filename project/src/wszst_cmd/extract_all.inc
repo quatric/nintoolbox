@@ -640,6 +640,8 @@
 #include "extract/cod_geom.inc"
 #include "extract/batman_fmsb.inc"
 #include "extract/eurocom_filelist.inc"
+#include "extract/figa.inc"
+#include "extract/dst0.inc"
 #include "extract/glob_pack.inc"
 #include "extract/gaftx.inc"
 #include "extract/iw_ff.inc"
