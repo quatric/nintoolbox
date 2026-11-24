@@ -10110,6 +10110,15 @@ assert (r['root'], r['tune'], r['volume'], r['loop_start'], r['wave']) == (60, -
   else
     fno "Eurocom Filelist" "mk_eurocom_filelist.py failed"
   fi
+  mkdir -p "$d/eurocomfl_named"
+  if python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" named "$d/eurocomfl_named" >/dev/null 2>&1; then
+    "$B/wszst" xx "$d/eurocomfl_named/Filelist.bin" --overwrite >/dev/null 2>&1 \
+    && python3 "$PWD_PROJECT/../tests/mk_eurocom_filelist.py" checknamed "$d/eurocomfl_named" >/dev/null 2>&1 \
+    && fok "Eurocom Filelist names (obfuscated string table) decode to file paths" \
+    || fno "Eurocom Filelist names" "named files missing from synthetic Filelist"
+  else
+    fno "Eurocom Filelist names" "mk_eurocom_filelist.py named failed"
+  fi
 
   # GLOB resource pack (Green Lantern .glob + .name.glob)
   mkdir -p "$d/globpack_test"
