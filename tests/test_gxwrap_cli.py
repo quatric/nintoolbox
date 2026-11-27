@@ -1277,3 +1277,17 @@ class FmppWrap(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NcfamRender(unittest.TestCase):
+    FILES = {'a.ncl': '4e43434cfffe0001400000001000010050414c543000000010000000010000000000a20c4419e62588322a3fcc4b6e541061b26d547af60698133a1cdc287e35', 'a.ncg': '4e434347fffe0001a4000000100001004348415294000000020000000200000000112233445566778899aabbccddeeff00112233445566778899aabbccddeeff5768798a9bacbdcedfe0f102132435465768798a9bacbdcedfe0f10213243546aebfc0d1e2f30415263748596a7b8c9daebfc0d1e2f30415263748596a7b8c9df5061728394a5b6c7d8e9fa0b1c2d3e4f5061728394a5b6c7d8e9fa0b1c2d3e400000000', 'a.nsc': '4e435343fffe000130000000100001005343524e20000000020000000200000000000000000000000000010002000300'}
+
+    def test_nsc_renders_with_siblings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, x in self.FILES.items():
+                (src / n).write_bytes(bytes.fromhex(x))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            self.assertTrue(Path(tmp, 'ex', 'a.nsc.d', 'a.png').exists())

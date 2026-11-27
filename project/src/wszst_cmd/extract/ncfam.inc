@@ -59,39 +59,18 @@ static enumError extract_ncob_chars (ccp arg, ccp basedir, uint depth, const u8 
 	return err;
 }
 
-static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
+// NCCL / NCCG / NCSC file -> standard NCLR / NCGR / NSCR bytes (CALLOC'ed, *ext = ".nclr" ...); false when it is not such a file
+static bool ncfam_convert (const u8 *raw, size_t sz, u8 **outp, uint *totp, const char **extp)
 {
-	u8 *raw = 0, *out = 0;
-	size_t sz = 0;
-	enumError err = ERR_NOTHING_TO_DO;
-	nintendo_sarc_entry_t *entries = 0;
-	{
-		u8 magic[4];
-		FILE *f = fopen (arg, "rb");
-		const bool hit = f && fread (magic, 1, 4, f) == 4
-			&& (!memcmp (magic, "NCCL", 4) || !memcmp (magic, "NCCG", 4) || !memcmp (magic, "NCSC", 4) || !memcmp (magic, "NCOB", 4));
-		if (f)
-			fclose (f);
-		if (!hit)
-			return ERR_NOTHING_TO_DO;
-	}
-	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
-		goto done;
-	if (sz > 0x4000000 && !memcmp (raw, "NCOB", 4))
-		goto done;
-	if (!memcmp (raw, "NCOB", 4))
-	{
-		err = extract_ncob_chars (arg, basedir, depth, raw, sz);
-		goto done;
-	}
 	if (sz < 0x30 || sz > 0x4000000 || rd_le16 (raw + 4) != 0xfeff || !memcmp (raw + 16, "CMNT", 4))
-		goto done;
+		return false;
+	u8 *out = 0;
 	const char *tag = !memcmp (raw, "NCCL", 4) ? "PALT" : !memcmp (raw, "NCCG", 4) ? "CHAR" : "SCRN";
 	if (memcmp (raw + 16, tag, 4))
-		goto done;
+		return false;
 	const u32 bsz = rd_le32 (raw + 20), a = rd_le32 (raw + 24), b = rd_le32 (raw + 28);
 	if (bsz < 0x14 || bsz > sz - 16)
-		goto done;
+		return false;
 	const u8 *src;
 	u32 n, hdr;
 	const char *ext;
@@ -101,7 +80,7 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		hdr = 0x10;
 		ext = ".nclr";
 		if (!n || bsz != n + 0x10 || a > 256 || b > 256)
-			goto done;
+			return false;
 	}
 	else if (*tag == 'C')
 	{
@@ -109,7 +88,7 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		n = bsz - 0x14;
 		ext = ".ncgr";
 		if (!a || !b || a > 0x1000 || b > 0x1000 || (n != a * b * 32 && n != a * b * 64))
-			goto done;
+			return false;
 	}
 	else
 	{
@@ -117,18 +96,15 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		n = a * b * 2;
 		ext = ".nscr";
 		if (!a || !b || a > 0x100 || b > 0x100 || bsz != n + 0x18)
-			goto done;
+			return false;
 	}
 	src = raw + 16 + hdr;
 	if (16 + hdr + n > sz)
-		goto done;
+		return false;
 	const uint tot = *tag == 'P' ? 0x10 + 0x18 + n : *tag == 'C' ? 0x10 + 0x20 + n : 0x10 + 0x14 + n;
 	out = CALLOC (1, tot);
 	if (!out)
-	{
-		err = ERR_OUT_OF_MEMORY;
-		goto done;
-	}
+		return false;
 	wr_le16 (out + 4, 0xfeff);
 	wr_le16 (out + 6, *tag == 'C' ? 0x0101 : 0x0100);
 	wr_le32 (out + 8, tot);
@@ -166,7 +142,41 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		wr_le32 (out + 32, n);
 		memcpy (out + 36, src, n);
 	}
-	entries = CALLOC (1, sizeof (*entries));
+	*outp = out, *totp = tot, *extp = ext;
+	return true;
+}
+
+static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
+{
+	u8 *raw = 0, *out = 0;
+	size_t sz = 0;
+	enumError err = ERR_NOTHING_TO_DO;
+	nintendo_sarc_entry_t *entries = 0;
+	{
+		u8 magic[4];
+		FILE *f = fopen (arg, "rb");
+		const bool hit = f && fread (magic, 1, 4, f) == 4
+			&& (!memcmp (magic, "NCCL", 4) || !memcmp (magic, "NCCG", 4) || !memcmp (magic, "NCSC", 4) || !memcmp (magic, "NCOB", 4));
+		if (f)
+			fclose (f);
+		if (!hit)
+			return ERR_NOTHING_TO_DO;
+	}
+	if (LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
+		goto done;
+	if (sz > 0x4000000 && !memcmp (raw, "NCOB", 4))
+		goto done;
+	if (!memcmp (raw, "NCOB", 4))
+	{
+		err = extract_ncob_chars (arg, basedir, depth, raw, sz);
+		goto done;
+	}
+	const char *ext = 0;
+	uint tot = 0;
+	if (!ncfam_convert (raw, sz, &out, &tot, &ext))
+		goto done;
+	const bool is_nsc = !memcmp (raw, "NCSC", 4);
+	entries = CALLOC (3, sizeof (*entries));
 	if (!entries)
 	{
 		err = ERR_OUT_OF_MEMORY;
@@ -180,17 +190,42 @@ static enumError extract_ncfam_file (ccp arg, ccp basedir, uint depth)
 		if (e)
 			*e = 0;
 		const size_t l = strlen (name);
-		snprintf (name + l, sizeof (name) - l, "%s", ext);
-		if (OwnedEntryAdd (entries, 0, name, out, tot))
+		uint n = 0;
+		char nm[PATH_MAX];
+		snprintf (nm, sizeof (nm), "%s%s", name, ext);
+		if (OwnedEntryAdd (entries, n, nm, out, tot))
+			n++;
+		FREE (out);
+		out = 0;
+		// a map brings its tiles and palette along (same folder, same stem) so that the NSCR can be drawn: "a.nsc" + "a.ncg" + "a.ncl"
+		if (is_nsc)
+			for (uint k = 0; k < 2; k++)
+			{
+				char sib[PATH_MAX];
+				snprintf (sib, sizeof (sib), "%.*s%s", (int)(strlen (arg) - 4), arg, k ? ".ncg" : ".ncl");
+				u8 *sr = 0, *so = 0;
+				size_t ssz = 0;
+				uint st = 0;
+				ccp se = 0;
+				if (!LoadFileAlloc (sib, 0, 0, &sr, &ssz, 0, 0, 0, false) && sr && ncfam_convert (sr, ssz, &so, &st, &se))
+				{
+					snprintf (nm, sizeof (nm), "%s%s", name, se);
+					if (OwnedEntryAdd (entries, n, nm, so, st))
+						n++;
+				}
+				FREE (so);
+				FREE (sr);
+			}
+		(void)l;
+		if (n)
 		{
-			out = 0;
-			err = write_owned_entries (arg, basedir, depth, "NCFAM", entries, 1);
+			err = write_owned_entries (arg, basedir, depth, "NCFAM", entries, n);
 			entries = 0;
 		}
 	}
 done:
 	if (entries)
-		ResetOwnedEntries (entries, 1);
+		ResetOwnedEntries (entries, 3);
 	FREE (out);
 	FREE (raw);
 	return err;
