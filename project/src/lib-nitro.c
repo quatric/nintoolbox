@@ -804,8 +804,8 @@ enumError ScanNitroTEX0 (nitro_tex0_t *tex0, const u8 *data, uint size)
 				// Calculate palette color count (up to next palette or end of section)
 				uint avail_bytes = tex0_avail - (pltt_data_ofs + (uint)offset * 8);
 				p->n_colors = (flag & 1) ? 4 : (avail_bytes / 2);
-				if (p->n_colors > 256)
-					p->n_colors = 256;
+				if (p->n_colors > 0x8000) // 4x4 compressed textures index far beyond 256 colors
+					p->n_colors = 0x8000;
 				if (p->n_colors > 0)
 				{
 					p->rgba = CALLOC (p->n_colors, 4);
@@ -948,31 +948,30 @@ enumError DecodeNitroTexture_RGBA (
 					const uint bidx = by * blocks_x + bx;
 					const u32 texel32 = nrd32 (tex->texels + bidx * 4);
 					const u16 pidx16 = nrd16 (tex->comp_idx + bidx * 2);
+					// palette offset counts 32 bit words = 2 colors; bits 14-15 pick the mode
 					const uint pal_base = (pidx16 & 0x3FFF) * 2;
-					const bool interpolate = (pidx16 & 0x8000) != 0;
-					const bool opaque = (pidx16 & 0x4000) != 0;
+					const uint mode = pidx16 >> 14;
 
 					u32 c[4] = { 0 };
 					c[0] = sample_palette_color (pltt, pal_base + 0);
 					c[1] = sample_palette_color (pltt, pal_base + 1);
 
-					if (!interpolate)
+					switch (mode)
 					{
-						c[2] = sample_palette_color (pltt, pal_base + 2);
-						c[3] = opaque ? sample_palette_color (pltt, pal_base + 3) : 0;
-					}
-					else
-					{
-						if (opaque)
-						{
+						case 0: // three palette colors + transparent
+							c[2] = sample_palette_color (pltt, pal_base + 2);
+							break;
+						case 1: // two colors, their average and transparent
+							c[2] = blend_colors (c[0], c[1], 4);
+							break;
+						case 2: // four palette colors
+							c[2] = sample_palette_color (pltt, pal_base + 2);
+							c[3] = sample_palette_color (pltt, pal_base + 3);
+							break;
+						default: // two colors + 5/8 and 3/8 blends
 							c[2] = blend_colors (c[0], c[1], 3);
 							c[3] = blend_colors (c[0], c[1], 5);
-						}
-						else
-						{
-							c[2] = blend_colors (c[0], c[1], 4);
-							c[3] = 0;
-						}
+							break;
 					}
 
 					for (uint py = 0; py < 4; py++)

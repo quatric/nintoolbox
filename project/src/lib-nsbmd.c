@@ -965,7 +965,7 @@ enumError ExportEarlyDSBMDTextures (const uint8_t *data, size_t size, const char
 						break;
 					const uint32_t tdata = rd32 (data + texel_base + bidx * 4);
 					const uint16_t info = rd16 (data + info_base + bidx * 2);
-					const uint32_t pal_offset = (info & 0x3fff) << 1;
+					const uint32_t pal_offset = (info & 0x3fff) << 2; // 32 bit words
 					const uint mode = info >> 14;
 
 					if (pl_ptr + pal_offset + 4 > size)
