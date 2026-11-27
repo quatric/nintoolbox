@@ -1680,6 +1680,7 @@ static enumError repack_directory_contents (ccp root)
 		}
 	}
 	GXWrapRepackLZSS (root);
+	GXWrapRepackSet (root);
 	closedir (dir);
 	return max_err;
 }

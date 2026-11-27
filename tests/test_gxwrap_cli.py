@@ -479,6 +479,36 @@ class ImagineWrap(unittest.TestCase):
                     self.assertEqual(tuple(rgba(x, y))[:3], fmsk(x, y), (x, y))
 
 
+class SetWrap(unittest.TestCase):
+    def test_gts_gvrs(self):
+        gvr = b'GCIX' + struct.pack('<I', 8) + bytes(8) + b'GVRT' + struct.pack('<I', 8 + 1024) + b'\0\0\0\x06' + struct.pack('>HH', W, H) + bytes(1024)
+        gts = struct.pack('>I', 0) + b'gts1' + struct.pack('>HH', 1, 0) + struct.pack('>I', 0x10) + struct.pack('>I', len(gvr)) + b'one'.ljust(0x3c, b'\0') + gvr
+        names = b'p\0q\0'
+        o0 = 4 + 8 + len(names)
+        gvrs = struct.pack('>HH', 2, 0) + struct.pack('>II', o0, o0 + len(gvr)) + names + gvr + gvr
+        want = lambda k: (lambda x, y: ((x * 16 + k * 40) % 256, y * 16, 90 + k, 255))
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.gts').write_bytes(gts)
+            (src / 'b.GVRs').write_bytes(gvrs)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            pngs = {'a.gts.d/one.gvr.png': 0, 'b.GVRs.d/p.gvr.png': 1, 'b.GVRs.d/q.gvr.png': 2}
+            for n, k in pngs.items():
+                self.assertTrue(Path(tmp, 'in.d', n).exists(), n)
+                write_png(Path(tmp, 'in.d', n), W, H, b''.join(bytes(want(k)(x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n, k in pngs.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', n))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertEqual(tuple(rgba(x, y)), want(k)(x, y), (n, x, y))
+            self.assertEqual(len(Path(tmp, 'out.d', 'a.gts').read_bytes()), len(gts))
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]

@@ -1490,6 +1490,83 @@ static void reinject_tan (const Image_t *img, u8 *raw, const gxw_t *g)
 				}
 }
 
+// "foo.GVRs.d/p.gvr" / "foo.gts.d/one.gvr": members of a texture set that were re-encoded in place (same size) are copied back into
+// the container ("foo.GVRs" = Sonic Team set, "foo.gts" = Sega gts1)
+void GXWrapRepackSet (ccp root)
+{
+	const size_t rl = strlen (root);
+	if (rl < 3 || strcmp (root + rl - 2, ".d"))
+		return;
+	char parent[PATH_MAX];
+	snprintf (parent, sizeof (parent), "%.*s", (int)(rl - 2), root);
+	struct stat sp;
+	if (stat (parent, &sp) || !S_ISREG (sp.st_mode))
+		return;
+	size_t sz;
+	u8 *raw = load (parent, &sz);
+	if (!raw)
+		return;
+	const bool gts = sz >= 0x50 && !memcmp (raw + 4, "gts1", 4), gvrs = has_ext (parent, ".gvrs") && sz >= 8;
+	const uint count = gts ? gxw_be16 (raw + 8) : gvrs ? raw[0] << 8 | raw[1] : 0;
+	bool changed = false;
+	time_t newest = 0;
+	size_t np = 4 + 4 * (size_t)count; // GVRs name table
+	for (uint i = 0; i < count && i < 4096 && (gts || gvrs); i++)
+	{
+		size_t off, len, hdr;
+		char base[0x41] = "", name[0x60], path[PATH_MAX];
+		if (gts)
+		{
+			off = gxw_be32 (raw + 0xc + 4 * i);
+			if (off == 0xffffffff)
+				continue;
+			if (off + 0x40 > sz)
+				break;
+			hdr = off + 0x40, len = gxw_be32 (raw + off);
+			memcpy (base, raw + off + 4, 0x3c);
+			base[0x3c] = 0;
+		}
+		else
+		{
+			off = gxw_be32 (raw + 4 + 4 * i);
+			if (off + 0x20 > sz)
+				break;
+			hdr = off, len = 0x18 + (size_t)gxw_le32 (raw + off + 0x14);
+			if (!(raw[2] << 8 | raw[3]))
+			{
+				size_t e = np;
+				while (e < sz && raw[e])
+					e++;
+				memcpy (base, raw + np, e - np > 0x40 ? 0x40 : e - np);
+				np = e + 1;
+			}
+		}
+		if (hdr + len > sz)
+			len = sz - hdr;
+		for (char *p = base; *p; p++)
+			if (*p == '/' || *p == '\\' || (u8)*p < 0x20)
+				*p = '_';
+		if (!*base)
+			snprintf (base, sizeof (base), "tex%03u", i);
+		snprintf (name, sizeof (name), "%s.gvr", base);
+		snprintf (path, sizeof (path), "%s/%s", root, name);
+		struct stat sm;
+		size_t mn;
+		if (stat (path, &sm) || sm.st_mtime <= sp.st_mtime)
+			continue;
+		u8 *m = load (path, &mn);
+		if (m && mn == len)
+			memcpy (raw + hdr, m, len), changed = true, newest = sm.st_mtime > newest ? sm.st_mtime : newest;
+		FREE (m);
+	}
+	if (changed && !store (parent, raw, sz))
+	{
+		struct utimbuf t = { sp.st_atime, newest };
+		utime (parent, &t);
+	}
+	FREE (raw);
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
