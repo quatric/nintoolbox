@@ -1627,6 +1627,77 @@ void GXWrapRepackOpoona (ccp root)
 	FREE (raw);
 }
 
+// Starbreeze "compiledtextures.xtc": an edited "foo.xtc.d/tex_NNNN_WxH.tpl" (re-encoded CMPR of the same size) goes back over the top mip.
+// shortcut: the smaller mips keep the old picture, regenerate them when a game is seen to sample them.
+void GXWrapRepackXtc (ccp root)
+{
+	const size_t rl = strlen (root);
+	if (rl < 7 || strcmp (root + rl - 6, ".xtc.d"))
+		return;
+	char parent[PATH_MAX];
+	snprintf (parent, sizeof (parent), "%.*s", (int)(rl - 2), root);
+	struct stat sp;
+	size_t sz;
+	u8 *raw = stat (parent, &sp) || !S_ISREG (sp.st_mode) ? 0 : load (parent, &sz);
+	if (!raw)
+		return;
+	bool changed = false;
+	time_t newest = 0;
+	uint n = 0;
+	if (sz > 0x100 && !memcmp (raw, "MOS DATAFILE2.0", 15))
+		for (size_t p = 0x30; p + 0x30 < sz;)
+		{
+			const uint o0 = gxw_le32 (raw + p);
+			bool ok = o0 >= p + 8 && o0 - p <= 0x40 && !((o0 - p) & 3) && (size_t)o0 + 0x28 <= sz;
+			const u8 *hd = raw + (ok ? o0 : 0);
+			const uint w = ok ? gxw_le32 (hd + 12) : 0, h = ok ? gxw_le32 (hd + 16) : 0;
+			ok = ok && gxw_le32 (hd) == 0x200 && gxw_le32 (hd + 4) == 0x5000 && gxw_le32 (hd + 36) == 0x10 && w && !(w & (w - 1)) && h
+				&& !(h & (h - 1)) && w <= 4096 && h <= 4096;
+			size_t end = 0;
+			if (ok)
+			{
+				const uint last = gxw_le32 (raw + p + (size_t)((o0 - p) / 4 - 1) * 4);
+				ok = (size_t)last + 0x28 <= sz && last >= o0;
+				end = ok ? (size_t)last + 0x28 + gxw_le32 (raw + last + 28) : 0;
+				ok = ok && end <= sz;
+			}
+			if (!ok)
+			{
+				p += 4;
+				continue;
+			}
+			const size_t dl = (size_t)w * h / 2;
+			char path[PATH_MAX];
+			struct stat sm;
+			snprintf (path, sizeof (path), "%s/tex_%04u_%ux%u.tpl", root, n, w, h);
+			if (gxw_le32 (hd + 28) >= dl && w >= 8 && h >= 8 && !stat (path, &sm) && sm.st_mtime > sp.st_mtime)
+			{
+				size_t mn;
+				u8 *m = load (path, &mn);
+				if (m && mn > 0x30 && gxw_be32 (m + 4) == 1 && gxw_be32 (m + 8) == 12)
+				{
+					const uint mi = gxw_be32 (m + 12);
+					if (mi + 16 <= mn)
+					{
+						const uint md = gxw_be32 (m + mi + 8);
+						if ((m[mi] << 8 | m[mi + 1]) == h && (m[mi + 2] << 8 | m[mi + 3]) == w && gxw_be32 (m + mi + 4) == 14
+							&& md <= mn && mn - md >= dl)
+							memcpy ((u8 *)hd + 0x28, m + md, dl), changed = true, newest = sm.st_mtime > newest ? sm.st_mtime : newest;
+					}
+				}
+				FREE (m);
+			}
+			n++;
+			p = end;
+		}
+	if (changed && !store (parent, raw, sz))
+	{
+		struct utimbuf t = { sp.st_atime, newest };
+		utime (parent, &t);
+	}
+	FREE (raw);
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;

@@ -679,5 +679,29 @@ class OpoonaTpl(unittest.TestCase):
             self.assertEqual(out[0x40 + 0x60:0x40 + 0x64], bytes(4))
 
 
+class XtcWrap(unittest.TestCase):
+    def test_top_mip(self):
+        def ent(w, h):
+            return struct.pack('<10I', 0x200, 0x5000, 0, w, h, 0x20, 0, w * h // 2, 0, 0x10) + bytes(w * h // 2)
+        e0, e1 = ent(16, 16), ent(8, 8)
+        xtc = (b'MOS DATAFILE2.0'.ljust(0x30, b'\0') + struct.pack('<II', 0x38, 0x38 + len(e0)) + e0 + e1).ljust(0x200, b'\0')
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'compiledtextures.xtc').write_bytes(xtc)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 'compiledtextures.xtc.d', 'tex_0000_16x16.tpl.png')
+            self.assertTrue(png.exists())
+            time.sleep(1.1)
+            write_png(png, 16, 16, bytes([248, 8, 8, 255]) * 256)
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            out = Path(tmp, 'ex', 'compiledtextures.xtc').read_bytes()
+            self.assertEqual(len(out), len(xtc))
+            self.assertNotEqual(out[0x60:0xe0], bytes(128))
+            self.assertEqual(out[0xe0:], xtc[0xe0:])  # smaller mip untouched
+            self.assertEqual(out[:0x60], xtc[:0x60])
+
+
 if __name__ == '__main__':
     unittest.main()
