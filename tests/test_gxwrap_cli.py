@@ -8,6 +8,7 @@ import pngtool
 
 WSZST = Path(__file__).resolve().parents[1] / 'project' / 'wszst'
 W = H = 16
+LOSSY = ('e.bct', 'f.txw')
 
 
 def write_png(path, w, h, rgba):
@@ -38,7 +39,21 @@ def wrappers():
     gaf = bytearray(0x50)
     struct.pack_into('>HHHHII', gaf, 0, W, H, W, H, 0x10001, 8)
     struct.pack_into('>I', gaf, 0x24, 0x50)
-    return {'d.gaftx': bytes(gaf) + base, 't.bin': bytes(gct) + base, 'a.wit': wit, 'b.CTX': ctx, 'c.s3t': s3t}
+    cmpr = bytes(W * H // 2)
+    bct = bytearray(0x30); bct[0] = 6; struct.pack_into('>HH', bct, 4, W, H)
+    struct.pack_into('>I', bct, 0x1c, len(cmpr) + 32)
+    txw = bytearray(0x40); txw[0:4] = b'\xaf\xaf\x00\x02'; struct.pack_into('>I', txw, 0x0c, 0xbeefface)
+    struct.pack_into('>HHH', txw, 0x12, 2, W, H)
+    tpl = bytearray(0x60)
+    struct.pack_into('>IIIIHHII', tpl, 0, 0x0020af30, 1, 0x0c, 0x14, 0, 0, 0, 0)
+    struct.pack_into('>HHII', tpl, 0x14, H, W, 6, 0x60)
+    tpl = bytes(tpl) + base
+    tgs = bytearray(0x40); tgs[0:4] = b'tgs\0'
+    struct.pack_into('>IIII', tgs, 0x10, 0x40 + len(tpl), 0, 0, 0)
+    struct.pack_into('>II', tgs, 0x20, 0x40, 0x40 + len(tpl))
+    return {'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
+            'g.tgs': bytes(tgs) + tpl, 'h.pix': b'FPIX' + bytes(0x1c) + tpl,
+            'd.gaftx': bytes(gaf) + base, 't.bin': bytes(gct) + base, 'a.wit': wit, 'b.CTX': ctx, 'c.s3t': s3t}
 
 
 class GxWrap(unittest.TestCase):
@@ -54,7 +69,8 @@ class GxWrap(unittest.TestCase):
             self.assertEqual(self.run_w('create', 'src.d', '--u8', '--dest', 'in.arc', '-o', cwd=tmp).returncode, 0)
             self.run_w('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o', cwd=tmp)
             d = Path(tmp, 'in.d')
-            names = {'t.bin': 't.bin.png', 'a.wit': 'a.wit.png', 'b.CTX': 'b.CTX.png', 'c.s3t': 'c.s3t.tpl.png', 'd.gaftx': 'd.png'}
+            names = {'t.bin': 't.bin.png', 'a.wit': 'a.wit.png', 'b.CTX': 'b.CTX.png', 'c.s3t': 'c.s3t.tpl.png', 'd.gaftx': 'd.png',
+             'e.bct': 'e.bct.tpl.png', 'f.txw': 'f.txw.tpl.png', 'g.tgs': 'g.tgs.tpl.png', 'h.pix': 'h.pix.tpl.png'}
             time.sleep(1.1)
             for png in names.values():
                 self.assertTrue((d / png).exists(), png)
@@ -66,7 +82,11 @@ class GxWrap(unittest.TestCase):
                 w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', png))
                 pix = bytes(c for y in range(h) for x in range(w) for c in rgba(x, y))
                 self.assertEqual((w, h), (W, H), name)
-                self.assertEqual(bytes(pix), bytes(image()), name)
+                if name in LOSSY:  # CMPR: four colours per 4x4 block
+                    err = max(abs(a - b) for a, b in zip(pix, bytes(image())))
+                    self.assertLess(err, 40, name)
+                else:
+                    self.assertEqual(bytes(pix), bytes(image()), name)
             # the mip behind the base level is rewritten, not left zero
             wit = Path(tmp, 'out.d', 'a.wit').read_bytes()
             self.assertEqual(len(wit), 16 + W * H * 4 + 8 * 8 * 4)

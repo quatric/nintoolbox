@@ -1,10 +1,13 @@
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
+#include "lib-excite.h"
 
 typedef struct gxw_t
 {
 	uint gx, w, h;
 	size_t doff;
+	size_t avail; // 0: up to the end of the file
+	uint levels; // 0: as many as fit
 } gxw_t;
 
 static uint gxw_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
@@ -34,6 +37,20 @@ static size_t level_size (uint gx, uint w, uint h)
 	return (size_t)((w + bw - 1) / bw) * bw * ((h + bh - 1) / bh) * bh * bits / 8;
 }
 
+// first image of a TPL starting at raw+toff
+static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
+{
+	if (toff + 0x20 > sz || gxw_be32 (raw + toff) != 0x0020af30)
+		return false;
+	const size_t ih = toff + gxw_be32 (raw + toff + 0xc);
+	if (ih + 0x24 > sz)
+		return false;
+	g->h = gxw_be16 (raw + ih), g->w = gxw_be16 (raw + ih + 2), g->gx = gxw_be32 (raw + ih + 4);
+	g->doff = toff + gxw_be32 (raw + ih + 8);
+	g->levels = raw[ih + 0x22] + 1u; // max_lod + 1
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
@@ -49,15 +66,15 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			const uint lv = gxw_le32 (raw + hb + 12);
 			if (!w || !h || w > 4096 || h > 4096 || fmt > 14 || !gx_ok (fmt) || !lv || lv > 16)
 				continue; // (the Cabela's CMPR variant with fmt 0x800 has two chains: not re-encoded)
-			g->gx = fmt, g->w = w, g->h = h, g->doff = hb ? 0x18 : 0x10;
+			g->gx = fmt, g->w = w, g->h = h, g->doff = hb ? 0x18 : 0x10, g->levels = lv;
 			break;
 		}
 	}
 	else if (has_ext (path, ".ctx") && sz >= 0x50 && !gxw_be32 (raw) && gxw_be32 (raw + 12) == 0x34)
 	{
 		g->w = gxw_be16 (raw + 4), g->h = gxw_be16 (raw + 6), g->gx = gxw_be16 (raw + 8), g->doff = 0x40;
-		const uint lv = gxw_be16 (raw + 10);
-		if (!lv || lv > 16)
+		g->levels = gxw_be16 (raw + 10);
+		if (!g->levels || g->levels > 16)
 			return false;
 	}
 	else if (has_ext (path, ".gaftx") && sz >= 0x44)
@@ -65,16 +82,49 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		const uint fmt = gxw_be32 (raw + 0xc);
 		g->w = gxw_be16 (raw), g->h = gxw_be16 (raw + 2), g->doff = gxw_be32 (raw + 0x24);
 		g->gx = fmt == 18 ? 14 : fmt == 8 ? 6 : fmt == 9 ? 3 : fmt == 11 ? 4 : 99;
+		g->levels = gxw_be32 (raw + 0x38);
 		if (gxw_be16 (raw + 4) != g->w || gxw_be16 (raw + 6) != g->h || gxw_be32 (raw + 8) != 0x10001)
 			return false;
 	}
 	else if (has_ext (path, ".s3t") && sz >= 0x40 && !gxw_be32 (raw + 12) && !gxw_be32 (raw + 16))
-		g->gx = gxw_be32 (raw), g->w = gxw_be32 (raw + 4), g->h = gxw_be32 (raw + 8), g->doff = 0x20;
+		g->gx = gxw_be32 (raw), g->w = gxw_be32 (raw + 4), g->h = gxw_be32 (raw + 8), g->doff = 0x20, g->levels = 1;
+	else if (has_ext (path, ".bct") && sz >= 0x50 && raw[0] == 6)
+	{
+		g->w = gxw_be16 (raw + 4), g->h = gxw_be16 (raw + 6), g->gx = 14, g->doff = 0x30;
+		g->avail = gxw_be32 (raw + 0x1c);
+		if ((g->w & 7) || (g->h & 7))
+			return false;
+	}
+	else if (has_ext (path, ".txw") && sz >= 0x80 && gxw_be32 (raw) == 0xafaf0002
+		&& gxw_be32 (raw + 0x0c) == 0xbeefface)
+	{
+		const uint type = raw[0x12] << 8 | raw[0x13];
+		g->w = raw[0x14] << 8 | raw[0x15], g->h = raw[0x16] << 8 | raw[0x17], g->gx = 14, g->doff = 0x40;
+		g->levels = 1;
+		if (type != 2 && type != 4)
+			return false;
+	}
+	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
+	{
+		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
+			return false;
+	}
+	else if (has_ext (path, ".pix") && sz >= 0x100 && !memcmp (raw, "FPIX", 4))
+	{
+		size_t o = 0;
+		for (size_t q = 0x10; q + 0x20 < sz && q < 0x400 && !o; q += 4)
+			if (gxw_be32 (raw + q) == 0x0020af30)
+				o = q;
+		if (!o || !locate_tpl (raw, sz, o, g))
+			return false;
+	}
 	else
 		return false;
 
+	if (!g->avail || g->avail > sz - g->doff)
+		g->avail = g->doff < sz ? sz - g->doff : 0;
 	return g->gx < 15 && gx_ok (g->gx) && g->w && g->h && g->w <= 4096 && g->h <= 4096
-		&& g->doff < sz && g->doff + level_size (g->gx, g->w, g->h) <= sz;
+		&& g->doff < sz && level_size (g->gx, g->w, g->h) <= g->avail;
 }
 
 static u8 *load (ccp path, size_t *size)
@@ -117,7 +167,7 @@ static void encode_chain (const gxw_t *g, const u8 *rgba, u8 *out, size_t avail)
 	if (!cur)
 		return;
 	memcpy (cur, rgba, (size_t)w * h * 4);
-	for (;;)
+	for (uint level = 0; !g->levels || level < g->levels; level++)
 	{
 		const size_t n = level_size (g->gx, w, h);
 		if (n > avail)
@@ -188,7 +238,7 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		{
 			for (uint y = 0; y < g.h; y++)
 				memcpy (rgba + 4 * (size_t)y * g.w, img->data + 4 * (size_t)y * img->xwidth, 4 * g.w);
-			encode_chain (&g, rgba, raw + g.doff, sz - g.doff);
+			encode_chain (&g, rgba, raw + g.doff, g.avail);
 			FREE (rgba);
 			err = store (dest, raw, sz);
 		}
@@ -215,6 +265,11 @@ enumError GXWrapSyncFromTPL (ccp tpl_path)
 		if (ih && ih + 0xc <= tsz && gxw_be32 (t + ih + 4) == g.gx && doff && doff + n <= tsz
 			&& gxw_be16 (t + ih) == g.h && gxw_be16 (t + ih + 2) == g.w)
 		{
+			// regenerate the mip chain from the new base level, then keep the base bytes exactly
+			u8 *rgba = 0;
+			if (!DecodeGXTexture_RGBA (&rgba, g.w, g.h, g.gx, t + doff, n, 0, 0, 0) && rgba)
+				encode_chain (&g, rgba, w + g.doff, g.avail);
+			FREE (rgba);
 			memcpy (w + g.doff, t + doff, n);
 			err = store (wrap, w, wsz);
 		}
