@@ -926,8 +926,8 @@ static enumError repack_directory_contents (ccp root)
 					snprintf (target_img, sizeof (target_img), "%s", txe), found_target = true;
 			}
 
-			// 3b'. "foo.pte.tpl.png" (Pixel Entertainment): the texels belong in "foo.pte", not in the decoder's .tpl copy
-			if (strlen (stem) > 8 && (!strcasecmp (stem + strlen (stem) - 8, ".pte.tpl") || !strcasecmp (stem + strlen (stem) - 8, ".pfi.tpl")))
+			// 3b'. "foo.pte.tpl.png": the texels belong in "foo.pte" (also .pfi, .d3dtx), not in the decoder's .tpl copy
+			if (strlen (stem) > 4 && !strcasecmp (stem + strlen (stem) - 4, ".tpl"))
 			{
 				char pte[PATH_MAX];
 				snprintf (pte, sizeof (pte), "%.*s", (int)(strlen (stem) - 4), stem);

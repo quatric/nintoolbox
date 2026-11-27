@@ -603,6 +603,15 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x18), g))
 			return false;
 	}
+	else if (has_ext (path, ".d3dtx") && sz >= 0x100 && !memcmp (raw, "ERTM", 4))
+	{
+		// Telltale (Wii): metastream whose body embeds a one-image TPL running to the end of the file
+		for (size_t i = 4; i + 0x40 < sz && !g->w; i++)
+			if (gxw_be32 (raw + i) == 0x0020af30 && gxw_be32 (raw + i + 4) == 1 && gxw_be32 (raw + i + 8) == 0xc)
+				locate_tpl (raw, sz, i, g);
+		if (!g->w)
+			return false;
+	}
 	else if ((has_ext (path, ".pte") || has_ext (path, ".pfi")) && sz >= 0x100 && gxw_be32 (raw) == 13)
 	{
 		// Pixel Entertainment: a header, then an ordinary TPL somewhere in the first 0x400 bytes
