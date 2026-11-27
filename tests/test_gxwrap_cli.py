@@ -1238,5 +1238,42 @@ class RwTxd(unittest.TestCase):
                         self.assertEqual(got, pix(k, x, y), (k, x, y))
 
 
+class FmppWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(i * 7 % 256, i * 13 % 256, i * 29 % 256) for i in range(256)]
+        plane = 64
+        un = bytearray(0x420 + 2 * plane)
+        struct.pack_into('>IHHIIIIII', un, 0, 1, 512, 512, 0x20, 0x220, plane, 0x420, plane, 0x420 + plane)
+        for i, c in enumerate(pal):
+            un[0x20 + 2 * i], un[0x21 + 2 * i], un[0x220 + 2 * i], un[0x221 + 2 * i] = c[0], c[1], 0, c[2]
+        def lits(d):
+            o = bytearray()
+            for i in range(0, len(d), 32):
+                c = d[i:i + 32]
+                o.append((0x20 if i == 0 else 0) | (len(c) - 1)); o += c
+            return bytes(o)
+        z = lits(bytes(un))
+        hdr = b'FMPP' + bytes([0, 0x11, 1, 0, 2, 1, 8, 1]) + struct.pack('>IHHHHHHII', 0, 8, 8, 8, 8, 8, 8, len(un), len(z)) + struct.pack('>I', 0x28)
+        raw = hdr + z
+        px = [pal[(x * 5 + y * 9) % 256] + ((x * 30 + 10) % 256,) for y in range(8) for x in range(8)]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'w.ppm').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 'w.ppm.d')
+            pngs = sorted(x.name for x in d.glob('*.png'))
+            self.assertEqual(len(pngs), 1, sorted(x.name for x in d.iterdir()))
+            time.sleep(1.1)
+            write_png(d / pngs[0], 8, 8, b''.join(bytes(q) for q in px))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/w.ppm', '--decode', '-o')
+            w, h, ch, rgba = pngtool._read_png(d / pngs[0])
+            for j, q in enumerate(px):
+                self.assertEqual((tuple(rgba(j % 8, j // 8)) + (255,))[:4], q, j)
+
+
 if __name__ == '__main__':
     unittest.main()

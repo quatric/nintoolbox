@@ -26,6 +26,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool fmpp; // Where's Wally .ppm (FMPP): w / h = image size, doff = unused (the file is unpacked, edited and packed again)
 	bool glac; // IOI Glacier .TEX entry (doff = base level, itype = its bytes, ctype = format fourcc, clut = palette (A,B,G,R), ncol = colours)
 	bool pica; // 3DS PICA200 texture (GFTexture / MT TEX): gx = PICA format 0-13, doff = texels, avail = their bytes
 	bool grph; // EA DS GRPH image (doff = GIMG block, clut = first palette colour, ncol = colours, tga.. = see reinject_grph; itype = palette base, bpp = 1 for a sprite frame)
@@ -45,6 +46,7 @@ static uint gxw_be32 (const u8 *p) { return (uint)p[0] << 24 | p[1] << 16 | p[2]
 static uint gxw_le32 (const u8 *p) { return (uint)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0]; }
 
 static u8 *load (ccp path, size_t *size);
+static enumError store (ccp path, const u8 *data, size_t size);
 
 static uint gxw_idx; // image number for multi-image files ("foo.dbt.2.png"), set by the repack code
 void GXWrapSetIndex (uint idx) { gxw_idx = idx; }
@@ -1082,10 +1084,139 @@ static bool locate_rwtxd (const u8 *raw, size_t sz, gxw_t *g)
 	return false;
 }
 
+// Where's Wally "FMPP" .ppm: header 0x28 + FastLZ level 2 stream (see extract/fmpp.inc); unpacked: palette planes, alpha image, 8 bit colour image in 8x4 tiles
+static bool fmpp_unpack (const u8 *in, size_t n, u8 *out, size_t outsz)
+{
+	if (!n || (in[0] >> 5) != 1)
+		return false;
+	const u8 *ip = in, *end = in + n;
+	size_t op = 0;
+	u32 ctrl = *ip++ & 31;
+	for (;;)
+	{
+		if (ctrl >= 32)
+		{
+			u32 len = (ctrl >> 5) - 1;
+			size_t ofs = (ctrl & 31) << 8;
+			if (len == 6)
+			{
+				u32 code;
+				do
+				{
+					if (ip >= end)
+						return false;
+					code = *ip++;
+					len += code;
+				} while (code == 255);
+			}
+			if (ip >= end)
+				return false;
+			u32 code = *ip++;
+			size_t back = ofs + code + 1;
+			if (code == 255 && ofs == (31 << 8))
+			{
+				if (ip + 2 > end)
+					return false;
+				back = (size_t)((ip[0] << 8) + ip[1]) + 8191 + 1;
+				ip += 2;
+			}
+			len += 3;
+			if (back > op || len > outsz - op)
+				return false;
+			for (u32 i = 0; i < len; i++, op++)
+				out[op] = out[op - back];
+		}
+		else
+		{
+			const u32 run = ctrl + 1;
+			if (run > (size_t)(end - ip) || run > outsz - op)
+				return false;
+			memcpy (out + op, ip, run);
+			ip += run, op += run;
+		}
+		if (ip >= end)
+			break;
+		ctrl = *ip++;
+	}
+	return op == outsz;
+}
+
+static bool locate_fmpp (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	if (!has_ext (path, ".ppm") || sz < 0x30 || memcmp (raw, "FMPP", 4) || gxw_be32 (raw + 0x24) != 0x28)
+		return false;
+	const uint w = gxw_be16 (raw + 0x10), h = gxw_be16 (raw + 0x12), pw = gxw_be16 (raw + 0x14), ph = gxw_be16 (raw + 0x16);
+	const size_t usz = gxw_be32 (raw + 0x1c), psz = gxw_be32 (raw + 0x20);
+	if (!w || !h || pw < w || ph < h || pw % 8 || ph % 4 || usz < 0x40 || usz > 0x10000000 || psz > sz - 0x28)
+		return false;
+	u8 *out = MALLOC (usz);
+	bool ok = out && fmpp_unpack (raw + 0x28, psz, out, usz);
+	if (ok)
+	{
+		const size_t csz = gxw_be32 (out + 0x18), coff = gxw_be32 (out + 0x1c), plane = (size_t)pw * ph;
+		ok = csz == plane && coff <= usz && plane <= usz - coff && gxw_be32 (out + 8) + 512 <= usz && gxw_be32 (out + 12) + 512 <= usz;
+	}
+	FREE (out);
+	if (ok)
+		g->fmpp = true, g->w = w, g->h = h, g->rw = pw, g->rh = ph;
+	return ok;
+}
+
+static enumError reinject_fmpp (const Image_t *img, const u8 *raw, size_t sz, const gxw_t *g, ccp path)
+{
+	if (img->width != g->w || img->height != g->h)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width, img->height, g->w, g->h, path);
+	const size_t usz = gxw_be32 (raw + 0x1c), psz = gxw_be32 (raw + 0x20);
+	u8 *out = MALLOC (usz);
+	if (!out || !fmpp_unpack (raw + 0x28, psz, out, usz))
+		return FREE (out), ERR_NOTHING_TO_DO;
+	const size_t pal1 = gxw_be32 (out + 8), pal2 = gxw_be32 (out + 12), asz = gxw_be32 (out + 0x10), aoff = gxw_be32 (out + 0x14), coff = gxw_be32 (out + 0x1c),
+		     plane = (size_t)g->rw * g->rh;
+	const bool alpha = asz == plane && aoff <= usz && plane <= usz - aoff;
+	for (uint y = 0; y < g->h; y++)
+		for (uint x = 0; x < g->w; x++)
+		{
+			const u8 *p = img->data + 4 * ((size_t)y * img->xwidth + x);
+			const size_t pos = ((size_t)(y / 4) * (g->rw / 8) + x / 8) * 32 + (y % 4) * 8 + x % 8;
+			uint best = 0, bd = ~0u;
+			for (uint c = 0; c < 256; c++)
+			{
+				const int dr = (int)out[pal1 + 2 * c] - p[0], dg = (int)out[pal1 + 2 * c + 1] - p[1], db = (int)out[pal2 + 2 * c + 1] - p[2];
+				const uint d = (uint)(dr * dr + dg * dg + db * db);
+				if (d < bd)
+					bd = d, best = c;
+			}
+			out[coff + pos] = (u8)best;
+			if (alpha)
+				out[aoff + pos] = p[3];
+		}
+	// literal-only FastLZ level 2: the first control byte carries the level bits
+	u8 *z = MALLOC (usz + usz / 32 + 64);
+	if (!z)
+		return FREE (out), ERR_OUT_OF_MEMORY;
+	size_t zn = 0;
+	for (size_t i = 0; i < usz; i += 32)
+	{
+		const size_t run = usz - i < 32 ? usz - i : 32;
+		z[zn++] = (u8)((i ? 0 : 0x20) | (run - 1));
+		memcpy (z + zn, out + i, run), zn += run;
+	}
+	u8 *file = MALLOC (0x28 + zn);
+	if (!file)
+		return FREE (out), FREE (z), ERR_OUT_OF_MEMORY;
+	memcpy (file, raw, 0x28);
+	file[0x20] = (u8)(zn >> 24), file[0x21] = (u8)(zn >> 16), file[0x22] = (u8)(zn >> 8), file[0x23] = (u8)zn;
+	memcpy (file + 0x28, z, zn);
+	const enumError e = store (path, file, 0x28 + zn);
+	FREE (out), FREE (z), FREE (file);
+	(void)sz;
+	return e;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_pica (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_fmpp (raw, sz, path, g) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2899,6 +3030,13 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.fmpp)
+	{
+		Transform2XIMG (img);
+		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_fmpp (img, raw, sz, &g, dest);
+		FREE (raw);
+		return e;
 	}
 	if (g.glac)
 	{

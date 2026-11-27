@@ -61,7 +61,7 @@ static bool fmpp_unpack (const u8 *in, size_t n, u8 *out, size_t outsz)
 
 static enumError extract_fmpp_file (ccp arg, ccp basedir, uint depth)
 {
-	u8 *raw = 0, *out = 0, *tga = 0;
+	u8 *raw = 0, *out = 0, *tga = 0, *png = 0;
 	size_t sz = 0;
 	if (!is_ext (arg, ".ppm") || LoadFileAlloc (arg, 0, 0, &raw, &sz, 0, 0, 0, false) || !raw)
 	{
@@ -85,9 +85,12 @@ static enumError extract_fmpp_file (ccp arg, ccp basedir, uint depth)
 		goto done;
 	const bool alpha = asz == plane && aoff <= usz && plane <= usz - aoff;
 	tga = CALLOC (18 + (size_t)w * h * 4, 1);
-	entries = CALLOC (2, sizeof (*entries));
+	entries = CALLOC (3, sizeof (*entries));
+	u8 *rgba = CALLOC ((size_t)w * h, 4);
+	size_t png_n = 0;
 	if (!tga || !entries)
 	{
+		FREE (rgba);
 		err = ERR_OUT_OF_MEMORY;
 		goto done;
 	}
@@ -104,17 +107,27 @@ static enumError extract_fmpp_file (ccp arg, ccp basedir, uint depth)
 			d[1] = out[pal1 + 2 * c + 1]; // G
 			d[2] = out[pal1 + 2 * c]; // R
 			d[3] = alpha ? out[aoff + p] : 255;
+			if (rgba)
+			{
+				u8 *r = rgba + ((size_t)y * w + x) * 4;
+				r[0] = d[2], r[1] = d[1], r[2] = d[0], r[3] = d[3];
+			}
 		}
 	uint n = 0;
 	if (OwnedEntryAdd (entries, n, "image.tga", tga, 18 + w * h * 4))
 		n++;
+	// the PNG is what gets edited; "wszst create" writes it back into the .ppm
+	if (rgba && !EncodePngMem (rgba, w, h, 4, 8, &png, &png_n) && png && OwnedEntryAdd (entries, n, "image.png", png, (uint)png_n))
+		n++;
+	FREE (rgba);
 	if (OwnedEntryAdd (entries, n, "unpacked.bin", out, (uint)usz))
 		n++;
 	err = write_owned_entries (arg, basedir, depth, "FMPP", entries, n);
 	entries = 0;
 done:
+	FREE (png);
 	if (entries)
-		ResetOwnedEntries (entries, 2);
+		ResetOwnedEntries (entries, 3);
 	FREE (tga);
 	FREE (out);
 	FREE (raw);
