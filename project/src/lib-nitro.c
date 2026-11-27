@@ -407,19 +407,21 @@ enumError RenderNSCR (u8 **dest, uint *width, uint *height, const nitro_nscr_t *
 
 	const uint tiles_x = (w + 7) / 8;
 	const uint tiles_y = (h + 7) / 8;
+	const bool affine = nscr->bg_type == 1;
 
 	for (uint ty = 0; ty < tiles_y; ty++)
 		for (uint tx = 0; tx < tiles_x; tx++)
 		{
 			const uint idx = ty * tiles_x + tx;
-			if (idx * 2 + 2 > nscr->data_size)
+			if (affine ? idx >= nscr->data_size : idx * 2 + 2 > nscr->data_size)
 				continue;
 
-			const u16 entry = nrd16 (nscr->data + idx * 2);
-			const uint tile_id = entry & 0x03FF;
-			const bool hflip = (entry >> 10) & 1;
-			const bool vflip = (entry >> 11) & 1;
-			const uint pal_bank = (entry >> 12) & 0x0F;
+			// affine screens hold one byte per tile (no flips, no palette bank)
+			const u16 entry = affine ? nscr->data[idx] : nrd16 (nscr->data + idx * 2);
+			const uint tile_id = affine ? entry : entry & 0x03FF;
+			const bool hflip = !affine && ((entry >> 10) & 1);
+			const bool vflip = !affine && ((entry >> 11) & 1);
+			const uint pal_bank = affine ? 0 : (entry >> 12) & 0x0F;
 
 			for (uint py = 0; py < 8; py++)
 				for (uint px = 0; px < 8; px++)
@@ -447,6 +449,8 @@ enumError RenderNSCR (u8 **dest, uint *width, uint *height, const nitro_nscr_t *
 					uint pal_index = (uint)col_idx;
 					if (ncgr->bpp == 4)
 						pal_index += pal_bank * 16;
+					else if (nscr->color_mode == 2 && pal_bank && (pal_bank + 1) * 256 <= nclr->n_entries)
+						pal_index += pal_bank * 256; // 256 colors x 16 extended palette banks
 					if (pal_index >= nclr->n_entries)
 						continue;
 
