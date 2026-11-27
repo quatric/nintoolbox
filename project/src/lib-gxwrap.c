@@ -630,6 +630,15 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			return false;
 		g->doff = data + gxw_idx * tsz;
 	}
+	else if (has_ext (path, ".pvr") && sz >= 0x20 && !memcmp (raw, "XIBG", 4) && !memcmp (raw + 0x10, "TRVP", 4))
+	{
+		// Radirgy Noa / Illvelo: GBIX + PVRT with GX data; CMPR (0x4e) and RGB565 (0x45, pixel format 1) are re-encoded
+		const uint kind = raw[0x1a], pf = raw[0x1b];
+		g->w = gxw_be16 (raw + 0x1c), g->h = gxw_be16 (raw + 0x1e), g->doff = 0x20, g->levels = 1;
+		g->gx = kind == 0x4e ? 14 : kind == 0x45 && pf == 1 ? 4 : 99;
+		if ((g->w | g->h) & 7)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
