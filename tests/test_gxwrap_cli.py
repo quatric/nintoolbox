@@ -750,5 +750,39 @@ class Ntft4x4Wrap(unittest.TestCase):
                 if got:
                     self.assertEqual(tuple(v * 255 // 31 for v in got), p[:3], (x, y))
 
+class OibbWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pc = lambda i: ((i % 32), ((i // 32) * 4 + 1), (i * 7) % 32)
+        def obj(fmt, npal, n):
+            pal = b''.join(struct.pack('>H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in map(pc, range(npal)))
+            pix = bytes(n)
+            hdr = (b'TXTR' + struct.pack('>II', 0x40 + len(pal) + len(pix), len(pix)) + struct.pack('<I', 0x80) + struct.pack('>6I', 8, 8, 1, fmt, 1, len(pal))).ljust(0x40, b'\0')
+            return hdr + pal + pix
+        objs = [obj(6, 0, 256), obj(9, 256, 64), obj(8, 16, 32)]
+        pak = (b'OIBB' + struct.pack('<I', 4)).ljust(0x40, b'\0') + b''.join(objs)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 't.pak').write_bytes(pak)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 't.pak.d')
+            names = sorted(x.name for x in d.glob('tex_*.png'))
+            self.assertEqual(len(names), 3, names)
+            time.sleep(1.1)
+            want = []
+            for i, (nm, npal) in enumerate(zip(names, (0, 256, 16))):
+                px = [tuple(v * 255 // 31 for v in pc((x * 5 + y * 3 + i) % npal)) + (255,) if npal else ((x * 30) % 256, (y * 30) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(8) for x in range(8)]
+                want.append(px)
+                write_png(d / nm, 8, 8, b''.join(bytes(p) for p in px))
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'ex/t.pak', '--decode', '-o')
+            for nm, px in zip(names, want):
+                w, h, ch, rgba = pngtool._read_png(d / nm)
+                for y in range(8):
+                    for x in range(8):
+                        self.assertEqual((tuple(rgba(x, y)) + (255,))[:4], px[y * 8 + x], (nm, x, y))
+
+
 if __name__ == '__main__':
     unittest.main()

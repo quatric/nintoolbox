@@ -963,6 +963,22 @@ static enumError repack_directory_contents (ccp root)
 				multi = found_target;
 			}
 
+			// 3d. "tex_0003_64x64.png" inside "foo.pak.d": texture number 3 of the object pack "foo.pak"
+			{
+				const size_t rl = strlen (root);
+				uint tn, tw_, th_;
+				char tail;
+				if (rl > 6 && !strcmp (root + rl - 6, ".pak.d") && sscanf (de->d_name, "tex_%u_%ux%u.png%c", &tn, &tw_, &th_, &tail) == 3)
+				{
+					snprintf (target_img, sizeof (target_img), "%.*s", (int)(rl - 2), root);
+					gx_index = tn;
+					GXWrapSetIndex (gx_index);
+					found_target = stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img);
+					GXWrapSetIndex (0);
+					multi = found_target;
+				}
+			}
+
 			if (found_target)
 			{
 				time_t ref_img_mtime = st_target.st_mtime;

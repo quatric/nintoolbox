@@ -25,6 +25,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool oibb; // AxEngine OIBB .pak TXTR object (doff = object, gx = format 6 / 8 / 9, bpp = palette bytes, itype = data bytes)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
 	uint itype, ctype, ncol;
@@ -343,10 +344,38 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// Fizzwizzle "OIBB" object pack: texture number gxw_idx (in decoder order) is a TXTR object {tag, size, data bytes, ptr, w, h, 1, fmt, 1, palette bytes}
+static bool locate_oibb (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x100 || sz > 0x20000000 || memcmp (raw, "OIBB", 4))
+		return false;
+	uint n = 0;
+	for (size_t o = 0x20; o + 0x40 <= sz; o += 4)
+	{
+		if (memcmp (raw + o, "TXTR", 4))
+			continue;
+		const uint osz = gxw_be32 (raw + o + 4), ds = gxw_be32 (raw + o + 8), w = gxw_be32 (raw + o + 0x10), h = gxw_be32 (raw + o + 0x14),
+			   fmt = gxw_be32 (raw + o + 0x1c), pb = gxw_be32 (raw + o + 0x24);
+		if (!w || !h || w > 4096 || h > 4096 || (fmt != 6 && fmt != 8 && fmt != 9) || pb > 512 || osz != 0x40 + pb + (u64)ds || o + osz > sz)
+			continue;
+		const uint tw = fmt == 6 ? 4 : 8, th = fmt == 8 ? 8 : 4, pw = (w + tw - 1) / tw * tw, ph = (h + th - 1) / th * th;
+		const size_t need = fmt == 6 ? (size_t)pw * ph * 4 : fmt == 8 ? (size_t)pw * ph / 2 : (size_t)pw * ph;
+		if (need > ds || (fmt != 6 && !pb))
+			continue;
+		if (n++ == gxw_idx)
+		{
+			g->oibb = true, g->doff = o, g->gx = fmt, g->w = w, g->h = h, g->bpp = pb, g->itype = ds;
+			return true;
+		}
+		o += osz - 4;
+	}
+	return false;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -1840,6 +1869,67 @@ void GXWrapRepackXtc (ccp root)
 	FREE (raw);
 }
 
+static enumError reinject_oibb (const Image_t *img, u8 *raw, const gxw_t *g, ccp path)
+{
+	const uint fmt = g->gx, w = g->w, h = g->h, tw = fmt == 6 ? 4 : 8, th = fmt == 8 ? 8 : 4, pw = (w + tw - 1) / tw * tw, ph = (h + th - 1) / th * th;
+	if (img->width != w || img->height != h)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, w, h, path);
+	u8 *rgba = CALLOC (4, (size_t)pw * ph);
+	if (!rgba)
+		return ERR_OUT_OF_MEMORY;
+	for (uint y = 0; y < ph; y++)
+		for (uint x = 0; x < pw; x++)
+			memcpy (rgba + 4 * ((size_t)y * pw + x), img->data + 4 * ((size_t)(y < h ? y : h - 1) * img->xwidth + (x < w ? x : w - 1)), 4);
+	u8 *pal = raw + g->doff + 0x40, *pix = pal + g->bpp;
+	if (fmt == 6)
+		GXEncodeRGBA (6, pw, ph, rgba, pix);
+	else
+	{
+		u8 pc[256][4];
+		const uint nc = g->bpp / 2 > (fmt == 8 ? 16u : 256u) ? (fmt == 8 ? 16u : 256u) : g->bpp / 2;
+		for (uint i = 0; i < nc; i++)
+		{
+			const uint v = gxw_be16 (pal + 2 * i);
+			if (v & 0x8000)
+				pc[i][0] = (v >> 10 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 31) * 255 / 31, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
+			else
+				pc[i][0] = (v >> 8 & 15) * 17, pc[i][1] = (v >> 4 & 15) * 17, pc[i][2] = (v & 15) * 17, pc[i][3] = (v >> 12 & 7) * 255 / 7;
+		}
+		memset (pix, 0, g->itype);
+		u8 *s = pix;
+		for (uint ty = 0; ty < ph; ty += th)
+			for (uint tx = 0; tx < pw; tx += tw)
+				for (uint y = 0; y < th; y++)
+					for (uint x = 0; x < tw; x++)
+					{
+						const u8 *p = rgba + 4 * ((size_t)(ty + y) * pw + tx + x);
+						uint best = 0, bd = ~0u;
+						for (uint c = 0; c < nc; c++)
+						{
+							uint d = 0;
+							for (uint k = 0; k < 4; k++)
+							{
+								const int dv = (int)pc[c][k] - p[k];
+								d += (uint)(dv * dv);
+							}
+							if (d < bd)
+								bd = d, best = c;
+						}
+						if (fmt == 9)
+							*s++ = (u8)best;
+						else
+						{
+							if (x & 1)
+								s[-1] |= (u8)best;
+							else
+								*s++ = (u8)(best << 4);
+						}
+					}
+	}
+	FREE (rgba);
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -1863,6 +1953,15 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.oibb)
+	{
+		Transform2XIMG (img);
+		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_oibb (img, raw, &g, dest);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.imy)
 	{
