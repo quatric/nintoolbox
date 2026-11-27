@@ -1189,5 +1189,54 @@ class GlacierTex(unittest.TestCase):
                         self.assertTrue(all(abs(a - b) <= tol for a, b in zip(got, exp)), (k, x, y, got, exp))
 
 
+class RwTxd(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(i * 2 % 32, i * 5 % 32, i * 3 % 32) for i in range(16)]
+        palb = b''.join(struct.pack('>H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in pal)
+        def tex(name, rf, w, h, depth, gx, body, palette=b''):
+            b = bytearray(0x6c)
+            struct.pack_into('>I', b, 0, 6)
+            b[0x18:0x18 + len(name)] = name
+            struct.pack_into('>I', b, 0x58, rf)
+            struct.pack_into('>HH', b, 0x5c, w, h)
+            b[0x60] = depth; b[0x61] = 1; b[0x62] = gx
+            st = bytes(b) + palette + body
+            structc = struct.pack('<III', 1, len(st), 0) + st
+            inner = structc + struct.pack('<III', 3, 0, 0)
+            return struct.pack('<III', 0x15, len(inner), 0) + inner
+        t1 = tex(b'first', 0x4000, 8, 8, 4, 8, bytes(32), palb)
+        t2 = tex(b'second', 0x0200, 8, 4, 16, 5, bytes(64))
+        body = struct.pack('<IIIHH', 1, 4, 0, 2, 0) + t1 + t2
+        raw = struct.pack('<III', 0x16, len(body), 0) + body
+        def pix(k, x, y):
+            if k == 0: return tuple((v * 255 + 15) // 31 for v in pal[(x + y * 3) % 16]) + (255,)
+            e = lambda v: (v * 255 + 15) // 31
+            return (e((x * 4 + y) % 32), e(y * 7 % 32), e(x), 255)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'r.txd').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 'r.txd.d')
+            names = sorted(x.name for x in d.glob('*.png'))
+            self.assertEqual(names, ['0000_first.png', '0001_second.png'])
+            time.sleep(1.1)
+            dims = [(8, 8), (8, 4)]
+            for k, n in enumerate(names):
+                w, h = dims[k]
+                write_png(d / n, w, h, b''.join(bytes(pix(k, x, y)) for y in range(h) for x in range(w)))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/r.txd', '--decode', '-o')
+            for k, n in enumerate(names):
+                w, h = dims[k]
+                ww, hh, ch, rgba = pngtool._read_png(d / n)
+                for y in range(h):
+                    for x in range(w):
+                        got = (tuple(rgba(x, y)) + (255,))[:4]
+                        self.assertEqual(got, pix(k, x, y), (k, x, y))
+
+
 if __name__ == '__main__':
     unittest.main()

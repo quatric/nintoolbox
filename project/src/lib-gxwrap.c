@@ -1049,10 +1049,43 @@ static bool locate_glacier (const u8 *raw, size_t sz, gxw_t *g)
 	return false;
 }
 
+// RenderWare GameCube / Wii ".txd" (see extract/rw_txd_gc.inc): texture number = leading digits of the PNG name "NNNN_<name>"
+static bool locate_rwtxd (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x30 || gxw_le32 (raw) != 0x16 || gxw_le32 (raw + 0xc) != 1 || gxw_le32 (raw + 0x10) != 4 || gxw_le32 (raw + 0x1c) != 0x15 || !isdigit ((u8)gxw_name[0]))
+		return false;
+	const uint want = (uint)strtoul (gxw_name, 0, 10), count = gxw_le16 (raw + 0x18);
+	size_t p = 0x1c;
+	for (uint k = 0; k < count && p + 0x24 < sz; k++)
+	{
+		const size_t tsz = gxw_le32 (raw + p + 4);
+		if (gxw_le32 (raw + p) != 0x15 || p + 12 + tsz > sz)
+			break;
+		const u8 *st = raw + p + 12;
+		const size_t ssz = gxw_le32 (st + 4), b = p + 24;
+		p += 12 + tsz;
+		if (k != want)
+			continue;
+		if (gxw_le32 (st) != 1 || ssz < 0x6c || b + ssz > sz || gxw_be32 (raw + b) != 6)
+			return false;
+		const uint rf = gxw_be32 (raw + b + 0x58), w = gxw_be16 (raw + b + 0x5c), h = gxw_be16 (raw + b + 0x5e), depth = raw[b + 0x60], gx = raw[b + 0x62];
+		const bool pal = gx == 8 || gx == 9;
+		if (!w || !h || w > 4096 || h > 4096 || !(gx <= 6 || pal || gx == 14) || gx == 7)
+			return false;
+		const uint npal = pal ? (depth == 4 ? 16u : 256u) : 0;
+		if (0x6c + npal * 2 > ssz)
+			return false;
+		g->dbl = true, g->bpp = (rf & 0xf00) == 0x200 ? 1 : 2, g->gx = gx, g->w = w, g->h = h, g->doff = b + 0x6c + npal * 2, g->itype = (uint)(ssz - 0x6c - npal * 2);
+		g->clut = b + 0x6c, g->ncol = npal;
+		return true;
+	}
+	return false;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || locate_pica (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
