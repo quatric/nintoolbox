@@ -837,6 +837,14 @@ static enumError repack_directory_contents (ccp root)
 			struct stat st_target;
 			bool found_target = false;
 
+			{
+				// member name for containers addressed by name ("NAME.tex.png" inside "foo.lmp.d")
+				ccp bs = strrchr (path, '/');
+				char nm[256];
+				snprintf (nm, sizeof (nm), "%.*s", (int)strlen (bs ? bs + 1 : path) - 4, bs ? bs + 1 : path);
+				GXWrapSetName (nm);
+			}
+
 			// 0. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
 			if (!found_target)
 			{
@@ -962,6 +970,7 @@ static enumError repack_directory_contents (ccp root)
 					GXWrapSetIndex (gx_index);
 					enumError err = encode_image_from_png (path, target_img);
 					GXWrapSetIndex (0);
+					GXWrapSetName (0);
 					if (err <= ERR_WARNING)
 					{
 						// Keep the edited preview's timestamp on the native result. The

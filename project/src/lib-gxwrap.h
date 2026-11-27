@@ -8,6 +8,7 @@
 
 // true if path is a wrapper this module can re-encode (by extension and header)
 void GXWrapSetIndex (uint idx);
+void GXWrapSetName (ccp name);
 bool GXWrapIsFile (ccp path);
 
 // Encode img (any PNG-loaded image) over the pixels of the wrapper file dest, in place.

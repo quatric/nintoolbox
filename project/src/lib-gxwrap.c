@@ -31,6 +31,9 @@ static u8 *load (ccp path, size_t *size);
 static uint gxw_idx; // image number for multi-image files ("foo.dbt.2.png"), set by the repack code
 void GXWrapSetIndex (uint idx) { gxw_idx = idx; }
 
+static char gxw_name[256]; // member name for containers addressed by name ("NAME.tex.png" inside "foo.lmp.d")
+void GXWrapSetName (ccp name) { snprintf (gxw_name, sizeof (gxw_name), "%s", name ? name : ""); }
+
 static bool has_ext (ccp path, ccp ext)
 {
 	const size_t a = strlen (path), b = strlen (ext);
@@ -460,6 +463,31 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			if (!g->w || g->w > 2048 || g->h > 2048 || g->doff < c + 0x70)
 				return false; // (palette formats P4 / P8 are not re-encoded)
 			break;
+		}
+		if (!g->w)
+			return false;
+	}
+	else if (has_ext (path, ".lmp") && sz > 0x40 && gxw_name[0] && gxw_be16 (raw + 2) == 1)
+	{
+		// texture lump {u16 count, u16 1}, 24 byte entries {0, name offset, 0, data offset, size, 0}; each texture has a 0x80 byte header
+		const uint n = gxw_be16 (raw);
+		if (!n || n > 4096 || 4 + (size_t)n * 24 > sz)
+			return false;
+		for (uint i = 0; i < n && !g->w; i++)
+		{
+			const u8 *e = raw + 4 + 24 * i;
+			const size_t noff = gxw_be32 (e + 4), off = gxw_be32 (e + 12), size = gxw_be32 (e + 16);
+			if (noff >= sz || off + size > sz || size <= 0x80 || gxw_be32 (e) || gxw_be32 (e + 8))
+				continue;
+			char nm[256];
+			snprintf (nm, sizeof (nm), "%.200s", (ccp)raw + noff);
+			const uint w = gxw_be16 (raw + off), h = gxw_be16 (raw + off + 2), tail = gxw_be16 (raw + off + 6);
+			const uint fmt = tail == 0x8080 ? 6 : tail == 0x0004 ? 14 : 99;
+			if (strcmp (nm, gxw_name) || fmt == 99 || !w || !h)
+				continue;
+			g->gx = fmt, g->w = w, g->h = h, g->doff = off + 0x80, g->levels = 1;
+			if (size - 0x80 != level_size (fmt, w, h))
+				g->w = 0;
 		}
 		if (!g->w)
 			return false;
