@@ -9,6 +9,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+try:
+    import tkinter  # noqa: F401
+except ImportError as exc:
+    raise unittest.SkipTest(f"tkinter unavailable: {exc}")
+
 spec = importlib.util.spec_from_file_location(
     "nintoolbox_gui", Path(__file__).resolve().parents[1] / "nintoolbox.py"
 )
