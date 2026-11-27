@@ -403,6 +403,77 @@ class Dst0Wrap(unittest.TestCase):
                             self.assertEqual(got[:3], rgb(v)[:3], (i, x, y))
 
 
+class ImagineWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        w0, h0 = 61, 37  # stored as 64 x 40 tiles
+        inner = struct.pack('<III', 4, w0, h0) + b'\xcc' * 0x14 + bytes(64 * 40 * 2)
+        out = bytearray()
+        for i in range(0, len(inner), 8):
+            ch = inner[i:i + 8]
+            out += bytes([(1 << len(ch)) - 1]) + ch
+        wrapped = b'\x21\x43\x65\x87' + struct.pack('<II', len(out), len(inner)) + out
+        f = lambda x, y: (x * 4 % 256, y * 6 % 256, (x + y) * 2 % 256, 255)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'x.wsp').write_bytes(wrapped)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            png = Path(tmp, 'in.d', 'x.wsp.d', 'x.png')
+            self.assertTrue(png.exists())
+            write_png(png, w0, h0, b''.join(bytes(f(x, y)) for y in range(h0) for x in range(w0)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'x.wsp.d', 'x.png'))
+            self.assertEqual((w, h), (w0, h0))
+            for y in range(h0):
+                for x in range(w0):
+                    self.assertTrue(all(abs(a - b) < 9 for a, b in zip(rgba(x, y), f(x, y))), (x, y))
+            self.assertEqual(Path(tmp, 'out.d', 'x.wsp').read_bytes()[:4], b'\x21\x43\x65\x87')  # still the wrapper
+
+    def test_msk_tan(self):
+        def wrap(inner):
+            out = bytearray()
+            for i in range(0, len(inner), 8):
+                ch = inner[i:i + 8]
+                out += bytes([(1 << len(ch)) - 1]) + ch
+            return b'\x21\x43\x65\x87' + struct.pack('<II', len(out), len(inner)) + bytes(out)
+        pal = [((i * 5) % 32, (i * 3) % 64, (i * 7) % 32) for i in range(256)]
+        pal565 = b''.join(struct.pack('>H', c[0] << 11 | c[1] << 5 | c[2]) for c in pal)
+        tan = struct.pack('>IIII', 2, 16, 8, 0) + pal565 + bytes(0x10) + bytes(2 * 16 * 8)
+        msk = struct.pack('<II', 8, 4) + b'\xcc' * 16 + bytes(32)
+        rgb = lambda c: (c[0] * 255 // 31, c[1] * 255 // 63, c[2] * 255 // 31)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.tan').write_bytes(wrap(tan))
+            (src / 'b.msk').write_bytes(wrap(msk))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            ftan = lambda fr: (lambda x, y: tuple(rgb(pal[(x * 3 + y * 17 + fr * 40) % 256])))
+            fmsk = lambda x, y: ((x * 30 + y * 7) % 256,) * 3
+            for fr in range(2):
+                q = Path(tmp, 'in.d', 'a.tan.d', 'a.tan.d', 'frame_%02d.png' % fr)
+                self.assertTrue(q.exists(), fr)
+                write_png(q, 16, 8, b''.join(bytes(ftan(fr)(x, y)) + b'\xff' for y in range(8) for x in range(16)))
+            q = Path(tmp, 'in.d', 'b.msk.d', 'b.png')
+            self.assertTrue(q.exists())
+            write_png(q, 8, 4, b''.join(bytes(fmsk(x, y)) + b'\xff' for y in range(4) for x in range(8)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for fr in range(2):
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'a.tan.d', 'a.tan.d', 'frame_%02d.png' % fr))
+                for y in range(8):
+                    for x in range(16):
+                        self.assertEqual(tuple(rgba(x, y))[:3], ftan(fr)(x, y), (fr, x, y))
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'b.msk.d', 'b.png'))
+            for y in range(4):
+                for x in range(8):
+                    self.assertEqual(tuple(rgba(x, y))[:3], fmsk(x, y), (x, y))
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]

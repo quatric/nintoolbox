@@ -1,3 +1,4 @@
+#include <utime.h>
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
 #include "lib-excite.h"
@@ -17,6 +18,9 @@ typedef struct gxw_t
 	bool flip; // rows are stored bottom-up
 	bool ltex; // Qubic LTEX: RGB565 / RGBA8888 pixels, optionally LZ11 packed (bpp = bytes per pixel)
 	bool ntft; // NITRO raw texels (.ntft) with a sibling .ntfp palette; itype = format, ncol = palette colours
+	uint rw, rh; // size of the PNG when the stored texture is padded (Ubisoft WSP)
+	bool msk; // Ubisoft .msk: 8 bit mask (grey = r + g + b / 3)
+	bool tan; // Ubisoft .tan frame (C8, shared RGB565 palette; doff = frame data, clut = palette)
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -701,6 +705,36 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if ((g->w | g->h) & 7)
 			return false;
 	}
+	else if (has_ext (path, ".wsp") && sz >= 0x24)
+	{
+		// Ubisoft Imagine sprite (inside its LZSS wrapper): LE {GX format 4 / 5 / 6, w, h}, 0xcc padding to 0x20, tiles for w, h rounded up to 4
+		g->gx = gxw_le32 (raw), g->rw = gxw_le32 (raw + 4), g->rh = gxw_le32 (raw + 8), g->doff = 0x20, g->levels = 1;
+		g->w = (g->rw + 3) & ~3u, g->h = (g->rh + 3) & ~3u;
+		for (uint i = 12; i < 0x20; i++)
+			if (raw[i] != 0xcc)
+				return false;
+		if (g->gx < 4 || g->gx > 6 || !g->rw || !g->rh || g->rw > 4096 || g->rh > 4096)
+			return false;
+	}
+	else if (has_ext (path, ".msk") && sz >= 0x19)
+	{
+		g->w = gxw_le32 (raw), g->h = gxw_le32 (raw + 4);
+		for (uint i = 8; i < 24; i++)
+			if (raw[i] != 0xcc)
+				return false;
+		if (!g->w || !g->h || g->w > 8192 || g->h > 8192 || (u64)g->w * g->h != sz - 24)
+			return false;
+		g->msk = true, g->doff = 24;
+	}
+	else if (has_ext (path, ".tan") && sz >= 0x230 && gxw_name[0])
+	{
+		const uint nf = gxw_be32 (raw), w = gxw_be32 (raw + 4), h = gxw_be32 (raw + 8);
+		const uint fr = !strncmp (gxw_name, "frame_", 6) ? (uint)strtoul (gxw_name + 6, 0, 10) : ~0u;
+		if (!nf || nf > 1024 || gxw_be32 (raw + 12) || !w || !h || w > 2048 || h > 2048 || (w & 7) || (h & 3)
+			|| sz != 0x220 + (size_t)nf * w * h || fr >= nf)
+			return false;
+		g->tan = true, g->w = w, g->h = h, g->doff = 0x220 + (size_t)fr * w * h, g->clut = 16;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
@@ -1237,6 +1271,128 @@ static enumError reinject_ntft (const Image_t *img, u8 *raw, size_t sz, const gx
 	return ERR_OK;
 }
 
+// Okumura LZSS as used by the Ubisoft Imagine wrapper (21 43 65 87, compressed size, size, stream): 4096 byte ring pre-filled with
+// 0x20 and written from 4078, control bit 1 = literal, 0 = {pos & 0xff, pos >> 4 & 0xf0 | len - 3}; matches look at most 4095 bytes back
+static u8 *lzss_pack (const u8 *d, size_t n, size_t *outn)
+{
+	u8 *out = MALLOC (12 + n + n / 8 + 16);
+	int *head = MALLOC (65536 * sizeof (int)), *prev = MALLOC ((n + 1) * sizeof (int));
+	if (!out || !head || !prev)
+		return FREE (out), FREE (head), FREE (prev), (u8 *)0;
+	memset (head, 0xff, 65536 * sizeof (int));
+	size_t o = 12, ctl = 0, i = 0;
+	uint bit = 8;
+	while (i < n)
+	{
+		if (bit == 8)
+			ctl = o++, out[ctl] = 0, bit = 0;
+		uint best = 0, bpos = 0;
+		if (i + 2 < n)
+		{
+			const uint hv = d[i] << 8 ^ d[i + 1] << 4 ^ d[i + 2];
+			int c = head[hv & 0xffff];
+			for (uint tries = 0; c >= 0 && i - (size_t)c < 4096 && tries < 64; tries++, c = prev[c])
+			{
+				uint l = 0;
+				while (l < 18 && i + l < n && d[c + l] == d[i + l])
+					l++;
+				if (l > best)
+					best = l, bpos = (uint)((4078 + c) & 4095);
+				if (l == 18)
+					break;
+			}
+		}
+		const size_t step = best >= 3 ? best : 1;
+		if (best >= 3)
+			out[o++] = (u8)bpos, out[o++] = (u8)((bpos >> 4 & 0xf0) | (best - 3));
+		else
+			out[ctl] |= (u8)(1 << bit), out[o++] = d[i];
+		bit++;
+		for (size_t k = 0; k < step; k++, i++)
+			if (i + 2 < n)
+			{
+				const uint hv = (d[i] << 8 ^ d[i + 1] << 4 ^ d[i + 2]) & 0xffff;
+				prev[i] = head[hv], head[hv] = (int)i;
+			}
+	}
+	FREE (head);
+	FREE (prev);
+	memcpy (out, "\x21\x43\x65\x87", 4);
+	const size_t cs = o - 12;
+	for (uint k = 0; k < 4; k++)
+		out[4 + k] = (u8)(cs >> (8 * k)), out[8 + k] = (u8)(n >> (8 * k));
+	*outn = o;
+	return out;
+}
+
+// "foo.wsp.d/foo.wsp" is the unpacked copy of the wrapper "foo.wsp": when it is newer, pack it again into the wrapper
+void GXWrapRepackLZSS (ccp root)
+{
+	const size_t rl = strlen (root);
+	if (rl < 3 || strcmp (root + rl - 2, ".d"))
+		return;
+	char parent[PATH_MAX], inner[PATH_MAX];
+	snprintf (parent, sizeof (parent), "%.*s", (int)(rl - 2), root);
+	ccp bs = strrchr (parent, '/');
+	snprintf (inner, sizeof (inner), "%s/%s", root, bs ? bs + 1 : parent);
+	struct stat sp, si;
+	if (stat (parent, &sp) || stat (inner, &si) || !S_ISREG (sp.st_mode) || !S_ISREG (si.st_mode) || si.st_mtime <= sp.st_mtime)
+		return;
+	size_t pn, in;
+	u8 *p = load (parent, &pn), *d = load (inner, &in);
+	if (p && d && pn >= 12 && !memcmp (p, "\x21\x43\x65\x87", 4))
+	{
+		size_t zn;
+		u8 *z = lzss_pack (d, in, &zn);
+		if (z && !store (parent, z, zn))
+		{
+			struct utimbuf t = { si.st_atime, si.st_mtime };
+			utime (parent, &t);
+		}
+		FREE (z);
+	}
+	FREE (p);
+	FREE (d);
+}
+
+static void reinject_msk (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	for (size_t i = 0; i < (size_t)g->w * g->h; i++)
+	{
+		const u8 *p = img->data + 4 * ((i / g->w) * img->xwidth + i % g->w);
+		raw[g->doff + i] = (u8)((p[0] + p[1] + p[2]) / 3);
+	}
+}
+
+// C8 frame in 8x4 tiles against the file's RGB565 palette (256 entries from 0x10)
+static void reinject_tan (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	u8 pal[256][3];
+	for (uint c = 0; c < 256; c++)
+	{
+		const uint v = gxw_be16 (raw + g->clut + 2 * c);
+		pal[c][0] = (v >> 11 & 31) * 255 / 31, pal[c][1] = (v >> 5 & 63) * 255 / 63, pal[c][2] = (v & 31) * 255 / 31;
+	}
+	u8 *o = raw + g->doff;
+	for (uint ty = 0; ty < g->h; ty += 4)
+		for (uint tx = 0; tx < g->w; tx += 8)
+			for (uint y = 0; y < 4; y++)
+				for (uint x = 0; x < 8; x++)
+				{
+					const u8 *p = img->data + 4 * ((size_t)(ty + y) * img->xwidth + tx + x);
+					uint best = 0, best_d = ~0u;
+					for (uint c = 0; c < 256; c++)
+					{
+						uint d = 0;
+						for (uint k = 0; k < 3; k++)
+							d += (uint)(((int)pal[c][k] - p[k]) * ((int)pal[c][k] - p[k]));
+						if (d < best_d)
+							best_d = d, best = c;
+					}
+					*o++ = (u8)best;
+				}
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -1328,7 +1484,7 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		FREE (raw);
 		return e;
 	}
-	if (g.tim2 || g.dst1 || g.ivt || g.apx)
+	if (g.tim2 || g.dst1 || g.ivt || g.apx || g.msk || g.tan)
 	{
 		enumError e = ERR_OK;
 		Transform2XIMG (img);
@@ -1337,6 +1493,10 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		else if (img->width != g.w || img->height != g.h)
 			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width,
 				img->height, g.w, g.h, dest);
+		else if (g.msk)
+			reinject_msk (img, raw, &g);
+		else if (g.tan)
+			reinject_tan (img, raw, &g);
 		else if (g.apx)
 			reinject_apx (img, raw, &g);
 		else if (g.ivt)
@@ -1399,9 +1559,9 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	enumError err = ERR_OK;
 	if (img->iform != IMG_X_RGB)
 		err = ERR_NOTHING_TO_DO;
-	else if (img->width != g.w || img->height != g.h)
+	else if (img->width != (g.rw ? g.rw : g.w) || img->height != (g.rw ? g.rh : g.h))
 		err = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width,
-			img->height, g.w, g.h, dest);
+			img->height, g.rw ? g.rw : g.w, g.rw ? g.rh : g.h, dest);
 	else
 	{
 		u8 *rgba = MALLOC ((size_t)g.w * g.h * 4);
@@ -1410,7 +1570,11 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		else
 		{
 			for (uint y = 0; y < g.h; y++)
-				memcpy (rgba + 4 * (size_t)y * g.w, img->data + 4 * (size_t)(g.flip ? g.h - 1 - y : y) * img->xwidth, 4 * g.w);
+				for (uint x = 0; x < g.w; x++)
+				{
+					const uint sx = x < (g.rw ? g.rw : g.w) ? x : (g.rw ? g.rw : g.w) - 1, sy = g.rw && y >= g.rh ? g.rh - 1 : g.flip ? g.h - 1 - y : y;
+					memcpy (rgba + 4 * ((size_t)y * g.w + x), img->data + 4 * ((size_t)sy * img->xwidth + sx), 4);
+				}
 			if (g.ptexa)
 			{
 				u8 *a = raw + g.doff + (size_t)g.w * g.h / 2;

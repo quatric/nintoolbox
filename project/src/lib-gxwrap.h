@@ -8,6 +8,7 @@
 
 // true if path is a wrapper this module can re-encode (by extension and header)
 void GXWrapSetIndex (uint idx);
+void GXWrapRepackLZSS (ccp root);
 void GXWrapSetName (ccp name);
 bool GXWrapIsFile (ccp path);
 

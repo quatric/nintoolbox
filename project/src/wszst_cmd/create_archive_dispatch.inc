@@ -860,6 +860,21 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
+			// 0b. the unpacked copy of an LZSS wrapper: "foo.tan.d/frame_00.png" belongs to "foo.tan.d/foo.tan"
+			if (!found_target)
+			{
+				const size_t rl = strlen (root);
+				if (rl > 2 && !strcmp (root + rl - 2, ".d"))
+				{
+					char par[PATH_MAX];
+					snprintf (par, sizeof (par), "%.*s", (int)(rl - 2), root);
+					ccp pb = strrchr (par, '/');
+					snprintf (target_img, sizeof (target_img), "%s/%s", root, pb ? pb + 1 : par);
+					if (stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img))
+						found_target = multi = true;
+				}
+			}
+
 			// 1. Check direct prefix, e.g. "foo.tpl.png" -> "foo.tpl", "bar.tex0.png" -> "bar.tex0"
 			char stem[PATH_MAX];
 			snprintf (stem, sizeof (stem), "%.*s", (int)(strlen (path) - 4), path);
@@ -905,7 +920,7 @@ static enumError repack_directory_contents (ccp root)
 			if (!found_target)
 			{
 				char cand[PATH_MAX];
-				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", 0 };
+				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", ".wsp", 0 };
 				for (int k = 0; raw_exts[k] && !found_target; k++)
 				{
 					snprintf (cand, sizeof (cand), "%s%s", stem, raw_exts[k]);
@@ -1663,6 +1678,7 @@ static enumError repack_directory_contents (ccp root)
 			}
 		}
 	}
+	GXWrapRepackLZSS (root);
 	closedir (dir);
 	return max_err;
 }
