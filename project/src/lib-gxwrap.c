@@ -432,6 +432,38 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!locate_ptx (path, sz, g))
 			return false;
 	}
+	else if (has_ext (path, ".btf") && sz >= 0x100 && !memcmp (raw, "FTBG", 4))
+	{
+		// chunks {"DXTG", u32 size, header with BE w/h and the reversed format name, GX pixels as the last bytes}
+		static const struct { const char *name; uint gx, bits; } fm[] = { { "A8R8G8B8", 6, 32 }, { "I8", 1, 8 }, { "IA4", 2, 8 }, { "IA8", 3, 16 }, { "RGB565", 4, 16 }, { "RGB5A3", 5, 16 }, { "I4", 0, 4 } };
+		size_t p = 12;
+		for (uint idx = 0, n = gxw_le32 (raw + 8); idx <= gxw_idx && idx < n && idx < 256 && p + 8 <= sz; idx++)
+		{
+			const size_t csz = gxw_le32 (raw + p + 4), c = p + 8;
+			p = c + csz;
+			if (csz < 0x80 || p > sz)
+				return false;
+			if (idx != gxw_idx)
+				continue;
+			char name[9] = { 0 };
+			for (uint i = 0; i < 8; i++)
+				name[i] = (char)raw[c + 0x37 - i];
+			const char *f = name;
+			while (!*f && f < name + 8)
+				f++;
+			for (uint i = 0; i < sizeof (fm) / sizeof (fm[0]); i++)
+				if (!strcmp (f, fm[i].name))
+				{
+					g->gx = fm[i].gx, g->w = gxw_be32 (raw + c + 0x20), g->h = gxw_be32 (raw + c + 0x24), g->levels = 1;
+					g->doff = p - (size_t)g->w * g->h * fm[i].bits / 8;
+				}
+			if (!g->w || g->w > 2048 || g->h > 2048 || g->doff < c + 0x70)
+				return false; // (palette formats P4 / P8 are not re-encoded)
+			break;
+		}
+		if (!g->w)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
