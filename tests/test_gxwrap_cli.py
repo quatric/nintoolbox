@@ -901,5 +901,38 @@ class CarsGct(unittest.TestCase):
             self.assertEqual(Path(tmp, 'ex', 't.gct').read_bytes()[:0x20c], gct[:0x20c])
 
 
+class RtexWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        for fmt, unit, nbytes in (('i8', 'u8', 64), ('rgba8', 'u32', 256), ('rgb565', 'u16', 128)):
+            body = ' '.join(['00' * (4 if unit == 'u32' else 2 if unit == 'u16' else 1)] * (nbytes // (4 if unit == 'u32' else 2 if unit == 'u16' else 1)))
+            x = ('<?xml version="1.0" encoding="utf-8"?>\r\n<nw4r_3dif version="1.4.0">\r\n<body>\r\n<rtex>\r\n'
+                 '<image format="%s" palette_name=""\r\n\twidth="8" height="8"\r\n\tmipmap_level="1"\r\n\tdata_unit="%s" data_size="%d"\r\n\tpath="x.bmp"\r\n>\r\n\t'
+                 % (fmt, unit, nbytes) + body + '\r\n</image>\r\n</rtex>\r\n</body>\r\n</nw4r_3dif>\r\n')
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp, 'src.d'); src.mkdir()
+                (src / 't.rtex').write_bytes(x.encode())
+                run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+                run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+                run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+                png = Path(tmp, 'ex', 't.png')
+                self.assertTrue(png.exists(), fmt)
+                time.sleep(1.1)
+                if fmt == 'i8':
+                    px = [((x * 30 + y * 3) % 256,) * 3 + (255,) for y in range(8) for x in range(8)]
+                elif fmt == 'rgba8':
+                    px = [((x * 30) % 256, (y * 30) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(8) for x in range(8)]
+                else:
+                    px = [((x * 8) * 255 // 31 // 8 * 8 * 31 // 31 if False else (x % 32) * 255 // 31, (y * 4 % 64) * 255 // 63, ((x + y) % 32) * 255 // 31, 255) for y in range(8) for x in range(8)]
+                write_png(png, 8, 8, b''.join(bytes(p) for p in px))
+                r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                out = Path(tmp, 'ex', 't.rtex').read_bytes().decode()
+                self.assertTrue(out.startswith(x[:x.index('>\r\n\t') + 1]) and out.endswith('</image>\r\n</rtex>\r\n</body>\r\n</nw4r_3dif>\r\n'), fmt)
+                run('xx', 'ex/t.rtex', '--decode', '-o')
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'ex', 't.png'))
+                for i, p in enumerate(px):
+                    self.assertEqual((tuple(rgba(i % 8, i // 8)) + (255,))[:4], p if fmt != 'i8' else p, (fmt, i))
+
+
 if __name__ == '__main__':
     unittest.main()

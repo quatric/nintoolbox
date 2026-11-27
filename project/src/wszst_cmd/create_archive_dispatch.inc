@@ -920,7 +920,7 @@ static enumError repack_directory_contents (ccp root)
 			if (!found_target)
 			{
 				char cand[PATH_MAX];
-				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", ".wsp", ".gct", 0 };
+				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", ".wsp", ".gct", ".rtex", 0 };
 				for (int k = 0; raw_exts[k] && !found_target; k++)
 				{
 					snprintf (cand, sizeof (cand), "%s%s", stem, raw_exts[k]);

@@ -25,6 +25,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool rtex; // NW4R .rtex XML export (doff = start of the hex words, avail = their text length, itype = data bytes, bpp = bytes per word)
 	bool shpg; // EA SHPG entry (a dbl-style record inside the unpacked archive; RefPack wrapped files are re-packed as literal runs)
 	bool dbl; // Avalanche .dbl / .mdb texture record (doff = pixels, clut = palette (RGB565), ncol = palette entries, itype = bytes available, gx = GX format)
 	bool oibb; // AxEngine OIBB .pak TXTR object (doff = object, gx = format 6 / 8 / 9, bpp = palette bytes, itype = data bytes)
@@ -562,10 +563,57 @@ static bool locate_gct (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// NW4R "nw4r_3dif" .rtex: <image format= width= height= data_unit= data_size=> followed by hex words (see extract/rtex.inc)
+static bool locate_rtex (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 64 || sz > 0x20000000)
+		return false;
+	char *t = MALLOC (sz + 1);
+	if (!t)
+		return false;
+	memcpy (t, raw, sz);
+	t[sz] = 0;
+	bool ok = false;
+	char *im = strstr (t, "<image "), *gt = im ? strchr (im, '>') : 0, *end = gt ? strstr (gt, "</image>") : 0;
+	if (im && gt && end && strstr (t, "<nw4r_3dif"))
+	{
+		*gt = 0;
+		char fmts[16] = "", pal[8] = "", unit[8] = "";
+		uint w = 0, h = 0, dsz = 0;
+		const char *p;
+		if ((p = strstr (im, "format=\"")))
+			sscanf (p + 8, "%15[^\"]", fmts);
+		if ((p = strstr (im, "palette_name=\"")))
+			sscanf (p + 14, "%7[^\"]", pal);
+		if ((p = strstr (im, "data_unit=\"")))
+			sscanf (p + 11, "%7[^\"]", unit);
+		if ((p = strstr (im, "width=\"")))
+			w = (uint)strtoul (p + 7, 0, 10);
+		if ((p = strstr (im, "height=\"")))
+			h = (uint)strtoul (p + 8, 0, 10);
+		if ((p = strstr (im, "data_size=\"")))
+			dsz = (uint)strtoul (p + 11, 0, 10);
+		static const struct { ccp name; uint fmt; } F[] = { { "i4", 0 }, { "i8", 1 }, { "ia4", 2 }, { "ia8", 3 }, { "rgb565", 4 }, { "rgb5a3", 5 }, { "rgba8", 6 }, { "cmpr", 14 } };
+		int fmt = -1;
+		for (uint i = 0; i < sizeof (F) / sizeof (*F); i++)
+			if (!strcmp (F[i].name, fmts))
+				fmt = (int)F[i].fmt;
+		const uint ub = !strcmp (unit, "u32") ? 4 : !strcmp (unit, "u16") ? 2 : !strcmp (unit, "u8") ? 1 : 0;
+		if (fmt >= 0 && !*pal && ub && w && h && w <= 4096 && h <= 4096 && dsz && dsz <= 0x10000000 && dsz % ub == 0 && level_size ((uint)fmt, w, h) <= dsz)
+		{
+			g->rtex = true, g->gx = (uint)fmt, g->w = w, g->h = h, g->itype = dsz, g->bpp = ub;
+			g->doff = (size_t)(gt + 1 - t), g->avail = (size_t)(end - gt - 1);
+			ok = true;
+		}
+	}
+	FREE (t);
+	return ok;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2207,6 +2255,53 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.rtex)
+	{
+		Transform2XIMG (img);
+		enumError e = ERR_OK;
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+		else
+		{
+			u8 *rgba = pad_rgba (img, (g.w + 7) / 8 * 8, (g.h + 7) / 8 * 8), *data = CALLOC (1, (size_t)g.itype + 8);
+			const uint pw = (g.w + 7) / 8 * 8, ph = (g.h + 7) / 8 * 8;
+			g.w = pw, g.h = ph;
+			char *txt = MALLOC ((size_t)g.itype / g.bpp * (2 * g.bpp + 1) + 16);
+			if (!rgba || !data || !txt)
+				e = ERR_OUT_OF_MEMORY;
+			else
+			{
+				encode_chain (&g, rgba, data, g.itype);
+				size_t n = 0;
+				txt[n++] = '\r', txt[n++] = '\n', txt[n++] = '\t';
+				for (uint i = 0; i < g.itype; i += g.bpp)
+				{
+					uint v = 0;
+					for (uint k = 0; k < g.bpp; k++)
+						v = v << 8 | data[i + k];
+					n += (size_t)sprintf (txt + n, g.bpp == 4 ? "%08x" : g.bpp == 2 ? "%04x" : "%02x", v);
+					txt[n++] = i + g.bpp < g.itype ? ' ' : '\r';
+				}
+				txt[n - 1] == '\r' ? (void)(txt[n++] = '\n') : (void)0;
+				u8 *out = MALLOC (sz + n + 16);
+				if (!out)
+					e = ERR_OUT_OF_MEMORY;
+				else
+				{
+					memcpy (out, raw, g.doff);
+					memcpy (out + g.doff, txt, n);
+					memcpy (out + g.doff + n, raw + g.doff + g.avail, sz - g.doff - g.avail);
+					e = store (dest, out, g.doff + n + (sz - g.doff - g.avail));
+					FREE (out);
+				}
+			}
+			FREE (rgba), FREE (data), FREE (txt);
+		}
+		FREE (raw);
+		return e;
 	}
 	if (g.dbl)
 	{
