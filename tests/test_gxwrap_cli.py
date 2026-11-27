@@ -641,5 +641,24 @@ class IvtWrap(unittest.TestCase):
                         self.assertEqual(tuple(rgba(x, y)), px(bpp, x, y)[:len(tuple(rgba(x, y)))], (n, x, y))
 
 
+class OpoonaTpl(unittest.TestCase):
+    def test_blanked_magic_tpl(self):
+        tpl = struct.pack('>IIIIIHHII', 0, 1, 12, 20, 0, 16, 16, 6, 0x60).ljust(0x60, b'\0') + bytes(1024)
+        px = bytes([200, 100, 50, 255]) * 256
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.tpl').write_bytes(tpl)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            time.sleep(1.1)
+            write_png(Path(tmp, 'ex', 'a.tpl.d', 'a.tpl.png'), 16, 16, px)
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            out = Path(tmp, 'ex', 'a.tpl').read_bytes()
+            self.assertEqual(len(out), len(tpl))
+            self.assertEqual(out[:4], tpl[:4])
+            self.assertEqual(out[0x60:0x64], bytes([0xff, 0xc8, 0xff, 0xc8]))
+
+
 if __name__ == '__main__':
     unittest.main()

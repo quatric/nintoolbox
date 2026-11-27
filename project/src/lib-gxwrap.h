@@ -10,6 +10,7 @@
 void GXWrapSetIndex (uint idx);
 void GXWrapRepackLZSS (ccp root);
 void GXWrapRepackSet (ccp root);
+void GXWrapRepackOpoona (ccp root);
 void GXWrapSetName (ccp name);
 bool GXWrapIsFile (ccp path);
 

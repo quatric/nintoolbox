@@ -1567,6 +1567,66 @@ void GXWrapRepackSet (ccp root)
 	FREE (raw);
 }
 
+// Opoona keeps its TPLs with a blanked magic word, alone or three at a time in a "TPLE" bundle; the unpacked copies in "foo.tpl.d" carry the
+// real magic. A re-encoded copy of the same size goes back with everything but the original magic word.
+void GXWrapRepackOpoona (ccp root)
+{
+	const size_t rl = strlen (root);
+	if (rl < 7 || strcmp (root + rl - 6, ".tpl.d"))
+		return;
+	char parent[PATH_MAX];
+	snprintf (parent, sizeof (parent), "%.*s", (int)(rl - 2), root);
+	struct stat sp;
+	size_t sz;
+	u8 *raw = stat (parent, &sp) || !S_ISREG (sp.st_mode) ? 0 : load (parent, &sz);
+	if (!raw)
+		return;
+	ccp bs = strrchr (parent, '/');
+	ccp fn = bs ? bs + 1 : parent;
+	const size_t fl = strlen (fn);
+	bool changed = false;
+	time_t newest = 0;
+	const bool tple = sz > 0x40 && !memcmp (raw, "TPLE", 4);
+	const uint cnt = tple ? gxw_be32 (raw + 0x10) : 1, stride = tple ? gxw_be32 (raw + 0x14) : (uint)sz, off = tple ? gxw_be32 (raw + 0x18) : 0;
+	if (sz > 0x40 && (!tple || (cnt && cnt <= 64 && stride > 0x40 && off == 0x40 && 0x40 + (size_t)cnt * stride <= sz))
+		&& (tple || (gxw_be32 (raw) < 4 && gxw_be32 (raw + 4) && gxw_be32 (raw + 4) < 0x100 && gxw_be32 (raw + 8) == 12)))
+		for (uint i = 0; i < cnt; i++)
+		{
+			char path[PATH_MAX];
+			if (tple)
+				snprintf (path, sizeof (path), "%s/%.*s_%u.tpl", root, (int)(fl - 4), fn, i);
+			else
+				snprintf (path, sizeof (path), "%s/%s", root, fn);
+			struct stat sm;
+			size_t mn;
+			if (stat (path, &sm) || sm.st_mtime <= sp.st_mtime)
+				continue;
+			u8 *m = load (path, &mn);
+			u8 *dst = raw + off + (size_t)i * stride;
+			if (m && mn == stride)
+				memcpy (dst + 4, m + 4, stride - 4), changed = true, newest = sm.st_mtime > newest ? sm.st_mtime : newest;
+			else if (m && mn > 0x30 && gxw_be32 (m + 4) == 1 && gxw_be32 (m + 8) == 12)
+			{
+				// the encoder lays a single image out compactly: move just the texels when the image header matches
+				const uint mi = gxw_be32 (m + 12), pi = gxw_be32 (dst + 12);
+				if (mi + 16 <= mn && pi + 16 <= stride && !memcmp (m + mi, dst + pi, 8))
+				{
+					const uint md = gxw_be32 (m + mi + 8), pd = gxw_be32 (dst + pi + 8);
+					const size_t n = mn - md < stride - pd ? mn - md : stride - pd;
+					if (md < mn && pd < stride)
+						memcpy (dst + pd, m + md, n), changed = true, newest = sm.st_mtime > newest ? sm.st_mtime : newest;
+				}
+			}
+			FREE (m);
+		}
+	if (changed && !store (parent, raw, sz))
+	{
+		struct utimbuf t = { sp.st_atime, newest };
+		utime (parent, &t);
+	}
+	FREE (raw);
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
