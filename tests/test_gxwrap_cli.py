@@ -308,6 +308,58 @@ class LtexWrap(unittest.TestCase):
             self.assertEqual(Path(tmp, 'out.d', 'b.ltex').read_bytes()[6], 0x10)  # still LZ11 packed
 
 
+class NtftWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        # (palette colours, texel bytes): direct, 2 bit, a5i3, 4 bit, a3i5 and 8 bit indexed
+        cases = {'d': (0, 2048), 'e': (4, 256), 'f': (8, 1024), 'g': (16, 512), 'h': (32, 1024), 'i': (256, 1024)}
+        col = lambda i: (i % 32, i // 32 * 3 + 1, (i * 7 + 9) % 32 if i < 32 else 4)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, (nc, tsz) in cases.items():
+                (src / (n + '.ntft')).write_bytes(bytes(tsz))
+                if nc:
+                    (src / (n + '.ntfp')).write_bytes(b''.join(struct.pack('<H', c[0] | c[1] << 5 | c[2] << 10) for c in map(col, range(nc))))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            want = {}
+            for n, (nc, tsz) in cases.items():
+                png = Path(tmp, 'in.d', n + '.ntft.d', n + '.png')
+                self.assertTrue(png.exists(), n)
+                w, h, ch, rgba = pngtool._read_png(png)
+                pix = []
+                for i in range(w * h):
+                    k = (i * 7 + i // w * 3) % max(nc, 1)
+                    c = col(k) if nc else ((i * 3) % 32, (i * 5) % 32, (i * 9) % 32)
+                    a = 255 if n not in 'fh' else (255 if i % 3 else 0)
+                    if n in 'fh':
+                        a = (i % 8) * 255 // 7 if n == 'h' else (i % 32) * 255 // 31
+                    pix.append((k, tuple(v * 255 // 31 for v in c), a))
+                want[n] = pix
+                write_png(png, w, h, b''.join(bytes(c) + bytes([a]) for k, c, a in pix))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n, (nc, tsz) in cases.items():
+                data = Path(tmp, 'out.d', n + '.ntft').read_bytes()
+                pix = want[n]
+                self.assertEqual(len(data), tsz)
+                for i, (k, c, a) in enumerate(pix):
+                    if n == 'd':
+                        v = data[2 * i] | data[2 * i + 1] << 8
+                        self.assertEqual((v & 31, v >> 5 & 31, v >> 10 & 31), tuple((x * 31 + 127) // 255 for x in c), (n, i))
+                    elif n == 'e':
+                        self.assertEqual(data[i // 4] >> (2 * (i & 3)) & 3, k, (n, i))
+                    elif n == 'g':
+                        self.assertEqual(data[i // 2] >> (4 * (i & 1)) & 15, k, (n, i))
+                    elif n == 'f':
+                        self.assertEqual((data[i] & 7, data[i] >> 3), (k, (a * 31 + 127) // 255), (n, i))
+                    elif n == 'h':
+                        self.assertEqual((data[i] & 31, data[i] >> 5), (k, (a * 7 + 127) // 255), (n, i))
+                    else:
+                        self.assertEqual(data[i], k, (n, i))
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]

@@ -16,6 +16,7 @@ typedef struct gxw_t
 	bool ptexa; // PTEX kind 2: CMPR colour plane followed by an I4 alpha plane
 	bool flip; // rows are stored bottom-up
 	bool ltex; // Qubic LTEX: RGB565 / RGBA8888 pixels, optionally LZ11 packed (bpp = bytes per pixel)
+	bool ntft; // NITRO raw texels (.ntft) with a sibling .ntfp palette; itype = format, ncol = palette colours
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -275,6 +276,30 @@ static bool locate_ltex (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+enum { NTF_DIRECT = 1, NTF_I2, NTF_A5I3, NTF_I4, NTF_A3I5, NTF_I8 };
+
+// same format deduction as the decoder (extract/ntfraw.inc); the block compressed 4x4 variant (with ".ntfi") is not re-encoded
+static bool locate_ntft (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	(void)raw;
+	if (!has_ext (path, ".ntft") || sz < 8 || sz > 0x400000)
+		return false;
+	size_t psz = 0, isz = 0;
+	u8 *pal = load_sibling (path, ".ntfp", &psz), *idx = load_sibling (path, ".ntfi", &isz);
+	const bool has_pal = pal != 0 && psz <= 0x10000, has_idx = idx != 0;
+	FREE (pal);
+	FREE (idx);
+	if (!has_pal)
+		psz = 0;
+	if (has_idx && psz)
+		return false;
+	const uint ncol = (uint)psz / 2;
+	g->ntft = true, g->ncol = ncol, g->bpp = (uint)sz;
+	g->itype = !ncol ? NTF_DIRECT : psz <= 8 ? NTF_I2 : psz == 16 ? NTF_A5I3 : psz <= 32 ? NTF_I4 : psz == 64 ? NTF_A3I5 : NTF_I8;
+	g->w = g->h = 1; // the real size is the PNG's
+	return true;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -290,7 +315,7 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -1129,6 +1154,52 @@ static enumError reinject_ltex (const Image_t *img, const u8 *raw, size_t sz, co
 	return e;
 }
 
+static enumError reinject_ntft (const Image_t *img, u8 *raw, size_t sz, const gxw_t *g, ccp path)
+{
+	const uint f = g->itype;
+	const size_t px = f == NTF_DIRECT ? sz / 2 : f == NTF_I2 ? sz * 4 : f == NTF_I4 ? sz * 2 : sz;
+	if ((size_t)img->width * img->height != px)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG has %ux%u pixels but the texture holds %zu: %s\n", img->width, img->height, px, path);
+	size_t psz;
+	u8 *pal = load_sibling (path, ".ntfp", &psz);
+	if (!pal && f != NTF_DIRECT)
+		return ERR_NOTHING_TO_DO;
+	memset (raw, 0, sz);
+	for (size_t i = 0; i < px; i++)
+	{
+		const u8 *p = img->data + 4 * ((i / img->width) * img->xwidth + i % img->width);
+		if (f == NTF_DIRECT)
+		{
+			const uint v = (p[0] >> 3) | (p[1] >> 3) << 5 | (p[2] >> 3) << 10 | (p[3] >= 128 ? 0x8000u : 0);
+			raw[2 * i] = (u8)v, raw[2 * i + 1] = (u8)(v >> 8);
+			continue;
+		}
+		uint best = 0, best_d = ~0u;
+		for (uint c = 0; c < (f == NTF_A5I3 ? 8u : f == NTF_A3I5 ? 32u : f == NTF_I2 ? 4u : f == NTF_I4 ? 16u : 256u) && c < g->ncol; c++)
+		{
+			const uint v = gxw_le16 (pal + 2 * c);
+			uint d = 0;
+			for (uint k = 0; k < 3; k++)
+			{
+				const int dv = (int)((v >> (5 * k) & 31) * 255 / 31) - p[k];
+				d += (uint)(dv * dv);
+			}
+			if (d < best_d)
+				best_d = d, best = c;
+		}
+		switch (f)
+		{
+		case NTF_I2: raw[i / 4] |= (u8)(best << (2 * (i & 3))); break;
+		case NTF_I4: raw[i / 2] |= (u8)(best << (4 * (i & 1))); break;
+		case NTF_A5I3: raw[i] = (u8)(best | ((p[3] * 31 + 127) / 255) << 3); break;
+		case NTF_A3I5: raw[i] = (u8)(best | ((p[3] * 7 + 127) / 255) << 5); break;
+		default: raw[i] = (u8)best; break;
+		}
+	}
+	FREE (pal);
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -1172,6 +1243,19 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		if (!e)
 			e = store (dest, out, outn);
 		FREE (out);
+		FREE (raw);
+		return e;
+	}
+	if (g.ntft)
+	{
+		enumError e = ERR_OK;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else
+			e = reinject_ntft (img, raw, sz, &g, dest);
+		if (!e)
+			e = store (dest, raw, sz);
 		FREE (raw);
 		return e;
 	}
