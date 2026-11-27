@@ -804,6 +804,34 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!g->w)
 			return false;
 	}
+	else if ((has_ext (path, ".idd") || has_ext (path, ".eff")) && sz >= 0x30 && (!memcmp (raw, "IDD", 4) || !memcmp (raw, "EFF", 4)))
+	{
+		// MadWorld: section table, "TEX" section with {texture record, palette header} pairs; only direct colour formats are re-encoded
+		size_t tex = 0;
+		for (uint k = 0; k < 32 && 8 + 8 * (size_t)k + 8 <= sz; k++)
+		{
+			const size_t off = gxw_be32 (raw + 12 + 8 * k);
+			if (gxw_be32 (raw + 8 + 8 * k) != k || off < 0x10 || off + 0x20 > sz)
+				break;
+			if (!tex && !memcmp (raw + off, "TEX", 4))
+				tex = off;
+		}
+		if (!tex)
+			return false;
+		const size_t B = tex + gxw_be32 (raw + tex + 12);
+		if (B + 0xc > sz)
+			return false;
+		const uint n = gxw_be32 (raw + B + 4), tab = gxw_be32 (raw + B + 8);
+		if (!n || n > 512 || B + tab + 8 * (size_t)n > sz || gxw_idx >= n)
+			return false;
+		const size_t rec = gxw_be32 (raw + B + tab + 8 * gxw_idx);
+		if (B + rec + 0x10 > sz)
+			return false;
+		g->w = gxw_be16 (raw + B + rec), g->h = gxw_be16 (raw + B + rec + 2), g->gx = gxw_be32 (raw + B + rec + 4);
+		g->doff = B + gxw_be32 (raw + B + rec + 8), g->levels = 1;
+		if (g->gx == 8 || g->gx == 9 || g->gx == 10 || g->w > 2048 || g->h > 2048)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
