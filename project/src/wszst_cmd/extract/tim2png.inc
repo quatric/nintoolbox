@@ -39,7 +39,7 @@ static enumError extract_tim2png_file (ccp arg, ccp basedir, uint depth)
 			{
 				uint idx = itype == 4 ? (pix[i >> 1] >> ((i & 1) * 4)) & 15 : pix[i];
 				if (itype == 5 && !(ctype & 0x80) && ncol >= 256)
-					idx = (idx & 0x18) == 8 ? idx ^ 0x10 : (idx & 0x18) == 0x10 ? idx ^ 8 : idx;
+					idx = (idx & 0x18) == 8 || (idx & 0x18) == 0x10 ? idx ^ 0x18 : idx; // CSM1: swap bits 3 and 4
 				if (idx >= ncol)
 					idx = 0;
 				c = clut + (size_t)idx * cbpp / 8;

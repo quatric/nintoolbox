@@ -9,10 +9,14 @@ typedef struct gxw_t
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
+	uint itype, ctype, ncol;
+	size_t clut;
 } gxw_t;
 
 static uint gxw_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
+static uint gxw_le16 (const u8 *p) { return p[0] | p[1] << 8; }
 static uint gxw_be32 (const u8 *p) { return (uint)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 static uint gxw_le32 (const u8 *p) { return (uint)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0]; }
 
@@ -76,6 +80,28 @@ static bool locate_tga (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return true;
 }
 
+// PS2 TIM2 with one image (see extract_tim2png_file); only the top mip level is handled
+static bool locate_tim2 (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	if (!has_ext (path, ".tm2") || sz < 0x40 || memcmp (raw, "TIM2", 4) || gxw_le16 (raw + 6) != 1)
+		return false;
+	const u8 *h = raw + 0x10;
+	const size_t total = gxw_le32 (h), clutsz = gxw_le32 (h + 4), imgsz = gxw_le32 (h + 8);
+	const uint hs = gxw_le16 (h + 12), ncol = gxw_le16 (h + 14), ctype = h[18], itype = h[19];
+	const uint w = gxw_le16 (h + 20), ht = gxw_le16 (h + 22);
+	if (total < hs || 0x10 + total > sz || hs < 0x30 || !w || !ht || w > 4096 || ht > 4096 || itype < 1
+		|| itype > 5)
+		return false;
+	const uint bpp = itype == 1 ? 16 : itype == 2 ? 24 : itype == 3 ? 32 : itype == 4 ? 4 : 8;
+	const uint cbpp = (ctype & 3) == 1 ? 16 : (ctype & 3) == 2 ? 24 : (ctype & 3) == 3 ? 32 : 0;
+	if ((u64)w * ht * bpp / 8 > imgsz || hs + imgsz + clutsz > total
+		|| (itype >= 4 && (!cbpp || (u64)ncol * cbpp / 8 > clutsz)))
+		return false;
+	g->tim2 = true, g->w = w, g->h = ht, g->bpp = itype >= 4 ? cbpp : bpp, g->itype = itype;
+	g->ctype = ctype, g->ncol = ncol, g->doff = 0x10 + hs, g->clut = 0x10 + hs + imgsz;
+	return true;
+}
+
 // first image of a TPL starting at raw+toff
 static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 {
@@ -93,7 +119,7 @@ static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -271,6 +297,70 @@ static enumError store (ccp path, const u8 *data, size_t size)
 	return ERR_OK;
 }
 
+static u8 tim2_alpha (uint a, uint bits) { return bits == 1 ? (a >= 128) : a >= 128 ? 0x80 : a / 2; }
+
+// direct colour types are re-encoded; indexed types pick the nearest entry of the file's own CLUT
+static enumError reinject_tim2 (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	u8 *pix = raw + g->doff;
+	for (uint y = 0; y < g->h; y++)
+		for (uint x = 0; x < g->w; x++)
+		{
+			const uint i = y * g->w + x;
+			const u8 *p = img->data + 4 * ((size_t)y * img->xwidth + x);
+			if (g->itype < 4)
+			{
+				u8 *o = pix + (size_t)i * g->bpp / 8;
+				if (g->bpp == 16)
+				{
+					const uint v = (p[0] * 31 + 127) / 255 | (p[1] * 31 + 127) / 255 << 5
+						| (p[2] * 31 + 127) / 255 << 10 | tim2_alpha (p[3], 1) << 15;
+					o[0] = v, o[1] = v >> 8;
+				}
+				else
+				{
+					o[0] = p[0], o[1] = p[1], o[2] = p[2];
+					if (g->bpp == 32)
+						o[3] = tim2_alpha (p[3], 8);
+				}
+				continue;
+			}
+			uint best = 0, best_d = ~0u;
+			const uint cb = g->bpp / 8;
+			for (uint c = 0; c < g->ncol && best_d; c++)
+			{
+				const u8 *e = raw + g->clut + (size_t)c * g->bpp / 8; // physical CLUT position
+				u8 col[4] = { 0, 0, 0, 255 };
+				if (g->bpp == 16)
+				{
+					const uint v = e[0] | e[1] << 8;
+					col[0] = (v & 31) * 255 / 31, col[1] = (v >> 5 & 31) * 255 / 31;
+					col[2] = (v >> 10 & 31) * 255 / 31, col[3] = v & 0x8000 ? 255 : 0;
+				}
+				else
+				{
+					col[0] = e[0], col[1] = e[1], col[2] = e[2];
+					if (cb == 4)
+						col[3] = e[3] >= 0x80 ? 255 : e[3] * 2;
+				}
+				uint d = 0;
+				for (uint k = 0; k < 4; k++)
+					d += (uint)((int)col[k] - (int)p[k]) * (uint)((int)col[k] - (int)p[k]);
+				if (d < best_d)
+					best_d = d, best = c;
+			}
+			// 8 bit CLUTs are block swizzled (swapping bits 3 and 4 is its own inverse)
+			uint store_idx = best;
+			if (g->itype == 5 && !(g->ctype & 0x80) && g->ncol >= 256)
+				store_idx = (best & 0x18) == 8 || (best & 0x18) == 0x10 ? best ^ 0x18 : best;
+			if (g->itype == 4)
+				pix[i >> 1] = (u8)((pix[i >> 1] & (i & 1 ? 0x0f : 0xf0)) | store_idx << ((i & 1) * 4));
+			else
+				pix[i] = (u8)store_idx;
+		}
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -280,6 +370,22 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (g.tim2)
+	{
+		enumError e = ERR_OK;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the TIM2 is %ux%u: %s\n", img->width,
+				img->height, g.w, g.h, dest);
+		else
+			e = reinject_tim2 (img, raw, &g);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.tga)
 	{

@@ -149,5 +149,49 @@ class TgaWrap(unittest.TestCase):
             self.assertEqual(Path(tmp, 'out.d', 'b.dat').read_bytes()[18:22], b'ID01')
 
 
+def tim2(itype, ctype, ncol, pixels, clut):
+    hdr = bytearray(0x30)
+    struct.pack_into('<IIIHHBBBBHH', hdr, 0, 0x30 + len(pixels) + len(clut), len(clut), len(pixels), 0x30, ncol, 0, 1, ctype, itype, W, H)
+    return b'TIM2' + bytes([4, 0]) + struct.pack('<H', 1) + bytes(8) + bytes(hdr) + pixels + clut
+
+
+def swz(i):  # CSM1 block swizzle: swap bits 3 and 4
+    return (i & ~0x18) | (i >> 1 & 8) | (i << 1 & 0x10)
+
+
+class Tim2Wrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [((i * 7) % 256, 255 - i, (i * 3) % 256, 255) for i in range(256)]
+        clut = b''.join(bytes(c[:3]) + b'\x80' for c in pal)  # 32 bit entries, PS2 alpha 0x80 = opaque
+        logical = lambda x, y: (x * 7 + y * 13) % 256
+        idx8 = bytes(swz(logical(x, y)) for y in range(H) for x in range(W))
+        files = {'a.tm2': tim2(3, 3, 0, bytes(W * H * 4), b''),
+                 'b.tm2': tim2(2, 0, 0, bytes(W * H * 3), b''),
+                 'c.tm2': tim2(5, 3, 256, bytes(W * H), clut)}
+        edit = {'a.tm2': lambda x, y: (x * 16, y * 16, 128, 255), 'b.tm2': lambda x, y: (x * 16, y * 16, 128, 255),
+                'c.tm2': lambda x, y: pal[logical(x, y)]}
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, d in files.items():
+                (src / n).write_bytes(d)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            for n, f in edit.items():
+                self.assertTrue(Path(tmp, 'in.d', n + '.png').exists(), n)
+                write_png(Path(tmp, 'in.d', n + '.png'), W, H, b''.join(bytes(f(x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n, f in edit.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', n + '.png'))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertEqual(tuple(rgba(x, y)), f(x, y), (n, x, y))
+            out = Path(tmp, 'out.d', 'c.tm2').read_bytes()
+            self.assertEqual(out[0x40:0x40 + W * H], idx8)  # swizzled stored indices
+            self.assertTrue(out.endswith(clut))  # the palette is untouched
+
+
 if __name__ == '__main__':
     unittest.main()
