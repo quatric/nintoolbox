@@ -10,6 +10,8 @@ typedef struct gxw_t
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	bool ivt; // ACB Total .ivt: BGRA8 / BGR8 / LA8 / L8 pixels XOR-scrambled with a short key (ncol = key variant, bpp = bytes per pixel)
+	bool apx; // Capcom Zack and Wiki .apx: 24 bit linear RGB behind a 0x20 byte header
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -170,6 +172,47 @@ static bool locate_nbfc (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return ok;
 }
 
+static const u8 ivt_key[3][7] = { { 0x99, 0x44, 0x87 }, { 0xba, 0x8c, 0xab, 0x9e, 0x99 }, { 0xb0, 0x8f, 0xbe, 0x93, 0x9a, 0x8d, 0xb2 } };
+static const uint ivt_klen[3] = { 3, 5, 7 };
+
+// same size / geometry deduction as the decoder (extract/acbivt.inc)
+static bool locate_ivt (const u8 *raw, size_t sz, gxw_t *g)
+{
+	static const u8 hdr[3][6] = { { 0x2f, 0xcd, 0x1a, 0x36, 0xd8, 0x2f }, { 0x2f, 0x33, 0x11, 0x04, 0x02, 0x31 }, { 0x39, 0x37, 0x0e, 0x35, 0x11, 0x1a } };
+	static const uint base[5] = { 0, 229, 37, 101, 165 };
+	if (sz < 16 || raw[1] > 2 || memcmp (raw + 2, hdr[raw[1]], 6))
+		return false;
+	const u64 nb = sz - 8;
+	for (uint b = 4; b >= 1; b--)
+	{
+		if (nb % b)
+			continue;
+		const u64 cand = nb / b;
+		if (cand & (cand - 1))
+			continue;
+		uint sb = 0;
+		while (((u64)1 << sb) < cand)
+			sb++;
+		const int t = 8 * (int)sb - (int)((raw[0] - base[b]) & 255);
+		if (t < 0 || t % 7 || t / 7 > (int)sb || t / 7 > 13 || sb - t / 7 > 13)
+			continue;
+		g->ivt = true, g->bpp = b, g->ncol = raw[1], g->w = 1u << (t / 7), g->h = 1u << (sb - t / 7), g->doff = 8;
+		return true;
+	}
+	return false;
+}
+
+static bool locate_apx (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz <= 0x20 || gxw_le32 (raw) != sz || gxw_le16 (raw + 12) != 24 || gxw_le32 (raw + 8) || gxw_le16 (raw + 18) != 1)
+		return false;
+	const uint w = gxw_le16 (raw + 14), h = gxw_le16 (raw + 16);
+	if (!w || !h || gxw_le32 (raw + 4) != w * h * 3 || 0x20 + (size_t)w * h * 3 != sz)
+		return false;
+	g->apx = true, g->w = w, g->h = h, g->doff = 0x20;
+	return true;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -185,7 +228,7 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -681,6 +724,26 @@ static enumError reinject_tklt (const Image_t *img, const u8 *raw, size_t sz, cc
 	return e;
 }
 
+static void reinject_ivt (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	const u8 *key = ivt_key[g->ncol];
+	const uint kl = ivt_klen[g->ncol];
+	for (size_t i = 0; i < (size_t)g->w * g->h; i++)
+	{
+		const u8 *p = img->data + 4 * ((i / g->w) * img->xwidth + i % g->w);
+		const u8 lum = (u8)((p[0] + p[1] + p[2]) / 3);
+		const u8 v[4] = { g->bpp < 3 ? lum : p[2], g->bpp == 2 ? p[3] : p[1], p[0], p[3] };
+		for (uint c = 0; c < g->bpp; c++)
+			raw[g->doff + i * g->bpp + c] = v[c] ^ key[(i * g->bpp + c) % kl];
+	}
+}
+
+static void reinject_apx (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	for (size_t i = 0; i < (size_t)g->w * g->h; i++)
+		memcpy (raw + g->doff + 3 * i, img->data + 4 * ((i / g->w) * img->xwidth + i % g->w), 3);
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -723,7 +786,7 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		FREE (raw);
 		return e;
 	}
-	if (g.tim2 || g.dst1)
+	if (g.tim2 || g.dst1 || g.ivt || g.apx)
 	{
 		enumError e = ERR_OK;
 		Transform2XIMG (img);
@@ -732,6 +795,10 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		else if (img->width != g.w || img->height != g.h)
 			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width,
 				img->height, g.w, g.h, dest);
+		else if (g.apx)
+			reinject_apx (img, raw, &g);
+		else if (g.ivt)
+			reinject_ivt (img, raw, &g);
 		else if (g.dst1)
 			reinject_dst1 (img, raw, &g);
 		else

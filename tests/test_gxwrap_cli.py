@@ -64,7 +64,8 @@ def wrappers():
     krome = struct.pack('>IIIIII', 0, W, H, len(base), 0, 0) + bytes(8) + base
     gvr = b'GCIX' + struct.pack('<I', 8) + bytes(8) + b'GVRT' + struct.pack('<I', 8 + len(base)) + b'\0\0\0\x06' + struct.pack('>HH', W, H) + base
     aig = b'ALIG' + struct.pack('<I', 0x0102) + b'GC32' + bytes(4) + struct.pack('<HH', W, H) + bytes(0x0c) + struct.pack('>I', len(base)) + bytes(0x1c) + base
-    return {'w.aig': aig, 'v.gvr': gvr, 'q.hvt': hvt, 'r.etx': etx, 's.txe': txe, 'u.tex': krome, 'm.d4': d4, 'n.wii': petvet, 'o.ngcbm': ngcbm, 'p.MWT': mwt, 'i.a2': a2, 'j.iwi': iwi, 'k.5a3': bytes(192 * 64 * 2), 'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
+    apx = struct.pack('<IIIHHHH', 0x20 + W * H * 3, W * H * 3, 0, 24, W, H, 1) + bytes(12) + bytes(W * H * 3)
+    return {'x.apx': apx, 'w.aig': aig, 'v.gvr': gvr, 'q.hvt': hvt, 'r.etx': etx, 's.txe': txe, 'u.tex': krome, 'm.d4': d4, 'n.wii': petvet, 'o.ngcbm': ngcbm, 'p.MWT': mwt, 'i.a2': a2, 'j.iwi': iwi, 'k.5a3': bytes(192 * 64 * 2), 'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
             'g.tgs': bytes(tgs) + tpl, 'h.pix': b'FPIX' + bytes(0x1c) + tpl,
             'd.gaftx': bytes(gaf) + base, 't.bin': bytes(gct) + base, 'a.wit': wit, 'b.CTX': ctx, 'c.s3t': s3t}
 
@@ -84,7 +85,7 @@ class GxWrap(unittest.TestCase):
             d = Path(tmp, 'in.d')
             names = {'t.bin': 't.bin.png', 'a.wit': 'a.wit.png', 'b.CTX': 'b.CTX.png', 'c.s3t': 'c.s3t.tpl.png', 'd.gaftx': 'd.png',
              'e.bct': 'e.bct.tpl.png', 'f.txw': 'f.txw.tpl.png', 'g.tgs': 'g.tgs.tpl.png', 'h.pix': 'h.pix.tpl.png',
-             'i.a2': 'i.a2.png', 'm.d4': 'm.png', 'q.hvt': 'q.hvt.png', 'v.gvr': 'v.gvr.png', 'w.aig': 'w.aig.d/w.png', 'r.etx': 'r.etx.d/r.png', 's.txe': 's.bti.png', 'u.tex': 'u.png', 'n.wii': 'n.png', 'o.ngcbm': 'o.ngcbm.png', 'p.MWT': 'p.MWT.png', 'j.iwi': 'j.iwi.png', 'k.5a3': 'k.5a3.png'}
+             'i.a2': 'i.a2.png', 'm.d4': 'm.png', 'q.hvt': 'q.hvt.png', 'v.gvr': 'v.gvr.png', 'w.aig': 'w.aig.d/w.png', 'x.apx': 'x.apx.d/x.png', 'r.etx': 'r.etx.d/r.png', 's.txe': 's.bti.png', 'u.tex': 'u.png', 'n.wii': 'n.png', 'o.ngcbm': 'o.ngcbm.png', 'p.MWT': 'p.MWT.png', 'j.iwi': 'j.iwi.png', 'k.5a3': 'k.5a3.png'}
             time.sleep(1.1)
             for name, png in names.items():
                 self.assertTrue((d / png).exists(), png)
@@ -304,6 +305,35 @@ class TkltWrap(unittest.TestCase):
                     exp = want(x, y)
                     self.assertEqual(got[:3] if exp[3] else got[3], exp[:3] if exp[3] else 0, (x, y))
             self.assertTrue(Path(tmp, 'out.d', '2d', 'palette', 'p.pal').read_bytes() == ttlp)
+
+
+class IvtWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        hdr = [bytes([0x2f, 0xcd, 0x1a, 0x36, 0xd8, 0x2f]), bytes([0x2f, 0x33, 0x11, 0x04, 0x02, 0x31]), bytes([0x39, 0x37, 0x0e, 0x35, 0x11, 0x1a])]
+        files = {'a.ivt': (4, 0), 'b.ivt': (3, 1), 'c.ivt': (2, 2), 'd.ivt': (1, 0)}
+        base = {4: 165, 3: 101, 2: 37, 1: 229}
+        # gray / transparent test pixels survive every layout; colour only the 3 and 4 byte ones
+        def px(bpp, x, y):
+            g = (x * 16 + y) % 256
+            return (g, g, g, 255 if bpp != 2 else (y * 16 + 7) % 256) if bpp < 3 else (x * 16 % 256, y * 16 % 256, 128, 255 if bpp == 3 else (x + y * 3) % 256)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, (bpp, var) in files.items():
+                (src / n).write_bytes(bytes([(base[bpp] + 4 + 32) & 255, var]) + hdr[var] + bytes(W * H * bpp))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            for n, (bpp, var) in files.items():
+                self.assertTrue(Path(tmp, 'in.d', n + '.png').exists(), n)
+                write_png(Path(tmp, 'in.d', n + '.png'), W, H, b''.join(bytes(px(bpp, x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n, (bpp, var) in files.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', n + '.png'))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertEqual(tuple(rgba(x, y)), px(bpp, x, y)[:len(tuple(rgba(x, y)))], (n, x, y))
 
 
 if __name__ == '__main__':
