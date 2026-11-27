@@ -15,6 +15,18 @@
 #undef malloc
 #undef realloc
 #include <stdint.h>
+
+static inline uint32_t mvdk_ld32 (const void *p)
+{
+	uint32_t v;
+	memcpy (&v, p, sizeof (v));
+	return v;
+}
+
+static inline void mvdk_st32 (void *p, uint32_t v)
+{
+	memcpy (p, &v, sizeof (v));
+}
 #ifndef min
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #endif
@@ -733,7 +745,7 @@ int CxIsCompressedLZ (const unsigned char *buffer, unsigned int size)
 		return 0;
 	if (*buffer != 0x10)
 		return 0;
-	uint32_t length = (*(uint32_t *)buffer) >> 8;
+	uint32_t length = mvdk_ld32 (buffer) >> 8;
 	if ((length / 144) * 17 + 4 > size)
 		return 0;
 
@@ -801,7 +813,7 @@ int CxIsCompressedRL (const unsigned char *buffer, unsigned int size)
 		return 0;
 	if (*buffer != 0x30)
 		return 0;
-	uint32_t header = *(uint32_t *)buffer;
+	uint32_t header = mvdk_ld32 (buffer);
 	unsigned int uncompSize = header >> 8;
 
 	unsigned int dstOfs = 0;
@@ -1188,7 +1200,7 @@ int CxDecompressDeflate (
 		return 0;
 
 	const unsigned char *pos = filebuf + 4;
-	const size_t destSize = (*(uint32_t *)filebuf) >> 2;
+	const size_t destSize = mvdk_ld32 (filebuf) >> 2;
 
 	size_t d = 0;
 	while (d < destSize)
@@ -1206,12 +1218,12 @@ static int CxiMvdkIsValidLZ (const unsigned char *buffer, unsigned int size)
 	if (size < 4)
 		return 0;
 	// same format as standard LZ, with different header
-	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
+	uint32_t uncompSize = mvdk_ld32 (buffer) >> 2;
 	unsigned char *copy = (unsigned char *)malloc (size);
 	if (!copy)
 		return 0;
 	memcpy (copy, buffer, size);
-	*(uint32_t *)copy = 0x10 | (uncompSize << 8);
+	mvdk_st32 (copy, 0x10 | (uncompSize << 8));
 	int valid = CxIsCompressedLZ (copy, size);
 	free (copy);
 	return valid;
@@ -1222,12 +1234,12 @@ static int CxiMvdkIsValidRL (const unsigned char *buffer, unsigned int size)
 	if (size < 4)
 		return 0;
 	// same format as standard LZ, with different header
-	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
+	uint32_t uncompSize = mvdk_ld32 (buffer) >> 2;
 	unsigned char *copy = (unsigned char *)malloc (size);
 	if (!copy)
 		return 0;
 	memcpy (copy, buffer, size);
-	*(uint32_t *)copy = 0x30 | (uncompSize << 8);
+	mvdk_st32 (copy, 0x30 | (uncompSize << 8));
 	int valid = CxIsCompressedRL (copy, size);
 	free (copy);
 	return valid;
@@ -1236,7 +1248,7 @@ static int CxiMvdkIsValidRL (const unsigned char *buffer, unsigned int size)
 static int CxiMvdkIsValidDeflate (const unsigned char *buffer, unsigned int size)
 {
 	const unsigned char *pos = buffer + 4;
-	const size_t destSize = (*(uint32_t *)buffer) >> 2; // sized only, never written
+	const size_t destSize = mvdk_ld32 (buffer) >> 2; // sized only, never written
 	DEFLATE_WORK_BUFFER *work = (DEFLATE_WORK_BUFFER *)calloc (1, sizeof (DEFLATE_WORK_BUFFER));
 	if (!work)
 		return 0;
@@ -1279,7 +1291,7 @@ unsigned char *CxDecompressLZ (
 		return NULL;
 
 	// find the length of the decompressed buffer.
-	uint32_t length = (*(uint32_t *)buffer) >> 8;
+	uint32_t length = mvdk_ld32 (buffer) >> 8;
 
 	// create a buffer for the decompressed buffer
 	unsigned char *result = (unsigned char *)malloc (length);
@@ -1352,7 +1364,7 @@ unsigned char *CxDecompressRL (
 			*uncompressedSize = 0;
 		return NULL;
 	}
-	unsigned int uncompSize = (*(uint32_t *)buffer) >> 8;
+	unsigned int uncompSize = mvdk_ld32 (buffer) >> 8;
 	if (!uncompSize)
 	{
 		*uncompressedSize = 0;
@@ -1405,7 +1417,7 @@ fail:
 
 static int CxiMvdkGetCompressionType (const unsigned char *buffer, unsigned int size)
 {
-	return (*(uint32_t *)buffer) & 3;
+	return mvdk_ld32 (buffer) & 3;
 }
 
 int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size)
@@ -1413,7 +1425,7 @@ int CxIsCompressedMvDK (const unsigned char *buffer, unsigned int size)
 	if (size < 4)
 		return 0;
 
-	uint32_t uncompSize = (*(uint32_t *)buffer) >> 2;
+	uint32_t uncompSize = mvdk_ld32 (buffer) >> 2;
 	int type = CxiMvdkGetCompressionType (buffer, size);
 	// The LZ/RLE validators below adapt the MVDK stream to Nitro's 24-bit
 	// length header.  Do not truncate a 30-bit MVDK size into that header:
@@ -1444,7 +1456,7 @@ static unsigned char *CxiMvdkDecompressDummy (
 		*uncompressedSize = 0;
 		return NULL;
 	}
-	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
+	uint32_t outlen = mvdk_ld32 (buffer) >> 2;
 	if (outlen > size - 4)
 	{
 		*uncompressedSize = 0;
@@ -1471,7 +1483,7 @@ static unsigned char *CxiMvdkDecompressLZ (
 		*uncompressedSize = 0;
 		return NULL;
 	}
-	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
+	uint32_t outlen = mvdk_ld32 (buffer) >> 2;
 
 	unsigned char *copy = (unsigned char *)malloc (size);
 	if (!copy)
@@ -1480,7 +1492,7 @@ static unsigned char *CxiMvdkDecompressLZ (
 		return NULL;
 	}
 	memcpy (copy, buffer, size);
-	*(uint32_t *)copy = 0x10 | (outlen << 8);
+	mvdk_st32 (copy, 0x10 | (outlen << 8));
 	unsigned char *out = CxDecompressLZ (copy, size, uncompressedSize);
 	free (copy);
 
@@ -1495,7 +1507,7 @@ static unsigned char *CxiMvdkDecompressRL (
 		*uncompressedSize = 0;
 		return NULL;
 	}
-	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
+	uint32_t outlen = mvdk_ld32 (buffer) >> 2;
 
 	unsigned char *copy = (unsigned char *)malloc (size);
 	if (!copy)
@@ -1504,7 +1516,7 @@ static unsigned char *CxiMvdkDecompressRL (
 		return NULL;
 	}
 	memcpy (copy, buffer, size);
-	*(uint32_t *)copy = 0x30 | (outlen << 8);
+	mvdk_st32 (copy, 0x30 | (outlen << 8));
 	unsigned char *out = CxDecompressRL (copy, size, uncompressedSize);
 	free (copy);
 
@@ -1519,7 +1531,7 @@ static unsigned char *CxiMvdkDecompressDeflate (
 		*uncompressedSize = 0;
 		return NULL;
 	}
-	uint32_t outlen = (*(uint32_t *)buffer) >> 2;
+	uint32_t outlen = mvdk_ld32 (buffer) >> 2;
 	*uncompressedSize = outlen;
 	unsigned char *dest = malloc (outlen ? outlen : 1);
 	if (!dest)
@@ -1555,7 +1567,7 @@ unsigned char *CxDecompressMvDK (
 			*uncompressedSize = 0;
 		return NULL;
 	}
-	int type = (*(uint32_t *)buffer) & 3;
+	int type = mvdk_ld32 (buffer) & 3;
 	switch (type)
 	{
 		case MVDK_DUMMY:

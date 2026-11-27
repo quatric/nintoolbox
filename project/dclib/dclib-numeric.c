@@ -870,7 +870,10 @@ uint GetTextBOMLen (const void *data, uint data_size)
 	if (data_size >= 3 && (!memcmp (data, be_bom, 3) || !memcmp (data, le_bom, 3)))
 		return 3;
 
-	if (data_size >= 2 && (*(u16 *)data == 0xfeff || *(u16 *)data == 0xfffe))
+	u16 bom16 = 0;
+	if (data_size >= 2)
+		memcpy (&bom16, data, sizeof (bom16));
+	if (data_size >= 2 && (bom16 == 0xfeff || bom16 == 0xfffe))
 		return 2;
 
 	return 0;

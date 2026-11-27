@@ -3420,8 +3420,14 @@ void PrintVersionSZS (char *buf, uint buf_size, struct szs_iterator_t *it)
 	// [[version-suffix]]
 
 	const u8 *data = it->szs->data + it->off;
-	file_format_t fform = GetByMagicFF (data, it->size, 0);
-	if (IsBRSUB (fform) && it->size >= 12)
+	if (it->off > it->szs->size)
+	{
+		strncpy (buf, "  - ", buf_size);
+		return;
+	}
+	const uint size = it->size > it->szs->size - it->off ? it->szs->size - it->off : it->size;
+	file_format_t fform = GetByMagicFF (data, size, 0);
+	if (IsBRSUB (fform) && size >= 12)
 	{
 		const int vers = be32 (data + 8);
 		const brsub_info_t *bi = GetInfoBRSUB (fform, vers);
@@ -3435,7 +3441,7 @@ void PrintVersionSZS (char *buf, uint buf_size, struct szs_iterator_t *it)
 	}
 	else
 	{
-		const int vers = GetVersionFF (fform, data, it->size, 0);
+		const int vers = GetVersionFF (fform, data, size, 0);
 		if (vers >= 0)
 		{
 			snprintf (buf, buf_size, "%3u ", vers);

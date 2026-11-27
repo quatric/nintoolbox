@@ -2641,11 +2641,13 @@ static int IterateFilesBMG (szs_iterator_t *it, // iterator struct with all info
 	const bmg_section_t *sect = (bmg_section_t *)(bh + 1);
 	char id_buf[sizeof (sect->magic) + 1];
 	int idx;
-	for (idx = 0; (u8 *)sect < data_end && !stat; idx++)
+	for (idx = 0; (u8 *)sect + sizeof (*sect) <= data_end && !stat; idx++)
 	{
-		const uint sect_size = it->endian->rd32 (&sect->size);
-		if (!sect_size)
+		uint sect_size = it->endian->rd32 (&sect->size);
+		if (sect_size < sizeof (*sect))
 			break;
+		if (sect_size > (uint)(data_end - (u8 *)sect))
+			sect_size = data_end - (u8 *)sect;
 
 		it->index++;
 		it->off = (u8 *)sect - data;
