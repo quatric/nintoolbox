@@ -659,6 +659,25 @@ class OpoonaTpl(unittest.TestCase):
             self.assertEqual(out[:4], tpl[:4])
             self.assertEqual(out[0x60:0x64], bytes([0xff, 0xc8, 0xff, 0xc8]))
 
+    def test_tple_bundle(self):
+        one = struct.pack('>IIIIIHHII', 0, 1, 12, 20, 0, 16, 16, 6, 0x60).ljust(0x60, b'\0') + bytes(1024)
+        hdr = (b'TPLE' + bytes(12) + struct.pack('>III', 3, len(one), 0x40) + b'a.tpl').ljust(0x40, b'\0')
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.tpl').write_bytes(hdr + one * 3)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            time.sleep(1.1)
+            write_png(Path(tmp, 'ex', 'a.tpl.d', 'a_1.tpl.png'), 16, 16, bytes([200, 100, 50, 255]) * 256)
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            out = Path(tmp, 'ex', 'a.tpl').read_bytes()
+            self.assertEqual(len(out), len(hdr + one * 3))
+            self.assertEqual(out[:4], b'TPLE')
+            base = 0x40 + len(one)
+            self.assertEqual(out[base + 0x60:base + 0x64], bytes([0xff, 0xc8, 0xff, 0xc8]))
+            self.assertEqual(out[0x40 + 0x60:0x40 + 0x64], bytes(4))
+
 
 if __name__ == '__main__':
     unittest.main()
