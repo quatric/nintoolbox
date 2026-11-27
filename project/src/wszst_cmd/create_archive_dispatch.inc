@@ -920,7 +920,7 @@ static enumError repack_directory_contents (ccp root)
 			if (!found_target)
 			{
 				char cand[PATH_MAX];
-				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", ".wsp", ".gct", ".rtex", 0 };
+				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", ".pvr", ".PVR", ".wsp", ".gct", ".rtex", ".tbb", 0 };
 				for (int k = 0; raw_exts[k] && !found_target; k++)
 				{
 					snprintf (cand, sizeof (cand), "%s%s", stem, raw_exts[k]);
@@ -994,6 +994,17 @@ static enumError repack_directory_contents (ccp root)
 					multi = found_target;
 					break;
 				}
+
+			// 3f. "foo_3.png": texture 3 of the Avalanche atlas "foo.thb" / "foo.tbb"
+			if (!found_target && (stem_ext = strrchr (stem, '_')) != 0 && isdigit ((u8)stem_ext[1]) && stem_ext[1 + strspn (stem_ext + 1, "0123456789")] == 0)
+			{
+				snprintf (target_img, sizeof (target_img), "%.*s.tbb", (int)(stem_ext - stem), stem);
+				gx_index = (uint)strtoul (stem_ext + 1, 0, 10);
+				GXWrapSetIndex (gx_index);
+				found_target = stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img);
+				GXWrapSetIndex (0);
+				multi = found_target;
+			}
 
 			if (found_target)
 			{

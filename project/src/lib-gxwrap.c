@@ -610,10 +610,38 @@ static bool locate_rtex (const u8 *raw, size_t sz, gxw_t *g)
 	return ok;
 }
 
+// Avalanche ".tbb" (Cars 2): the texels of texture gxw_idx of the sibling ".thb" {u32 count, count * {record, tbb offset, bytes}, records with w / h / format at +12}
+static bool locate_tbb (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	size_t tn;
+	u8 *t = load_sibling (path, ".thb", &tn);
+	bool ok = false;
+	if (t && tn >= 48)
+	{
+		const uint n = gxw_be32 (t);
+		if (n && n <= 256 && 4 + 12 * (size_t)n <= tn && gxw_idx < n)
+		{
+			const u8 *e = t + 4 + 12 * (size_t)gxw_idx;
+			const size_t rec = gxw_be32 (e), off = gxw_be32 (e + 4), bytes = gxw_be32 (e + 8);
+			if (rec + 32 <= tn && off + bytes <= sz)
+			{
+				const uint w = gxw_be16 (t + rec + 12), h = gxw_be16 (t + rec + 14), fmt = gxw_be16 (t + rec + 16);
+				if (w && h && w <= 4096 && h <= 4096 && gx_ok (fmt) && level_size (fmt, w, h) <= bytes)
+				{
+					g->gx = fmt, g->w = w, g->h = h, g->doff = off, g->avail = bytes;
+					ok = true;
+				}
+			}
+		}
+	}
+	FREE (t);
+	return ok;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{

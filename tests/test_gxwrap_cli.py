@@ -934,5 +934,38 @@ class RtexWrap(unittest.TestCase):
                     self.assertEqual((tuple(rgba(i % 8, i // 8)) + (255,))[:4], p if fmt != 'i8' else p, (fmt, i))
 
 
+class AvalancheTbb(unittest.TestCase):
+    def test_atlas_and_single(self):
+        def thb(n):
+            hd = struct.pack('>I', n)
+            recs = b''
+            base = 4 + 12 * n
+            for i in range(n):
+                hd += struct.pack('>III', base + 32 * i, 256 * i, 256)
+                recs += bytes(12) + struct.pack('>HHH', 8, 8, 6).ljust(20, b'\0')
+            return hd + recs
+        px = lambda i: [((x * 30 + i * 50) % 256, (y * 30) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(8) for x in range(8)]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.thb').write_bytes(thb(2)); (src / 'a.tbb').write_bytes(bytes(512))
+            (src / 's.thb').write_bytes(thb(1)); (src / 's.tbb').write_bytes(bytes(256))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            names = sorted(x.name for x in Path(tmp, 'ex').glob('*.png'))
+            self.assertEqual(names, ['a_0.png', 'a_1.png', 's.png'])
+            time.sleep(1.1)
+            want = {'a_0.png': px(0), 'a_1.png': px(1), 's.png': px(2)}
+            for n, p in want.items():
+                write_png(Path(tmp, 'ex', n), 8, 8, b''.join(bytes(q) for q in p))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/a.thb', '--decode', '-o'); run('xx', 'ex/s.thb', '--decode', '-o')
+            for n, p in want.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'ex', n))
+                for i, q in enumerate(p):
+                    self.assertEqual((tuple(rgba(i % 8, i // 8)) + (255,))[:4], q, (n, i))
+
+
 if __name__ == '__main__':
     unittest.main()
