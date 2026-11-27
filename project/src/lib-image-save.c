@@ -47,6 +47,7 @@
 #include "lib-pica3ds.h"
 #include "lib-dds.h"
 #include "lib-astc-file.h"
+#include "lib-gxwrap.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////			MipmapOptions_t			///////////////
@@ -465,6 +466,14 @@ enumError encode_image_from_png (ccp png_path, ccp dest_path)
 		return ERR_NOTHING_TO_DO;
 	}
 
+	// raw GX wrappers (GCT0, WIT, CTX, GAFTX, S3T) keep their header and take new pixels in place
+	if (GXWrapIsFile (dest_path))
+	{
+		err = GXWrapReinject (&img, dest_path);
+		ResetIMG (&img);
+		return err;
+	}
+
 	// If target exists, inherit its internal pixel format / palette format.
 	// Resolve the freshly decoded PNG (still raw IMG_X_* here) to a real,
 	// correctly packed format first -- stomping img.iform directly (as this
@@ -481,7 +490,7 @@ enumError encode_image_from_png (ccp png_path, ccp dest_path)
 		const palette_format_t inherited_pform = orig_img.pform;
 		ResetIMG (&orig_img);
 
-		Transform2InternIMG (&img);
+		Transform2DirectIMG (&img, inherited_iform);
 		err = ExecTransformIMG (&img);
 		if (err)
 		{
@@ -506,6 +515,8 @@ enumError encode_image_from_png (ccp png_path, ccp dest_path)
 		if (img.iform == IMG_INVALID || img.iform == IMG_X_RGB)
 			img.iform = IMG_CMPR;
 		err = SaveTPL (&img, FF_TPL, 0, dest_path, true);
+		if (!err)
+			GXWrapSyncFromTPL (dest_path); // "<name>.s3t.tpl" is the decoded form of "<name>.s3t"
 	}
 	else if (!strcasecmp (dot, ".bti"))
 	{

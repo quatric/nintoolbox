@@ -470,6 +470,29 @@ bool Transform2InternIMG (Image_t *img)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// Like Transform2InternIMG(), but target a given direct-colour format straight away.
+// Going through the default RGB565/RGB5A3 first would quantize a PNG before it
+// is stored as RGBA32 (or any other format with more precision).
+bool Transform2DirectIMG (Image_t *img, image_format_t iform)
+{
+	SetupTransformIMG (img);
+	if (img->tform_iform != IMG_X_RGB)
+		return Transform2InternIMG (img);
+	switch (iform)
+	{
+		case IMG_RGBA32:
+		case IMG_RGB565:
+		case IMG_RGB5A3:
+		case IMG_CMPR:
+			img->tform_iform = iform;
+			return img->tform_exec = true;
+		default:
+			return Transform2InternIMG (img);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 bool Transform2XIMG (Image_t *img)
 {
 	SetupTransformIMG (img);

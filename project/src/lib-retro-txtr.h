@@ -179,4 +179,8 @@ enumError DecodeMPRTXTR_RGBA (u8 **dest, uint *width, uint *height, const u8 *sr
 // buffer so it can be used without an LZSS encoder.
 enumError EncodeMPRTXTR_RGBA (u8 **dest, uint *dest_size, const u8 *rgba, uint width, uint height);
 
+// Encode a width*height RGBA8 image as raw GX tiles (gx_fmt 0..6, 14; out must hold
+// GXEncodeSize() bytes). Edge blocks replicate the last row/column.
+void GXEncodeRGBA (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *out);
+
 #endif

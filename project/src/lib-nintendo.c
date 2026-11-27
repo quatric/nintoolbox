@@ -2,6 +2,7 @@
 #include "lib-std.h"
 #include "lib-nintendo.h"
 #include "lib-retro-txtr.h"
+#include "lib-lz10.h"
 #include "lib-quicklz.h"
 #include "lib-bflyt.h"
 #include "lib-bntx.h"
@@ -706,9 +707,19 @@ nfmt_info_t DetectNintendoFormat (const void *vdata, uint size, ccp filename)
 		if ((d[0] == 0x10 || d[0] == 0x11) && size >= 4)
 		{
 			u32 usize = (u32)d[1] | (u32)d[2] << 8 | (u32)d[3] << 16;
-			if (!usize && size >= 8)
-				usize = (u32)d[4] | (u32)d[5] << 8 | (u32)d[6] << 16 | (u32)d[7] << 24;
-			return make_info (d[0] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true, usize);
+				bool ext_ok = true;
+				if (!usize && size >= 8)
+				{
+					// extended-size header: a little-endian width of 16/17 at the start of a texture looks the same,
+					// so only accept it when the stream really decodes
+					usize = (u32)d[4] | (u32)d[5] << 8 | (u32)d[6] << 16 | (u32)d[7] << 24;
+					u8 *chk = 0;
+					uint chk_size = 0;
+					ext_ok = DecodeLZ10LZ11 (&chk, &chk_size, d, size) == ERR_OK;
+					FREE (chk);
+				}
+				if (ext_ok)
+					return make_info (d[0] == 0x10 ? NFMT_LZ10 : NFMT_LZ11, false, true, usize);
 		}
 		// Some BRRES-family members carry a short, unrecognized tag
 		// immediately before an otherwise standard LZ10/LZ11 stream --

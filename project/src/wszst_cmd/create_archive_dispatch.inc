@@ -802,6 +802,8 @@ static enumError repack_wii_banner_dir (ccp source_d, ccp target_file)
 	return ERR_OK;
 }
 
+#include "lib-gxwrap.h"
+
 static enumError repack_directory_contents (ccp root)
 {
 	DIR *dir = opendir (root);
@@ -871,6 +873,22 @@ static enumError repack_directory_contents (ccp root)
 						snprintf (target_img, sizeof (target_img), "%s", cand);
 						found_target = true;
 						break;
+					}
+				}
+			}
+
+			// 3. Raw GX wrappers with no image extension: "foo.bin.png" -> "foo.bin" (GCT0), or
+			// "foo.png" -> "foo.gaftx" (the decoder drops the wrapper extension)
+			if (!found_target)
+			{
+				char cand[PATH_MAX];
+				for (int k = 0; k < 2 && !found_target; k++)
+				{
+					snprintf (cand, sizeof (cand), "%s%s", stem, k ? ".gaftx" : "");
+					if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (cand))
+					{
+						snprintf (target_img, sizeof (target_img), "%s", cand);
+						found_target = true;
 					}
 				}
 			}

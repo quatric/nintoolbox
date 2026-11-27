@@ -660,6 +660,7 @@ static inline ccp PrintFormatIMG (const Image_t *img)
 ///////////////////////////////////////////////////////////////////////////////
 
 bool Transform2InternIMG (Image_t *img);
+bool Transform2DirectIMG (Image_t *img, image_format_t iform);
 bool Transform2XIMG (Image_t *img);
 bool Transform2XRGB (Image_t *img);
 bool Transform2PaletteIMG (Image_t *img);

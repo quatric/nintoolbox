@@ -228,7 +228,7 @@ static inline u8 retro_to_grey (const u8 *p)
 	return (u8)(((uint)p[0] + p[1] + p[2]) / 3);
 }
 
-static void retro_gx_encode (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *out)
+void GXEncodeRGBA (uint gx_fmt, uint w, uint h, const u8 *rgba, u8 *out)
 {
 #define RGETPX(x, y)                                                                               \
 	(rgba + ((size_t)((uint)(y) < h ? (y) : h - 1) * w + ((uint)(x) < w ? (x) : w - 1)) * 4)
@@ -401,7 +401,7 @@ enumError EncodeRetroTXTR_RGBA (
 	out[9] = 0;
 	out[10] = 0;
 	out[11] = 1; // single mip level
-	retro_gx_encode (gx_fmt, width, height, rgba, out + 12);
+	GXEncodeRGBA (gx_fmt, width, height, rgba, out + 12);
 	*dest = out;
 	*dest_size = total;
 	return ERR_OK;
