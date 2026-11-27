@@ -12,6 +12,7 @@ typedef struct gxw_t
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
 	bool ivt; // ACB Total .ivt: BGRA8 / BGR8 / LA8 / L8 pixels XOR-scrambled with a short key (ncol = key variant, bpp = bytes per pixel)
 	bool apx; // Capcom Zack and Wiki .apx: 24 bit linear RGB behind a 0x20 byte header
+	bool imy; // Nippon Ichi IMY: palette + tiles, rewritten as an uncompressed (flags bit 0) stream
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -246,6 +247,19 @@ static bool locate_ptx (ccp path, size_t sz, gxw_t *g)
 	return ok;
 }
 
+static bool locate_imy (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x24 || memcmp (raw, "IMY", 4))
+		return false;
+	const uint stride = gxw_le16 (raw + 8), flags = raw[10], bpp = raw[11], h = gxw_le16 (raw + 12), npal = gxw_le16 (raw + 14);
+	const uint w = bpp == 4 ? stride * 2 : bpp == 8 ? stride : bpp == 32 ? stride / 4 : 0;
+	if (!w || !h || w > 0x400 || h > 0x1000 || (bpp != 32 && (!npal || npal > 256)) || (bpp == 32 && (npal || stride % 4))
+		|| 0x20 + (size_t)npal * 2 > sz)
+		return false;
+	g->imy = true, g->w = w, g->h = h, g->bpp = bpp, g->ncol = npal, g->itype = flags, g->doff = 0x20 + (size_t)npal * 2;
+	return true;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -261,7 +275,7 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -930,6 +944,76 @@ static void reinject_apx (const Image_t *img, u8 *raw, const gxw_t *g)
 		memcpy (raw + g->doff + 3 * i, img->data + 4 * ((i / g->w) * img->xwidth + i % g->w), 3);
 }
 
+static enumError reinject_imy (const Image_t *img, const u8 *raw, const gxw_t *g, u8 **out, size_t *outn)
+{
+	const uint bpp = g->bpp, tw = bpp == 32 ? 4 : 8, th = bpp == 4 ? 8 : 4, stride = gxw_le16 (raw + 8);
+	const size_t total = (size_t)stride * g->h, hd = g->doff;
+	u8 pal[256][4];
+	for (uint i = 0; i < g->ncol; i++)
+	{
+		const uint v = raw[0x20 + 2 * i] << 8 | raw[0x21 + 2 * i];
+		if (!(g->itype & 0x60))
+			pal[i][0] = (v >> 11 & 31) * 255 / 31, pal[i][1] = (v >> 5 & 63) * 255 / 63, pal[i][2] = (v & 31) * 255 / 31, pal[i][3] = 255;
+		else if (v & 0x8000)
+			pal[i][0] = (v >> 10 & 31) * 255 / 31, pal[i][1] = (v >> 5 & 31) * 255 / 31, pal[i][2] = (v & 31) * 255 / 31, pal[i][3] = 255;
+		else
+			pal[i][0] = (v >> 8 & 15) * 17, pal[i][1] = (v >> 4 & 15) * 17, pal[i][2] = (v & 15) * 17, pal[i][3] = (v >> 12 & 7) * 255 / 7;
+	}
+	const uint pw = (g->w + tw - 1) / tw * tw, ph = (g->h + th - 1) / th * th;
+	u8 *buf = CALLOC (1, (size_t)pw * ph * bpp / 8 + total + 64);
+	if (!buf)
+		return ERR_OUT_OF_MEMORY;
+	u8 *s = buf;
+	for (uint ty = 0; ty < ph; ty += th)
+		for (uint tx = 0; tx < pw; tx += tw)
+		{
+			if (bpp == 32)
+			{
+				for (uint k = 0; k < 16; k++)
+				{
+					const uint x = tx + k % 4, y = ty + k / 4;
+					const u8 *p = x < g->w && y < g->h ? img->data + 4 * ((size_t)y * img->xwidth + x) : (const u8[4]){ 0, 0, 0, 0 };
+					s[2 * k] = p[3], s[2 * k + 1] = p[0], s[32 + 2 * k] = p[1], s[33 + 2 * k] = p[2];
+				}
+				s += 64;
+				continue;
+			}
+			for (uint y = 0; y < th; y++)
+				for (uint x = 0; x < tw; x++)
+				{
+					uint best = 0, best_d = ~0u;
+					if (tx + x < g->w && ty + y < g->h)
+					{
+						const u8 *p = img->data + 4 * ((size_t)(ty + y) * img->xwidth + tx + x);
+						for (uint c = 0; c < g->ncol; c++)
+						{
+							uint d = 0;
+							for (uint k = 0; k < 4; k++)
+								d += (uint)(((int)pal[c][k] - p[k]) * ((int)pal[c][k] - p[k]));
+							if (d < best_d)
+								best_d = d, best = c;
+						}
+					}
+					if (bpp == 8)
+						*s++ = (u8)best;
+					else
+					{
+						*s = (u8)(x & 1 ? (*s & 0xf0) | best : best << 4);
+						s += x & 1;
+					}
+				}
+		}
+	*outn = hd + total;
+	*out = MALLOC (*outn);
+	if (!*out)
+		return FREE (buf), ERR_OUT_OF_MEMORY;
+	memcpy (*out, raw, hd);
+	(*out)[10] |= 1; // stored uncompressed
+	memcpy (*out + hd, buf, total);
+	FREE (buf);
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -939,6 +1023,24 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (g.imy)
+	{
+		enumError e = ERR_OK;
+		u8 *out = 0;
+		size_t outn = 0;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+		else
+			e = reinject_imy (img, raw, &g, &out, &outn);
+		if (!e)
+			e = store (dest, out, outn);
+		FREE (out);
+		FREE (raw);
+		return e;
 	}
 	if (g.tklt)
 	{

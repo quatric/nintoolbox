@@ -238,6 +238,35 @@ class Tim2Wrap(unittest.TestCase):
                         self.assertEqual(tuple(rgba(x, y)), f(x, y), (i, x, y))
 
 
+class ImyWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(0, 0, 0), (31, 0, 0), (0, 31, 0), (0, 0, 31)]
+        pb = b''.join(struct.pack('>H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in pal)
+        rgb = lambda c: tuple(v * 255 // 31 for v in c) + (255,)
+        # 8 bit, 16 x 16 (8 x 4 tiles), compressed with literal-only control bytes: 8 x 0x0f copy 16 two-byte units
+        hdr = b'IMY\0' + struct.pack('<IHBBHH', 256, 16, 0x20, 8, 16, 4) + bytes(0x10)
+        stream = struct.pack('<H', 8) + bytes([0x0f] * 8) + bytes(256)
+        src_files = {'a.imy': hdr + pb + stream}
+        want = lambda x, y: rgb(pal[(x // 3 + y) % 4])
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, d in src_files.items():
+                (src / n).write_bytes(d)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            self.assertTrue(Path(tmp, 'in.d', 'a.imy.png').exists())
+            write_png(Path(tmp, 'in.d', 'a.imy.png'), W, H, b''.join(bytes(want(x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'a.imy.png'))
+            for y in range(H):
+                for x in range(W):
+                    self.assertEqual(tuple(rgba(x, y)), want(x, y), (x, y))
+            self.assertEqual(Path(tmp, 'out.d', 'a.imy').read_bytes()[:0x28], (hdr + pb)[:10] + b'\x21' + (hdr + pb)[11:0x28])  # flags gain bit 0
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]
