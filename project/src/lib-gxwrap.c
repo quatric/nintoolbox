@@ -129,6 +129,24 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	}
 	else if (has_ext (path, ".s3t") && sz >= 0x40 && !gxw_be32 (raw + 12) && !gxw_be32 (raw + 16))
 		g->gx = gxw_be32 (raw), g->w = gxw_be32 (raw + 4), g->h = gxw_be32 (raw + 8), g->doff = 0x20, g->levels = 1;
+	else if (has_ext (path, ".5a3") && sz == 192 * 64 * 2)
+		g->gx = 5, g->w = 192, g->h = 64, g->doff = 0, g->levels = 1; // headerless Wii Chess save banner
+	else if (has_ext (path, ".iwi") && sz > 0x28 && !memcmp (raw, "IWi", 3) && (raw[3] == 11 || raw[3] == 7)
+		&& raw[4] == 11)
+	{
+		g->gx = 14, g->w = raw[6] | raw[7] << 8, g->h = raw[8] | raw[9] << 8, g->doff = raw[3] == 7 ? 0x1c : 0x20;
+		g->levels = 1;
+		if (!g->w || !g->h || g->w > 4096 || g->h > 4096
+			|| sz - g->doff != (size_t)((g->w + 7) / 8 * 8) * ((g->h + 7) / 8 * 8) / 2)
+			return false;
+	}
+	else if (has_ext (path, ".a2") && sz >= 0x30 && !gxw_be32 (raw + 16) && !gxw_be32 (raw + 20))
+	{
+		g->gx = gxw_be32 (raw), g->w = gxw_be32 (raw + 4), g->h = gxw_be32 (raw + 8), g->doff = 0x1c;
+		g->levels = gxw_be32 (raw + 12);
+		if (!g->levels || g->levels > 16)
+			return false;
+	}
 	else if (has_ext (path, ".bct") && sz >= 0x50 && raw[0] == 6)
 	{
 		g->w = gxw_be16 (raw + 4), g->h = gxw_be16 (raw + 6), g->gx = 14, g->doff = 0x30;

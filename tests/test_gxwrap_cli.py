@@ -8,7 +8,8 @@ import pngtool
 
 WSZST = Path(__file__).resolve().parents[1] / 'project' / 'wszst'
 W = H = 16
-LOSSY = ('e.bct', 'f.txw')
+LOSSY = ('e.bct', 'f.txw', 'j.iwi', 'k.5a3')
+SIZE = {'k.5a3': (192, 64)}  # everything else is W x H
 
 
 def write_png(path, w, h, rgba):
@@ -20,11 +21,11 @@ def write_png(path, w, h, rgba):
                            + ch(b'IDAT', zlib.compress(raw)) + ch(b'IEND', b''))
 
 
-def image():
+def image(w=W, h=H):
     px = bytearray()
-    for y in range(H):
-        for x in range(W):
-            px += bytes([x * 16, y * 16, 128, 255])
+    for y in range(h):
+        for x in range(w):
+            px += bytes([x * 16 % 256, y * 16 % 256, 128, 255])
     return px
 
 
@@ -39,6 +40,8 @@ def wrappers():
     gaf = bytearray(0x50)
     struct.pack_into('>HHHHII', gaf, 0, W, H, W, H, 0x10001, 8)
     struct.pack_into('>I', gaf, 0x24, 0x50)
+    a2 = struct.pack('>IIIIIII', 6, W, H, 2, 0, 0, W * H * 4) + base + mip
+    iwi = b'IWi\x0b\x0b\x00' + struct.pack('<HHH', W, H, 1) + bytes(0x20 - 12) + bytes(W * H // 2)
     cmpr = bytes(W * H // 2)
     bct = bytearray(0x30); bct[0] = 6; struct.pack_into('>HH', bct, 4, W, H)
     struct.pack_into('>I', bct, 0x1c, len(cmpr) + 32)
@@ -51,7 +54,7 @@ def wrappers():
     tgs = bytearray(0x40); tgs[0:4] = b'tgs\0'
     struct.pack_into('>IIII', tgs, 0x10, 0x40 + len(tpl), 0, 0, 0)
     struct.pack_into('>II', tgs, 0x20, 0x40, 0x40 + len(tpl))
-    return {'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
+    return {'i.a2': a2, 'j.iwi': iwi, 'k.5a3': bytes(192 * 64 * 2), 'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
             'g.tgs': bytes(tgs) + tpl, 'h.pix': b'FPIX' + bytes(0x1c) + tpl,
             'd.gaftx': bytes(gaf) + base, 't.bin': bytes(gct) + base, 'a.wit': wit, 'b.CTX': ctx, 'c.s3t': s3t}
 
@@ -70,23 +73,26 @@ class GxWrap(unittest.TestCase):
             self.run_w('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o', cwd=tmp)
             d = Path(tmp, 'in.d')
             names = {'t.bin': 't.bin.png', 'a.wit': 'a.wit.png', 'b.CTX': 'b.CTX.png', 'c.s3t': 'c.s3t.tpl.png', 'd.gaftx': 'd.png',
-             'e.bct': 'e.bct.tpl.png', 'f.txw': 'f.txw.tpl.png', 'g.tgs': 'g.tgs.tpl.png', 'h.pix': 'h.pix.tpl.png'}
+             'e.bct': 'e.bct.tpl.png', 'f.txw': 'f.txw.tpl.png', 'g.tgs': 'g.tgs.tpl.png', 'h.pix': 'h.pix.tpl.png',
+             'i.a2': 'i.a2.png', 'j.iwi': 'j.iwi.png', 'k.5a3': 'k.5a3.png'}
             time.sleep(1.1)
-            for png in names.values():
+            for name, png in names.items():
                 self.assertTrue((d / png).exists(), png)
-                write_png(d / png, W, H, image())
+                sw, sh = SIZE.get(name, (W, H))
+                write_png(d / png, sw, sh, image(sw, sh))
             r = self.run_w('create', 'in.d', '--u8', '--dest', 'out.arc', '-o', cwd=tmp)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.run_w('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o', cwd=tmp)
             for name, png in names.items():
                 w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', png))
                 pix = bytes(c for y in range(h) for x in range(w) for c in rgba(x, y))
-                self.assertEqual((w, h), (W, H), name)
+                sw, sh = SIZE.get(name, (W, H))
+                self.assertEqual((w, h), (sw, sh), name)
                 if name in LOSSY:  # CMPR: four colours per 4x4 block
-                    err = max(abs(a - b) for a, b in zip(pix, bytes(image())))
+                    err = max(abs(a - b) for a, b in zip(pix, bytes(image(sw, sh))))
                     self.assertLess(err, 40, name)
                 else:
-                    self.assertEqual(bytes(pix), bytes(image()), name)
+                    self.assertEqual(bytes(pix), bytes(image(sw, sh)), name)
             # the mip behind the base level is rewritten, not left zero
             wit = Path(tmp, 'out.d', 'a.wit').read_bytes()
             self.assertEqual(len(wit), 16 + W * H * 4 + 8 * 8 * 4)
