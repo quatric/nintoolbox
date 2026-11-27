@@ -21,6 +21,7 @@ typedef struct gxw_t
 	uint rw, rh; // size of the PNG when the stored texture is padded (Ubisoft WSP)
 	bool msk; // Ubisoft .msk: 8 bit mask (grey = r + g + b / 3)
 	bool tan; // Ubisoft .tan frame (C8, shared RGB565 palette; doff = frame data, clut = palette)
+	bool txm; // Namco .txm directory: the texels live in the sibling .txv (doff / avail refer to it)
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -735,6 +736,44 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			return false;
 		g->tan = true, g->w = w, g->h = h, g->doff = 0x220 + (size_t)fr * w * h, g->clut = 16;
 	}
+	else if (has_ext (path, ".txm") && sz >= 0x30 && gxw_be32 (raw) == 0x20000 && gxw_name[0])
+	{
+		// Tales of: BE directory, 0x1c byte entries from 0x14 {flags, w, h, mips, GX format, name offset, data offset}; match by name
+		const uint count = gxw_be32 (raw + 12);
+		char want[64];
+		snprintf (want, sizeof (want), "%s", gxw_name);
+		const size_t wl = strlen (want);
+		if (wl > 4 && !strcasecmp (want + wl - 4, ".tpl"))
+			want[wl - 4] = 0;
+		if (!count || count > 4096 || 0x14 + (size_t)count * 0x1c > sz)
+			return false;
+		for (uint i = 0; i < count && !g->w; i++)
+		{
+			const u8 *e = raw + 0x14 + (size_t)i * 0x1c;
+			char nm[64];
+			uint k = 0;
+			const size_t np = 0x14 + (size_t)i * 0x1c + 20 + gxw_be32 (e + 20);
+			if (np < sz)
+				for (; k < 60 && np + k < sz && raw[np + k] >= 0x20 && raw[np + k] < 0x7f; k++)
+					nm[k] = raw[np + k] == '/' || raw[np + k] == '\\' ? '_' : raw[np + k];
+			if (!k)
+				k = (uint)snprintf (nm, sizeof (nm), "tex_%03u", i);
+			else
+				nm[k] = 0;
+			if (strcmp (nm, want))
+				continue;
+			const uint fmt = gxw_be32 (e + 16) & 0xffff;
+			if (!gx_ok (fmt) || fmt > 14)
+				return false;
+			g->txm = true, g->gx = fmt, g->w = gxw_be32 (e + 4), g->h = gxw_be32 (e + 8), g->doff = gxw_be32 (e + 24), g->levels = 1;
+			g->avail = level_size (fmt, g->w, g->h);
+			if (!g->w || !g->h || g->w > 4096 || g->h > 4096)
+				return false;
+		}
+		if (!g->w)
+			return false;
+		return true;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
@@ -1402,6 +1441,20 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	char txv[PATH_MAX];
+	if (g.txm) // the texels are in "foo.txv" beside "foo.txm"
+	{
+		snprintf (txv, sizeof (txv), "%s", dest);
+		txv[strlen (txv) - 1] = 'v';
+		FREE (raw);
+		raw = load (txv, &sz);
+		dest = txv;
+		if (!raw || g.doff + g.avail > sz)
+		{
+			FREE (raw);
+			return ERR_NOTHING_TO_DO;
+		}
 	}
 	if (g.imy)
 	{
