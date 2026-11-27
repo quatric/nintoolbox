@@ -216,6 +216,24 @@ static bool locate_apx (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// ".PTX" raw GX data described by the sibling ".PTXH" header (Around the World)
+static bool locate_ptx (ccp path, size_t sz, gxw_t *g)
+{
+	size_t hs;
+	u8 *h = load_sibling (path, ".ptxh", &hs);
+	bool ok = false;
+	if (h && hs >= 0x28 && !memcmp (h + 8, "PATX WII", 8))
+	{
+		const uint bpp = gxw_be32 (h + 0x20);
+		g->gx = !memcmp (h + 0x1c, "1TXD", 4) && bpp == 4 ? 14 : !memcmp (h + 0x1c, " 3A5", 4) && bpp == 16 ? 5
+			: !memcmp (h + 0x1c, " 565", 4) && bpp == 16 ? 4 : !memcmp (h + 0x1c, "ABGR", 4) && bpp == 32 ? 6 : 99;
+		g->w = gxw_be16 (h + 0x18), g->h = gxw_be16 (h + 0x1a), g->doff = 0, g->levels = 1;
+		ok = g->gx != 99 && !((g->w | g->h) & 3) && sz >= (size_t)g->w * g->h * bpp / 8;
+	}
+	FREE (h);
+	return ok;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -398,6 +416,11 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 					}
 				}
 		if (!g->w)
+			return false;
+	}
+	else if (has_ext (path, ".ptx"))
+	{
+		if (!locate_ptx (path, sz, g))
 			return false;
 	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))

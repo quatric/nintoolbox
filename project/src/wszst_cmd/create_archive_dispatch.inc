@@ -837,11 +837,24 @@ static enumError repack_directory_contents (ccp root)
 			struct stat st_target;
 			bool found_target = false;
 
+			// 0. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
+			if (!found_target)
+			{
+				const size_t rl = strlen (root);
+				if (rl > 2 && !strcmp (root + rl - 2, ".d"))
+				{
+					snprintf (target_img, sizeof (target_img), "%.*s", (int)(rl - 2), root);
+					if (stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode)
+						&& GXWrapIsFile (target_img))
+						found_target = true;
+				}
+			}
+
 			// 1. Check direct prefix, e.g. "foo.tpl.png" -> "foo.tpl", "bar.tex0.png" -> "bar.tex0"
 			char stem[PATH_MAX];
 			snprintf (stem, sizeof (stem), "%.*s", (int)(strlen (path) - 4), path);
 			ccp stem_ext = strrchr (stem, '.');
-			if (stem_ext
+			if (!found_target && stem_ext
 				&& (!strcasecmp (stem_ext, ".tpl") || !strcasecmp (stem_ext, ".tex0")
 					|| !strcasecmp (stem_ext, ".tex") || !strcasecmp (stem_ext, ".tm0")
 					|| !strcasecmp (stem_ext, ".bti") || !strcasecmp (stem_ext, ".bflim")
@@ -914,19 +927,6 @@ static enumError repack_directory_contents (ccp root)
 				found_target = stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img);
 				GXWrapSetIndex (0);
 				multi = found_target;
-			}
-
-			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
-			if (!found_target)
-			{
-				const size_t rl = strlen (root);
-				if (rl > 2 && !strcmp (root + rl - 2, ".d"))
-				{
-					snprintf (target_img, sizeof (target_img), "%.*s", (int)(rl - 2), root);
-					if (stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode)
-						&& GXWrapIsFile (target_img))
-						found_target = true;
-				}
 			}
 
 			if (found_target)
