@@ -279,6 +279,33 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!locate_tpl (raw, sz, 0x40, g))
 			return false;
 	}
+	else if (has_ext (path, ".hvt") && sz >= 0x18 && !memcmp (raw, " IVH", 4)
+		&& (gxw_be32 (raw + 4) == 2 || gxw_be32 (raw + 4) == 6))
+	{
+		const uint pb = gxw_be32 (raw + 0x14);
+		g->gx = !memcmp (raw + 8, "S3TW", 4) && pb == 4 ? 14 : !memcmp (raw + 8, "ARGB", 4) && pb == 32 ? 6
+			: !memcmp (raw + 8, "G8A8", 4) && pb == 16 ? 3 : !memcmp (raw + 8, "GRY8", 4) && pb == 8 ? 1 : 99;
+		g->w = gxw_be32 (raw + 0xc), g->h = gxw_be32 (raw + 0x10), g->doff = 0x18, g->levels = 1;
+	}
+	else if (has_ext (path, ".etx") && sz >= 0x30)
+	{
+		const uint f = gxw_be32 (raw + 4);
+		g->gx = f == 0x100000 ? 6 : f == 0x120000 ? 4 : f == 0x150000 ? 1 : 99;
+		g->w = gxw_be16 (raw), g->h = gxw_be16 (raw + 2), g->doff = 8, g->levels = 1;
+	}
+	else if (has_ext (path, ".txe") && sz >= 0x20 && raw[4] == 0 && raw[5] < 8)
+	{
+		static const u8 gx[8] = { 4, 14, 5, 0, 1, 2, 3, 6 }; // Pikmin's own format enum
+		g->gx = gx[raw[5]], g->w = raw[0] << 8 | raw[1], g->h = raw[2] << 8 | raw[3], g->doff = 0x20, g->levels = 1;
+	}
+	else if (has_ext (path, ".tex") && sz >= 0x20 && gxw_be32 (raw + 12) + 0x20 == sz
+		&& (gxw_be32 (raw) == 0x4c || gxw_be32 (raw) == 0x4b || !gxw_be32 (raw)))
+	{
+		g->gx = gxw_be32 (raw) == 0x4c ? 14 : gxw_be32 (raw) == 0x4b ? 3 : 6;
+		g->w = gxw_be32 (raw + 4), g->h = gxw_be32 (raw + 8), g->doff = 0x20, g->levels = (gxw_be32 (raw + 0x14) >> 16) + 1;
+		if ((g->w & (g->w - 1)) || (g->h & (g->h - 1)) || g->levels > 16)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))

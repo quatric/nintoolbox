@@ -894,6 +894,15 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
+			// 3b. "foo.bti.png" (Pikmin): the texels belong in "foo.txe", the .bti is only the decoder's rewrap
+			if (strlen (stem) > 4 && !strcasecmp (stem + strlen (stem) - 4, ".bti"))
+			{
+				char txe[PATH_MAX];
+				snprintf (txe, sizeof (txe), "%.*s.txe", (int)(strlen (stem) - 4), stem);
+				if (stat (txe, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (txe))
+					snprintf (target_img, sizeof (target_img), "%s", txe), found_target = true;
+			}
+
 			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
 			if (!found_target)
 			{
