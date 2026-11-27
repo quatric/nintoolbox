@@ -8,6 +8,8 @@ typedef struct gxw_t
 	size_t doff;
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
+	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	uint bpp;
 } gxw_t;
 
 static uint gxw_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
@@ -37,6 +39,43 @@ static size_t level_size (uint gx, uint w, uint h)
 	return (size_t)((w + bw - 1) / bw) * bw * ((h + bh - 1) / bh) * bh * bits / 8;
 }
 
+// Truevision TGA with a foreign extension, accepted like extract_tgaimg_file() does
+static bool locate_tga (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	if (has_ext (path, ".png") || has_ext (path, ".tga") || sz < 0x20 || raw[1]
+		|| (raw[2] != 2 && raw[2] != 3 && raw[2] != 10 && raw[2] != 11) || raw[3] || raw[4]
+		|| raw[5] || raw[6] || raw[7])
+		return false;
+	const uint w = raw[12] | raw[13] << 8, h = raw[14] | raw[15] << 8, bpp = raw[16], type = raw[2];
+	if (!w || !h || w > 8192 || h > 8192 || (bpp != 8 && bpp != 24 && bpp != 32)
+		|| (type == 2 || type == 10 ? bpp == 8 : bpp != 8))
+		return false;
+	const size_t npx = (size_t)w * h, bytes = bpp / 8, off = 18 + raw[0];
+	if (type < 9)
+	{
+		if (off + npx * bytes > sz || sz - off - npx * bytes > 0x2000)
+			return false;
+	}
+	else
+	{
+		size_t p = off, n = 0;
+		while (n < npx && p < sz)
+		{
+			const uint c = raw[p++], run = (c & 0x7f) + 1;
+			if (n + run > npx)
+				break;
+			p += c & 0x80 ? bytes : (size_t)run * bytes;
+			if (p > sz)
+				return false;
+			n += run;
+		}
+		if (n != npx || sz - p > 0x2000)
+			return false;
+	}
+	g->tga = true, g->w = w, g->h = h, g->bpp = bpp, g->doff = off;
+	return true;
+}
+
 // first image of a TPL starting at raw+toff
 static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 {
@@ -54,6 +93,8 @@ static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
+	if (locate_tga (raw, sz, path, g))
+		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
 		g->gx = gxw_be32 (raw + 4), g->w = gxw_be16 (raw + 8), g->h = gxw_be16 (raw + 10), g->doff = 0x40;
@@ -222,6 +263,51 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
+	if (g.tga)
+	{
+		enumError e = ERR_OK;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the TGA is %ux%u: %s\n", img->width,
+				img->height, g.w, g.h, dest);
+		else
+		{
+			// header and image id are kept; pixels are written uncompressed (type 2 / 3)
+			const uint bytes = g.bpp / 8;
+			const size_t out_size = g.doff + (size_t)g.w * g.h * bytes;
+			u8 *out = CALLOC (1, out_size);
+			if (!out)
+				e = ERR_OUT_OF_MEMORY;
+			else
+			{
+				memcpy (out, raw, g.doff);
+				out[2] = bytes == 1 ? 3 : 2;
+				for (uint y = 0; y < g.h; y++)
+				{
+					const uint dy = (raw[17] & 0x20) ? y : g.h - 1 - y;
+					for (uint x = 0; x < g.w; x++)
+					{
+						const u8 *p = img->data + 4 * ((size_t)y * img->xwidth + x);
+						u8 *o = out + g.doff + ((size_t)dy * g.w + x) * bytes;
+						if (bytes == 1)
+							o[0] = (u8)((p[0] + p[1] + p[2]) / 3);
+						else
+						{
+							o[0] = p[2], o[1] = p[1], o[2] = p[0];
+							if (bytes == 4)
+								o[3] = p[3];
+						}
+					}
+				}
+				e = store (dest, out, out_size);
+				FREE (out);
+			}
+		}
+		FREE (raw);
+		return e;
+	}
 	Transform2XIMG (img);
 	enumError err = ERR_OK;
 	if (img->iform != IMG_X_RGB)
@@ -258,7 +344,7 @@ enumError GXWrapSyncFromTPL (ccp tpl_path)
 	u8 *w = load (wrap, &wsz), *t = load (tpl_path, &tsz);
 	gxw_t g;
 	enumError err = ERR_NOTHING_TO_DO;
-	if (w && t && tsz > 0x20 && gxw_be32 (t) == 0x0020af30 && locate (w, wsz, wrap, &g))
+	if (w && t && tsz > 0x20 && gxw_be32 (t) == 0x0020af30 && locate (w, wsz, wrap, &g) && !g.tga)
 	{
 		const uint ih = gxw_be32 (t + 0xc), n = level_size (g.gx, g.w, g.h);
 		const size_t doff = ih && ih + 0xc <= tsz ? gxw_be32 (t + ih + 8) : 0;

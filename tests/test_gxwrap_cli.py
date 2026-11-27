@@ -93,5 +93,55 @@ class GxWrap(unittest.TestCase):
             self.assertNotEqual(wit[16 + W * H * 4:], bytes(8 * 8 * 4))
 
 
+def tga(bpp, rle, top_left, px):  # px: function (x, y) -> (r, g, b, a)
+    typ = (11 if bpp == 8 else 10) if rle else (3 if bpp == 8 else 2)
+    hdr = bytearray(18)
+    hdr[0], hdr[2] = 4, typ  # a 4 byte image id
+    struct.pack_into('<HHBB', hdr, 12, W, H, bpp, 0x20 if top_left else 0)
+    rows = []
+    for y in range(H):
+        sy = y if top_left else H - 1 - y
+        row = bytearray()
+        for x in range(W):
+            r, g, b, a = px(x, sy)
+            row += bytes([g]) if bpp == 8 else bytes([b, g, r]) + (bytes([a]) if bpp == 32 else b'')
+        rows.append(bytes(row))
+    body = b''.join(rows)
+    if rle:  # one raw packet per row
+        n = bpp // 8
+        body = b''.join(bytes([W - 1]) + r for r in rows)
+    return bytes(hdr) + b'ID01' + body
+
+
+class TgaWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        flat = lambda x, y: (200, 100, 50, 255)  # replaced by the edited PNG below
+        files = {'a.bkg': tga(24, False, False, flat), 'b.dat': tga(32, True, True, flat),
+                 'c.gry': tga(8, False, True, flat)}
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, d in files.items():
+                (src / n).write_bytes(d)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            for n in files:
+                self.assertTrue(Path(tmp, 'in.d', n + '.png').exists(), n)
+                if n == 'c.gry':
+                    write_png(Path(tmp, 'in.d', n + '.png'), W, H, b''.join(bytes([x * 16] * 3 + [255]) for y in range(H) for x in range(W)))
+                else:
+                    write_png(Path(tmp, 'in.d', n + '.png'), W, H, image())
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n in files:
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', n + '.png'))
+                want = (lambda x, y: (x * 16,) * 3 + (255,)) if n == 'c.gry' else (lambda x, y: (x * 16, y * 16, 128, 255))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertEqual(tuple(rgba(x, y)), want(x, y), (n, x, y))
+            self.assertEqual(Path(tmp, 'out.d', 'b.dat').read_bytes()[18:22], b'ID01')
+
+
 if __name__ == '__main__':
     unittest.main()
