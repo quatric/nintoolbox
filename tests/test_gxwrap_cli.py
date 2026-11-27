@@ -876,5 +876,30 @@ class ShpgWrap(unittest.TestCase):
                             self.assertTrue(all(abs(g - e) <= tol for g, e in zip(got, px[y * 8 + x])), (packed, nm, x, y, got, px[y * 8 + x]))
 
 
+class CarsGct(unittest.TestCase):
+    def test_ci8(self):
+        pals = [(i % 32, i * 5 % 32, i * 3 % 32) for i in range(256)]
+        pal = b''.join(struct.pack('>H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in pals)
+        gct = struct.pack('>III', 2, 58, 256) + pal + struct.pack('>IIIIII', 1, 8, 8, 8, 8, 64) + bytes(64)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 't.gct').write_bytes(gct)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 't.png')
+            self.assertTrue(png.exists())
+            time.sleep(1.1)
+            px = [tuple(v * 255 // 31 for v in pals[(x * 7 + y * 11) % 256]) + (255,) for y in range(8) for x in range(8)]
+            write_png(png, 8, 8, b''.join(bytes(p) for p in px))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/t.gct', '--decode', '-o')
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'ex', 't.png'))
+            for i, p in enumerate(px):
+                self.assertEqual((tuple(rgba(i % 8, i // 8)) + (255,))[:4], p, i)
+            self.assertEqual(Path(tmp, 'ex', 't.gct').read_bytes()[:0x20c], gct[:0x20c])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -523,10 +523,49 @@ static bool locate_shpg (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// Rainbow Studios ".gct" (Cars): {2, format 41 CMPR / 58 CI8, [256, 256 RGB5A3 entries], count, w, h, count * {w, h, size, data}}; the last surface is the base level
+static bool locate_gct (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x28 || gxw_be32 (raw) != 2)
+		return false;
+	const uint fmt = gxw_be32 (raw + 4);
+	size_t o = 12, pal = 0;
+	if (fmt == 58)
+	{
+		if (gxw_be32 (raw + 8) != 256)
+			return false;
+		pal = o, o += 512;
+	}
+	else if (fmt != 41)
+		return false;
+	if (o + 12 > sz)
+		return false;
+	const uint n = gxw_be32 (raw + o), w = gxw_be32 (raw + o + 4), h = gxw_be32 (raw + o + 8);
+	o += 12;
+	if (!n || n > 16 || !w || !h || w > 4096 || h > 4096)
+		return false;
+	size_t at = 0;
+	uint bw = 0, bh = 0, bs = 0;
+	for (uint i = 0; i < n; i++)
+	{
+		if (o + 12 > sz)
+			return false;
+		bw = gxw_be32 (raw + o), bh = gxw_be32 (raw + o + 4), bs = gxw_be32 (raw + o + 8);
+		o += 12;
+		if (!bw || !bh || bw > 4096 || bh > 4096 || o + bs > sz)
+			return false;
+		at = o, o += bs;
+	}
+	if (bw != w || bh != h)
+		return false;
+	g->dbl = true, g->bpp = 2, g->gx = fmt == 41 ? 14 : 9, g->w = w, g->h = h, g->doff = at, g->itype = bs, g->clut = pal, g->ncol = pal ? 256 : 0;
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
