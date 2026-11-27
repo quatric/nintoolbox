@@ -882,9 +882,10 @@ static enumError repack_directory_contents (ccp root)
 			if (!found_target)
 			{
 				char cand[PATH_MAX];
-				for (int k = 0; k < 2 && !found_target; k++)
+				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", 0 };
+				for (int k = 0; raw_exts[k] && !found_target; k++)
 				{
-					snprintf (cand, sizeof (cand), "%s%s", stem, k ? ".gaftx" : "");
+					snprintf (cand, sizeof (cand), "%s%s", stem, raw_exts[k]);
 					if (stat (cand, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (cand))
 					{
 						snprintf (target_img, sizeof (target_img), "%s", cand);

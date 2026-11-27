@@ -255,6 +255,30 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (type != 2 && type != 4)
 			return false;
 	}
+	else if (has_ext (path, ".d4") && sz >= 0x40 && !gxw_be16 (raw + 6) && gxw_be32 (raw + 8) >= 0x0c
+		&& gxw_be32 (raw + 8) <= 0x100 && !(gxw_be32 (raw + 8) & 3))
+	{
+		g->gx = gxw_be16 (raw), g->w = gxw_be16 (raw + 2), g->h = gxw_be16 (raw + 4), g->doff = gxw_be32 (raw + 8);
+		g->levels = 1; // Paon (Donkey Kong: Barrel Blast): one image, no mips
+	}
+	else if (has_ext (path, ".wii") && sz >= 0x14 && !memcmp (raw, "\x12\xb9\xb0\xa1", 4)
+		&& (raw[10] == 2 || raw[10] == 3 || raw[10] == 5))
+	{
+		g->gx = raw[10] == 5 ? 14 : raw[10] == 3 ? 5 : 4, g->w = gxw_be16 (raw + 6), g->h = gxw_be16 (raw + 8);
+		g->doff = 0x13, g->levels = 1; // Pet Vet: the .wii1 ... mip files are not touched
+	}
+	else if (sz >= 0x20 && !memcmp (raw, "_NGCBM01", 8))
+	{
+		g->w = gxw_be16 (raw + 8), g->h = gxw_be16 (raw + 10), g->gx = gxw_be16 (raw + 12), g->doff = gxw_be32 (raw + 20);
+		g->levels = raw[14] ? raw[14] : 1;
+		if (g->doff < 0x20)
+			return false;
+	}
+	else if (has_ext (path, ".mwt") && sz >= 0x60 && !memcmp (raw, "GDATAVERSION", 12))
+	{
+		if (!locate_tpl (raw, sz, 0x40, g))
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
