@@ -831,5 +831,50 @@ class DblWrap(unittest.TestCase):
                         self.assertTrue(all(abs(g - e) <= tol for g, e in zip(got, exp)), (nm, x, y, got, exp))
 
 
+class ShpgWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pals = [(i * 2 % 32, i * 5 % 32, i * 3 % 32) for i in range(16)]
+        pal = b''.join(struct.pack('>H', c[0] << 11 | c[1] << 5 | c[2]) for c in pals)
+        def rec(code, w, h, body):
+            return (bytes([code]) + (16 + len(body)).to_bytes(3, 'big') + struct.pack('>HH', w, h)).ljust(16, b'\0') + body
+        r0, r1, r2 = rec(0x14, 8, 8, bytes(128)), rec(0x19, 8, 8, bytes(64)), rec(0x31, 0, 0, pal)
+        base = 16 + 16
+        shpg = b'SHPG' + struct.pack('<I', 0) + struct.pack('>I', 2) + b'tags' + b'imgA' + struct.pack('>I', base) + b'imgB' + struct.pack('>I', base + len(r0))
+        shpg += r0 + r1 + r2
+        def lit(d):
+            o = bytearray(b'\x10\xfb' + len(d).to_bytes(3, 'big'))
+            q = 0
+            while len(d) - q >= 4:
+                run = min(112, (len(d) - q) // 4 * 4)
+                o.append(0xe0 + run // 4 - 1); o += d[q:q + run]; q += run
+            o.append(0xfc + len(d) - q); o += d[q:]
+            return bytes(o)
+        a = [((x * 4 % 32) * 255 // 31, (y * 8 % 64) * 255 // 63, (x + y) % 32 * 255 // 31, 255) for y in range(8) for x in range(8)]
+        b = [tuple(v * 255 // (63 if k == 1 else 31) for k, v in enumerate(pals[(x + y * 3) % 16])) + (255,) for y in range(8) for x in range(8)]
+        for packed in (False, True):
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp, 'src.d'); src.mkdir()
+                (src / 'x.gsh').write_bytes(lit(shpg) if packed else shpg)
+                run = lambda *args: subprocess.run([str(WSZST), *args], cwd=tmp, capture_output=True, text=True)
+                run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+                run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+                names = sorted(x.name for x in Path(tmp, 'ex').glob('x.gsh.*.png'))
+                self.assertEqual(len(names), 2, names)
+                time.sleep(1.1)
+                for nm, px in zip(names, (a, b)):
+                    write_png(Path(tmp, 'ex', nm), 8, 8, b''.join(bytes(p) for p in px))
+                r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertEqual(Path(tmp, 'ex', 'x.gsh').read_bytes()[:2], b'\x10\xfb' if packed else b'SH')
+                run('xx', 'ex/x.gsh', '--decode', '-o')
+                for nm, px in zip(names, (a, b)):
+                    w, h, ch, rgba = pngtool._read_png(Path(tmp, 'ex', nm))
+                    for y in range(8):
+                        for x in range(8):
+                            got = (tuple(rgba(x, y)) + (255,))[:4]
+                            tol = 8 if nm.endswith('imgA.png') else 0
+                            self.assertTrue(all(abs(g - e) <= tol for g, e in zip(got, px[y * 8 + x])), (packed, nm, x, y, got, px[y * 8 + x]))
+
+
 if __name__ == '__main__':
     unittest.main()

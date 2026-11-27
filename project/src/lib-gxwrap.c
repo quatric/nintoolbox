@@ -25,6 +25,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool shpg; // EA SHPG entry (a dbl-style record inside the unpacked archive; RefPack wrapped files are re-packed as literal runs)
 	bool dbl; // Avalanche .dbl / .mdb texture record (doff = pixels, clut = palette (RGB565), ncol = palette entries, itype = bytes available, gx = GX format)
 	bool oibb; // AxEngine OIBB .pak TXTR object (doff = object, gx = format 6 / 8 / 9, bpp = palette bytes, itype = data bytes)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
@@ -398,7 +399,7 @@ static bool locate_dbl (const u8 *raw, size_t sz, gxw_t *g)
 				if (!w || !h || w > 2048 || h > 2048 || po >= size || !(fmt <= 6 || fmt == 8 || fmt == 9 || fmt == 14)
 					|| fmt == 7 || (paletted && (!pn || pn > 256 || pal + 2 * (size_t)pn > size)))
 					return false;
-				g->dbl = true, g->gx = fmt, g->w = w, g->h = h, g->doff = D + po, g->itype = (uint)(size - po), g->clut = D + pal, g->ncol = pn;
+				g->dbl = true, g->bpp = 1, g->gx = fmt, g->w = w, g->h = h, g->doff = D + po, g->itype = (uint)(size - po), g->clut = D + pal, g->ncol = pn;
 				return true;
 			}
 			return false;
@@ -408,10 +409,124 @@ static bool locate_dbl (const u8 *raw, size_t sz, gxw_t *g)
 	return false;
 }
 
+// EA RefPack ("10 fb" / "90 fb"): the unpacked bytes of a stream without the compressed-size field; NULL otherwise
+static u8 *gxw_refpack (const u8 *s, size_t n, size_t *osz)
+{
+	if (n < 5 || s[1] != 0xfb || (s[0] & 0x7f) != 0x10)
+		return 0;
+	const uint nb = s[0] & 0x80 ? 4 : 3;
+	size_t size = 0, p = 2 + nb;
+	if (p > n)
+		return 0;
+	for (uint i = 0; i < nb; i++)
+		size = size << 8 | s[2 + i];
+	if (!size || size > (size_t)256 << 20)
+		return 0;
+	u8 *o = MALLOC (size);
+	size_t q = 0;
+	while (o && p < n && q < size)
+	{
+		const uint a = s[p++];
+		size_t lit = 0, len = 0, dist = 0;
+		if (a < 0x80)
+		{
+			if (p + 1 > n)
+				break;
+			lit = a & 3, len = ((a & 0x1c) >> 2) + 3, dist = ((a & 0x60) << 3) + s[p] + 1, p++;
+		}
+		else if (a < 0xc0)
+		{
+			if (p + 2 > n)
+				break;
+			lit = s[p] >> 6, len = (a & 0x3f) + 4, dist = ((s[p] & 0x3f) << 8) + s[p + 1] + 1, p += 2;
+		}
+		else if (a < 0xe0)
+		{
+			if (p + 3 > n)
+				break;
+			lit = a & 3, len = ((a & 0x0c) << 6) + s[p + 2] + 5, dist = ((a & 0x10) << 12) + (s[p] << 8) + s[p + 1] + 1, p += 3;
+		}
+		else
+			lit = a < 0xfc ? ((a & 0x1f) << 2) + 4 : a & 3;
+		if (lit > n - p || lit > size - q)
+			break;
+		memcpy (o + q, s + p, lit), p += lit, q += lit;
+		if (a >= 0xe0)
+		{
+			if (a >= 0xfc)
+				break;
+			continue;
+		}
+		if (dist > q || len > size - q)
+			break;
+		for (size_t i = 0; i < len; i++, q++)
+			o[q] = o[q - dist];
+	}
+	if (!o || q != size)
+		return FREE (o), (u8 *)0;
+	*osz = size;
+	return o;
+}
+
+// a RefPack stream made of literal runs only (any decoder reads it); hdr = first byte of the original header
+static u8 *gxw_refpack_literals (u8 hdr, const u8 *d, size_t n, size_t *osz)
+{
+	const uint nb = hdr & 0x80 ? 4 : 3;
+	u8 *o = MALLOC (2 + nb + n + n / 112 + 8);
+	if (!o)
+		return 0;
+	size_t p = 0;
+	o[p++] = hdr, o[p++] = 0xfb;
+	for (uint i = 0; i < nb; i++)
+		o[p++] = (u8)(n >> (8 * (nb - 1 - i)));
+	size_t q = 0;
+	while (n - q >= 4)
+	{
+		size_t run = (n - q) & ~(size_t)3;
+		if (run > 112)
+			run = 112;
+		o[p++] = (u8)(0xe0 + run / 4 - 1);
+		memcpy (o + p, d + q, run), p += run, q += run;
+	}
+	o[p++] = (u8)(0xfc + (n - q));
+	memcpy (o + p, d + q, n - q), p += n - q;
+	*osz = p;
+	return o;
+}
+
+// EA SHPG entry gxw_idx: record chain {code 0x10 + GX format, u24 size, u16 w, u16 h, ..., pixels at +0x10} followed by an optional 0x3N palette record
+static bool locate_shpg (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x20 || memcmp (raw, "SHPG", 4))
+		return false;
+	const uint count = gxw_be32 (raw + 8);
+	if (!count || count > 4096 || 16 + 8 * (size_t)count > sz || gxw_idx >= count)
+		return false;
+	const size_t off = gxw_be32 (raw + 16 + 8 * (size_t)gxw_idx + 4);
+	if (off + 16 > sz)
+		return false;
+	const uint code = raw[off], fmt = code - 0x10, w = gxw_be16 (raw + off + 4), h = gxw_be16 (raw + off + 6);
+	const size_t rec = (size_t)raw[off + 1] << 16 | raw[off + 2] << 8 | raw[off + 3];
+	if (code < 0x10 || fmt > 14 || fmt == 7 || (fmt > 6 && fmt != 8 && fmt != 9 && fmt != 14) || rec < 16 || off + rec > sz || !w || !h || w > 2048 || h > 2048)
+		return false;
+	size_t pal = 0;
+	uint pn = 0, pfmt = 0;
+	if (off + rec + 16 <= sz && (raw[off + rec] & 0xf0) == 0x30)
+	{
+		const size_t prec = (size_t)raw[off + rec + 1] << 16 | raw[off + rec + 2] << 8 | raw[off + rec + 3];
+		if (prec > 16 && off + rec + prec <= sz)
+			pal = off + rec + 16, pn = (uint)(prec - 16) / 2, pfmt = raw[off + rec] & 3;
+	}
+	if ((fmt == 8 || fmt == 9) && !pal)
+		return false;
+	g->shpg = g->dbl = true, g->gx = fmt, g->w = w, g->h = h, g->doff = off + 16, g->itype = (uint)(rec - 16), g->clut = pal, g->ncol = pn, g->bpp = pfmt;
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -945,8 +1060,11 @@ bool GXWrapIsFile (ccp path)
 	size_t sz;
 	u8 *raw = load (path, &sz);
 	gxw_t g;
-	const bool ok = raw && locate (raw, sz, path, &g);
+	size_t dsz;
+	u8 *dec = raw ? gxw_refpack (raw, sz, &dsz) : 0;
+	const bool ok = raw && (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g));
 	FREE (raw);
+	FREE (dec);
 	return ok;
 }
 
@@ -1996,7 +2114,14 @@ static enumError reinject_dbl (const Image_t *img, u8 *raw, const gxw_t *g, ccp 
 		for (uint i = 0; i < nc; i++)
 		{
 			const uint v = gxw_be16 (raw + g->clut + 2 * i);
-			pc[i][0] = (v >> 11 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 63) * 255 / 63, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
+			if (g->bpp == 0) // IA8
+				pc[i][0] = pc[i][1] = pc[i][2] = v & 255, pc[i][3] = v >> 8;
+			else if (g->bpp == 1) // RGB565
+				pc[i][0] = (v >> 11 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 63) * 255 / 63, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
+			else if (v & 0x8000)
+				pc[i][0] = (v >> 10 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 31) * 255 / 31, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
+			else
+				pc[i][0] = (v >> 8 & 15) * 17, pc[i][1] = (v >> 4 & 15) * 17, pc[i][2] = (v & 15) * 17, pc[i][3] = (v >> 12 & 7) * 255 / 7;
 		}
 		memset (raw + g->doff, 0, need);
 		enc_paletted (fmt == 9, rgba, pw, ph, pc, nc, raw + g->doff);
@@ -2012,6 +2137,19 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	size_t sz;
 	u8 *raw = load (dest, &sz);
 	gxw_t g;
+	u8 *packed = 0, hdr0 = raw && sz ? raw[0] : 0;
+	size_t psz = 0;
+	if (raw && (packed = gxw_refpack (raw, sz, &psz)) != 0)
+	{
+		if (hdr0 & 1) // a compressed-size field follows the header: not rewritten
+		{
+			FREE (raw);
+			FREE (packed);
+			return ERR_NOTHING_TO_DO;
+		}
+		FREE (raw);
+		raw = packed, sz = psz, packed = (u8 *)1;
+	}
 	if (!raw || !locate (raw, sz, dest, &g))
 	{
 		FREE (raw);
@@ -2035,7 +2173,14 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		Transform2XIMG (img);
 		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_dbl (img, raw, &g, dest);
-		if (!e)
+		if (!e && packed)
+		{
+			size_t on;
+			u8 *o = gxw_refpack_literals (hdr0, raw, sz, &on);
+			e = o ? store (dest, o, on) : ERR_OUT_OF_MEMORY;
+			FREE (o);
+		}
+		else if (!e)
 			e = store (dest, raw, sz);
 		FREE (raw);
 		return e;
