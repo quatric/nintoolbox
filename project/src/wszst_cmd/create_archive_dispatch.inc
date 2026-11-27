@@ -936,7 +936,8 @@ static enumError repack_directory_contents (ccp root)
 			// 3c. "foo.dbt.2.png": image number 2 of the multi-image file "foo.dbt"
 			uint gx_index = 0;
 			bool multi = false;
-			if (!found_target && (stem_ext = strrchr (stem, '.')) != 0 && stem_ext[1] && strspn (stem_ext + 1, "0123456789") == strlen (stem_ext + 1))
+			if (!found_target && (stem_ext = strrchr (stem, '.')) != 0 && isdigit ((u8)stem_ext[1])
+				&& (stem_ext[1 + strspn (stem_ext + 1, "0123456789")] == 0 || stem_ext[1 + strspn (stem_ext + 1, "0123456789")] == '_'))
 			{
 				snprintf (target_img, sizeof (target_img), "%.*s", (int)(stem_ext - stem), stem);
 				gx_index = (uint)strtoul (stem_ext + 1, 0, 10);

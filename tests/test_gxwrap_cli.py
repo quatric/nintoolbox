@@ -8,7 +8,7 @@ import pngtool
 
 WSZST = Path(__file__).resolve().parents[1] / 'project' / 'wszst'
 W = H = 16
-LOSSY = ('z.dbt0', 'z.dbt1', 'z.dbt2', 'z.Wiitex', 'n.wii', 'e.bct', 'f.txw', 'j.iwi', 'k.5a3')
+LOSSY = ('tg.bin', 'z.dbt0', 'z.dbt1', 'z.dbt2', 'z.Wiitex', 'n.wii', 'e.bct', 'f.txw', 'j.iwi', 'k.5a3')
 SIZE = {'k.5a3': (192, 64), 'z.Wiitex': (64, 64)}  # everything else is W x H
 
 
@@ -75,7 +75,9 @@ def wrappers():
     wiibang = b'WII!' + struct.pack('>II', 2, 1) + bytes(0x14) + struct.pack('>I', 0x40) + bytes(0x34 - 0x18) + b'abcd' + struct.pack('>HHIIII', W, H, 0, 0, W * H * 4, 0x58) + base
     kwtp = b'kwtp02' + bytes(0x12) + struct.pack('>I', 0x180) + bytes(0x180 - 0x1c) + tpl
     pte = struct.pack('>II', 13, 1) + bytes(0x38) + tpl
-    return {'kw.kwtp': kwtp, 'pp.pte': pte, 'k2.WII': wiibang, 't.tpc': tpc, 'l.lmp': lmp, 'b2.btf': btf, 'a2.PTX': base, 'a2.PTXH': bytes(ptxh), 'z.dbt': dbt, 'z.Wiitex': wiitex, 'x.apx': apx, 'w.aig': aig, 'v.gvr': gvr, 'q.hvt': hvt, 'r.etx': etx, 's.txe': txe, 'u.tex': krome, 'm.d4': d4, 'n.wii': petvet, 'o.ngcbm': ngcbm, 'p.MWT': mwt, 'i.a2': a2, 'j.iwi': iwi, 'k.5a3': bytes(192 * 64 * 2), 'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
+    rec = b'abc'.ljust(16, b'\0') + struct.pack('>IHHI', 0, 0, 0xffff, 0) + bytes(0x40 - 28) + struct.pack('>HH', W, H) + bytes(4) + bytes([14]) + bytes(88 - 0x49)
+    txg = b'TXG ' + bytes(4) + b'HEAD' + struct.pack('>I', 4) + bytes(4) + b'TXHE' + struct.pack('>I', 88) + rec + b'TXDA' + struct.pack('>I', W * H // 2) + cmpr
+    return {'tg.bin': txg, 'kw.kwtp': kwtp, 'pp.pte': pte, 'k2.WII': wiibang, 't.tpc': tpc, 'l.lmp': lmp, 'b2.btf': btf, 'a2.PTX': base, 'a2.PTXH': bytes(ptxh), 'z.dbt': dbt, 'z.Wiitex': wiitex, 'x.apx': apx, 'w.aig': aig, 'v.gvr': gvr, 'q.hvt': hvt, 'r.etx': etx, 's.txe': txe, 'u.tex': krome, 'm.d4': d4, 'n.wii': petvet, 'o.ngcbm': ngcbm, 'p.MWT': mwt, 'i.a2': a2, 'j.iwi': iwi, 'k.5a3': bytes(192 * 64 * 2), 'e.bct': bytes(bct) + cmpr + bytes(32), 'f.txw': bytes(txw) + bytes(0x40) + cmpr,
             'g.tgs': bytes(tgs) + tpl, 'h.pix': b'FPIX' + bytes(0x1c) + tpl,
             'd.gaftx': bytes(gaf) + base, 't.bin': bytes(gct) + base, 'a.wit': wit, 'b.CTX': ctx, 'c.s3t': s3t}
 
@@ -95,7 +97,7 @@ class GxWrap(unittest.TestCase):
             d = Path(tmp, 'in.d')
             names = {'t.bin': 't.bin.png', 'a.wit': 'a.wit.png', 'b.CTX': 'b.CTX.png', 'c.s3t': 'c.s3t.tpl.png', 'd.gaftx': 'd.png',
              'e.bct': 'e.bct.tpl.png', 'f.txw': 'f.txw.tpl.png', 'g.tgs': 'g.tgs.tpl.png', 'h.pix': 'h.pix.tpl.png',
-             'i.a2': 'i.a2.png', 'm.d4': 'm.png', 'q.hvt': 'q.hvt.png', 'v.gvr': 'v.gvr.png', 'w.aig': 'w.aig.d/w.png', 'x.apx': 'x.apx.d/x.png', 'z.dbt0': 'z.dbt.0.png', 'z.dbt1': 'z.dbt.1.png', 'z.dbt2': 'z.dbt.2.png', 'z.Wiitex': 'z.Wiitex.png', 'a2.PTX': 'a2.PTX.d/a2.PTX.tpl.png', 'l.lmp': 'l.lmp.d/T.tex.png', 't.tpc': 't.tpc.d/00.png', 'k2.WII': 'k2.WII.d/00_abcd.png', 'kw.kwtp': 'kw.kwtp.d/kw.tpl.png', 'pp.pte': 'pp.pte.tpl.png', 'btf0': 'b2.btf.00.png', 'btf1': 'b2.btf.01.png', 'r.etx': 'r.etx.d/r.png', 's.txe': 's.bti.png', 'u.tex': 'u.png', 'n.wii': 'n.png', 'o.ngcbm': 'o.ngcbm.png', 'p.MWT': 'p.MWT.png', 'j.iwi': 'j.iwi.png', 'k.5a3': 'k.5a3.png'}
+             'i.a2': 'i.a2.png', 'm.d4': 'm.png', 'q.hvt': 'q.hvt.png', 'v.gvr': 'v.gvr.png', 'w.aig': 'w.aig.d/w.png', 'x.apx': 'x.apx.d/x.png', 'z.dbt0': 'z.dbt.0.png', 'z.dbt1': 'z.dbt.1.png', 'z.dbt2': 'z.dbt.2.png', 'z.Wiitex': 'z.Wiitex.png', 'a2.PTX': 'a2.PTX.d/a2.PTX.tpl.png', 'l.lmp': 'l.lmp.d/T.tex.png', 't.tpc': 't.tpc.d/00.png', 'k2.WII': 'k2.WII.d/00_abcd.png', 'kw.kwtp': 'kw.kwtp.d/kw.tpl.png', 'tg.bin': 'tg.bin.000_abc.png', 'pp.pte': 'pp.pte.tpl.png', 'btf0': 'b2.btf.00.png', 'btf1': 'b2.btf.01.png', 'r.etx': 'r.etx.d/r.png', 's.txe': 's.bti.png', 'u.tex': 'u.png', 'n.wii': 'n.png', 'o.ngcbm': 'o.ngcbm.png', 'p.MWT': 'p.MWT.png', 'j.iwi': 'j.iwi.png', 'k.5a3': 'k.5a3.png'}
             time.sleep(1.1)
             for name, png in names.items():
                 self.assertTrue((d / png).exists(), png)

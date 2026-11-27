@@ -530,6 +530,30 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!g->w)
 			return false;
 	}
+	else if (sz >= 0x40 && !memcmp (raw, "TXG ", 4))
+	{
+		// EA texture group: chunks {tag, BE32 size} HEAD / TXHE (88 byte records) / CLHE / TXDA; the base level of record gxw_idx is re-encoded
+		size_t he = 0, he_size = 0, da = 0, da_size = 0;
+		for (size_t p = 8; p + 8 <= sz;)
+		{
+			const size_t cs = gxw_be32 (raw + p + 4);
+			if (cs > sz - p - 8)
+				break;
+			if (!memcmp (raw + p, "TXHE", 4))
+				he = p + 8, he_size = cs;
+			else if (!memcmp (raw + p, "TXDA", 4))
+				da = p + 8, da_size = cs;
+			p += 8 + cs;
+		}
+		if (!he || !da || he_size % 88 || gxw_idx >= he_size / 88)
+			return false;
+		const u8 *r = raw + he + 88 * gxw_idx;
+		const uint f = r[0x48], off = gxw_be32 (r + 0x10);
+		g->w = gxw_be16 (r + 0x40), g->h = gxw_be16 (r + 0x42), g->gx = f, g->levels = 1, g->doff = da + off;
+		if ((f != 14 && f != 5 && f != 0) || !g->w || !g->h || g->w > 2048 || g->h > 2048 || ((g->w | g->h) & 7)
+			|| off > da_size || level_size (f, g->w, g->h) > da_size - off)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
