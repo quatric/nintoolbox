@@ -860,6 +860,31 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
+			// 0c. IOI Glacier: "foo.TEX.d/Dir/Name.png" (any depth below the bank's folder) belongs to "foo.TEX", entry "Dir/Name"
+			{
+				char anc[PATH_MAX];
+				snprintf (anc, sizeof (anc), "%s", root);
+				for (char *q = anc + strlen (anc); q >= anc; q--)
+					if ((q == anc + strlen (anc) || *q == '/') && q - anc > 6 && !strncasecmp (q - 6, ".tex.d", 6))
+					{
+						char par[PATH_MAX];
+						snprintf (par, sizeof (par), "%.*s", (int)(q - anc - 2), anc);
+						char rel[PATH_MAX];
+						snprintf (rel, sizeof (rel), "%s%s%.*s", *q == '/' ? q + 1 : "", *q == '/' ? "/" : "", (int)(strlen (de->d_name) - 4), de->d_name);
+						if (*q != '/')
+							snprintf (rel, sizeof (rel), "%.*s", (int)(strlen (de->d_name) - 4), de->d_name);
+						else
+							snprintf (rel, sizeof (rel), "%s/%.*s", q + 1, (int)(strlen (de->d_name) - 4), de->d_name);
+						GXWrapSetName (rel);
+						if (stat (par, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (par))
+						{
+							snprintf (target_img, sizeof (target_img), "%s", par);
+							found_target = multi = true;
+						}
+						break;
+					}
+			}
+
 			// 0b. the unpacked copy of an LZSS wrapper: "foo.tan.d/frame_00.png" belongs to "foo.tan.d/foo.tan"
 			if (!found_target)
 			{

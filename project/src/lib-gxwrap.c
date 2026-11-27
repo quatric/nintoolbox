@@ -26,6 +26,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool glac; // IOI Glacier .TEX entry (doff = base level, itype = its bytes, ctype = format fourcc, clut = palette (A,B,G,R), ncol = colours)
 	bool pica; // 3DS PICA200 texture (GFTexture / MT TEX): gx = PICA format 0-13, doff = texels, avail = their bytes
 	bool grph; // EA DS GRPH image (doff = GIMG block, clut = first palette colour, ncol = colours, tga.. = see reinject_grph; itype = palette base, bpp = 1 for a sprite frame)
 	bool rtex; // NW4R .rtex XML export (doff = start of the hex words, avail = their text length, itype = data bytes, bpp = bytes per word)
@@ -959,10 +960,99 @@ static bool locate_pica (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// IOI Glacier (Mini Ninjas) ".TEX" bank: the entry whose name (or "tex_<id>", or "<name>_<id>") is gxw_name; linear pixels, see extract/glacier_tex.inc
+static bool gl_fmt_ok (const u8 *p)
+{
+	static const char *const f[] = { "DXT1", "15A3", "16A0", "IA4 ", "IA8 ", "I4  ", "I8  ", "RGBA", "PALN" };
+	if (memcmp (p, p + 4, 4))
+		return false;
+	for (uint i = 0; i < sizeof f / sizeof *f; i++)
+		if (!memcmp (p, f[i], 4))
+			return true;
+	return false;
+}
+
+static bool locate_glacier (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x50 || !gxw_name[0])
+		return false;
+	const size_t table = gxw_be32 (raw), end = gxw_be32 (raw + 4), first = gxw_be32 (raw + 0x10);
+	if (!(table >= 0x50 && table <= end && end <= sz && !gxw_be32 (raw + 8) && gxw_be32 (raw + 12) == 0x04000000 && first >= 0x30 && 0x10 + first <= table
+		&& gl_fmt_ok (raw + 0x14)))
+		return false;
+	for (size_t o = 0x10; o + 0x30 <= table;)
+	{
+		const size_t esz = gxw_be32 (raw + o);
+		if (!esz)
+			break;
+		if (!gl_fmt_ok (raw + o + 4))
+		{
+			if (esz > 0x10000 || o + 4 + 4 * esz > table)
+				break;
+			o = (o + 4 + 4 * esz + 15) & ~(size_t)15;
+			continue;
+		}
+		if (esz < 0x2c || o + esz > table)
+			break;
+		const u8 *e = raw + o, *nm = e + 0x24, *nend = memchr (nm, 0, raw + o + esz - nm);
+		const uint w = gxw_be16 (e + 16), h = gxw_be16 (e + 18), mips = gxw_be32 (e + 20), id = gxw_be32 (e + 12);
+		if (!nend || !w || !h || w > 8192 || h > 8192 || !mips || mips > 16)
+			break;
+		size_t p = (size_t)(nend + 1 - raw), base = 0, base_n = 0;
+		bool ok = true;
+		for (uint m = 0; m < mips && ok; m++)
+		{
+			if (p + 4 > o + esz)
+			{
+				ok = false;
+				break;
+			}
+			const size_t ms = gxw_be32 (raw + p);
+			if (p + 4 + ms > o + esz)
+				ok = false;
+			else if (!m)
+				base = p + 4, base_n = ms;
+			p += 4 + ms;
+		}
+		const bool paln = !memcmp (e + 4, "PALN", 4);
+		uint npal = 0;
+		size_t pal = 0;
+		if (ok && paln)
+		{
+			npal = p + 4 <= o + esz ? gxw_be32 (raw + p) : 0;
+			ok = npal && npal <= 256 && p + 4 + 4 * (size_t)npal <= o + esz;
+			pal = p + 4;
+			p += 4 + 4 * (size_t)npal;
+		}
+		if (!ok || p != o + esz)
+			break;
+		char a[400], b[420], c[48];
+		snprintf (a, sizeof a, "%.*s", (int)(nend - nm) < 400 ? (int)(nend - nm) : 399, (ccp)nm);
+		snprintf (c, sizeof c, "tex_%u", id);
+		snprintf (b, sizeof b, "%s_%u", a, id);
+		if (!strcasecmp (gxw_name, a) && nend != nm ? true : (!strcasecmp (gxw_name, c) || !strcasecmp (gxw_name, b)))
+		{
+			const uint fc = gxw_be32 (e + 4);
+			size_t need = 0;
+			const size_t px = (size_t)w * h;
+			need = fc == 0x44585431 ? (size_t)((w + 3) / 4) * ((h + 3) / 4) * 8 : (fc == 0x49342020) ? (px + 1) / 2 : (fc == 0x52474241) ? px * 4
+				: (fc == 0x31354133 || fc == 0x31364130 || fc == 0x49413820) ? px * 2 : px;
+			if (base_n >= need)
+			{
+				g->glac = true, g->doff = base, g->itype = (uint)base_n, g->w = w, g->h = h, g->ctype = fc, g->clut = pal, g->ncol = npal;
+				return true;
+			}
+			return false;
+		}
+		o = (o + esz + 15) & ~(size_t)15;
+	}
+	return false;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || locate_pica (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2637,6 +2727,75 @@ static enumError reinject_grph (const Image_t *img, u8 *raw, size_t sz, const gx
 	return ERR_OK;
 }
 
+static enumError reinject_glacier (const Image_t *img, u8 *raw, const gxw_t *g, ccp path)
+{
+	const uint w = g->w, h = g->h, fc = g->ctype;
+	if (img->width != w || img->height != h)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, w, h, path);
+	u8 *d = raw + g->doff;
+	const size_t px = (size_t)w * h;
+	memset (d, 0, g->itype < px * 4 ? g->itype : px * 4);
+	if (fc == 0x44585431) // DXT1: GX CMPR blocks with PC (LSB first) index bytes, in linear block order
+	{
+		const uint pw = (w + 7) & ~7u, ph = (h + 7) & ~7u;
+		u8 *rgba = pad_rgba (img, pw, ph), *tiled = rgba ? MALLOC (level_size (14, pw, ph)) : 0;
+		if (!tiled)
+			return FREE (rgba), ERR_OUT_OF_MEMORY;
+		GXEncodeRGBA (14, pw, ph, rgba, tiled);
+		const uint bw = (w + 3) / 4, bh = (h + 3) / 4;
+		for (uint by = 0; by < bh; by++)
+			for (uint bx = 0; bx < bw; bx++)
+			{
+				const u8 *s = tiled + (size_t)((by / 2) * (pw / 8) + bx / 2) * 32 + (size_t)((by & 1) * 2 + (bx & 1)) * 8;
+				u8 *o = d + ((size_t)by * bw + bx) * 8;
+				memcpy (o, s, 4);
+				for (uint r = 0; r < 4; r++)
+					o[4 + r] = (u8)((s[4 + r] >> 6 & 3) | (s[4 + r] >> 4 & 3) << 2 | (s[4 + r] >> 2 & 3) << 4 | (s[4 + r] & 3) << 6);
+			}
+		FREE (rgba), FREE (tiled);
+		return ERR_OK;
+	}
+	for (size_t i = 0; i < px; i++)
+	{
+		const u8 *p = img->data + 4 * ((i / w) * img->xwidth + i % w);
+		const uint lum = (p[0] + p[1] + p[2]) / 3;
+		uint v;
+		switch (fc)
+		{
+		case 0x31354133: // 15A3
+			v = p[3] == 255 ? 0x8000 | ((p[0] * 31 + 127) / 255) << 10 | ((p[1] * 31 + 127) / 255) << 5 | ((p[2] * 31 + 127) / 255)
+				: ((p[3] * 7 + 127) / 255) << 12 | ((p[0] + 8) / 17) << 8 | ((p[1] + 8) / 17) << 4 | (p[2] + 8) / 17;
+			d[2 * i] = (u8)(v >> 8), d[2 * i + 1] = (u8)v;
+			break;
+		case 0x31364130: // 16A0
+			v = ((p[0] * 31 + 127) / 255) << 11 | ((p[1] * 63 + 127) / 255) << 5 | ((p[2] * 31 + 127) / 255);
+			d[2 * i] = (u8)(v >> 8), d[2 * i + 1] = (u8)v;
+			break;
+		case 0x49413820: d[2 * i] = p[3], d[2 * i + 1] = (u8)lum; break; // IA8
+		case 0x49413420: d[i] = (u8)((p[3] + 8) / 17 << 4 | (lum + 8) / 17); break; // IA4
+		case 0x49382020: d[i] = (u8)lum; break; // I8
+		case 0x49342020: d[i / 2] |= (u8)((lum + 8) / 17 << (i & 1 ? 0 : 4)); break; // I4
+		case 0x52474241: d[4 * i] = p[3], d[4 * i + 1] = p[2], d[4 * i + 2] = p[1], d[4 * i + 3] = p[0]; break; // RGBA stored {A, B, G, R}
+		default: // PALN
+		{
+			uint best = 0, bd = ~0u;
+			for (uint c = 0; c < g->ncol; c++)
+			{
+				const u8 *e = raw + g->clut + 4 * c;
+				uint dd = 0;
+				const int dv[4] = { (int)e[3] - p[0], (int)e[2] - p[1], (int)e[1] - p[2], (int)e[0] - p[3] };
+				for (uint k = 0; k < 4; k++)
+					dd += (uint)(dv[k] * dv[k]);
+				if (dd < bd)
+					bd = dd, best = c;
+			}
+			d[i] = (u8)best;
+		}
+		}
+	}
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -2707,6 +2866,15 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.glac)
+	{
+		Transform2XIMG (img);
+		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_glacier (img, raw, &g, dest);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.pica)
 	{

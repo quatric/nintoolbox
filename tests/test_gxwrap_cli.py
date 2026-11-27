@@ -1140,5 +1140,54 @@ class PicaWrap(unittest.TestCase):
                         t = 8 if k == 'g565' else tol
                         self.assertTrue(all(abs(a - b) <= t for a, b in zip(got, exp)), (n, x, y, got, exp))
 
+class GlacierTex(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(10, 20, 30, 255), (200, 100, 50, 255), (0, 255, 0, 255), (255, 0, 255, 128)]
+        def entry(fc, i, w, h, name, body, palette=b''):
+            e = bytearray(fc + fc + struct.pack('>IHHII', i, w, h, 1, 0) + struct.pack('>fI', 1.0, 0) + name + b'\0')
+            e = struct.pack('>I', 0) + bytes(e) + struct.pack('>I', len(body)) + body + palette
+            e = struct.pack('>I', len(e)) + e[4:]
+            return e.ljust((len(e) + 15) // 16 * 16, b'\0')
+        ents = [entry(b'DXT1', 1, 8, 8, b'Dir/dxt', bytes(32)), entry(b'15A3', 2, 8, 4, b'Dir/a3', bytes(64)), entry(b'I4  ', 3, 8, 4, b'i4', bytes(16)),
+                entry(b'PALN', 4, 8, 4, b'Dir/Sub/paln', bytes(32), struct.pack('>I', 4) + b''.join(bytes([c[3], c[2], c[1], c[0]]) for c in pal))]
+        body = b''.join(ents)
+        table = 0x10 + len(body)
+        raw = struct.pack('>IIII', table, table + 0x20, 0, 0x04000000) + body + bytes(0x20)
+        c565 = lambda v: v << 3 | v >> 2
+        def pix(name, x, y):
+            if name == 'dxt':
+                return ((248, 0, 0, 255) if (x + y) % 2 else (0, 0, 248, 255))
+            if name == 'a3': return (c565((x * 4 + y) % 32), c565(y * 7 % 32), c565(x), 255)
+            if name == 'i4': v = (x + y) % 16 * 17; return (v, v, v, 255)
+            return pal[(x + y) % 4]
+        dims = {'dxt': (8, 8), 'a3': (8, 4), 'i4': (8, 4), 'paln': (8, 4)}
+        rel = {'dxt': 'Dir/dxt.png', 'a3': 'Dir/a3.png', 'i4': 'i4.png', 'paln': 'Dir/Sub/paln.png'}
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'b.TEX').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 'b.TEX.d')
+            for k, r in rel.items():
+                self.assertTrue((d / r).exists(), r)
+            time.sleep(1.1)
+            for k, r in rel.items():
+                w, h = dims[k]
+                write_png(d / r, w, h, b''.join(bytes(pix(k, x, y)) for y in range(h) for x in range(w)))
+            res = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            run('xx', 'ex/b.TEX', '--decode', '-o')
+            for k, r in rel.items():
+                w, h = dims[k]
+                ww, hh, ch, rgba = pngtool._read_png(d / r)
+                for y in range(h):
+                    for x in range(w):
+                        got = (tuple(rgba(x, y)) + (255,))[:4]
+                        exp = pix(k, x, y)
+                        tol = 8 if k == 'dxt' else 0
+                        self.assertTrue(all(abs(a - b) <= tol for a, b in zip(got, exp)), (k, x, y, got, exp))
+
+
 if __name__ == '__main__':
     unittest.main()
