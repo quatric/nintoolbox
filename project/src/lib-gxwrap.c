@@ -13,6 +13,7 @@ typedef struct gxw_t
 	bool ivt; // ACB Total .ivt: BGRA8 / BGR8 / LA8 / L8 pixels XOR-scrambled with a short key (ncol = key variant, bpp = bytes per pixel)
 	bool apx; // Capcom Zack and Wiki .apx: 24 bit linear RGB behind a 0x20 byte header
 	bool imy; // Nippon Ichi IMY: palette + tiles, rewritten as an uncompressed (flags bit 0) stream
+	bool ptexa; // PTEX kind 2: CMPR colour plane followed by an I4 alpha plane
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -566,6 +567,18 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		g->w = gxw_be16 (r + 0x40), g->h = gxw_be16 (r + 0x42), g->gx = f, g->levels = 1, g->doff = da + off;
 		if ((f != 14 && f != 5 && f != 0) || !g->w || !g->h || g->w > 2048 || g->h > 2048 || ((g->w | g->h) & 7)
 			|| off > da_size || level_size (f, g->w, g->h) > da_size - off)
+			return false;
+	}
+	else if (sz >= 0x3c && !memcmp (raw, "PTEX", 4) && gxw_be32 (raw + 12) == 0x44332211 && gxw_name[0] && isdigit ((u8)gxw_name[0])
+		&& strtoul (gxw_name, 0, 10) < gxw_be32 (raw + 0x18) && gxw_be32 (raw + 0x18) <= 256)
+	{
+		// Virtua Tennis 2009 texture bundle: 0x20 byte records from 0x1c {hash, kind, used w, h, w, h, offset - 0x10, ...}
+		const u8 *r = raw + 0x1c + 0x20 * strtoul (gxw_name, 0, 10);
+		const uint kind = gxw_be32 (r + 4);
+		g->w = gxw_be16 (r + 12), g->h = gxw_be16 (r + 14), g->gx = 14, g->levels = 1, g->doff = (size_t)gxw_be32 (r + 16) + 0x10;
+		g->ptexa = kind == 2;
+		if ((kind != 0 && kind != 2) || !g->w || !g->h || ((g->w | g->h) & 7)
+			|| g->doff + (kind == 2 ? (size_t)g->w * g->h : (size_t)g->w * g->h / 2) > sz)
 			return false;
 	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
@@ -1157,6 +1170,20 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		{
 			for (uint y = 0; y < g.h; y++)
 				memcpy (rgba + 4 * (size_t)y * g.w, img->data + 4 * (size_t)y * img->xwidth, 4 * g.w);
+			if (g.ptexa)
+			{
+				u8 *a = raw + g.doff + (size_t)g.w * g.h / 2;
+				for (uint by = 0; by < g.h; by += 8)
+					for (uint bx = 0; bx < g.w; bx += 8)
+						for (uint y = 0; y < 8; y++)
+							for (uint x = 0; x < 8; x += 2)
+							{
+								const u8 *p = rgba + 4 * ((size_t)(by + y) * g.w + bx + x);
+								*a++ = (u8)(((p[3] + 8) / 17) << 4 | (p[7] + 8) / 17);
+							}
+				for (size_t i = 0; i < (size_t)g.w * g.h; i++)
+					rgba[4 * i + 3] = 255; // the colour plane has no transparent mode
+			}
 			encode_chain (&g, rgba, raw + g.doff, g.avail);
 			FREE (rgba);
 			err = store (dest, raw, sz);
