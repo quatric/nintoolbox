@@ -502,6 +502,20 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (g->gx == 99 || !g->w || !g->h || g->w > 2048 || g->h > 2048 || g->doff + level_size (g->gx, g->w, g->h) > sz)
 			return false;
 	}
+	else if (has_ext (path, ".wii") && sz > 0x40 && !memcmp (raw, "WII!", 4) && gxw_be32 (raw + 4) == 2 && gxw_be32 (raw + 32) == 0x40 && !gxw_be32 (raw + 12) && gxw_name[0]
+		&& isdigit ((u8)gxw_name[0]) && strtoul (gxw_name, 0, 10) < gxw_be32 (raw + 8))
+	{
+		// Star Trek: Conquest texture-only bundle: 0x18 byte records {name[4], w, h, kind, 0, size, offset} from 0x40
+		const u8 *r = raw + 0x40 + 0x18 * strtoul (gxw_name, 0, 10);
+		if (r + 0x18 > raw + sz)
+			return false;
+		const uint kind = gxw_be32 (r + 8);
+		g->w = gxw_be16 (r + 4), g->h = gxw_be16 (r + 6), g->doff = gxw_be32 (r + 20), g->levels = 1;
+		g->gx = kind == 0 ? 6 : kind == 1 ? 4 : 5;
+		if (kind > 2 || !g->w || !g->h || gxw_be32 (r + 12) || gxw_be32 (r + 16) != g->w * g->h * (kind ? 2u : 4u)
+			|| g->doff + gxw_be32 (r + 16) > sz)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
