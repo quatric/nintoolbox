@@ -206,6 +206,28 @@ class Tim2Wrap(unittest.TestCase):
             self.assertEqual(out[0x40:0x40 + W * H], idx8)  # swizzled stored indices
             self.assertTrue(out.endswith(clut))  # the palette is untouched
 
+    def test_multi_image(self):
+        one = tim2(3, 3, 0, bytes(W * H * 4), b'')
+        two = one[:6] + struct.pack('<H', 2) + one[8:] + one[0x10:]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'm.tm2').write_bytes(two)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            edit = {0: lambda x, y: (x * 16, y * 16, 128, 255), 1: lambda x, y: (255 - x * 16, y * 8, 7, 255)}
+            for i, f in edit.items():
+                self.assertTrue(Path(tmp, 'in.d', 'm.tm2.%02d.png' % i).exists(), i)
+                write_png(Path(tmp, 'in.d', 'm.tm2.%02d.png' % i), W, H, b''.join(bytes(f(x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for i, f in edit.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'm.tm2.%02d.png' % i))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertEqual(tuple(rgba(x, y)), f(x, y), (i, x, y))
+
 
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):

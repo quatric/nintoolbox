@@ -107,13 +107,22 @@ static bool locate_dst1 (const u8 *raw, size_t sz, gxw_t *g)
 // PS2 TIM2 with one image (see extract_tim2png_file); only the top mip level is handled
 static bool locate_tim2 (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
-	if (!has_ext (path, ".tm2") || sz < 0x40 || memcmp (raw, "TIM2", 4) || gxw_le16 (raw + 6) != 1)
+	if (!has_ext (path, ".tm2") || sz < 0x40 || memcmp (raw, "TIM2", 4) || !gxw_le16 (raw + 6) || gxw_idx >= gxw_le16 (raw + 6))
 		return false;
-	const u8 *h = raw + 0x10;
+	size_t off = 0x10; // images follow each other, each one {header, pixels, clut} of "total" bytes
+	for (uint k = 0; k < gxw_idx; k++)
+	{
+		if (off + 0x30 > sz)
+			return false;
+		off += gxw_le32 (raw + off);
+	}
+	if (off + 0x30 > sz)
+		return false;
+	const u8 *h = raw + off;
 	const size_t total = gxw_le32 (h), clutsz = gxw_le32 (h + 4), imgsz = gxw_le32 (h + 8);
 	const uint hs = gxw_le16 (h + 12), ncol = gxw_le16 (h + 14), ctype = h[18], itype = h[19];
 	const uint w = gxw_le16 (h + 20), ht = gxw_le16 (h + 22);
-	if (total < hs || 0x10 + total > sz || hs < 0x30 || !w || !ht || w > 4096 || ht > 4096 || itype < 1
+	if (total < hs || off + total > sz || hs < 0x30 || !w || !ht || w > 4096 || ht > 4096 || itype < 1
 		|| itype > 5)
 		return false;
 	const uint bpp = itype == 1 ? 16 : itype == 2 ? 24 : itype == 3 ? 32 : itype == 4 ? 4 : 8;
@@ -122,7 +131,7 @@ static bool locate_tim2 (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		|| (itype >= 4 && (!cbpp || (u64)ncol * cbpp / 8 > clutsz)))
 		return false;
 	g->tim2 = true, g->w = w, g->h = ht, g->bpp = itype >= 4 ? cbpp : bpp, g->itype = itype;
-	g->ctype = ctype, g->ncol = ncol, g->doff = 0x10 + hs, g->clut = 0x10 + hs + imgsz;
+	g->ctype = ctype, g->ncol = ncol, g->doff = off + hs, g->clut = off + hs + imgsz;
 	return true;
 }
 
