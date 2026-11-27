@@ -9,6 +9,7 @@ typedef struct gxw_t
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
@@ -20,6 +21,8 @@ static uint gxw_be16 (const u8 *p) { return p[0] << 8 | p[1]; }
 static uint gxw_le16 (const u8 *p) { return p[0] | p[1] << 8; }
 static uint gxw_be32 (const u8 *p) { return (uint)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
 static uint gxw_le32 (const u8 *p) { return (uint)p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0]; }
+
+static u8 *load (ccp path, size_t *size);
 
 static bool has_ext (ccp path, ccp ext)
 {
@@ -130,10 +133,45 @@ static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 	return true;
 }
 
+// sibling file of a ".nbfc" ("foo.nbfp", "foo.NBFP"), loaded with the same lookup the decoder uses
+static u8 *load_sibling (ccp path, ccp ext, size_t *sz)
+{
+	char buf[PATH_MAX];
+	ccp dot = strrchr (path, '.');
+	if (!dot || (size_t)(dot - path) + strlen (ext) >= sizeof (buf))
+		return 0;
+	for (uint up = 0; up < 2; up++)
+	{
+		snprintf (buf, sizeof (buf), "%.*s", (int)(dot - path), path);
+		char *q = buf + strlen (buf);
+		for (ccp e = ext; *e; e++)
+			*q++ = up ? toupper ((u8)*e) : *e;
+		*q = 0;
+		u8 *d = load (buf, sz);
+		if (d)
+			return d;
+	}
+	return 0;
+}
+
+static bool locate_nbfc (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	(void)raw;
+	const bool ch = has_ext (path, ".char");
+	if ((!ch && !has_ext (path, ".nbfc")) || sz < 32 || sz > 0x400000)
+		return false;
+	size_t psz;
+	u8 *pal = load_sibling (path, ch ? ".pal" : ".nbfp", &psz);
+	const bool ok = pal && psz >= 2 && psz <= 0x200 && !(psz & 1);
+	FREE (pal);
+	g->nbfc = ok;
+	return ok;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -404,6 +442,80 @@ static void reinject_dst1 (const Image_t *img, u8 *raw, const gxw_t *g)
 		}
 }
 
+static uint nbf_c555 (const u8 *p) { uint c = gxw_le16 (p); return (c & 31) | (c >> 5 & 31) << 8 | (c >> 10 & 31) << 16; }
+
+// Mirror of the decoder (extract/nbfraw.inc): every map cell (or tile, without a map) owns 8x8 pixels of the
+// sheet; each pixel becomes the nearest colour of its palette bank. Tiles shared by several cells take the last one.
+static enumError reinject_nbfc (const Image_t *img, u8 *raw, size_t sz, ccp path)
+{
+	const bool ch = has_ext (path, ".char");
+	size_t psz = 0, msz = 0;
+	u8 *pal = load_sibling (path, ch ? ".pal" : ".nbfp", &psz);
+	u8 *map = load_sibling (path, ch ? ".scr" : ".nbfs", &msz);
+	enumError e = ERR_OK;
+	if (!pal)
+		return ERR_NOTHING_TO_DO;
+	if (map && msz >= 4 && !memcmp (map, "VSCR", 4))
+		FREE (map), map = 0, msz = 0;
+	const uint ncol = (uint)psz / 2, nent = (uint)msz / 2;
+	bool banks = false;
+	for (uint i = 0; i < nent; i++)
+		banks |= gxw_le16 (map + 2 * i) >> 12 != 0;
+	const uint bpp = ncol <= 16 || banks ? 4 : 8, tb = bpp * 8;
+	uint wt, ht;
+	if (nent >= 16 && nent <= 4096)
+	{
+		wt = nent % 32 == 0 ? 32 : nent % 16 == 0 ? 16 : 0;
+		ht = wt ? nent / wt : 0;
+	}
+	else
+		FREE (map), map = 0, wt = 32, ht = ((uint)(sz / tb) + 31) / 32;
+	if (!ht || ht > 128)
+		e = ERR_NOTHING_TO_DO;
+	else if (img->width != wt * 8 || img->height != ht * 8)
+		e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the tile sheet is %ux%u: %s\n", img->width,
+			img->height, wt * 8, ht * 8, path);
+	for (uint i = 0; !e && i < wt * ht; i++)
+	{
+		const uint en = map ? gxw_le16 (map + 2 * i) : i, t = map ? en & 0x3ff : i, hf = map ? en >> 10 & 1 : 0,
+			vf = map ? en >> 11 & 1 : 0, bk = map ? en >> 12 : 0;
+		for (uint y = 0; y < 8; y++)
+			for (uint x = 0; x < 8; x++)
+			{
+				const uint sy = vf ? 7 - y : y, sx = hf ? 7 - x : x;
+				const size_t o = (size_t)t * tb + (bpp == 4 ? sy * 4 + sx / 2 : sy * 8 + sx);
+				if (o >= sz)
+					continue;
+				const u8 *p = img->data + 4 * ((size_t)((i / wt) * 8 + y) * img->xwidth + (i % wt) * 8 + x);
+				uint best = 0, best_d = ~0u;
+				for (uint v = 0; v < (bpp == 4 ? 16u : 256u); v++)
+				{
+					uint ci = v + (bpp == 4 ? bk * 16 : 0);
+					if (ci >= ncol)
+						ci = v;
+					if (ci >= ncol)
+						continue;
+					const uint c = nbf_c555 (pal + 2 * ci);
+					uint d = 0;
+					for (uint k = 0; k < 3; k++)
+					{
+						const int dv = (int)((c >> (8 * k) & 31) * 255 / 31) - p[k];
+						d += (uint)(dv * dv);
+					}
+					if (d < best_d)
+						best_d = d, best = v;
+				}
+				if (bpp == 4)
+					raw[o] = (u8)(sx & 1 ? (raw[o] & 15) | best << 4 : (raw[o] & 0xf0) | best);
+				else
+					raw[o] = (u8)best;
+			}
+	}
+	FREE (pal);
+	FREE (map);
+	return e;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -413,6 +525,19 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (g.nbfc)
+	{
+		enumError e = ERR_OK;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else
+			e = reinject_nbfc (img, raw, sz, dest);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.tim2 || g.dst1)
 	{

@@ -221,5 +221,35 @@ class Dst1Wrap(unittest.TestCase):
                     self.assertTrue(all(abs(a - b) < 9 for a, b in zip(got, c)), (n, i, got, c))
 
 
+class NbfWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        NT = 64  # 32 x 2 tiles
+        pal = [((i * 8) % 32, (i * 5) % 32, (i * 11) % 32) for i in range(32)]  # RGB555 components, 2 banks of 16
+        rgb = lambda c: tuple(v * 255 // 31 for v in c)
+        # tile i: flipped when i % 3 == 1, bank = i % 2
+        cells = [(i | (i % 3 == 1) << 10 | (i % 3 == 2) << 11 | (i % 2) << 12) for i in range(NT)]
+        files = {'a.nbfc': bytes(NT * 32), 'a.nbfp': b''.join(struct.pack('<H', c[0] | c[1] << 5 | c[2] << 10) for c in pal),
+                 'a.nbfs': b''.join(struct.pack('<H', c) for c in cells)}
+        want = lambda x, y: rgb(pal[(x // 8) % 2 * 16 + (x * 3 + y * 5) % 16])
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, d in files.items():
+                (src / n).write_bytes(d)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            self.assertTrue(Path(tmp, 'in.d', 'a.nbfc.d', 'a.png').exists())
+            write_png(Path(tmp, 'in.d', 'a.nbfc.d', 'a.png'), 256, 16, b''.join(bytes(want(x, y)) + b'\xff' for y in range(16) for x in range(256)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'a.nbfc.d', 'a.png'))
+            self.assertEqual((w, h), (256, 16))
+            for y in range(16):
+                for x in range(256):
+                    self.assertEqual(tuple(rgba(x, y))[:3], want(x, y), (x, y))
+            self.assertEqual(Path(tmp, 'out.d', 'a.nbfp').read_bytes(), files['a.nbfp'])  # palette and map are untouched
+
+
 if __name__ == '__main__':
     unittest.main()

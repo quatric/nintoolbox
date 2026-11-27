@@ -893,7 +893,7 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
-			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (the preview sits in the file's own .d folder)
+			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
 			if (!found_target)
 			{
 				const size_t rl = strlen (root);
