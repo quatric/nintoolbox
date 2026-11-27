@@ -1291,3 +1291,22 @@ class NcfamRender(unittest.TestCase):
             run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
             run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
             self.assertTrue(Path(tmp, 'ex', 'a.nsc.d', 'a.png').exists())
+
+    def test_edited_tiles_flow_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, x in self.FILES.items():
+                (src / n).write_bytes(bytes.fromhex(x))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 'a.ncg.d', 'a.ncgr.png')
+            w, h, ch, rgba = pngtool._read_png(png)
+            time.sleep(1.1)
+            write_png(png, w, h, bytes([0, 0, 0, 255]) * (w * h))
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--dest', 'out', '-o')
+            old, new = bytes.fromhex(self.FILES['a.ncg']), Path(tmp, 'out', 'a.ncg').read_bytes()
+            self.assertEqual(len(old), len(new))
+            self.assertEqual(old[:0x20], new[:0x20])
+            self.assertNotEqual(old[0x20:0x20 + 128], new[0x20:0x20 + 128])

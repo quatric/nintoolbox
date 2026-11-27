@@ -1751,6 +1751,7 @@ static enumError repack_directory_contents (ccp root)
 	GXWrapRepackSet (root);
 	GXWrapRepackOpoona (root);
 	GXWrapRepackXtc (root);
+	GXWrapRepackNcfam (root);
 	closedir (dir);
 	return max_err;
 }

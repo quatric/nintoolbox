@@ -2644,6 +2644,49 @@ void GXWrapRepackOpoona (ccp root)
 	FREE (raw);
 }
 
+// NITRO-CHARACTER sources: an edited "foo.ncg.d/foo.ncgr" (tiles) or "foo.ncl.d/foo.nclr" (palette) goes back into the CHAR / PALT block of
+// "foo.ncg" / "foo.ncl" when the data size is unchanged.
+void GXWrapRepackNcfam (ccp root)
+{
+	const size_t rl = strlen (root);
+	if (rl < 7 || (strcmp (root + rl - 6, ".ncg.d") && strcmp (root + rl - 6, ".ncl.d")))
+		return;
+	const bool chr = root[rl - 3] == 'g';
+	char parent[PATH_MAX], path[PATH_MAX];
+	snprintf (parent, sizeof (parent), "%.*s", (int)(rl - 2), root);
+	ccp bs = strrchr (parent, '/');
+	ccp fn = bs ? bs + 1 : parent;
+	snprintf (path, sizeof (path), "%s/%.*s%s", root, (int)strlen (fn) - 4, fn, chr ? ".ncgr" : ".nclr");
+	struct stat sp, sm;
+	if (stat (parent, &sp) || !S_ISREG (sp.st_mode) || stat (path, &sm) || sm.st_mtime <= sp.st_mtime)
+		return;
+	size_t sz, mn;
+	u8 *raw = load (parent, &sz), *m = load (path, &mn);
+	if (raw && m && sz > 0x30 && mn > 0x30 && !memcmp (raw, chr ? "NCCG" : "NCCL", 4) && !memcmp (raw + 16, chr ? "CHAR" : "PALT", 4))
+	{
+		// converted copy: data size at +40 (NCGR) or +32 (NCLR), data at +48 / +40; source: data at +0x20
+		const uint n = gxw_le32 (m + (chr ? 40 : 32)), mo = chr ? 48 : 40, sn = gxw_le32 (raw + 20) - (chr ? 0x14 : 0x10);
+		bool ok = n && mo + (size_t)n <= mn && 0x20 + (size_t)sn <= sz && sn && gxw_le32 (raw + 20) == sn + (chr ? 0x14 : 0x10);
+		if (ok && chr && n == 2 * sn)
+		{
+			// the PNG import wrote 8 bit tiles for a 4 bit source: pack them back when every index fits
+			for (uint i = 0; i < n && ok; i++)
+				ok = m[mo + i] < 16;
+			for (uint i = 0; i < sn && ok; i++)
+				raw[0x20 + i] = m[mo + 2 * i] | m[mo + 2 * i + 1] << 4;
+		}
+		else
+			ok = ok && n == sn && memcpy (raw + 0x20, m + mo, n);
+		if (ok && !store (parent, raw, sz))
+		{
+			struct utimbuf t = { sp.st_atime, sm.st_mtime };
+			utime (parent, &t);
+		}
+	}
+	FREE (raw);
+	FREE (m);
+}
+
 // Starbreeze "compiledtextures.xtc": an edited "foo.xtc.d/tex_NNNN_WxH.tpl" (re-encoded CMPR of the same size) goes back over the top mip.
 // shortcut: the smaller mips keep the old picture, regenerate them when a game is seen to sample them.
 void GXWrapRepackXtc (ccp root)
