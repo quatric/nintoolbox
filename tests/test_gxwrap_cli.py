@@ -1029,5 +1029,40 @@ class GrphWrap(unittest.TestCase):
                 self.assertEqual((tuple(rgba(j % 16, j // 16)) + (255,))[:3], q[:3], j)
 
 
+class MidwayTim(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(i * 7 % 256, i * 3 % 256, i * 11 % 256, 255) for i in range(256)]
+        p1 = b''.join(bytes([c[1], c[0]]) for c in pal)
+        p2 = b''.join(bytes([c[3], c[2]]) for c in pal)
+        for bpp in (8, 32):
+            hdr = bytearray(0x40)
+            n = 64 * bpp // 8
+            doff = 0x440 if bpp == 8 else 0xc0
+            struct.pack_into('>IIIIIII', hdr, 0x20, 8, 8, bpp, n, doff, 256 if bpp == 8 else 0, 0x40)
+            raw = bytes(hdr) + (p1 + p2 if bpp == 8 else b'') 
+            raw = raw.ljust(doff, b'\0') + bytes(n)
+            if bpp == 8:
+                px = [pal[(x * 5 + y * 9) % 256] for y in range(8) for x in range(8)]
+            else:
+                px = [((x * 30) % 256, (y * 30) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(8) for x in range(8)]
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp, 'src.d'); src.mkdir()
+                (src / 't.tim').write_bytes(raw)
+                run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+                run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+                run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+                png = Path(tmp, 'ex', 't.png')
+                self.assertTrue(png.exists(), bpp)
+                time.sleep(1.1)
+                write_png(png, 8, 8, b''.join(bytes(q) for q in px))
+                r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                run('xx', 'ex/t.tim', '--decode', '-o')
+                w, h, ch, rgba = pngtool._read_png(png)
+                for j, q in enumerate(px):
+                    self.assertEqual((tuple(rgba(j % 8, j // 8)) + (255,))[:4], q, (bpp, j))
+                self.assertEqual(Path(tmp, 'ex', 't.tim').read_bytes()[:doff], raw[:doff])
+
+
 if __name__ == '__main__':
     unittest.main()

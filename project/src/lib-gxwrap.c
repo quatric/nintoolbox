@@ -699,10 +699,24 @@ static bool locate_grph (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return false;
 }
 
+// Midway (TNA Impact!) ".tim": BE {@0x20 w, h, bpp 8 / 32, data bytes, data offset, colours, palette offset}; 8 bpp is C8 with the palette in two 512 byte planes {G,R} / {A,B}
+static bool locate_mtim (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz <= 0x40)
+		return false;
+	const uint w = gxw_be32 (raw + 0x20), h = gxw_be32 (raw + 0x24), bpp = gxw_be32 (raw + 0x28);
+	const size_t dsz = gxw_be32 (raw + 0x2c), off = gxw_be32 (raw + 0x30), npal = gxw_be32 (raw + 0x34), poff = gxw_be32 (raw + 0x38);
+	if (!w || !h || w > 4096 || h > 4096 || (bpp != 8 && bpp != 32) || dsz != (size_t)w * h * bpp / 8 || off < 0x40 || off + dsz > sz
+		|| (bpp == 8 && (npal != 256 || poff + 1024 > sz)) || (w & 7) || (h & 3))
+		return false;
+	g->dbl = true, g->bpp = 3, g->gx = bpp == 8 ? 9 : 6, g->w = w, g->h = h, g->doff = off, g->itype = (uint)dsz, g->clut = poff, g->ncol = bpp == 8 ? 256 : 0;
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2290,7 +2304,9 @@ static enumError reinject_dbl (const Image_t *img, u8 *raw, const gxw_t *g, ccp 
 		for (uint i = 0; i < nc; i++)
 		{
 			const uint v = gxw_be16 (raw + g->clut + 2 * i);
-			if (g->bpp == 0) // IA8
+			if (g->bpp == 3) // Midway: {G,R} plane then {A,B} plane
+				pc[i][0] = raw[g->clut + 2 * i + 1], pc[i][1] = raw[g->clut + 2 * i], pc[i][2] = raw[g->clut + 512 + 2 * i + 1], pc[i][3] = raw[g->clut + 512 + 2 * i];
+			else if (g->bpp == 0) // IA8
 				pc[i][0] = pc[i][1] = pc[i][2] = v & 255, pc[i][3] = v >> 8;
 			else if (g->bpp == 1) // RGB565
 				pc[i][0] = (v >> 11 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 63) * 255 / 63, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
