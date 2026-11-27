@@ -774,6 +774,36 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			return false;
 		return true;
 	}
+	else if ((has_ext (path, ".rlt") || has_ext (path, ".res") || has_ext (path, ".dmn")) && sz > 0x40 && gxw_name[0])
+	{
+		// Next Level Games texture banks: PTLG ".rlt" or 0x20-based ".res" / ".dmn"; entries {hash, offset, size}; "<file>.<hash>.png"
+		ccp hs = strrchr (gxw_name, '.');
+		const u32 hash = (u32)strtoul (hs ? hs + 1 : gxw_name, 0, 16);
+		const bool ptlg = !memcmp (raw, "PTLG", 4);
+		if (!ptlg && gxw_be32 (raw) != 0x20)
+			return false;
+		const uint n = gxw_be32 (raw + 4);
+		const size_t hd = ptlg ? 0x10 : 0x20, es = ptlg ? 16 : 12, base = ptlg ? hd + (size_t)n * 16 : 0;
+		if (!n || n >= 0x10000 || hd + (size_t)n * es > sz)
+			return false;
+		for (uint i = 0; i < n && !g->w; i++)
+		{
+			const u8 *e = raw + hd + (size_t)i * es;
+			if (gxw_be32 (e) != hash)
+				continue;
+			const size_t off = ptlg ? base + gxw_be32 (e + 4) : (size_t)gxw_be32 (e + 4) * 0x20, size = gxw_be32 (e + 8) & 0x0fffffff;
+			if (off > sz || size > sz - off || size < 0x40)
+				continue;
+			const u8 *p = raw + off;
+			const uint mips = gxw_be32 (p), kind = gxw_be32 (p + 4);
+			if (mips < 1 || mips > 12 || kind < 1 || kind > 3)
+				continue;
+			g->gx = kind == 2 ? 14 : kind == 1 ? 5 : 6, g->w = gxw_be16 (p + 0xe), g->h = gxw_be16 (p + 0x10), g->levels = mips;
+			g->doff = off + 0x20, g->avail = size - 0x20;
+		}
+		if (!g->w)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
