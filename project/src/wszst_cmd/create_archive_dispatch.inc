@@ -836,6 +836,8 @@ static enumError repack_directory_contents (ccp root)
 			char target_img[PATH_MAX] = { 0 };
 			struct stat st_target;
 			bool found_target = false;
+			uint gx_index = 0;
+			bool multi = false; // the target may be rewritten by several PNGs in a row
 
 			{
 				// member name for containers addressed by name ("NAME.tex.png" inside "foo.lmp.d")
@@ -854,7 +856,7 @@ static enumError repack_directory_contents (ccp root)
 					snprintf (target_img, sizeof (target_img), "%.*s", (int)(rl - 2), root);
 					if (stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode)
 						&& GXWrapIsFile (target_img))
-						found_target = true;
+						found_target = multi = true;
 				}
 			}
 
@@ -934,8 +936,6 @@ static enumError repack_directory_contents (ccp root)
 			}
 
 			// 3c. "foo.dbt.2.png": image number 2 of the multi-image file "foo.dbt"
-			uint gx_index = 0;
-			bool multi = false;
 			if (!found_target && (stem_ext = strrchr (stem, '.')) != 0 && isdigit ((u8)stem_ext[1])
 				&& (stem_ext[1 + strspn (stem_ext + 1, "0123456789")] == 0 || stem_ext[1 + strspn (stem_ext + 1, "0123456789")] == '_'))
 			{

@@ -360,6 +360,48 @@ class NtftWrap(unittest.TestCase):
                         self.assertEqual(data[i], k, (n, i))
 
 
+class Dst0Wrap(unittest.TestCase):
+    def test_roundtrip(self):
+        def entry(name, bpp, pal):
+            ps, xs = 2 * len(pal), W * H * bpp // 8
+            hdr = b'DST\0' + b'1.7\0' + struct.pack('<IHHIIIIII', 0x40 + ps + xs, W, H, ps, 0, xs, 0x40, 0x40 + ps, 0x40 + ps) + b''
+            hdr = hdr[:0x28 - 4 + 0] if False else hdr
+            e = bytearray(0x40); e[0:8] = b'DST\0' + b'1.7\0'
+            struct.pack_into('<IHHII', e, 8, 0x40 + ps + xs, W, H, ps, 0)
+            struct.pack_into('<III', e, 24, xs, 0x40, 0x40 + ps)
+            struct.pack_into('<I', e, 36, 0x40 + ps)
+            e[0x28:0x28 + len(name)] = name
+            return bytes(e) + b''.join(struct.pack('<H', c) for c in pal) + bytes(xs)
+        pal4 = [0x7c1f] + [(i * 3) | (i * 5) << 5 | (i * 2) << 10 for i in range(1, 16)]
+        pal8 = [(i % 32) | (i // 32 * 3) << 5 | 4 << 10 for i in range(256)]
+        bank = entry(b'one', 4, pal4) + entry(b'two', 8, pal8)
+        want = {0: lambda x, y: (None if (x + y) % 7 == 0 else pal4[1 + (x + y * 3) % 15]), 1: lambda x, y: pal8[(x * 9 + y * 11) % 256]}
+        rgb = lambda v: ((v & 31) * 255 // 31, (v >> 5 & 31) * 255 // 31, (v >> 10 & 31) * 255 // 31, 255)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'b.dat').write_bytes(bank)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            names = {0: '000_one.png', 1: '001_two.png'}
+            for i, n in names.items():
+                png = Path(tmp, 'in.d', 'b.dat.d', n)
+                self.assertTrue(png.exists(), n)
+                write_png(png, W, H, b''.join(bytes((0, 0, 0, 0) if want[i](x, y) is None else rgb(want[i](x, y))) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for i, n in names.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', 'b.dat.d', n))
+                for y in range(H):
+                    for x in range(W):
+                        v = want[i](x, y)
+                        got = tuple(rgba(x, y))
+                        self.assertEqual(got[3] if ch == 4 else 0, 0 if v is None else 255, (i, x, y)) if (ch == 4 and v is None) else None
+                        if v is not None:
+                            self.assertEqual(got[:3], rgb(v)[:3], (i, x, y))
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]

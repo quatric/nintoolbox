@@ -300,6 +300,34 @@ static bool locate_ntft (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return true;
 }
 
+// ".dat" DST\0 image banks (Japanese quiz games): entries laid end to end; entry gxw_idx is edited like a DST1 sheet
+static bool locate_dst0 (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x40 || memcmp (raw, "DST\0001.", 6))
+		return false;
+	size_t o = 0, sel = 0;
+	uint n = 0;
+	const uint want = isdigit ((u8)gxw_name[0]) ? (uint)strtoul (gxw_name, 0, 10) : gxw_idx; // "NNN_name.png"
+	for (; o + 0x40 <= sz && !memcmp (raw + o, "DST\0001.", 6); n++)
+	{
+		const u8 *h = raw + o;
+		const size_t es = gxw_le32 (h + 8), w = gxw_le16 (h + 12), hh = gxw_le16 (h + 14), ps = gxw_le32 (h + 16), xs = gxw_le32 (h + 24),
+			po = gxw_le32 (h + 28), xo = gxw_le32 (h + 32);
+		const size_t bpp = w && hh ? xs * 8 / (w * hh) : 0;
+		if (es < 0x40 || es > sz - o || (bpp != 2 && bpp != 4 && bpp != 8) || xs * 8 != w * hh * bpp || ps > 512 || ps % 2
+			|| po + ps > es || xo + xs > es)
+			break;
+		if (n == want)
+		{
+			g->dst1 = true, g->itype = 1, g->w = (uint)w, g->h = (uint)hh, g->bpp = (uint)bpp, g->ncol = (uint)(ps / 2);
+			g->doff = o + xo, g->clut = o + po;
+			sel = 1;
+		}
+		o += es;
+	}
+	return o == sz && n && sel && g->ncol;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -315,7 +343,7 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -852,7 +880,7 @@ static void reinject_dst1 (const Image_t *img, u8 *raw, const gxw_t *g)
 		{
 			const u8 *p = img->data + 4 * ((size_t)y * img->xwidth + x);
 			uint best = 0, best_d = ~0u;
-			for (uint c = 1; p[3] >= 128 && c < g->ncol; c++)
+			for (uint c = g->itype && g->bpp == 8 ? 0 : 1; (p[3] >= 128 || (g->itype && g->bpp == 8)) && c < g->ncol; c++)
 			{
 				uint d = 0;
 				for (uint k = 0; k < 3; k++)
