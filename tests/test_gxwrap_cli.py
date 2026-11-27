@@ -251,5 +251,50 @@ class NbfWrap(unittest.TestCase):
             self.assertEqual(Path(tmp, 'out.d', 'a.nbfp').read_bytes(), files['a.nbfp'])  # palette and map are untouched
 
 
+class TkltWrap(unittest.TestCase):
+    def test_tklt(self):
+        self.roundtrip(b'TKLT')
+
+    def test_vnkt(self):
+        self.roundtrip(b'VNKT')
+
+    def roundtrip(self, magic):
+        pal = [((i * 8) % 32, (i * 5 + 3) % 32, (i * 11 + 7) % 32) for i in range(256)]
+        ttlp = b'TTLP' + struct.pack('<H', 512) + bytes(2) + b''.join(struct.pack('<H', c[0] | c[1] << 5 | c[2] << 10) for c in pal)
+        rel = b'2d/palette/p.pal'
+        def lz10(d):  # literal-only Nintendo LZ10 stream
+            out = bytearray(b'\x10' + len(d).to_bytes(3, 'little'))
+            for i in range(0, len(d), 8):
+                out += b'\0' + d[i:i + 8]
+            return bytes(out)
+        def atk(magic, tiles):
+            hdr = magic + struct.pack('<HHB', 16, 16, 0) + bytes(4) + struct.pack('<I', len(rel)) + rel
+            return hdr + (tiles if magic == b'TKLT' else struct.pack('<I', len(lz10(tiles))) + lz10(tiles))
+        rgb = lambda c: tuple(v * 255 // 31 for v in c)
+        want = lambda x, y: (0, 0, 0, 0) if (x + y) % 5 == 0 else rgb(pal[1 + (x * 3 + y * 7) % (15 if y < 8 else 255)]) + (255,)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d', '2d'); (src / 'palette').mkdir(parents=True); (src / 'tilekit').mkdir()
+            (src / 'palette' / 'p.pal').write_bytes(ttlp)
+            (src / 'tilekit' / 'a.atk').write_bytes(atk(magic, bytes(16 * 32 + 16 * 64)))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            png = Path(tmp, 'in.d', '2d', 'tilekit', 'a.atk.d', 'a.png')
+            self.assertTrue(png.exists())
+            # tiles 0-15 (4 bit) sit in row 0, tiles 16-31 (8 bit) in row 1
+            write_png(png, 128, 16, b''.join(bytes(want(x, y)) for y in range(16) for x in range(128)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', '2d', 'tilekit', 'a.atk.d', 'a.png'))
+            self.assertEqual((w, h), (128, 16))
+            for y in range(16):
+                for x in range(128):
+                    got = tuple(rgba(x, y)) + (255,) * (4 - ch)
+                    exp = want(x, y)
+                    self.assertEqual(got[:3] if exp[3] else got[3], exp[:3] if exp[3] else 0, (x, y))
+            self.assertTrue(Path(tmp, 'out.d', '2d', 'palette', 'p.pal').read_bytes() == ttlp)
+
+
 if __name__ == '__main__':
     unittest.main()

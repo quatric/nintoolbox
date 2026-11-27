@@ -1,6 +1,7 @@
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
 #include "lib-excite.h"
+#include "lib-lz10.h"
 
 typedef struct gxw_t
 {
@@ -9,6 +10,7 @@ typedef struct gxw_t
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
@@ -168,10 +170,22 @@ static bool locate_nbfc (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return ok;
 }
 
+static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
+{
+	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
+	if (sz < 0x30 || (!lz && memcmp (raw, "TKLT", 4)))
+		return false;
+	const size_t n4 = gxw_le16 (raw + 4), n8 = gxw_le16 (raw + 6), pl = gxw_le32 (raw + 0xd), data = 0x11 + pl;
+	if (!(n4 + n8) || pl < 8 || pl > 200 || data + 4 > sz || (!lz && data + n4 * 32 + n8 * 64 != sz))
+		return false;
+	g->tklt = true, g->w = 128, g->h = (uint)((n4 + n8 + 15) / 16) * 8;
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -516,6 +530,87 @@ static enumError reinject_nbfc (const Image_t *img, u8 *raw, size_t sz, ccp path
 	return e;
 }
 
+// Tile 0 and every transparent pixel use index 0; 4 bit tiles are drawn with palette bank 0, 8 bit tiles with the whole palette.
+// VNKT is rebuilt around a fresh LZ10 stream, TKLT is patched in place; either way the palette file stays as it is.
+static enumError reinject_tklt (const Image_t *img, const u8 *raw, size_t sz, ccp path, u8 **out, size_t *outn)
+{
+	const bool lz = !memcmp (raw, "VNKT", 4);
+	const size_t n4 = gxw_le16 (raw + 4), n8 = gxw_le16 (raw + 6), pl = gxw_le32 (raw + 0xd), data = 0x11 + pl, bytes = n4 * 32 + n8 * 64;
+	ccp r = !strncmp (path, "2d/", 3) ? path - 1 : strstr (path, "/2d/");
+	if (!r)
+		return ERR_NOTHING_TO_DO;
+	char pp[PATH_MAX];
+	snprintf (pp, sizeof (pp), "%.*s%s%.*s", r < path ? 0 : (int)(r - path), path, r < path ? "" : "/", (int)pl, (ccp)raw + 0x11);
+	size_t psz;
+	u8 *pal = load (pp, &psz);
+	if (!pal || psz < 10 || memcmp (pal, "TTLP", 4))
+	{
+		FREE (pal);
+		return ERR_NOTHING_TO_DO;
+	}
+	uint ncol = gxw_le16 (pal + 4) / 2;
+	if (ncol > (psz - 8) / 2)
+		ncol = (uint)(psz - 8) / 2;
+	u8 *t = CALLOC (1, bytes);
+	if (!t)
+		return FREE (pal), ERR_OUT_OF_MEMORY;
+	for (size_t i = 0; i < n4 + n8; i++)
+	{
+		const bool b8 = i >= n4;
+		u8 *tile = b8 ? t + n4 * 32 + (i - n4) * 64 : t + i * 32;
+		for (uint y = 0; y < 8; y++)
+			for (uint x = 0; x < 8; x++)
+			{
+				const u8 *p = img->data + 4 * ((size_t)((i / 16) * 8 + y) * img->xwidth + (i % 16) * 8 + x);
+				uint best = 0, best_d = ~0u;
+				for (uint c = 1; p[3] >= 128 && c < (b8 ? 256u : 16u) && c < ncol; c++)
+				{
+					const uint v = gxw_le16 (pal + 8 + 2 * c);
+					uint d = 0;
+					for (uint k = 0; k < 3; k++)
+					{
+						const int dv = (int)((v >> (5 * k) & 31) * 255 / 31) - p[k];
+						d += (uint)(dv * dv);
+					}
+					if (d < best_d)
+						best_d = d, best = c;
+				}
+				if (b8)
+					tile[y * 8 + x] = (u8)best;
+				else
+					tile[y * 4 + x / 2] |= (u8)(x & 1 ? best << 4 : best);
+			}
+	}
+	FREE (pal);
+	enumError e = ERR_OK;
+	if (!lz)
+	{
+		*out = MALLOC (sz), *outn = sz;
+		if (*out)
+			memcpy (*out, raw, data), memcpy (*out + data, t, bytes);
+		else
+			e = ERR_OUT_OF_MEMORY;
+	}
+	else
+	{
+		u8 *z = 0;
+		uint zn = 0;
+		e = EncodeLZ10LZ11 (&z, &zn, t, (uint)bytes, false);
+		if (!e && (*out = MALLOC (data + 4 + zn)))
+		{
+			memcpy (*out, raw, data);
+			memcpy (*out + data, &(u8[4]){ (u8)zn, (u8)(zn >> 8), (u8)(zn >> 16), (u8)(zn >> 24) }, 4);
+			memcpy (*out + data + 4, z, zn);
+			*outn = data + 4 + zn;
+		}
+		else if (!e)
+			e = ERR_OUT_OF_MEMORY;
+		FREE (z);
+	}
+	FREE (t);
+	return e;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -525,6 +620,25 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	{
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
+	}
+	if (g.tklt)
+	{
+		enumError e = ERR_OK;
+		u8 *out = 0;
+		size_t outn = 0;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the tile sheet is %ux%u: %s\n", img->width,
+				img->height, g.w, g.h, dest);
+		else
+			e = reinject_tklt (img, raw, sz, dest, &out, &outn);
+		if (!e)
+			e = store (dest, out, outn);
+		FREE (out);
+		FREE (raw);
+		return e;
 	}
 	if (g.nbfc)
 	{
