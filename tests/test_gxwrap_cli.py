@@ -703,5 +703,52 @@ class XtcWrap(unittest.TestCase):
             self.assertEqual(out[:0x60], xtc[:0x60])
 
 
+class Ntft4x4Wrap(unittest.TestCase):
+    def test_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'q.ntft').write_bytes(bytes(256))
+            (src / 'q.ntfi').write_bytes(bytes(128))
+            (src / 'q.ntfp').write_bytes(bytes(16))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 'q.ntft.d', 'q.png')
+            self.assertTrue(png.exists())
+            w, h, ch, rgba = pngtool._read_png(png)
+            pals = [[(31, 0, 0), (0, 31, 0)], [(1, 2, 3), (4, 5, 6), (7, 8, 9), (10, 11, 12)], [(20, 20, 20)], [(5, 25, 15), (30, 2, 9)]]
+            pix = []
+            for y in range(h):
+                for x in range(w):
+                    b = (x // 4) + (y // 4) * (w // 4)
+                    pl = pals[b % 4]
+                    if b % 7 == 3:  # transparent texels with two colours
+                        pix.append((0, 0, 0, 0) if (x + y) % 3 == 0 else tuple(v * 255 // 31 for v in pals[0][(x + y) % 2]) + (255,))
+                    else:
+                        pix.append(tuple(v * 255 // 31 for v in pl[(x * 3 + y) % len(pl)]) + (255,))
+            time.sleep(1.1)
+            write_png(png, w, h, b''.join(bytes(p) for p in pix))
+            self.assertEqual(run('create', 'ex', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            tx, ix, pl = (Path(tmp, 'ex', 'q.' + e).read_bytes() for e in ('ntft', 'ntfi', 'ntfp'))
+            col = lambda v: tuple((v >> (5 * k) & 31) * 255 // 31 for k in range(3))
+            for i, p in enumerate(pix):
+                x, y = i % w, i // w
+                b = x // 4 + y // 4 * (w // 4)
+                iv = ix[2 * b] | ix[2 * b + 1] << 8
+                po, mode = (iv & 0x3fff) * 2, iv >> 14
+                c = [pl[2 * (po + k)] | pl[2 * (po + k) + 1] << 8 for k in range(4) if 2 * (po + k) + 1 < len(pl)] + [0] * 4
+                c = c[:4]
+                r = [(c[0] & 31, c[0] >> 5 & 31, c[0] >> 10 & 31), (c[1] & 31, c[1] >> 5 & 31, c[1] >> 10 & 31)]
+                avg = lambda m, n: tuple((r[0][k] * m + r[1][k] * n) // (m + n) for k in range(3))
+                cols = [r[0], r[1], tuple(((c[2] >> (5 * k)) & 31) for k in range(3)), tuple(((c[3] >> (5 * k)) & 31) for k in range(3))]
+                if mode == 0: cols[3] = None
+                elif mode == 1: cols[2], cols[3] = avg(1, 1), None
+                elif mode == 3: cols[2], cols[3] = avg(5, 3), avg(3, 5)
+                t = tx[4 * b + y % 4] >> (2 * (x % 4)) & 3
+                got = cols[t]
+                self.assertEqual(got is not None, bool(p[3]), (x, y))
+                if got:
+                    self.assertEqual(tuple(v * 255 // 31 for v in got), p[:3], (x, y))
+
 if __name__ == '__main__':
     unittest.main()

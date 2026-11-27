@@ -281,9 +281,9 @@ static bool locate_ltex (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
-enum { NTF_DIRECT = 1, NTF_I2, NTF_A5I3, NTF_I4, NTF_A3I5, NTF_I8 };
+enum { NTF_DIRECT = 1, NTF_I2, NTF_A5I3, NTF_I4, NTF_A3I5, NTF_I8, NTF_4X4 };
 
-// same format deduction as the decoder (extract/ntfraw.inc); the block compressed 4x4 variant (with ".ntfi") is not re-encoded
+// same format deduction as the decoder (extract/ntfraw.inc); with an ".ntfi" it is the block compressed 4x4 format
 static bool locate_ntft (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	(void)raw;
@@ -296,11 +296,9 @@ static bool locate_ntft (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	FREE (idx);
 	if (!has_pal)
 		psz = 0;
-	if (has_idx && psz)
-		return false;
 	const uint ncol = (uint)psz / 2;
 	g->ntft = true, g->ncol = ncol, g->bpp = (uint)sz;
-	g->itype = !ncol ? NTF_DIRECT : psz <= 8 ? NTF_I2 : psz == 16 ? NTF_A5I3 : psz <= 32 ? NTF_I4 : psz == 64 ? NTF_A3I5 : NTF_I8;
+	g->itype = has_idx ? NTF_4X4 : !ncol ? NTF_DIRECT : psz <= 8 ? NTF_I2 : psz == 16 ? NTF_A5I3 : psz <= 32 ? NTF_I4 : psz == 64 ? NTF_A3I5 : NTF_I8;
 	g->w = g->h = 1; // the real size is the PNG's
 	return true;
 }
@@ -1322,9 +1320,153 @@ static enumError reinject_ltex (const Image_t *img, const u8 *raw, size_t sz, co
 	return e;
 }
 
+// 4x4 block texture: per block two endpoint colours (mode 3, or mode 1 with a transparent texel) or up to four exact colours (mode 2),
+// written as a fresh ".ntfp" (block palettes, shared when identical) and ".ntfi"
+static enumError reinject_ntft4 (const Image_t *img, u8 *raw, size_t sz, ccp path)
+{
+	const uint w = img->width, h = img->height;
+	if (!w || !h || (w | h) & 3 || (size_t)w * h != sz * 4)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG has %ux%u pixels but the texture holds %zu: %s\n", w, h, sz * 4, path);
+	const size_t nb = sz / 4;
+	u16 *pal = MALLOC (nb * 8 + 8);
+	u8 *idx = MALLOC (nb * 2 + 2);
+	if (!pal || !idx)
+		return FREE (pal), FREE (idx), ERR_OUT_OF_MEMORY;
+	size_t np = 0;
+#define C5(c, k) ((c) >> (5 * (k)) & 31)
+	for (size_t b = 0; b < nb; b++)
+	{
+		const uint bx = (uint)(b % (w / 4)) * 4, by = (uint)(b / (w / 4)) * 4;
+		uint col[16], opq[16], nopq = 0, ntr = 0;
+		for (uint k = 0; k < 16; k++)
+		{
+			const u8 *p = img->data + 4 * ((size_t)(by + k / 4) * img->xwidth + bx + k % 4);
+			col[k] = (p[0] >> 3) | (p[1] >> 3) << 5 | (p[2] >> 3) << 10;
+			if (p[3] >= 128)
+				opq[nopq++] = k;
+			else
+				ntr++, col[k] = 0x10000;
+		}
+		uint c[4] = { 0, 0, 0, 0 }, mode = 3, nd = 0;
+		for (uint i = 0; i < nopq; i++)
+		{
+			uint j = 0;
+			while (j < nd && c[j] != col[opq[i]])
+				j++;
+			if (j == nd && nd < 4)
+				c[nd++] = col[opq[i]];
+			else if (j == nd)
+				nd = 5; // too many colours
+		}
+		uint e0 = 0, e1 = 0;
+		if (nd > 4 || (nd > 3 && ntr))
+		{
+			uint lo = ~0u, hi = 0;
+			for (uint i = 0; i < nopq; i++)
+			{
+				const uint v = col[opq[i]], l = 2 * C5 (v, 0) + 5 * C5 (v, 1) + C5 (v, 2);
+				if (l < lo)
+					lo = l, e0 = v;
+				if (l >= hi)
+					hi = l, e1 = v;
+			}
+			mode = ntr ? 1 : 3;
+			c[0] = e0, c[1] = e1;
+			nd = 2;
+		}
+		else if (ntr)
+			mode = nd <= 3 ? 0 : 1;
+		else
+			mode = 2;
+		if (mode == 1 && nd < 2)
+			mode = 0;
+		// palette entries as the decoder will see them
+		uint pc[4] = { c[0], c[1], c[2], c[3] }, ca[4] = { 1, 1, 1, 1 };
+		const uint r0 = C5 (c[0], 0), g0 = C5 (c[0], 1), b0 = C5 (c[0], 2), r1 = C5 (c[1], 0), g1 = C5 (c[1], 1), b1 = C5 (c[1], 2);
+		if (mode == 0)
+			pc[3] = 0, ca[3] = 0;
+		else if (mode == 1)
+			pc[2] = (r0 + r1) / 2 | (g0 + g1) / 2 << 5 | (b0 + b1) / 2 << 10, pc[3] = 0, ca[3] = 0;
+		else if (mode == 3)
+		{
+			pc[2] = (r0 * 5 + r1 * 3) / 8 | (g0 * 5 + g1 * 3) / 8 << 5 | (b0 * 5 + b1 * 3) / 8 << 10;
+			pc[3] = (r0 * 3 + r1 * 5) / 8 | (g0 * 3 + g1 * 5) / 8 << 5 | (b0 * 3 + b1 * 5) / 8 << 10;
+		}
+		u32 bits = 0;
+		for (uint k = 0; k < 16; k++)
+		{
+			uint t = 3;
+			if (col[k] < 0x10000)
+			{
+				uint bd = ~0u;
+				for (uint j = 0; j < 4; j++)
+				{
+					if (!ca[j] || ((mode == 0 || mode == 2) && j >= nd))
+						continue;
+					uint d = 0;
+					for (uint q = 0; q < 3; q++)
+					{
+						const int dv = (int)C5 (pc[j], q) - (int)C5 (col[k], q);
+						d += (uint)(dv * dv);
+					}
+					if (d < bd)
+						bd = d, t = j;
+				}
+			}
+			bits |= (u32)t << (2 * k);
+		}
+		raw[4 * b] = (u8)bits, raw[4 * b + 1] = (u8)(bits >> 8), raw[4 * b + 2] = (u8)(bits >> 16), raw[4 * b + 3] = (u8)(bits >> 24);
+		// reuse an identical entry group (words of two colours)
+		const uint nw = mode == 0 ? 3 : mode == 2 ? 4 : 2;
+		size_t at = (size_t)-1;
+		for (size_t q = 0; q + nw <= np && at == (size_t)-1; q += 2)
+		{
+			uint j = 0;
+			while (j < nw && pal[q + j] == c[j])
+				j++;
+			if (j == nw)
+				at = q;
+		}
+		if (at == (size_t)-1)
+		{
+			at = np;
+			for (uint j = 0; j < 4; j++)
+				pal[np + j] = j < nw ? (u16)c[j] : 0;
+			np += 4;
+		}
+		if (at / 2 > 0x3fff)
+		{
+			FREE (pal), FREE (idx);
+			return ERROR0 (ERR_INVALID_IFORM, "Too many distinct block colours for a 4x4 texture: %s\n", path);
+		}
+		const uint iv = (uint)(at / 2) | mode << 14;
+		idx[2 * b] = (u8)iv, idx[2 * b + 1] = (u8)(iv >> 8);
+	}
+#undef C5
+	u8 *pb = MALLOC (np * 2 + 2);
+	char sib[PATH_MAX];
+	enumError e = pb ? ERR_OK : ERR_OUT_OF_MEMORY;
+	for (size_t i = 0; i < np && pb; i++)
+		pb[2 * i] = (u8)pal[i], pb[2 * i + 1] = (u8)(pal[i] >> 8);
+	if (!e)
+	{
+		snprintf (sib, sizeof (sib), "%.*s.ntfp", (int)strlen (path) - 5, path);
+		e = store (sib, pb, np * 2);
+	}
+	if (!e)
+	{
+		snprintf (sib, sizeof (sib), "%.*s.ntfi", (int)strlen (path) - 5, path);
+		e = store (sib, idx, nb * 2);
+	}
+	FREE (pb), FREE (pal), FREE (idx);
+	return e;
+}
+
 static enumError reinject_ntft (const Image_t *img, u8 *raw, size_t sz, const gxw_t *g, ccp path)
 {
 	const uint f = g->itype;
+	if (f == NTF_4X4)
+		return reinject_ntft4 (img, raw, sz, path);
 	const size_t px = f == NTF_DIRECT ? sz / 2 : f == NTF_I2 ? sz * 4 : f == NTF_I4 ? sz * 2 : sz;
 	if ((size_t)img->width * img->height != px)
 		return ERROR0 (ERR_INVALID_IFORM, "PNG has %ux%u pixels but the texture holds %zu: %s\n", img->width, img->height, px, path);
