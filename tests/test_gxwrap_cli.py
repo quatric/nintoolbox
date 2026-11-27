@@ -193,5 +193,33 @@ class Tim2Wrap(unittest.TestCase):
             self.assertTrue(out.endswith(clut))  # the palette is untouched
 
 
+class Dst1Wrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]
+        raw = lambda nc, bpp: b'DST1' + bytes([2, 1, 1, 1]) + bytes(4) + struct.pack('<HHH', W, H, nc) + b''.join(
+            struct.pack('<H', 0x8000 | (c[2] >> 3) << 10 | (c[1] >> 3) << 5 | c[0] >> 3) for c in pal[:nc]) + bytes(W * H * bpp // 8)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'a.dst').write_bytes(raw(16, 4))
+            (src / 'b.dst').write_bytes(raw(4, 2))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            want = {}
+            for n, nc in (('a', 16), ('b', 4)):
+                png = Path(tmp, 'in.d', n + '.dst.d', n + '.png')
+                want[n] = [pal[1 + (x + y) % (nc - 1)] for y in range(H) for x in range(W)]
+                write_png(png, W, H, b''.join(bytes(c) + b'\xff' for c in want[n]))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n in want:
+                q = Path(tmp, 'out.d', n + '.dst.d', n + '.png')
+                w, h, ch, rgba = pngtool._read_png(q)
+                for i, c in enumerate(want[n]):
+                    got = tuple(rgba(i % W, i // W))[:3]
+                    self.assertTrue(all(abs(a - b) < 9 for a, b in zip(got, c)), (n, i, got, c))
+
+
 if __name__ == '__main__':
     unittest.main()

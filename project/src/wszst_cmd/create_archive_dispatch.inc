@@ -893,6 +893,19 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
+			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (the preview sits in the file's own .d folder)
+			if (!found_target)
+			{
+				const size_t rl = strlen (root);
+				if (rl > 2 && !strcmp (root + rl - 2, ".d"))
+				{
+					snprintf (target_img, sizeof (target_img), "%.*s", (int)(rl - 2), root);
+					if (stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode)
+						&& GXWrapIsFile (target_img))
+						found_target = true;
+				}
+			}
+
 			if (found_target)
 			{
 				time_t ref_img_mtime = st_target.st_mtime;

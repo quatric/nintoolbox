@@ -9,6 +9,7 @@ typedef struct gxw_t
 	size_t avail; // 0: up to the end of the file
 	uint levels; // 0: as many as fit
 	bool tga; // a Truevision TGA (RGBA <-> BGR(A)/gray), not GX tiles
+	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
 	uint itype, ctype, ncol;
@@ -80,6 +81,19 @@ static bool locate_tga (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return true;
 }
 
+static bool locate_dst1 (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x14 || memcmp (raw, "DST1", 4))
+		return false;
+	const uint w = gxw_le16 (raw + 0xc), h = gxw_le16 (raw + 0xe), nc = gxw_le16 (raw + 0x10);
+	const uint bpp = nc <= 4 ? 2 : nc <= 16 ? 4 : 8;
+	const size_t o = 0x12 + 2 * (size_t)nc;
+	if (!w || !h || !nc || nc > 256 || w * bpp % 8 || o + (size_t)w * h * bpp / 8 != sz)
+		return false;
+	g->dst1 = true, g->w = w, g->h = h, g->ncol = nc, g->bpp = bpp, g->doff = o, g->clut = 0x12;
+	return true;
+}
+
 // PS2 TIM2 with one image (see extract_tim2png_file); only the top mip level is handled
 static bool locate_tim2 (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
@@ -119,7 +133,7 @@ static bool locate_tpl (const u8 *raw, size_t sz, size_t toff, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -361,6 +375,35 @@ static enumError reinject_tim2 (const Image_t *img, u8 *raw, const gxw_t *g)
 	return ERR_OK;
 }
 
+// index 0 is the transparent key; other pixels take the nearest palette colour
+static void reinject_dst1 (const Image_t *img, u8 *raw, const gxw_t *g)
+{
+	u8 pal[256][3];
+	for (uint c = 0; c < g->ncol; c++)
+	{
+		const uint v = gxw_le16 (raw + g->clut + 2 * c);
+		pal[c][0] = (v & 31) * 255 / 31, pal[c][1] = (v >> 5 & 31) * 255 / 31, pal[c][2] = (v >> 10 & 31) * 255 / 31;
+	}
+	u8 *pix = raw + g->doff;
+	memset (pix, 0, (size_t)g->w * g->h * g->bpp / 8);
+	for (uint y = 0; y < g->h; y++)
+		for (uint x = 0; x < g->w; x++)
+		{
+			const u8 *p = img->data + 4 * ((size_t)y * img->xwidth + x);
+			uint best = 0, best_d = ~0u;
+			for (uint c = 1; p[3] >= 128 && c < g->ncol; c++)
+			{
+				uint d = 0;
+				for (uint k = 0; k < 3; k++)
+					d += (uint)(((int)pal[c][k] - p[k]) * ((int)pal[c][k] - p[k]));
+				if (d < best_d)
+					best_d = d, best = c;
+			}
+			const size_t bit = ((size_t)y * g->w + x) * g->bpp;
+			pix[bit / 8] |= (u8)(best << (bit & 7));
+		}
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -371,15 +414,17 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		FREE (raw);
 		return ERR_NOTHING_TO_DO;
 	}
-	if (g.tim2)
+	if (g.tim2 || g.dst1)
 	{
 		enumError e = ERR_OK;
 		Transform2XIMG (img);
 		if (img->iform != IMG_X_RGB)
 			e = ERR_NOTHING_TO_DO;
 		else if (img->width != g.w || img->height != g.h)
-			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the TIM2 is %ux%u: %s\n", img->width,
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width,
 				img->height, g.w, g.h, dest);
+		else if (g.dst1)
+			reinject_dst1 (img, raw, &g);
 		else
 			e = reinject_tim2 (img, raw, &g);
 		if (!e)
