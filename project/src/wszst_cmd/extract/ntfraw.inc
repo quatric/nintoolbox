@@ -1,6 +1,6 @@
 // NITRO raw 3D textures (".ntft" texels, ".ntfp" palette, ".ntfi" 4x4 block indices; headerless, about 3,600 DS games, usually with the ".ntfp" of the same base name): the DS GX texture formats without a header,
 // so the format and size come from the file sizes. Palette: little endian BGR555 colors. Texels are a linear raster. Format: with an ".ntfi" the block compressed 4x4 format (4 bytes of 2 bit texels per block, one u16 of
-// {palette offset in words | mode << 14} per block; mode 0: 3 palette colors + transparent, 1: 2 colors + their average + transparent, 2: 4 palette colors, 3: 2 colors + 5/3 and 3/5 blends); no palette means 16 bit direct color; palettes of 8 / 16 bytes are
+// {palette offset in 32 bit words | mode << 14} per block; mode 0: 3 palette colors + transparent, 1: 2 colors + their average + transparent, 2: 4 palette colors, 3: 2 colors + 5/3 and 3/5 blends); no palette means 16 bit direct color; palettes of 8 / 16 bytes are
 // 2 bit / 3 bit indexed ("a5i3" with 8 colors is 16 bytes), 32 bytes or less 4 bit, 64 bytes 5 bit indexed with 3 bit alpha ("a3i5"), others 8 bit. The width is not stored: every power of two from 8 to 1024 that divides the pixel count and gives at most a 4:1 shape is tried and the one with the smoothest picture (least difference between neighbouring pixels) wins, which is a guess. Written as "<name>.png".
 enum { F4X4, DIRECT, I2, A5I3, I4, A3I5, I8 };
 
@@ -19,7 +19,7 @@ static void ntf_render (int fmt, const u8 *tx, size_t tsz, const u8 *pal, uint n
 	{
 		for (uint b = 0; b < px / 16 && 2 * (size_t)b + 2 <= isz; b++)
 		{
-			const uint i = rd_le16 (idx + 2 * b), po = (i & 0x3fff) * 2, mode = i >> 14;
+			const uint i = rd_le16 (idx + 2 * b), po = (i & 0x3fff) * 4, mode = i >> 14; // the offset counts 32 bit words
 			uint cc[4] = { 0, 0, 0, 0 }, ca[4] = { 1, 1, 1, 1 }, pw[4];
 			for (uint k = 0; k < 4; k++)
 				pw[k] = po / 2 + k < ncol ? rd_le16 (pal + po + 2 * k) : 0;
