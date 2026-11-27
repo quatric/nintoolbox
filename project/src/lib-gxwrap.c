@@ -492,6 +492,16 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if (!g->w)
 			return false;
 	}
+	else if (has_ext (path, ".tpc") && sz >= 36 && gxw_name[0] && strspn (gxw_name, "0123456789") == strlen (gxw_name)
+		&& !raw[0] && !raw[2] && !raw[3] && raw[1] && 4 + (size_t)raw[1] * 32 <= sz && strtoul (gxw_name, 0, 10) < raw[1])
+	{
+		// Little League texture pack: 32 byte entries {BE32 texel offset, palette offset, h, w, ..., format at 0x17}; only direct colour formats
+		const u8 *e = raw + 4 + 32 * strtoul (gxw_name, 0, 10);
+		const uint f = e[0x17];
+		g->gx = f == 4 ? 4 : f == 5 ? 5 : f == 6 ? 6 : 99, g->w = gxw_be16 (e + 10), g->h = gxw_be16 (e + 8), g->doff = gxw_be32 (e), g->levels = 1;
+		if (g->gx == 99 || !g->w || !g->h || g->w > 2048 || g->h > 2048 || g->doff + level_size (g->gx, g->w, g->h) > sz)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
