@@ -306,6 +306,16 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		if ((g->w & (g->w - 1)) || (g->h & (g->h - 1)) || g->levels > 16)
 			return false;
 	}
+	else if (has_ext (path, ".gvr") && sz >= 0x20)
+	{
+		// optional GCIX chunk, then "GVRT": u32 size, 2 pad, u8 palette format << 4 | flags, u8 data format, BE16 w, h
+		const size_t o = !memcmp (raw, "GCIX", 4) ? 8 + (size_t)gxw_le32 (raw + 4) : 0;
+		if (o + 0x10 > sz || memcmp (raw + o, "GVRT", 4) || (raw[o + 10] & 0x0e))
+			return false;
+		const uint f = raw[o + 11];
+		g->gx = f <= 6 ? f : f == 0xe ? 14 : 99; // indexed (8, 9) and external palette textures are not re-encoded
+		g->w = gxw_be16 (raw + o + 12), g->h = gxw_be16 (raw + o + 14), g->doff = o + 0x10, g->levels = raw[o + 10] & 1 ? 0 : 1;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
