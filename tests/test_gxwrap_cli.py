@@ -784,5 +784,52 @@ class OibbWrap(unittest.TestCase):
                         self.assertEqual((tuple(rgba(x, y)) + (255,))[:4], px[y * 8 + x], (nm, x, y))
 
 
+class DblWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pals = [(i * 2 % 32, i * 5 % 32, i * 3 % 32) for i in range(16)]
+        pal = b''.join(struct.pack('>H', c[0] << 11 | c[1] << 5 | c[2]) for c in pals)
+        D0 = 0x18 + 3 * 0x48
+        offs = [D0, D0 + 128, D0 + 128 + 64]
+        pal_off = D0 + 128 + 64 + 128
+        def rec(name, fmt, po, w, h, pw=0, ph=0):
+            r = bytearray(0x48)
+            r[:len(name)] = name
+            r[0x20:0x24] = struct.pack('>I', fmt | 0x8000)
+            r[0x2c:0x30] = struct.pack('>I', po)
+            r[0x30:0x34] = struct.pack('>HH', w, h)
+            r[0x3c:0x44] = struct.pack('>IHH', pal_off, pw, ph)[:8]
+            return bytes(r)
+        payload = struct.pack('>I', 3).ljust(0x18, b'\0') + rec(b'a.tga', 4, offs[0], 8, 8) + rec(b'b.tga', 9, offs[1], 8, 8, 4, 4) + rec(b'c.tga', 6, offs[2], 8, 4) + bytes(128 + 64 + 128) + pal
+        dbl = (b'\0' * 8 + b'GCN\0' + bytes(4) + struct.pack('>I', 0x100)).ljust(0x20, b'\0') + struct.pack('>HHIH', 0x82, 0, len(payload), 1) + payload
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'x.dbl').write_bytes(dbl)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            names = sorted(x.name for x in Path(tmp, 'ex').glob('x.dbl.*.png'))
+            self.assertEqual(len(names), 3, names)
+            time.sleep(1.1)
+            want = []
+            a = [((x * 4 % 32) * 255 // 31, (y * 8 % 64) * 255 // 63, (x + y) % 32 * 255 // 31, 255) for y in range(8) for x in range(8)]
+            b = [tuple(v * 255 // (63 if k == 1 else 31) for k, v in enumerate(pals[(x + y * 3) % 16])) + (255,) for y in range(8) for x in range(8)]
+            c = [((x * 30) % 256, (y * 60) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(4) for x in range(8)]
+            for nm, px, w, h in zip(names, (a, b, c), (8, 8, 8), (8, 8, 4)):
+                write_png(Path(tmp, 'ex', nm), w, h, b''.join(bytes(p) for p in px))
+                want.append((nm, px, w, h))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/x.dbl', '--decode', '-o')
+            for nm, px, w, h in want:
+                w2, h2, ch, rgba = pngtool._read_png(Path(tmp, 'ex', nm))
+                for y in range(h):
+                    for x in range(w):
+                        got = (tuple(rgba(x, y)) + (255,))[:4]
+                        exp = px[y * w + x]
+                        # RGB565 holds 5 / 6 / 5 bits
+                        tol = 8 if nm.endswith('a.png') else 0
+                        self.assertTrue(all(abs(g - e) <= tol for g, e in zip(got, exp)), (nm, x, y, got, exp))
+
+
 if __name__ == '__main__':
     unittest.main()

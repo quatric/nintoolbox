@@ -25,6 +25,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool dbl; // Avalanche .dbl / .mdb texture record (doff = pixels, clut = palette (RGB565), ncol = palette entries, itype = bytes available, gx = GX format)
 	bool oibb; // AxEngine OIBB .pak TXTR object (doff = object, gx = format 6 / 8 / 9, bpp = palette bytes, itype = data bytes)
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
@@ -372,10 +373,45 @@ static bool locate_oibb (const u8 *raw, size_t sz, gxw_t *g)
 	return false;
 }
 
+// Avalanche "DB_TEXTURE_SET" record number gxw_idx (see extract/avdbl.inc)
+static bool locate_dbl (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz < 0x40 || gxw_be32 (raw + 0x10) != 0x100)
+		return false;
+	for (size_t p = 0x20; p + 10 <= sz;)
+	{
+		const uint type = gxw_be16 (raw + p), fl = gxw_be16 (raw + p + 2);
+		const size_t size = gxw_be32 (raw + p + 4), hl = fl & 8 ? (fl & 2 ? 0x40 : 0x20) : (fl & 2 ? 0x2a : 10);
+		if (p + hl > sz || size > sz - p - hl)
+			break;
+		const size_t D = p + hl;
+		if (type == 0x82 && size >= 0x60)
+		{
+			const uint n = gxw_be32 (raw + D);
+			if (gxw_idx < n && gxw_idx < 1024 && 0x18 + 0x48 * (size_t)(gxw_idx + 1) <= size)
+			{
+				const u8 *r = raw + D + 0x18 + 0x48 * (size_t)gxw_idx;
+				const uint fmt = gxw_be32 (r + 0x20) & 0xff, w = gxw_be16 (r + 0x30), h = gxw_be16 (r + 0x32);
+				const size_t po = gxw_be32 (r + 0x2c), pal = gxw_be32 (r + 0x3c);
+				const uint pn = gxw_be16 (r + 0x40) * gxw_be16 (r + 0x42);
+				const bool paletted = fmt == 8 || fmt == 9;
+				if (!w || !h || w > 2048 || h > 2048 || po >= size || !(fmt <= 6 || fmt == 8 || fmt == 9 || fmt == 14)
+					|| fmt == 7 || (paletted && (!pn || pn > 256 || pal + 2 * (size_t)pn > size)))
+					return false;
+				g->dbl = true, g->gx = fmt, g->w = w, g->h = h, g->doff = D + po, g->itype = (uint)(size - po), g->clut = D + pal, g->ncol = pn;
+				return true;
+			}
+			return false;
+		}
+		p = D + size;
+	}
+	return false;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -1869,17 +1905,55 @@ void GXWrapRepackXtc (ccp root)
 	FREE (raw);
 }
 
+// C4 (8x8 tiles) / C8 (8x4 tiles) texels of an RGBA image padded to whole tiles, each matched to the nearest palette colour
+static void enc_paletted (bool c8, const u8 *rgba, uint pw, uint ph, const u8 (*pc)[4], uint nc, u8 *s)
+{
+	const uint tw = 8, th = c8 ? 4 : 8;
+	for (uint ty = 0; ty < ph; ty += th)
+		for (uint tx = 0; tx < pw; tx += tw)
+			for (uint y = 0; y < th; y++)
+				for (uint x = 0; x < tw; x++)
+				{
+					const u8 *p = rgba + 4 * ((size_t)(ty + y) * pw + tx + x);
+					uint best = 0, bd = ~0u;
+					for (uint c = 0; c < nc; c++)
+					{
+						uint d = 0;
+						for (uint k = 0; k < 4; k++)
+						{
+							const int dv = (int)pc[c][k] - p[k];
+							d += (uint)(dv * dv);
+						}
+						if (d < bd)
+							bd = d, best = c;
+					}
+					if (c8)
+						*s++ = (u8)best;
+					else if (x & 1)
+						s[-1] |= (u8)best;
+					else
+						*s++ = (u8)(best << 4);
+				}
+}
+
+// the PNG padded to whole tiles by repeating its last row / column
+static u8 *pad_rgba (const Image_t *img, uint pw, uint ph)
+{
+	u8 *rgba = CALLOC (4, (size_t)pw * ph);
+	for (uint y = 0; rgba && y < ph; y++)
+		for (uint x = 0; x < pw; x++)
+			memcpy (rgba + 4 * ((size_t)y * pw + x), img->data + 4 * ((size_t)(y < img->height ? y : img->height - 1) * img->xwidth + (x < img->width ? x : img->width - 1)), 4);
+	return rgba;
+}
+
 static enumError reinject_oibb (const Image_t *img, u8 *raw, const gxw_t *g, ccp path)
 {
 	const uint fmt = g->gx, w = g->w, h = g->h, tw = fmt == 6 ? 4 : 8, th = fmt == 8 ? 8 : 4, pw = (w + tw - 1) / tw * tw, ph = (h + th - 1) / th * th;
 	if (img->width != w || img->height != h)
 		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, w, h, path);
-	u8 *rgba = CALLOC (4, (size_t)pw * ph);
+	u8 *rgba = pad_rgba (img, pw, ph);
 	if (!rgba)
 		return ERR_OUT_OF_MEMORY;
-	for (uint y = 0; y < ph; y++)
-		for (uint x = 0; x < pw; x++)
-			memcpy (rgba + 4 * ((size_t)y * pw + x), img->data + 4 * ((size_t)(y < h ? y : h - 1) * img->xwidth + (x < w ? x : w - 1)), 4);
 	u8 *pal = raw + g->doff + 0x40, *pix = pal + g->bpp;
 	if (fmt == 6)
 		GXEncodeRGBA (6, pw, ph, rgba, pix);
@@ -1896,36 +1970,39 @@ static enumError reinject_oibb (const Image_t *img, u8 *raw, const gxw_t *g, ccp
 				pc[i][0] = (v >> 8 & 15) * 17, pc[i][1] = (v >> 4 & 15) * 17, pc[i][2] = (v & 15) * 17, pc[i][3] = (v >> 12 & 7) * 255 / 7;
 		}
 		memset (pix, 0, g->itype);
-		u8 *s = pix;
-		for (uint ty = 0; ty < ph; ty += th)
-			for (uint tx = 0; tx < pw; tx += tw)
-				for (uint y = 0; y < th; y++)
-					for (uint x = 0; x < tw; x++)
-					{
-						const u8 *p = rgba + 4 * ((size_t)(ty + y) * pw + tx + x);
-						uint best = 0, bd = ~0u;
-						for (uint c = 0; c < nc; c++)
-						{
-							uint d = 0;
-							for (uint k = 0; k < 4; k++)
-							{
-								const int dv = (int)pc[c][k] - p[k];
-								d += (uint)(dv * dv);
-							}
-							if (d < bd)
-								bd = d, best = c;
-						}
-						if (fmt == 9)
-							*s++ = (u8)best;
-						else
-						{
-							if (x & 1)
-								s[-1] |= (u8)best;
-							else
-								*s++ = (u8)(best << 4);
-						}
-					}
+		enc_paletted (fmt == 9, rgba, pw, ph, pc, nc, pix);
 	}
+	FREE (rgba);
+	return ERR_OK;
+}
+
+// Avalanche texture: GX formats 0-6 / 14 straight, C4 / C8 against the record's RGB565 palette; only the base level is written
+static enumError reinject_dbl (const Image_t *img, u8 *raw, const gxw_t *g, ccp path)
+{
+	const uint fmt = g->gx, bw = fmt == 3 || fmt == 4 || fmt == 5 || fmt == 6 ? 4 : 8, bh = fmt == 0 || fmt == 8 || fmt == 14 ? 8 : fmt == 1 || fmt == 2 || fmt == 9 ? 4 : 4;
+	if (img->width != g->w || img->height != g->h)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, g->w, g->h, path);
+	const uint pw = (g->w + bw - 1) / bw * bw, ph = (g->h + bh - 1) / bh * bh;
+	const size_t need = fmt == 8 ? (size_t)pw * ph / 2 : fmt == 9 ? (size_t)pw * ph : level_size (fmt, pw, ph);
+	if (need > g->itype)
+		return ERR_NOTHING_TO_DO;
+	u8 *rgba = pad_rgba (img, pw, ph);
+	if (!rgba)
+		return ERR_OUT_OF_MEMORY;
+	if (fmt == 8 || fmt == 9)
+	{
+		u8 pc[256][4];
+		const uint nc = g->ncol > (fmt == 8 ? 16u : 256u) ? (fmt == 8 ? 16u : 256u) : g->ncol;
+		for (uint i = 0; i < nc; i++)
+		{
+			const uint v = gxw_be16 (raw + g->clut + 2 * i);
+			pc[i][0] = (v >> 11 & 31) * 255 / 31, pc[i][1] = (v >> 5 & 63) * 255 / 63, pc[i][2] = (v & 31) * 255 / 31, pc[i][3] = 255;
+		}
+		memset (raw + g->doff, 0, need);
+		enc_paletted (fmt == 9, rgba, pw, ph, pc, nc, raw + g->doff);
+	}
+	else
+		GXEncodeRGBA (fmt, pw, ph, rgba, raw + g->doff);
 	FREE (rgba);
 	return ERR_OK;
 }
@@ -1953,6 +2030,15 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.dbl)
+	{
+		Transform2XIMG (img);
+		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_dbl (img, raw, &g, dest);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.oibb)
 	{

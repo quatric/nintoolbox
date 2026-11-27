@@ -979,6 +979,22 @@ static enumError repack_directory_contents (ccp root)
 				}
 			}
 
+			// 3e. "foo.dbl.07.name.png": record 7 of the Avalanche database "foo.dbl" (or ".mdb")
+			for (ccp q = de->d_name; (q = strchr (q + 1, '.')) != 0;)
+				if ((!strncmp (q, ".dbl.", 5) || !strncmp (q, ".mdb.", 5)) && isdigit ((u8)q[5]))
+				{
+					const size_t ds = strspn (q + 5, "0123456789");
+					if (q[5 + ds] != '.')
+						continue;
+					snprintf (target_img, sizeof (target_img), "%s/%.*s", root, (int)(q - de->d_name + 4), de->d_name);
+					gx_index = (uint)strtoul (q + 5, 0, 10);
+					GXWrapSetIndex (gx_index);
+					found_target = stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img);
+					GXWrapSetIndex (0);
+					multi = found_target;
+					break;
+				}
+
 			if (found_target)
 			{
 				time_t ref_img_mtime = st_target.st_mtime;
