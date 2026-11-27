@@ -316,6 +316,15 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		g->gx = f <= 6 ? f : f == 0xe ? 14 : 99; // indexed (8, 9) and external palette textures are not re-encoded
 		g->w = gxw_be16 (raw + o + 12), g->h = gxw_be16 (raw + o + 14), g->doff = o + 0x10, g->levels = raw[o + 10] & 1 ? 0 : 1;
 	}
+	else if (has_ext (path, ".aig") && sz > 0x40 && !memcmp (raw, "ALIG", 4) && raw[8] == 'G')
+	{
+		static const struct { const char *tag; uint fmt; } fm[] = { { "GIA4", 2 }, { "G5A3", 5 }, { "G565", 4 }, { "GC32", 6 }, { "GCCP", 14 }, { "GACC", 14 } };
+		g->gx = 99;
+		for (uint i = 0; i < sizeof (fm) / sizeof (fm[0]); i++)
+			if (!memcmp (raw + 8, fm[i].tag, 4))
+				g->gx = fm[i].fmt;
+		g->w = gxw_le16 (raw + 0x10), g->h = gxw_le16 (raw + 0x12), g->doff = 0x40, g->levels = 1; // One Piece: Unlimited Adventure
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
