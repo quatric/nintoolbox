@@ -25,6 +25,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool grph; // EA DS GRPH image (doff = GIMG block, clut = first palette colour, ncol = colours, tga.. = see reinject_grph; itype = palette base, bpp = 1 for a sprite frame)
 	bool rtex; // NW4R .rtex XML export (doff = start of the hex words, avail = their text length, itype = data bytes, bpp = bytes per word)
 	bool shpg; // EA SHPG entry (a dbl-style record inside the unpacked archive; RefPack wrapped files are re-packed as literal runs)
 	bool dbl; // Avalanche .dbl / .mdb texture record (doff = pixels, clut = palette (RGB565), ncol = palette entries, itype = bytes available, gx = GX format)
@@ -638,10 +639,70 @@ static bool locate_tbb (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 	return ok;
 }
 
+// EA "GRPH" .dat (see extract/grph.inc): image number n of the file is the PNG "<stem>.png" (0) or "<stem>_n.png"; plain GIMG blocks and sprite frames (pieces)
+static bool grph_image_ok (const u8 *raw, size_t sz, size_t g, uint *w, uint *h, uint *bpp, bool *tiled)
+{
+	if (g + 16 > sz || memcmp (raw + g, "GIMG", 4))
+		return false;
+	const size_t bl = gxw_le32 (raw + g + 4);
+	*w = gxw_le16 (raw + g + 8), *h = gxw_le16 (raw + g + 10), *bpp = raw[g + 15], *tiled = raw[g + 14] == 6;
+	return bl >= 16 && g + bl <= sz && *w && *h && (*bpp == 4 || *bpp == 8) && !(*tiled && (*w % 8 || *h % 8)) && (size_t)*w * *h * *bpp / 8 + 16 <= bl;
+}
+
+static bool locate_grph (const u8 *raw, size_t sz, ccp path, gxw_t *g)
+{
+	if (sz < 0x30 || memcmp (raw, "GRPH", 4) || gxw_le32 (raw + 8) != sz)
+		return false;
+	ccp bs = strrchr (path, '/');
+	char stem[256];
+	snprintf (stem, sizeof (stem), "%s", bs ? bs + 1 : path);
+	char *dot = strrchr (stem, '.');
+	if (dot)
+		*dot = 0;
+	const size_t sl = strlen (stem);
+	uint want = 0;
+	if (!strncmp (gxw_name, stem, sl) && gxw_name[sl] == '_' && isdigit ((u8)gxw_name[sl + 1]))
+		want = (uint)strtoul (gxw_name + sl + 1, 0, 10);
+	else if (strcmp (gxw_name, stem))
+		return false;
+	size_t pal = 0, pn = 0, pbase = 0;
+	uint idx = 0;
+	for (size_t o = gxw_le16 (raw + 0x0c) ? gxw_le16 (raw + 0x0c) : 0x10; o + 16 <= sz;)
+	{
+		const size_t bl = gxw_le32 (raw + o + 4);
+		if (bl < 16 || o + bl > sz)
+			break;
+		if (!memcmp (raw + o, "GPAL", 4))
+		{
+			pn = (bl - 16) / 2;
+			pbase = gxw_le16 (raw + o + 12) < 256 ? gxw_le16 (raw + o + 12) : 0;
+			pal = o + 16;
+		}
+		else if (!memcmp (raw + o, "GIMG", 4) && pal)
+		{
+			uint w = 0, h = 0, bpp = 0;
+			bool tiled = false;
+			const bool sprite = raw[o + 14] == 0x14 && bl >= 32;
+			if (sprite)
+				w = gxw_le32 (raw + o + 20), h = gxw_le32 (raw + o + 24);
+			if (sprite ? w && h && w <= 1024 && h <= 1024 : grph_image_ok (raw, sz, o, &w, &h, &bpp, &tiled))
+			{
+				if (idx++ == want)
+				{
+					g->grph = true, g->doff = o, g->clut = pal, g->ncol = (uint)pn, g->itype = (uint)pbase, g->bpp = sprite, g->w = w, g->h = h;
+					return true;
+				}
+			}
+		}
+		o += bl;
+	}
+	return false;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2247,6 +2308,71 @@ static enumError reinject_dbl (const Image_t *img, u8 *raw, const gxw_t *g, ccp 
 	return ERR_OK;
 }
 
+// nearest GPAL colour (red in the high bits) for an RGBA pixel; transparent pixels are index 0
+static uint grph_index (const u8 *raw, const gxw_t *g, const u8 *p)
+{
+	if (p[3] < 128)
+		return 0;
+	uint best = 0, bd = ~0u;
+	for (uint i = 0; i < g->ncol; i++)
+	{
+		const uint c = g->itype + i;
+		if (!c || c > 255)
+			continue;
+		const uint v = gxw_le16 (raw + g->clut + 2 * i);
+		const int dr = (int)((v >> 10 & 31) * 255 / 31) - p[0], dg = (int)((v >> 5 & 31) * 255 / 31) - p[1], db = (int)((v & 31) * 255 / 31) - p[2];
+		const uint d = (uint)(dr * dr + dg * dg + db * db);
+		if (d < bd)
+			bd = d, best = c;
+	}
+	return best;
+}
+
+static void grph_put (u8 *gm, uint w, uint bpp, bool tiled, size_t x, size_t y, uint c)
+{
+	size_t i = y * w + x;
+	if (tiled)
+		i = ((y / 8) * (w / 8) + x / 8) * 64 + (y % 8) * 8 + x % 8;
+	if (bpp == 8)
+		gm[16 + i] = (u8)c;
+	else
+		gm[16 + i / 2] = (u8)((gm[16 + i / 2] & (i & 1 ? 0x0f : 0xf0)) | (i & 1 ? c << 4 : c & 15));
+}
+
+static enumError reinject_grph (const Image_t *img, u8 *raw, size_t sz, const gxw_t *g, ccp path)
+{
+	if (img->width != g->w || img->height != g->h)
+		return ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width, img->height, g->w, g->h, path);
+	const size_t o = g->doff, bl = gxw_le32 (raw + o + 4);
+	const u8 *px = img->data;
+	if (!g->bpp)
+	{
+		uint w, h, bpp;
+		bool tiled;
+		if (!grph_image_ok (raw, sz, o, &w, &h, &bpp, &tiled))
+			return ERR_NOTHING_TO_DO;
+		for (uint y = 0; y < h; y++)
+			for (uint x = 0; x < w; x++)
+				grph_put (raw + o, w, bpp, tiled, x, y, grph_index (raw, g, px + 4 * ((size_t)y * img->xwidth + x)));
+		return ERR_OK;
+	}
+	const uint np = gxw_le32 (raw + o + 28);
+	size_t gp = o + 16 + gxw_le32 (raw + o + 16);
+	for (uint k = 0; k < np && o + 32 + 8 * k + 8 <= o + bl; k++)
+	{
+		uint pw, ph, pb;
+		bool pt;
+		if (!grph_image_ok (raw, sz, gp, &pw, &ph, &pb, &pt) || gp + gxw_le32 (raw + gp + 4) > o + bl)
+			break;
+		const uint ox = gxw_le16 (raw + o + 34 + 8 * k) & 0x1ff, oy = gxw_le16 (raw + o + 32 + 8 * k) & 0xff;
+		for (uint y = 0; y < ph && oy + y < g->h; y++)
+			for (uint x = 0; x < pw && ox + x < g->w; x++)
+				grph_put (raw + gp, pw, pb, pt, x, y, grph_index (raw, g, px + 4 * ((size_t)(oy + y) * img->xwidth + ox + x)));
+		gp += gxw_le32 (raw + gp + 4);
+	}
+	return ERR_OK;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -2283,6 +2409,15 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.grph)
+	{
+		Transform2XIMG (img);
+		enumError e = img->iform != IMG_X_RGB ? ERR_NOTHING_TO_DO : reinject_grph (img, raw, sz, &g, dest);
+		if (!e)
+			e = store (dest, raw, sz);
+		FREE (raw);
+		return e;
 	}
 	if (g.rtex)
 	{

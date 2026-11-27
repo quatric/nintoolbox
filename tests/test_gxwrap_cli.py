@@ -967,5 +967,67 @@ class AvalancheTbb(unittest.TestCase):
                     self.assertEqual((tuple(rgba(i % 8, i // 8)) + (255,))[:4], q, (n, i))
 
 
+class GrphWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        pals = [(0, 0, 0)] + [(i * 2 % 32, i * 5 % 32, i * 3 % 32) for i in range(1, 16)]
+        pal = b''.join(struct.pack('<H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in pals)
+        gpal = b'GPAL' + struct.pack('<I', 16 + len(pal)) + struct.pack('<HHHH', 16, 0, 0, 0) + pal
+        def gimg(w, h, bpp, tiled, body):
+            return b'GIMG' + struct.pack('<IHH', 16 + len(body), w, h) + bytes([0, 1, 6 if tiled else 2, bpp]) + body
+        blocks = gpal + gimg(8, 8, 8, False, bytes(64)) + gimg(8, 8, 4, True, bytes(32))
+        raw = b'GRPH' + struct.pack('<HHIHH', 0xfffe, 0x100, 0x10 + len(blocks), 0x10, 3) + blocks
+        raw = raw[:8] + struct.pack('<I', len(raw)) + raw[12:]
+        px = lambda i: [tuple(v * 255 // 31 for v in pals[1 + (x * 3 + y * 5 + i) % 15]) + (255,) if (x + y) % 5 else (0, 0, 0, 0) for y in range(8) for x in range(8)]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'g.dat').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 'g.dat.d')
+            names = sorted(x.name for x in d.glob('*.png'))
+            self.assertEqual(names, ['g.png', 'g_1.png'])
+            time.sleep(1.1)
+            for i, n in enumerate(names):
+                write_png(d / n, 8, 8, b''.join(bytes(q) for q in px(i)))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/g.dat', '--decode', '-o')
+            for i, n in enumerate(names):
+                w, h, ch, rgba = pngtool._read_png(d / n)
+                for j, q in enumerate(px(i)):
+                    got = (tuple(rgba(j % 8, j // 8)) + (255,))[:4]
+                    self.assertEqual(got[:3] if q[3] else got[3:], q[:3] if q[3] else q[3:], (n, j))
+            self.assertEqual(Path(tmp, 'ex', 'g.dat').read_bytes()[:0x10 + len(gpal)], raw[:0x10 + len(gpal)])
+
+    def test_sprite(self):
+        pals = [(0, 0, 0)] + [(i * 2 % 32, i * 5 % 32, i * 3 % 32) for i in range(1, 16)]
+        pal = b''.join(struct.pack('<H', 0x8000 | c[0] << 10 | c[1] << 5 | c[2]) for c in pals)
+        gpal = b'GPAL' + struct.pack('<I', 16 + len(pal)) + struct.pack('<HHHH', 16, 0, 0, 0) + pal
+        piece = lambda: b'GIMG' + struct.pack('<IHH', 16 + 64, 8, 8) + bytes([0, 1, 2, 8]) + bytes(64)
+        frame = b'GIMG' + struct.pack('<IHH', 48 + 2 * 80, 0, 0) + bytes([0, 1, 0x14, 8]) + struct.pack('<IIII', 32, 16, 8, 2) \
+            + struct.pack('<HHHH', 0, 0, 0, 0) + struct.pack('<HHHH', 0, 8, 0, 0) + piece() + piece()
+        blocks = gpal + frame
+        raw = b'GRPH' + struct.pack('<HHIHH', 0xfffe, 0x100, 0, 0x10, 2) + blocks
+        raw = raw[:8] + struct.pack('<I', len(raw)) + raw[12:]
+        px = [tuple(v * 255 // 31 for v in pals[1 + (x * 3 + y * 5) % 15]) + (255,) for y in range(8) for x in range(16)]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 's.dat').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 's.dat.d', 's.png')
+            self.assertTrue(png.exists())
+            time.sleep(1.1)
+            write_png(png, 16, 8, b''.join(bytes(q) for q in px))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/s.dat', '--decode', '-o')
+            w, h, ch, rgba = pngtool._read_png(png)
+            for j, q in enumerate(px):
+                self.assertEqual((tuple(rgba(j % 16, j // 16)) + (255,))[:3], q[:3], j)
+
+
 if __name__ == '__main__':
     unittest.main()
