@@ -516,6 +516,20 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			|| g->doff + gxw_be32 (r + 16) > sz)
 			return false;
 	}
+	else if (has_ext (path, ".kwtp") && sz >= 0x180 && !memcmp (raw, "kwtp02", 6))
+	{
+		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x18), g))
+			return false;
+	}
+	else if ((has_ext (path, ".pte") || has_ext (path, ".pfi")) && sz >= 0x100 && gxw_be32 (raw) == 13)
+	{
+		// Pixel Entertainment: a header, then an ordinary TPL somewhere in the first 0x400 bytes
+		for (size_t i = 0x20; i + 0x40 < sz && i < 0x400 && !g->w; i++)
+			if (gxw_be32 (raw + i) == 0x0020af30 && gxw_be32 (raw + i + 4) == 1 && gxw_be32 (raw + i + 8) == 0x0c)
+				locate_tpl (raw, sz, i, g);
+		if (!g->w)
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
