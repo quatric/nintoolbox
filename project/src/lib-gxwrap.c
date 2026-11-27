@@ -14,6 +14,7 @@ typedef struct gxw_t
 	bool apx; // Capcom Zack and Wiki .apx: 24 bit linear RGB behind a 0x20 byte header
 	bool imy; // Nippon Ichi IMY: palette + tiles, rewritten as an uncompressed (flags bit 0) stream
 	bool ptexa; // PTEX kind 2: CMPR colour plane followed by an I4 alpha plane
+	bool flip; // rows are stored bottom-up
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -599,6 +600,12 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			g->gx = 6;
 		else
 			return false;
+	}
+	else if (has_ext (path, ".tex") && sz >= 0x18 && gxw_be32 (raw) >> 16 == 0x0402 && gxw_be32 (raw + 20) == 1
+		&& (gxw_be32 (raw + 4) == 11 || gxw_be32 (raw + 4) == 13) && gxw_be32 (raw + 8) == sz - 0x18)
+	{
+		// International Athletics: direct colour only (the C4 / C8 variants carry a palette)
+		g->gx = gxw_be32 (raw + 4) == 11 ? 5 : 14, g->w = gxw_be32 (raw + 12), g->h = gxw_be32 (raw + 16), g->doff = 0x18, g->levels = 1, g->flip = true;
 	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
@@ -1188,7 +1195,7 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		else
 		{
 			for (uint y = 0; y < g.h; y++)
-				memcpy (rgba + 4 * (size_t)y * g.w, img->data + 4 * (size_t)y * img->xwidth, 4 * g.w);
+				memcpy (rgba + 4 * (size_t)y * g.w, img->data + 4 * (size_t)(g.flip ? g.h - 1 - y : y) * img->xwidth, 4 * g.w);
 			if (g.ptexa)
 			{
 				u8 *a = raw + g.doff + (size_t)g.w * g.h / 2;
