@@ -581,6 +581,25 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			|| g->doff + (kind == 2 ? (size_t)g->w * g->h : (size_t)g->w * g->h / 2) > sz)
 			return false;
 	}
+	else if (sz >= 0x20 && !memcmp (raw, "TTPL", 4))
+	{
+		if (!locate_tpl (raw, sz, 8, g)) // Petz: {"TTPL", u32 size} around an ordinary TPL
+			return false;
+	}
+	else if (sz >= 0x40 && !memcmp (raw, "TEXL", 4))
+	{
+		// Petz Cranium Kabookii: 0x19 byte header {..., BE16 w, h at 0x10}, raw CMPR / RGBA8 (or CMPR + I4 alpha) pixels, 8 byte trailer
+		g->w = raw[0x10] << 8 | raw[0x11], g->h = raw[0x12] << 8 | raw[0x13], g->doff = 0x19, g->levels = 1;
+		const size_t body = sz - 0x19 - 8;
+		if (!g->w || !g->h || ((g->w | g->h) & 7))
+			return false;
+		if (body == (size_t)g->w * g->h / 2 || body == (size_t)g->w * g->h)
+			g->gx = 14, g->ptexa = body == (size_t)g->w * g->h;
+		else if (body == (size_t)g->w * g->h * 4)
+			g->gx = 6;
+		else
+			return false;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
