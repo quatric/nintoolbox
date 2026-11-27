@@ -21,6 +21,27 @@ enumError DecodeNCGR_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 		|| data_size > src_size - (0x10 + data_off))
 		return EINVAL;
 	const uint n_tiles = data_size / bpt;
+	// character format 1 stores a bitmap in scanline order instead of 8x8 tiles
+	if (rd_le32 (rahc + 0x14) == 1 && num_x && num_x != 0xFFFF && num_y && num_y != 0xFFFF
+		&& (u64)num_x * num_y * bpt == data_size && (u64)num_x * num_y * 64 <= NFMT_MAX_OUTPUT / 4)
+	{
+		const uint w = 8 * num_x, h = 8 * num_y;
+		u8 *out = CALLOC (1, w * h * 4);
+		if (!out)
+			return ERR_CANT_CREATE;
+		const u8 *pix = rahc + data_off;
+		for (uint p = 0; p < w * h; p++)
+		{
+			const u8 index = depth == 3 ? (pix[p / 2] >> (4 * (p & 1))) & 15 : pix[p];
+			u8 *q = out + 4 * p;
+			q[0] = q[1] = q[2] = depth == 3 ? index * 17 : index;
+			q[3] = index ? 255 : 0;
+		}
+		*dest = out;
+		*width = w;
+		*height = h;
+		return ERR_OK;
+	}
 	uint cols = 16;
 	if (num_x > 0 && num_x != 0xFFFF)
 		cols = num_x;
