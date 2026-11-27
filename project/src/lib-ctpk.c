@@ -189,8 +189,8 @@ enumError DecodePicaTexture (
 			{
 				const u16 c = rd_le16 (p);
 				d[0] = expand5 (c >> 11);
-				d[1] = expand5 (c >> 6);
-				d[2] = expand5 (c >> 1);
+				d[1] = expand5 (c >> 6 & 31);
+				d[2] = expand5 (c >> 1 & 31);
 				d[3] = (c & 1) ? 255 : 0;
 			}
 			else if (fmt == 3) // RGB565
@@ -198,7 +198,7 @@ enumError DecodePicaTexture (
 				const u16 c = rd_le16 (p);
 				d[0] = expand5 (c >> 11);
 				d[1] = (u8)(((c >> 5) & 63) * 255 / 63);
-				d[2] = expand5 (c);
+				d[2] = expand5 (c & 31);
 				d[3] = 255;
 			}
 			else if (fmt == 4) // RGBA4444

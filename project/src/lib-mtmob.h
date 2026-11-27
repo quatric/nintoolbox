@@ -17,6 +17,7 @@
 
 // Structural probes (magic + bounds validation).
 int IsMTMOD (const u8 *data, size_t size); // "MOD\0" model
+bool MTTEXInfo (const u8 *data, size_t size, uint *w, uint *h, uint *pica, size_t *doff, size_t *avail);
 int IsMTTEX (const u8 *data, size_t size); // "TEX\0" texture
 int IsMTMRL (const u8 *data, size_t size); // "MRL\0" materials
 int IsMTMFX (const u8 *data, size_t size); // "MFX\0" shader effects

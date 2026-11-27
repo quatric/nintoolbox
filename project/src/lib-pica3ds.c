@@ -121,9 +121,9 @@ enumError DecodeDMPBM_RGBA (u8 **dest, uint *width, uint *height, const u8 *data
 			const uint pos = ((y / 8) * (tw / 8) + x / 8) * 64 + morton8 (x & 7, y & 7);
 			const u16 c = rd_le16 (data + 14 + 2 * data[pixel_off + pos]); // A1B5G5R5
 			u8 *d = rgba + 4 * ((size_t)y * w + x);
-			d[0] = expand5 (c);
-			d[1] = expand5 (c >> 5);
-			d[2] = expand5 (c >> 10);
+			d[0] = expand5 (c & 31);
+			d[1] = expand5 (c >> 5 & 31);
+			d[2] = expand5 (c >> 10 & 31);
 			d[3] = c & 0x8000 ? 255 : 0;
 		}
 	Pica3DSFlipRGBA (rgba, w, h);

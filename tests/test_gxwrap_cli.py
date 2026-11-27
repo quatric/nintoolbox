@@ -1094,5 +1094,51 @@ class TplcWrap(unittest.TestCase):
             self.assertEqual(Path(tmp, 'ex', 't.tplc').read_bytes()[0], 0xff)
 
 
+class PicaWrap(unittest.TestCase):
+    def test_gf_and_mt(self):
+        W16 = 16
+        def gf(fmt, n):
+            h = bytearray(0x80)
+            struct.pack_into('<II', h, 0, 0x15041213, 1)
+            h[8:15] = b'texture'
+            struct.pack_into('<I', h, 0x18, n)
+            struct.pack_into('<HHH', h, 0x68, W16, W16, fmt)
+            return bytes(h) + bytes(n)
+        def mt(fmt, n):
+            w1 = (W16 << 6) | (W16 << 19)
+            return b'TEX\0' + struct.pack('<III', 0x9d, w1, fmt << 8) + bytes(n)
+        flat = lambda x, y: tuple(((x // 4) * 60 + 17 * ((y // 4) % 3)) % 256 // 17 * 17 for _ in range(3))
+        cases = [('g565.img', gf(0x02, 512), 'g565', 0), ('g8888.img', gf(0x04, 1024), 'rgba', 0), ('getc.img', gf(0x2a, 128), 'flat', 8),
+                 ('getca.img', gf(0x2b, 256), 'flatA', 8), ('gl4.img', gf(0x28, 128), 'lum', 8)]
+        def pix(kind, x, y):
+            if kind == 'rgba': return ((x * 17) % 256, (y * 17) % 256, (x * y) % 256, 255 - x * 9)
+            if kind == 'g565': return ((x * 8) * 255 // 255 // 8 * 8 * 0 + (x % 32) * 255 // 31, (y % 64) * 255 // 63, ((x + y) % 32) * 255 // 31, 255)
+            if kind == 'lum': v = (x + y) % 16 * 17; return (v, v, v, 255)
+            c = flat(x, y)
+            return c + ((255,) if kind == 'flat' else ((x // 4) * 85 % 256 // 17 * 17,))
+        wimgt = WSZST.parent / 'wimgt'
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp, 'work'); d.mkdir()
+            for n, data, k, tol in cases:
+                (d / (n[:-4] + '.gftex')).write_bytes(data)
+            wi = lambda *a: subprocess.run([str(wimgt), *a], cwd=tmp, capture_output=True, text=True)
+            for n, data, k, tol in cases:
+                r = wi('decode', 'work/' + n[:-4] + '.gftex', '-o')
+                self.assertTrue(Path(d, n[:-4] + '.gftex.png').exists(), r.stdout + r.stderr)
+            time.sleep(1.1)
+            for n, data, k, tol in cases:
+                write_png(d / (n[:-4] + '.gftex.png'), W16, W16, b''.join(bytes(pix(k, x, y)) for y in range(W16) for x in range(W16)))
+            r = subprocess.run([str(WSZST), 'create', 'work', '--u8', '--dest', 'out.arc', '-o'], cwd=tmp, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            for n, data, k, tol in cases:
+                wi('decode', 'work/' + n[:-4] + '.gftex', '-o')
+                w, h, ch, rgba = pngtool._read_png(d / (n[:-4] + '.gftex.png'))
+                for y in range(W16):
+                    for x in range(W16):
+                        got = (tuple(rgba(x, y)) + (255,))[:4]
+                        exp = pix(k, x, y)
+                        t = 8 if k == 'g565' else tol
+                        self.assertTrue(all(abs(a - b) <= t for a, b in zip(got, exp)), (n, x, y, got, exp))
+
 if __name__ == '__main__':
     unittest.main()

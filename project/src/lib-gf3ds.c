@@ -475,6 +475,19 @@ void GetGFTextureName (char *buf, size_t bufsz, const u8 *data, size_t size)
 	buf[strnlen (buf, copy)] = 0;
 }
 
+// the pixel block of a GFTexture: size, PICA format and where the texels live (for re-encoding)
+bool GFTextureInfo (const u8 *data, size_t size, uint *w, uint *h, uint *pica, size_t *doff, size_t *avail)
+{
+	if (!IsGFTexture (data, size))
+		return false;
+	const uint f = gf_tex_to_pica (data[0x6c] | (u16)data[0x6d] << 8), rawlen = rd_le32 (data + 0x18);
+	if (f > 13)
+		return false;
+	*w = data[0x68] | (u16)data[0x69] << 8, *h = data[0x6a] | (u16)data[0x6b] << 8, *pica = f, *doff = 0x80;
+	*avail = (uint)(size - 0x80) < rawlen ? size - 0x80 : rawlen;
+	return true;
+}
+
 enumError DecodeGFTexture_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, size_t size)
 {
 	if (!dest || !width || !height)

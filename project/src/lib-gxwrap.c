@@ -1,3 +1,4 @@
+#include "lib-gf3ds.h"
 #include <utime.h>
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
@@ -25,6 +26,7 @@ typedef struct gxw_t
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
+	bool pica; // 3DS PICA200 texture (GFTexture / MT TEX): gx = PICA format 0-13, doff = texels, avail = their bytes
 	bool grph; // EA DS GRPH image (doff = GIMG block, clut = first palette colour, ncol = colours, tga.. = see reinject_grph; itype = palette base, bpp = 1 for a sprite frame)
 	bool rtex; // NW4R .rtex XML export (doff = start of the hex words, avail = their text length, itype = data bytes, bpp = bytes per word)
 	bool shpg; // EA SHPG entry (a dbl-style record inside the unpacked archive; RefPack wrapped files are re-packed as literal runs)
@@ -783,10 +785,184 @@ static u8 *tplc_pack (const u8 *d, size_t n, size_t *on)
 	return o;
 }
 
+// --- PICA200 texel encoders (inverse of DecodePicaTexture / decode_etc1_tiled) ---
+static const int pica_mod[8][4] = { { 2, 8, -2, -8 }, { 5, 17, -5, -17 }, { 9, 29, -9, -29 }, { 13, 42, -13, -42 }, { 18, 60, -18, -60 }, { 24, 80, -24, -80 }, { 33, 106, -33, -106 }, { 47, 183, -47, -183 } };
+
+static int pica_c255 (int v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+// best table / indices for the pixels of one half block around the (8 bit) base colour; returns the squared error
+static uint etc1_half (const u8 *px[8], const int base[3], uint *table, uint *idx)
+{
+	uint best = ~0u;
+	for (uint t = 0; t < 8; t++)
+	{
+		uint err = 0, ix[8];
+		for (uint i = 0; i < 8; i++)
+		{
+			uint be = ~0u;
+			for (uint m = 0; m < 4; m++)
+			{
+				uint e = 0;
+				for (uint k = 0; k < 3; k++)
+				{
+					const int d = pica_c255 (base[k] + pica_mod[t][m]) - px[i][k];
+					e += (uint)(d * d);
+				}
+				if (e < be)
+					be = e, ix[i] = m;
+			}
+			err += be;
+		}
+		if (err < best)
+		{
+			best = err, *table = t;
+			memcpy (idx, ix, sizeof ix);
+		}
+	}
+	return best;
+}
+
+// one ETC1 colour block as the 3DS stores it (64 bit value little endian); p = 16 RGBA pixels row-major
+static void etc1_encode_block (const u8 *p, u8 out[8])
+{
+	u64 bestv = 0;
+	uint beste = ~0u;
+	for (uint flip = 0; flip < 2; flip++)
+	{
+		const u8 *half[2][8];
+		uint pos[2][8], n[2] = { 0, 0 };
+		for (uint y = 0; y < 4; y++)
+			for (uint x = 0; x < 4; x++)
+			{
+				const uint s = flip ? y >= 2 : x >= 2;
+				half[s][n[s]] = p + 4 * (y * 4 + x), pos[s][n[s]++] = x * 4 + y;
+			}
+		int avg[2][3];
+		for (uint s = 0; s < 2; s++)
+			for (uint k = 0; k < 3; k++)
+			{
+				uint sum = 0;
+				for (uint i = 0; i < 8; i++)
+					sum += half[s][i][k];
+				avg[s][k] = (int)((sum + 4) / 8);
+			}
+		for (uint diff = 0; diff < 2; diff++)
+		{
+			int q[2][3], b[2][3];
+			bool ok = true;
+			for (uint s = 0; s < 2; s++)
+				for (uint k = 0; k < 3; k++)
+				{
+					q[s][k] = diff ? (avg[s][k] * 31 + 127) / 255 : (avg[s][k] + 8) / 17;
+					b[s][k] = diff ? q[s][k] << 3 | q[s][k] >> 2 : q[s][k] * 17;
+				}
+			if (diff)
+				for (uint k = 0; k < 3; k++)
+					if (q[1][k] - q[0][k] < -4 || q[1][k] - q[0][k] > 3)
+						ok = false;
+			if (!ok)
+				continue;
+			uint t[2], ix[2][8], err = 0;
+			for (uint s = 0; s < 2; s++)
+				err += etc1_half (half[s], b[s], &t[s], ix[s]);
+			if (err >= beste)
+				continue;
+			u64 v = (u64)flip << 32 | (u64)diff << 33 | (u64)t[0] << 37 | (u64)t[1] << 34;
+			if (diff)
+				for (uint k = 0; k < 3; k++)
+					v |= (u64)q[0][k] << (59 - 8 * k) | (u64)(q[1][k] - q[0][k] & 7) << (56 - 8 * k);
+			else
+				for (uint k = 0; k < 3; k++)
+					v |= (u64)q[0][k] << (60 - 8 * k) | (u64)q[1][k] << (56 - 8 * k);
+			for (uint s = 0; s < 2; s++)
+				for (uint i = 0; i < 8; i++)
+					v |= (u64)(ix[s][i] >> 1) << (pos[s][i] + 16) | (u64)(ix[s][i] & 1) << pos[s][i];
+			beste = err, bestv = v;
+		}
+	}
+	for (uint i = 0; i < 8; i++)
+		out[i] = (u8)(bestv >> (8 * i));
+}
+
+// rgba: pw x ph pixels (multiples of 8); returns false when the surface needs more than cap bytes
+static bool pica_encode (uint fmt, const u8 *rgba, uint pw, uint ph, u8 *out, size_t cap)
+{
+	if (fmt == 12 || fmt == 13)
+	{
+		const uint bw = pw / 4, bh = ph / 4, bsz = fmt == 13 ? 16 : 8;
+		if ((size_t)bw * bh * bsz > cap)
+			return false;
+		for (uint by = 0; by < bh; by++)
+			for (uint bx = 0; bx < bw; bx++)
+			{
+				u8 px[64];
+				for (uint y = 0; y < 4; y++)
+					memcpy (px + 16 * y, rgba + 4 * ((size_t)(by * 4 + y) * pw + bx * 4), 16);
+				u8 *o = out + (size_t)(((by / 2) * (bw / 2) + bx / 2) * 4 + ((bx & 1) | (by & 1) << 1)) * bsz;
+				if (fmt == 13)
+				{
+					memset (o, 0, 8);
+					for (uint y = 0; y < 4; y++)
+						for (uint x = 0; x < 4; x++)
+						{
+							const uint pp = x * 4 + y, a = (px[4 * (y * 4 + x) + 3] + 8) / 17;
+							o[pp >> 1] |= (u8)(a << (pp & 1 ? 4 : 0));
+						}
+					o += 8;
+				}
+				etc1_encode_block (px, o);
+			}
+		return true;
+	}
+	static const uint bpp[12] = { 4, 3, 2, 2, 2, 2, 2, 1, 1, 1, 0, 0 };
+	if (fmt > 11 || (size_t)pw * ph * (fmt >= 10 ? 1 : bpp[fmt]) / (fmt >= 10 ? 2 : 1) > cap)
+		return false;
+	for (uint y = 0; y < ph; y++)
+		for (uint x = 0; x < pw; x++)
+		{
+			const uint pos = ((y / 8) * (pw / 8) + x / 8) * 64 + ((x & 1) | (y & 1) << 1 | (x & 2) << 1 | (y & 2) << 2 | (x & 4) << 2 | (y & 4) << 3);
+			const u8 *s = rgba + 4 * ((size_t)y * pw + x);
+			const uint lum = (s[0] + s[1] + s[2]) / 3;
+			if (fmt >= 10)
+			{
+				const uint v = ((fmt == 10 ? lum : s[3]) + 8) / 17;
+				out[pos >> 1] = (u8)((out[pos >> 1] & (pos & 1 ? 0x0f : 0xf0)) | (pos & 1 ? v << 4 : v));
+				continue;
+			}
+			u8 *p = out + (size_t)pos * bpp[fmt];
+			uint c;
+			switch (fmt)
+			{
+			case 0: p[0] = s[0], p[1] = s[1], p[2] = s[2], p[3] = s[3]; break;
+			case 1: p[0] = s[0], p[1] = s[1], p[2] = s[2]; break;
+			case 2: c = ((s[0] * 31 + 127) / 255) << 11 | ((s[1] * 31 + 127) / 255) << 6 | ((s[2] * 31 + 127) / 255) << 1 | (s[3] >= 128); p[0] = (u8)c, p[1] = (u8)(c >> 8); break;
+			case 3: c = ((s[0] * 31 + 127) / 255) << 11 | ((s[1] * 63 + 127) / 255) << 5 | ((s[2] * 31 + 127) / 255); p[0] = (u8)c, p[1] = (u8)(c >> 8); break;
+			case 4: c = ((s[0] + 8) / 17) << 12 | ((s[1] + 8) / 17) << 8 | ((s[2] + 8) / 17) << 4 | (s[3] + 8) / 17; p[0] = (u8)c, p[1] = (u8)(c >> 8); break;
+			case 5: p[0] = (u8)lum, p[1] = s[3]; break;
+			case 6: p[0] = s[0], p[1] = s[1]; break;
+			case 7: p[0] = (u8)lum; break;
+			case 8: p[0] = s[3]; break;
+			default: p[0] = (u8)((lum + 8) / 17 | (s[3] + 8) / 17 << 4); break;
+			}
+		}
+	return true;
+}
+
+// GFTexture (3DS): the texels follow a 0x80 byte header (see lib-gf3ds.c); MT TEX is left alone, its \"TEX\" magic is shared with other decoders
+static bool locate_pica (const u8 *raw, size_t sz, gxw_t *g)
+{
+	uint w, h, f;
+	size_t doff, avail;
+	if (!GFTextureInfo (raw, sz, &w, &h, &f, &doff, &avail))
+		return false;
+	g->pica = true, g->gx = f, g->w = w, g->h = h, g->doff = doff, g->avail = avail;
+	return true;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -2531,6 +2707,29 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			FREE (raw);
 			return ERR_NOTHING_TO_DO;
 		}
+	}
+	if (g.pica)
+	{
+		Transform2XIMG (img);
+		enumError e = ERR_OK;
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+		else
+		{
+			const uint pw = (g.w + 7) & ~7u, ph = (g.h + 7) & ~7u;
+			u8 *rgba = pad_rgba (img, pw, ph);
+			if (!rgba)
+				e = ERR_OUT_OF_MEMORY;
+			else if (!pica_encode (g.gx, rgba, pw, ph, raw + g.doff, g.avail))
+				e = ERR_NOTHING_TO_DO;
+			else
+				e = store (dest, raw, sz);
+			FREE (rgba);
+		}
+		FREE (raw);
+		return e;
 	}
 	if (g.grph)
 	{

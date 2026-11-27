@@ -513,15 +513,15 @@ enumError DecodeFLIM_RGBA (u8 **dest, uint *width, uint *height, const u8 *src, 
 				const u16 c = r16 (p);
 				d[0] = expand5 (c >> 11);
 				d[1] = (c >> 5 & 63) * 255 / 63;
-				d[2] = expand5 (c);
+				d[2] = expand5 (c & 31);
 				d[3] = 255;
 			}
 			else if (fmt == 7)
 			{
 				const u16 c = r16 (p);
 				d[0] = expand5 (c >> 11);
-				d[1] = expand5 (c >> 6);
-				d[2] = expand5 (c >> 1);
+				d[1] = expand5 (c >> 6 & 31);
+				d[2] = expand5 (c >> 1 & 31);
 				d[3] = c & 1 ? 255 : 0;
 			}
 			else if (fmt == 8)

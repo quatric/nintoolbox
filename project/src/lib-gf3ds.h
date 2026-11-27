@@ -32,6 +32,7 @@
 // must not be excused. Only a caller that knowingly passes a shorter
 // 'size' than the real 'file_size' gets the truncated-probe leniency.
 int IsGFModel (const u8 *data, size_t size, size_t file_size);
+bool GFTextureInfo (const u8 *data, size_t size, uint *w, uint *h, uint *pica, size_t *doff, size_t *avail);
 int IsGFTexture (const u8 *data, size_t size);
 int IsGFMotion (const u8 *data, size_t size);
 int IsGFModelPack (const u8 *data, size_t size, size_t file_size);

@@ -306,6 +306,19 @@ int IsMBN (const u8 *data, size_t size)
 // MT TEX -> RGBA8
 // ---------------------------------------------------------------------------
 
+bool MTTEXInfo (const u8 *data, size_t size, uint *w, uint *h, uint *pica, size_t *doff, size_t *avail)
+{
+	if (!IsMTTEX (data, size))
+		return false;
+	const u32 w0 = rd_le32 (data + 4), w1 = rd_le32 (data + 8), w2 = rd_le32 (data + 12), shift = (w0 >> 24) & 0xf, fmt = (w2 >> 8) & 0xff;
+	const uint f = fmt == 0x03 ? 0 : fmt == 0x11 ? 1 : fmt == 0x0b ? 12 : fmt == 0x0c ? 13 : 99;
+	const size_t head = (w0 & 0xfff) > 0xa3 ? 20 : 16;
+	if (f > 13 || head >= size)
+		return false;
+	*w = ((w1 >> 6) & 0x1fff) << shift, *h = ((w1 >> 19) & 0x1fff) << shift, *pica = f, *doff = head, *avail = size - head;
+	return true;
+}
+
 enumError DecodeMTTEX_RGBA (u8 **dest, uint *width, uint *height, const u8 *data, size_t size)
 {
 	if (!dest || !width || !height)
