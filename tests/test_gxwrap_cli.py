@@ -1064,5 +1064,35 @@ class MidwayTim(unittest.TestCase):
                 self.assertEqual(Path(tmp, 'ex', 't.tim').read_bytes()[:doff], raw[:doff])
 
 
+class TplcWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        tpl = struct.pack('>IIIIIHHIII', 0x0020af30, 1, 12, 0x14, 0, 8, 8, 6, 0x40, 0).ljust(0x40, b'\0') + bytes(256)
+        dec = struct.pack('>I', len(tpl) + 4) + tpl
+        def pack(d):
+            o = bytearray()
+            for i in range(0, len(d), 8):
+                c = d[i:i + 8]
+                o.append((1 << len(c)) - 1); o += c
+            return bytes(o)
+        px = [((x * 30) % 256, (y * 30) % 256, (x * y * 4) % 256, 255 - x * 9) for y in range(8) for x in range(8)]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 't.tplc').write_bytes(pack(dec))
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 't.tplc.png')
+            self.assertTrue(png.exists())
+            time.sleep(1.1)
+            write_png(png, 8, 8, b''.join(bytes(q) for q in px))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/t.tplc', '--decode', '-o')
+            w, h, ch, rgba = pngtool._read_png(png)
+            for j, q in enumerate(px):
+                self.assertEqual((tuple(rgba(j % 8, j // 8)) + (255,))[:4], q, j)
+            self.assertEqual(Path(tmp, 'ex', 't.tplc').read_bytes()[0], 0xff)
+
+
 if __name__ == '__main__':
     unittest.main()

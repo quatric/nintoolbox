@@ -713,6 +713,76 @@ static bool locate_mtim (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+// "10 Minute Solution" .tplc: LZSS (flag bytes LSB first, 1 = literal, 0 = u16 LE {pos << 4 | len - 3} into a zero filled 4096 byte ring) over {u32 BE size, TPL}
+static u8 *tplc_open (const u8 *d, size_t n, size_t *dn, gxw_t *g)
+{
+	if (n < 8 || d[0] != 0xff)
+		return 0;
+	const size_t size = (size_t)d[1] << 24 | d[2] << 16 | d[3] << 8 | d[4];
+	if (size < 0x30 || size > 0x4000000)
+		return 0;
+	u8 *out = MALLOC (size), *ring = CALLOC (1, 4096);
+	size_t o = 0, p = 0;
+	bool bad = !out || !ring;
+	while (!bad && o < size && p < n)
+	{
+		const uint f = d[p++];
+		for (uint i = 0; i < 8 && o < size && !bad; i++)
+		{
+			if (f >> i & 1)
+			{
+				if (p >= n)
+					bad = true;
+				else
+					ring[o & 4095] = out[o] = d[p++], o++;
+			}
+			else if (p + 2 > n)
+				bad = true;
+			else
+			{
+				const uint t = d[p] | d[p + 1] << 8, pos = t >> 4, len = (t & 15) + 3;
+				p += 2;
+				for (uint k = 0; k < len && o < size; k++, o++)
+					ring[o & 4095] = out[o] = ring[(pos + k) & 4095];
+			}
+		}
+	}
+	FREE (ring);
+	if (bad || o != size || memcmp (out, d + 1, 4) || gxw_be32 (out + 4) != 0x0020af30)
+		return FREE (out), (u8 *)0;
+	const u8 *t = out + 4;
+	const size_t tn = size - 4;
+	const uint ih = gxw_be32 (t + 0xc);
+	if (tn < 0x20 || gxw_be32 (t + 4) < 1 || ih + 0xc > tn)
+		return FREE (out), (u8 *)0;
+	const uint h = gxw_be16 (t + ih), w = gxw_be16 (t + ih + 2), fmt = gxw_be32 (t + ih + 4);
+	const size_t doff = gxw_be32 (t + ih + 8);
+	if (!w || !h || !gx_ok (fmt) || doff + level_size (fmt, w, h) > tn)
+		return FREE (out), (u8 *)0;
+	memset (g, 0, sizeof (*g));
+	g->gx = fmt, g->w = w, g->h = h, g->doff = 4 + doff, g->avail = tn - doff;
+	g->levels = 1;
+	*dn = size;
+	return out;
+}
+
+// literal-only stream for the same container: one 0xff flag byte per eight literals
+static u8 *tplc_pack (const u8 *d, size_t n, size_t *on)
+{
+	u8 *o = MALLOC (n + n / 8 + 16);
+	if (!o)
+		return 0;
+	size_t p = 0;
+	for (size_t i = 0; i < n; i += 8)
+	{
+		const size_t run = n - i < 8 ? n - i : 8;
+		o[p++] = run == 8 ? 0xff : (u8)((1u << run) - 1);
+		memcpy (o + p, d + i, run), p += run;
+	}
+	*on = p;
+	return o;
+}
+
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
@@ -1252,9 +1322,11 @@ bool GXWrapIsFile (ccp path)
 	gxw_t g;
 	size_t dsz;
 	u8 *dec = raw ? gxw_refpack (raw, sz, &dsz) : 0;
-	const bool ok = raw && (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g));
+	u8 *tp = raw && !dec && has_ext (path, ".tplc") ? tplc_open (raw, sz, &dsz, &g) : 0;
+	const bool ok = raw && (tp || (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g)));
 	FREE (raw);
 	FREE (dec);
+	FREE (tp);
 	return ok;
 }
 
@@ -2394,6 +2466,40 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 	size_t sz;
 	u8 *raw = load (dest, &sz);
 	gxw_t g;
+	if (raw && has_ext (dest, ".tplc"))
+	{
+		size_t dn;
+		u8 *dec = tplc_open (raw, sz, &dn, &g);
+		enumError e = dec ? ERR_OK : ERR_NOTHING_TO_DO;
+		if (dec)
+		{
+			Transform2XIMG (img);
+			if (img->iform != IMG_X_RGB)
+				e = ERR_NOTHING_TO_DO;
+			else if (img->width != g.w || img->height != g.h)
+				e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+			else
+			{
+				const uint pw = (g.w + 7) / 8 * 8, ph = (g.h + 7) / 8 * 8;
+				u8 *rgba = pad_rgba (img, pw, ph);
+				if (!rgba)
+					e = ERR_OUT_OF_MEMORY;
+				else
+				{
+					g.w = pw, g.h = ph;
+					encode_chain (&g, rgba, dec + g.doff, g.avail);
+					FREE (rgba);
+					size_t pn;
+					u8 *z = tplc_pack (dec, dn, &pn);
+					e = z ? store (dest, z, pn) : ERR_OUT_OF_MEMORY;
+					FREE (z);
+				}
+			}
+			FREE (dec);
+		}
+		FREE (raw);
+		return e;
+	}
 	u8 *packed = 0, hdr0 = raw && sz ? raw[0] : 0;
 	size_t psz = 0;
 	if (raw && (packed = gxw_refpack (raw, sz, &psz)) != 0)
