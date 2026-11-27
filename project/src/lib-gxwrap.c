@@ -607,6 +607,16 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 		// International Athletics: direct colour only (the C4 / C8 variants carry a palette)
 		g->gx = gxw_be32 (raw + 4) == 11 ? 5 : 14, g->w = gxw_be32 (raw + 12), g->h = gxw_be32 (raw + 16), g->doff = 0x18, g->levels = 1, g->flip = true;
 	}
+	else if (has_ext (path, ".bgst3") && sz >= 0x40 && !memcmp (raw, "BGST", 4))
+	{
+		// Kirby's Epic Yarn background tiles: count CMPR tiles of w * h / 2 bytes run to the end of the file
+		g->w = gxw_be32 (raw + 8), g->h = gxw_be32 (raw + 12), g->gx = 14, g->levels = 1;
+		const size_t count = gxw_be32 (raw + 0x18), data = gxw_be32 (raw + 0x2c), tsz = (size_t)g->w * g->h / 2;
+		if (g->w < 8 || g->w > 2048 || g->h < 8 || g->h > 2048 || ((g->w | g->h) & 7) || !count || count > 4096
+			|| data + count * tsz != sz || gxw_idx >= count)
+			return false;
+		g->doff = data + gxw_idx * tsz;
+	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{
 		if (!locate_tpl (raw, sz, gxw_be32 (raw + 0x20), g))
