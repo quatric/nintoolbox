@@ -28,6 +28,9 @@ static uint gxw_le32 (const u8 *p) { return (uint)p[3] << 24 | p[2] << 16 | p[1]
 
 static u8 *load (ccp path, size_t *size);
 
+static uint gxw_idx; // image number for multi-image files ("foo.dbt.2.png"), set by the repack code
+void GXWrapSetIndex (uint idx) { gxw_idx = idx; }
+
 static bool has_ext (ccp path, ccp ext)
 {
 	const size_t a = strlen (path), b = strlen (ext);
@@ -367,6 +370,35 @@ static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 			if (!memcmp (raw + 8, fm[i].tag, 4))
 				g->gx = fm[i].fmt;
 		g->w = gxw_le16 (raw + 0x10), g->h = gxw_le16 (raw + 0x12), g->doff = 0x40, g->levels = 1; // One Piece: Unlimited Adventure
+	}
+	else if (has_ext (path, ".dbt") && sz >= 0x180 && gxw_be32 (raw) == 3 && gxw_be32 (raw + 4) == 8 && gxw_be32 (raw + 0x108) == 14)
+	{
+		g->w = gxw_be16 (raw + 0x104), g->h = gxw_be16 (raw + 0x106), g->gx = 14, g->levels = 1;
+		const size_t one = (size_t)((g->w + 7) / 8) * ((g->h + 7) / 8) * 32;
+		g->doff = 0x180 + gxw_idx * one;
+		if (g->w < 8 || g->h < 8 || g->w > 2048 || g->h > 2048 || g->doff + one > sz)
+			return false;
+	}
+	else if (has_ext (path, ".wiitex") && sz >= 0x100 && gxw_be32 (raw) == 2 && gxw_be32 (raw + 4) == sz - 0x10
+		&& gxw_be32 (raw + 8) == 0x10 && gxw_be32 (raw + 12) == 8)
+	{
+		// the decoder finds the size by matching the CMPR mip chain against the file size: do the same
+		for (uint pass = 0; pass < 2 && !g->w; pass++)
+			for (uint w = 2048; w >= 8 && !g->w; w >>= 1)
+				for (uint h = 2048; h >= 8 && !g->w; h >>= 1)
+				{
+					u64 sum = 0;
+					uint lw = w, lh = h;
+					for (uint lv = 1; lv <= 12 && (pass || w == h) && !g->w; lv++)
+					{
+						sum += (u64)((lw + 7) / 8) * ((lh + 7) / 8) * 32;
+						lw = lw > 1 ? lw >> 1 : 1, lh = lh > 1 ? lh >> 1 : 1;
+						if (0x50 + sum <= sz && sz - 0x50 - sum <= 8)
+							g->w = w, g->h = h, g->gx = 14, g->doff = 0x50, g->levels = lv;
+					}
+				}
+		if (!g->w)
+			return false;
 	}
 	else if (has_ext (path, ".tgs") && sz >= 0x60 && !memcmp (raw, "tgs\0", 4))
 	{

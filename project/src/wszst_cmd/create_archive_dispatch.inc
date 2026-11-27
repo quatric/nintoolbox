@@ -882,7 +882,7 @@ static enumError repack_directory_contents (ccp root)
 			if (!found_target)
 			{
 				char cand[PATH_MAX];
-				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", 0 };
+				static const char *const raw_exts[] = { "", ".gaftx", ".d4", ".wii", ".wiitex", ".Wiitex", 0 };
 				for (int k = 0; raw_exts[k] && !found_target; k++)
 				{
 					snprintf (cand, sizeof (cand), "%s%s", stem, raw_exts[k]);
@@ -903,6 +903,19 @@ static enumError repack_directory_contents (ccp root)
 					snprintf (target_img, sizeof (target_img), "%s", txe), found_target = true;
 			}
 
+			// 3c. "foo.dbt.2.png": image number 2 of the multi-image file "foo.dbt"
+			uint gx_index = 0;
+			bool multi = false;
+			if (!found_target && (stem_ext = strrchr (stem, '.')) != 0 && stem_ext[1] && strspn (stem_ext + 1, "0123456789") == strlen (stem_ext + 1))
+			{
+				snprintf (target_img, sizeof (target_img), "%.*s", (int)(stem_ext - stem), stem);
+				gx_index = (uint)strtoul (stem_ext + 1, 0, 10);
+				GXWrapSetIndex (gx_index);
+				found_target = stat (target_img, &st_target) == 0 && S_ISREG (st_target.st_mode) && GXWrapIsFile (target_img);
+				GXWrapSetIndex (0);
+				multi = found_target;
+			}
+
 			// 4. "foo.dst.d/foo.png" decoded from "foo.dst" (also "foo.nbfc") (the preview sits in the file's own .d folder)
 			if (!found_target)
 			{
@@ -919,6 +932,20 @@ static enumError repack_directory_contents (ccp root)
 			if (found_target)
 			{
 				time_t ref_img_mtime = st_target.st_mtime;
+				// A multi-image file is rewritten (and re-stamped) by each of its PNGs in turn: judge every
+				// PNG against the file's timestamp from before the first one.
+				static struct { char path[PATH_MAX]; time_t mtime; } multi_seen[32];
+				static uint multi_n;
+				uint ms = 0;
+				if (multi)
+				{
+					while (ms < multi_n && strcmp (multi_seen[ms].path, target_img))
+						ms++;
+					if (ms < multi_n)
+						ref_img_mtime = multi_seen[ms].mtime;
+					else if (ms < 32)
+						snprintf (multi_seen[ms].path, PATH_MAX, "%s", target_img), multi_seen[ms].mtime = ref_img_mtime, multi_n++;
+				}
 				struct stat st_s;
 				char s_path[PATH_MAX];
 				snprintf (s_path, sizeof (s_path), "%s/%s", root, SZS_SETUP_FILE);
@@ -932,7 +959,9 @@ static enumError repack_directory_contents (ccp root)
 				// the exact source timestamp, while any later save is actionable.
 				if (st.st_mtime > ref_img_mtime)
 				{
+					GXWrapSetIndex (gx_index);
 					enumError err = encode_image_from_png (path, target_img);
+					GXWrapSetIndex (0);
 					if (err <= ERR_WARNING)
 					{
 						// Keep the edited preview's timestamp on the native result. The
