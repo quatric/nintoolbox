@@ -273,6 +273,40 @@ class ImyWrap(unittest.TestCase):
             self.assertEqual(Path(tmp, 'out.d', 'a.imy').read_bytes()[:0x28], (hdr + pb)[:10] + b'\x21' + (hdr + pb)[11:0x28])  # flags gain bit 0
 
 
+class LtexWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        def lz11(d):  # literal-only LZ11 stream
+            out = bytearray(b'\x11' + len(d).to_bytes(3, 'little'))
+            for i in range(0, len(d), 8):
+                out += b'\0' + d[i:i + 8]
+            return bytes(out)
+        def ltex(fmt, flag, body):
+            return b'LTEX' + bytes([0, 0, flag, 0]) + struct.pack('<HHH', fmt, W, H)[0:6] + bytes(0x18 - 0x0e) + body
+        z = lz11(bytes(W * H * 2))
+        files = {'a.ltex': (17, ltex(17, 0, bytes(W * H * 4))), 'b.ltex': (14, ltex(14, 0x10, struct.pack('<I', len(z)) + z))}
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            for n, (f, d) in files.items():
+                (src / n).write_bytes(d)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'in.d', '-o')
+            time.sleep(1.1)
+            f = lambda x, y: (x * 16, y * 16, 128, 255)
+            for n in files:
+                png = Path(tmp, 'in.d', n + '.d', n[0] + '.png')
+                self.assertTrue(png.exists(), n)
+                write_png(png, W, H, b''.join(bytes(f(x, y)) for y in range(H) for x in range(W)))
+            self.assertEqual(run('create', 'in.d', '--u8', '--dest', 'out.arc', '-o').returncode, 0)
+            run('xx', 'out.arc', '--decode', '--dest', 'out.d', '-o')
+            for n, (fmt, d) in files.items():
+                w, h, ch, rgba = pngtool._read_png(Path(tmp, 'out.d', n + '.d', n[0] + '.png'))
+                for y in range(H):
+                    for x in range(W):
+                        self.assertTrue(all(abs(a - b) < 9 for a, b in zip(rgba(x, y), f(x, y))), (n, x, y))
+            self.assertEqual(Path(tmp, 'out.d', 'b.ltex').read_bytes()[6], 0x10)  # still LZ11 packed
+
+
 class Dst1Wrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(0xff, 0, 0xff), (0xff, 0, 0), (0, 0xff, 0), (0, 0, 0xff)] + [(i * 16, 0, 255 - i * 16) for i in range(4, 16)]

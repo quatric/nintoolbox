@@ -15,6 +15,7 @@ typedef struct gxw_t
 	bool imy; // Nippon Ichi IMY: palette + tiles, rewritten as an uncompressed (flags bit 0) stream
 	bool ptexa; // PTEX kind 2: CMPR colour plane followed by an I4 alpha plane
 	bool flip; // rows are stored bottom-up
+	bool ltex; // Qubic LTEX: RGB565 / RGBA8888 pixels, optionally LZ11 packed (bpp = bytes per pixel)
 	bool tklt; // Battle of Giants tile set ("TKLT" plain, "VNKT" LZ10 packed), palette from a TTLP file below a 2d folder
 	bool nbfc; // DS raw tile dump (.nbfc / .char) edited through its sibling palette and map
 	bool dst1; // DS "DST1" sprite sheet: RGB555 palette, 2/4/8 bit indices (doff = pixels, clut = palette)
@@ -262,6 +263,18 @@ static bool locate_imy (const u8 *raw, size_t sz, gxw_t *g)
 	return true;
 }
 
+static bool locate_ltex (const u8 *raw, size_t sz, gxw_t *g)
+{
+	if (sz <= 0x18 || memcmp (raw, "LTEX", 4))
+		return false;
+	const uint fmt = raw[8] | raw[9] << 8, w = raw[10] | raw[11] << 8, h = raw[12] | raw[13] << 8;
+	const uint bpp = fmt == 17 ? 4 : fmt == 14 || fmt == 15 ? 2 : 0;
+	if (!bpp || !w || !h || w > 8192 || h > 8192)
+		return false;
+	g->ltex = true, g->w = w, g->h = h, g->bpp = bpp, g->doff = 0x18;
+	return true;
+}
+
 static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 {
 	const bool lz = sz >= 0x30 && !memcmp (raw, "VNKT", 4);
@@ -277,7 +290,7 @@ static bool locate_tklt (const u8 *raw, size_t sz, gxw_t *g)
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -1063,6 +1076,50 @@ static enumError reinject_imy (const Image_t *img, const u8 *raw, const gxw_t *g
 	return ERR_OK;
 }
 
+// the LZ11 packed variant (byte 6 == 0x10) is packed again: {u32 with the low 24 bits = stream length, LZ11 stream}
+static enumError reinject_ltex (const Image_t *img, const u8 *raw, size_t sz, const gxw_t *g, u8 **out, size_t *outn)
+{
+	const size_t n = (size_t)g->w * g->h * g->bpp;
+	u8 *pix = MALLOC (n);
+	if (!pix)
+		return ERR_OUT_OF_MEMORY;
+	for (size_t i = 0; i < (size_t)g->w * g->h; i++)
+	{
+		const u8 *p = img->data + 4 * ((i / g->w) * img->xwidth + i % g->w);
+		if (g->bpp == 4)
+			memcpy (pix + 4 * i, p, 4);
+		else
+		{
+			const uint v = (p[0] >> 3) << 11 | (p[1] >> 2) << 5 | p[2] >> 3;
+			pix[2 * i] = (u8)v, pix[2 * i + 1] = (u8)(v >> 8);
+		}
+	}
+	u8 *z = 0;
+	uint zn = 0;
+	enumError e = ERR_OK;
+	if (raw[6] == 0x10)
+		e = EncodeLZ10LZ11 (&z, &zn, pix, (uint)n, true);
+	const size_t body = raw[6] == 0x10 ? 4 + (size_t)zn : n;
+	if (!e && (*out = MALLOC (0x18 + body)))
+	{
+		memcpy (*out, raw, 0x18);
+		if (raw[6] == 0x10)
+		{
+			const uint hv = (sz > 0x1c ? raw[0x1b] : 0) << 24 | zn;
+			(*out)[0x18] = (u8)hv, (*out)[0x19] = (u8)(hv >> 8), (*out)[0x1a] = (u8)(hv >> 16), (*out)[0x1b] = (u8)(hv >> 24);
+			memcpy (*out + 0x1c, z, zn);
+		}
+		else
+			memcpy (*out + 0x18, pix, n);
+		*outn = 0x18 + body;
+	}
+	else if (!e)
+		e = ERR_OUT_OF_MEMORY;
+	FREE (z);
+	FREE (pix);
+	return e;
+}
+
 enumError GXWrapReinject (Image_t *img, ccp dest)
 {
 	size_t sz;
@@ -1085,6 +1142,24 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
 		else
 			e = reinject_imy (img, raw, &g, &out, &outn);
+		if (!e)
+			e = store (dest, out, outn);
+		FREE (out);
+		FREE (raw);
+		return e;
+	}
+	if (g.ltex)
+	{
+		enumError e = ERR_OK;
+		u8 *out = 0;
+		size_t outn = 0;
+		Transform2XIMG (img);
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the image is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+		else
+			e = reinject_ltex (img, raw, sz, &g, &out, &outn);
 		if (!e)
 			e = store (dest, out, outn);
 		FREE (out);
