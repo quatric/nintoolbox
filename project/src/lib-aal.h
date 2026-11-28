@@ -28,6 +28,7 @@ enumError ConvertAROCToYaml (const u8 *data, size_t size, char **text, size_t *t
 enumError ConvertAACLToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAADRToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 enumError ConvertAGSTToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
+enumError EncodeAALYaml (u8 **dest, uint *dest_size, ccp text); // AROC / AACL / AADR
 
 // Acoustic probe grid (".dapg", Mario Kart World Sound/Acoustic/Probe/<scene>/<x>_<z>.dapg): u32 grid
 // size N (64), N*N u16 cell indices (0 = no probe, else record index + 1), then N*N records of 0x7C bytes:

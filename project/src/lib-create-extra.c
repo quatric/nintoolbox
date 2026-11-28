@@ -3,6 +3,7 @@
 #include "lib-std.h"
 #include "lib-archive-util.h"
 #include "lib-create-extra.h"
+#include "lib-aal.h"
 
 typedef enumError (*pack_func) (u8 **out, u64 *out_size, const nintendo_sarc_entry_t *e, uint n);
 
@@ -149,4 +150,37 @@ bool create_extra_dir (ccp ext, ccp source, ccp dest, enumError *err)
 	}
 	reset_sarc_build_list (&list);
 	return true;
+}
+
+// "<name>.baroc|baacl|baadr.yml" -> binary (see EncodeAALYaml). `dest` is the output path.
+enumError create_aal_yaml_file (ccp src, ccp dest)
+{
+	u8 *raw = 0;
+	size_t size = 0;
+	enumError err = LoadFileAlloc (src, 0, 0, &raw, &size, 0, 0, 0, false);
+	if (err)
+		return err;
+	char *text = MALLOC (size + 1);
+	if (!text)
+	{
+		FREE (raw);
+		return ERR_OUT_OF_MEMORY;
+	}
+	memcpy (text, raw, size);
+	text[size] = 0;
+	FREE (raw);
+	u8 *bin = 0;
+	uint bin_size = 0;
+	err = EncodeAALYaml (&bin, &bin_size, text);
+	FREE (text);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, src);
+		if (F.f && fwrite (bin, 1, bin_size, F.f) != bin_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", bin_size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (bin);
+	return err;
 }

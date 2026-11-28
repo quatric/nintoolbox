@@ -80,6 +80,28 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
+		const bool is_aal_sidecar = (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baroc.yml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baacl.yml"))
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baadr.yml"));
+		if (create && is_aal_sidecar)
+		{
+			char y_dest[PATH_MAX], aal_ext[8];
+			snprintf (aal_ext, sizeof (aal_ext), "%.6s", arg + arg_len - 10);
+			if (opt_dest)
+				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, aal_ext, false);
+			else
+			{
+				snprintf (y_dest, sizeof (y_dest), "%s", arg);
+				y_dest[arg_len - 4] = 0;
+			}
+			const enumError y_err = create_aal_yaml_file (arg, y_dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE AAL %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, y_dest);
+			if (max_err < y_err)
+				max_err = y_err;
+			continue;
+		}
 		const bool is_aamp_sidecar = (arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".aamp.yml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".aamp.yaml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baamp.yml"))

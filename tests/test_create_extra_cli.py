@@ -49,6 +49,28 @@ class CreateExtraTests(unittest.TestCase):
             got = [p.read_bytes() for p in sorted((root / 'out').iterdir())]
             self.assertEqual(got, members)
 
+    def test_aal_yaml_round_trip(self):
+        import struct
+
+        def hdr(magic, version):
+            return magic + b'\xff\xfe' + struct.pack('<H', version)
+        fixtures = {
+            'a.baadr': hdr(b'AADR', 1) + struct.pack('<4f', 30.5, 90.0, 0.123456, 0.2),
+            'b.baroc': hdr(b'AROC', 1) + struct.pack('<I4fI', 2, 1.5, 100.0, 0.75, -3.25, 1),
+            'c.baroc': hdr(b'AROC', 2) + struct.pack('<I4fIf', 1, 1.0, 50.0, 2.0, 0.0, 0, 12.5),
+            'd.baacl': hdr(b'AACL', 1) + struct.pack('<2f', 200.0, 0.1),
+            'e.baacl': hdr(b'AACL', 2) + struct.pack('<2fB', 200.0, 0.1, 1),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name, data in fixtures.items():
+                f = root / name
+                f.write_bytes(data)
+                run('XX', str(f))
+                f.unlink()
+                run('CREATE', str(f) + '.yml')
+                self.assertEqual(f.read_bytes(), data, name)
+
 
 if __name__ == '__main__':
     unittest.main()

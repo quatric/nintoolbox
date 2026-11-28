@@ -4,6 +4,7 @@
 #include "lib-aal.h"
 #include "lib-byml.h"
 #include "lib-sbuf.h"
+#include <math.h>
 
 // open_memstream() buffers come from the libc allocator
 #undef free
@@ -569,4 +570,112 @@ enumError ConvertDLPGToCsv (const u8 *d, size_t size, char **text, size_t *text_
 		}
 	}
 	return sb_finish (&b, text, text_size);
+}
+
+//-----------------------------------------------------------------------------
+// YAML -> binary for the fixed-layout AAL files (AROC, AACL, AADR); the inverse of the
+// Convert*ToYaml() functions above. The leading comment names the format and its version.
+
+static bool aal_yaml_value (ccp text, ccp key, char *out, size_t out_size)
+{
+	const size_t kl = strlen (key);
+	for (ccp p = text; p && *p; p = strchr (p, '\n') ? strchr (p, '\n') + 1 : 0)
+		if (!strncmp (p, key, kl) && p[kl] == ':')
+		{
+			ccp v = p + kl + 1;
+			while (*v == ' ')
+				v++;
+			size_t n = 0;
+			while (v[n] && v[n] != '\n' && v[n] != '\r' && n + 1 < out_size)
+				n++;
+			memcpy (out, v, n);
+			out[n] = 0;
+			return n > 0;
+		}
+	return false;
+}
+
+static bool aal_yaml_float (ccp text, ccp key, u8 *dest)
+{
+	char v[64];
+	if (!aal_yaml_value (text, key, v, sizeof (v)))
+		return false;
+	float f;
+	if (!strcmp (v, ".nan"))
+		f = (float)NAN;
+	else if (!strcmp (v, ".inf"))
+		f = INFINITY;
+	else if (!strcmp (v, "-.inf"))
+		f = -INFINITY;
+	else
+	{
+		char *end;
+		f = strtof (v, &end);
+		if (end == v)
+			return false;
+	}
+	memcpy (dest, &f, 4); // little-endian host assumed, as elsewhere in this file's float handling
+	return true;
+}
+
+static bool aal_yaml_uint (ccp text, ccp key, u8 *dest, bool is_bool, uint width)
+{
+	char v[32];
+	if (!aal_yaml_value (text, key, v, sizeof (v)))
+		return false;
+	const u32 n = is_bool ? !strncmp (v, "true", 4) : (u32)strtoul (v, 0, 10);
+	for (uint i = 0; i < width; i++)
+		dest[i] = n >> (8 * i);
+	return true;
+}
+
+enumError EncodeAALYaml (u8 **dest, uint *dest_size, ccp text)
+{
+	if (!dest || !dest_size || !text)
+		return ERR_INVALID_DATA;
+	ccp tag = strstr (text, "(A");
+	char magic[5] = { 0 };
+	uint version = 0;
+	if (!tag || sscanf (tag, "(%4[A-Z] %u)", magic, &version) != 2 || !version)
+		return ERR_INVALID_DATA;
+	uint size;
+	if (!strcmp (magic, "AADR") && version == 1)
+		size = 0x18;
+	else if (!strcmp (magic, "AROC") && version <= 2)
+		size = version >= 2 ? 0x24 : 0x20;
+	else if (!strcmp (magic, "AACL") && version <= 2)
+		size = version >= 2 ? 0x11 : 0x10;
+	else
+		return ERR_INVALID_DATA;
+	u8 *d = CALLOC (1, size);
+	if (!d)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (d, magic, 4);
+	d[4] = 0xff, d[5] = 0xfe, d[6] = version;
+	bool ok = true;
+	if (!strcmp (magic, "AADR"))
+		ok = aal_yaml_float (text, "inner_angle", d + 8) && aal_yaml_float (text, "outer_angle", d + 0x0c)
+			&& aal_yaml_float (text, "outer_volume", d + 0x10) && aal_yaml_float (text, "unknown_14", d + 0x14);
+	else if (!strcmp (magic, "AROC"))
+	{
+		ok = aal_yaml_uint (text, "model", d + 8, false, 4) && aal_yaml_float (text, "ref_distance", d + 0x0c)
+			&& aal_yaml_float (text, "max_distance", d + 0x10) && aal_yaml_float (text, "rolloff_factor", d + 0x14)
+			&& aal_yaml_float (text, "start_value", d + 0x18) && aal_yaml_uint (text, "increase_mode", d + 0x1c, true, 4);
+		if (ok && version >= 2)
+			ok = aal_yaml_float (text, "culling_start_distance", d + 0x20);
+	}
+	else
+	{
+		ok = aal_yaml_float (text, "culling_distance", d + 8) && aal_yaml_float (text, "culling_margin", d + 0x0c);
+		if (ok && version >= 2)
+			ok = aal_yaml_uint (text, "priority_down", d + 0x10, true, 1);
+	}
+	if (!ok)
+	{
+		FREE (d);
+		return ERR_INVALID_DATA;
+	}
+	*dest = d;
+	*dest_size = size;
+	return ERR_OK;
 }
