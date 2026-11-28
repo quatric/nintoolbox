@@ -36,6 +36,7 @@ typedef struct gxw_t
 	bool shpg; // EA SHPG entry (a dbl-style record inside the unpacked archive; RefPack wrapped files are re-packed as literal runs)
 	bool dbl; // Avalanche .dbl / .mdb texture record (doff = pixels, clut = palette (RGB565), ncol = palette entries, itype = bytes available, gx = GX format)
 	bool oibb; // AxEngine OIBB .pak TXTR object (doff = object, gx = format 6 / 8 / 9, bpp = palette bytes, itype = data bytes)
+	bool rwpi; // RenderWare platform-independent texture (.rws chunk 0x23): doff = pixels, itype = stride, bpp = depth, clut = palette (RGBA), ncol = entries
 	bool tim2; // a single-image PS2 TIM2 (tga fields: w, h, doff = pixels)
 	uint bpp;
 	uint itype, ctype, ncol;
@@ -1098,6 +1099,67 @@ static bool locate_rwtxd (const u8 *raw, size_t sz, gxw_t *g)
 	return false;
 }
 
+// RenderWare platform-independent texture dictionary (".rws", see extract/rw_clump.inc): texture = trailing digits of the PNG name "<name>_NNN" (of the first 0x23 chunk)
+static bool locate_rwpi (const u8 *raw, size_t sz, gxw_t *g)
+{
+	char nm[256];
+	snprintf (nm, sizeof (nm), "%s", gxw_name);
+	size_t n = strlen (nm);
+	if (n > 4 && !strcasecmp (nm + n - 4, ".png"))
+		nm[n -= 4] = 0;
+	while (n && isdigit ((u8)nm[n - 1]))
+		n--;
+	if (!nm[n])
+		return false;
+	const uint want = (uint)strtoul (nm + n, 0, 10);
+	for (size_t o = 0; o + 12 <= sz;)
+	{
+		const size_t s = gxw_le32 (raw + o + 4);
+		if (s > sz - o - 12)
+			return false;
+		if (gxw_le32 (raw + o) != 0x23 || s < 4)
+		{
+			o += 12 + s;
+			continue;
+		}
+		const size_t end = o + 12 + s;
+		size_t p = o + 16;
+		const uint cnt = gxw_le16 (raw + o + 12);
+		for (uint i = 0; i < cnt && p + 4 <= end; i++)
+		{
+			const uint nl = gxw_le32 (raw + p);
+			p += 4;
+			size_t im = 0;
+			bool first = true;
+			for (uint l = 0; l < nl && p + 12 <= end; l++)
+			{
+				const size_t is = gxw_le32 (raw + p + 4);
+				if (gxw_le32 (raw + p) != 0x18 || is > end - p - 12)
+					return false;
+				if (first)
+					im = p, first = false;
+				p += 12 + is;
+			}
+			if (p + 12 > end || gxw_le32 (raw + p) != 6 || gxw_le32 (raw + p + 4) > end - p - 12)
+				return false;
+			p += 12 + gxw_le32 (raw + p + 4);
+			if (i != want)
+				continue;
+			if (!im || gxw_le32 (raw + im + 12) != 1 || gxw_le32 (raw + im + 16) < 16)
+				return false;
+			const uint w = gxw_le32 (raw + im + 24), h = gxw_le32 (raw + im + 28), depth = gxw_le32 (raw + im + 32), stride = gxw_le32 (raw + im + 36);
+			const size_t isz = gxw_le32 (raw + im + 4) - 28, npal = depth <= 8 ? (size_t)1 << depth : 0;
+			if (!w || !h || w > 4096 || h > 4096 || (depth != 4 && depth != 8 && depth != 32) || stride < (w * depth + 7) / 8 || (size_t)h * stride + npal * 4 > isz)
+				return false;
+			g->rwpi = true, g->w = w, g->h = h, g->bpp = depth, g->itype = stride, g->ncol = (uint)npal;
+			g->doff = im + 40, g->clut = im + 40 + (size_t)h * stride;
+			return true;
+		}
+		o = end;
+	}
+	return false;
+}
+
 // Where's Wally "FMPP" .ppm: header 0x28 + FastLZ level 2 stream (see extract/fmpp.inc); unpacked: palette planes, alpha image, 8 bit colour image in 8x4 tiles
 static bool fmpp_unpack (const u8 *in, size_t n, u8 *out, size_t outsz)
 {
@@ -1230,7 +1292,7 @@ static enumError reinject_fmpp (const Image_t *img, const u8 *raw, size_t sz, co
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_fmpp (raw, sz, path, g) || (has_ext (path, ".dct") && locate_dct (raw, sz, g)) || locate_pica (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || (has_ext (path, ".rws") && locate_rwpi (raw, sz, g)) || locate_fmpp (raw, sz, path, g) || (has_ext (path, ".dct") && locate_dct (raw, sz, g)) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{
@@ -3122,6 +3184,56 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 				e = ERR_NOTHING_TO_DO;
 			else
 				e = store (dest, raw, sz);
+			FREE (rgba);
+		}
+		FREE (raw);
+		return e;
+	}
+	if (g.rwpi)
+	{
+		Transform2XIMG (img);
+		enumError e = ERR_OK;
+		if (img->iform != IMG_X_RGB)
+			e = ERR_NOTHING_TO_DO;
+		else if (img->width != g.w || img->height != g.h)
+			e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, g.w, g.h, dest);
+		else
+		{
+			u8 *rgba = pad_rgba (img, g.w, g.h);
+			if (!rgba)
+				e = ERR_OUT_OF_MEMORY;
+			else
+			{
+				for (uint y = 0; y < g.h; y++)
+					for (uint x = 0; x < g.w; x++)
+					{
+						const u8 *c = rgba + ((size_t)y * g.w + x) * 4;
+						u8 *row = raw + g.doff + (size_t)y * g.itype;
+						if (g.bpp == 32)
+						{
+							memcpy (row + 4 * x, c, 4);
+							continue;
+						}
+						// paletted: the palette stays, each pixel takes the nearest entry
+						uint best = 0, bd = ~0u;
+						for (uint k = 0; k < g.ncol; k++)
+						{
+							const u8 *pc = raw + g.clut + 4 * k;
+							uint d = 0;
+							for (int q = 0; q < 4; q++)
+								d += (uint)(((int)pc[q] - c[q]) * ((int)pc[q] - c[q]));
+							if (d < bd)
+								bd = d, best = k;
+						}
+						if (g.bpp == 8)
+							row[x] = (u8)best;
+						else if (x & 1)
+							row[x / 2] = (u8)((row[x / 2] & 0x0f) | best << 4);
+						else
+							row[x / 2] = (u8)((row[x / 2] & 0xf0) | best);
+					}
+				e = store (dest, raw, sz);
+			}
 			FREE (rgba);
 		}
 		FREE (raw);

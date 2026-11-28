@@ -1240,6 +1240,50 @@ class RwTxd(unittest.TestCase):
                         self.assertEqual(got, pix(k, x, y), (k, x, y))
 
 
+class RwPiTxd(unittest.TestCase):
+    def test_roundtrip(self):
+        pal = [(i * 16, 255 - i * 16, i * 8, 255) for i in range(16)]
+        def img(w, h, depth, stride, pix, palette=b''):
+            st = struct.pack('<IIII', w, h, depth, stride)
+            body = st + pix + palette
+            inner = struct.pack('<III', 1, len(st), 0) + st + pix + palette
+            return struct.pack('<III', 0x18, len(inner), 0) + inner
+        def tex(name):
+            nm = name + b'\0' * (4 - len(name) % 4)
+            s = struct.pack('<III', 1, 4, 0) + b'\0' * 4
+            n = struct.pack('<III', 2, len(nm), 0) + nm
+            inner = s + n
+            return struct.pack('<III', 6, len(inner), 0) + inner
+        i1 = img(4, 2, 32, 16, bytes(32))
+        pb = b''.join(bytes(c) for c in pal)
+        i2 = img(4, 2, 4, 2, bytes(4), pb)
+        def entry(i, n): return struct.pack('<I', 1) + i + tex(n)
+        body = struct.pack('<IIII', 1, 0, 0, 0)[:0] + struct.pack('<HH', 2, 0) + entry(i1, b'aa') + entry(i2, b'bb')
+        raw = struct.pack('<III', 0x23, len(body), 0) + body
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'r.rws').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            d = Path(tmp, 'ex', 'r.rws.d')
+            names = sorted(x.name for x in d.glob('*.png'))
+            self.assertEqual(len(names), 2, names)
+            time.sleep(1.1)
+            want = [lambda x, y: (x * 60, y * 100, 7, 200), lambda x, y: pal[(x + y * 4) % 16]]
+            for k, n in enumerate(names):
+                write_png(d / n, 4, 2, b''.join(bytes(want[k](x, y)) for y in range(2) for x in range(4)))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/r.rws', '--decode', '-o')
+            for k, n in enumerate(names):
+                ww, hh, ch, rgba = pngtool._read_png(d / n)
+                for y in range(2):
+                    for x in range(4):
+                        got = (tuple(rgba(x, y)) + (255,))[:4]
+                        self.assertEqual(got, tuple(want[k](x, y)), (k, x, y))
+
+
 class FmppWrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(i * 7 % 256, i * 13 % 256, i * 29 % 256) for i in range(256)]
