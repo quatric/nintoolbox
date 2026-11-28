@@ -24,5 +24,6 @@ enumError DecodeRESTBL_Text (FILE *out, const u8 *data, size_t size, const char 
 
 // Encodes a previously decoded RSTB text listing back into binary form.
 enumError EncodeRSTB_Text (u8 **dest, uint *dest_size, const char *text, uint text_len, bool is_le);
+enumError EncodeRESTBL_Text (u8 **dest, uint *dest_size, const char *text, uint text_len);
 
 #endif // LIB_RSTB_H

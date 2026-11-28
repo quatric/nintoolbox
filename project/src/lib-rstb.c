@@ -357,3 +357,90 @@ enumError DecodeRESTBL_Text (FILE *out, const u8 *data, size_t size, const char 
 	FREE (nl.list);
 	return ERR_OK;
 }
+
+// Inverse of DecodeRESTBL_Text(): the "# version=.. name_size=.." comment gives the header words; the
+// [hash] and [name] sections give the sorted {crc, size} pairs and the {name, size} collision entries.
+enumError EncodeRESTBL_Text (u8 **dest, uint *dest_size, const char *text, uint text_len)
+{
+	if (!dest || !dest_size || !text || strncmp (text, "#RESTBL", 7))
+		return ERR_INVALID_DATA;
+	u32 version = 0, name_size = 0;
+	const char *v = strstr (text, "version=");
+	const char *ns = strstr (text, "name_size=");
+	if (!v || !ns)
+		return ERR_INVALID_DATA;
+	version = (u32)strtoul (v + 8, 0, 10);
+	name_size = (u32)strtoul (ns + 10, 0, 10);
+	if (!name_size || name_size > 0x1000)
+		return ERR_INVALID_DATA;
+
+	for (uint pass = 0; pass < 2; pass++)
+	{
+		static u8 *buf;
+		static u32 crc_count, name_count;
+		u8 *crc_p = 0, *name_p = 0;
+		if (pass)
+		{
+			const u64 total = RESTBL_HDR_SIZE + (u64)crc_count * 8 + (u64)name_count * ((u64)name_size + 4);
+			if (total > NFMT_MAX_OUTPUT)
+				return ERR_INVALID_DATA;
+			buf = CALLOC (1, total);
+			if (!buf)
+				return ERR_OUT_OF_MEMORY;
+			memcpy (buf, "RESTBL", 6);
+			wr_le32 (buf + 6, version);
+			wr_le32 (buf + 10, name_size);
+			wr_le32 (buf + 14, crc_count);
+			wr_le32 (buf + 18, name_count);
+			crc_p = buf + RESTBL_HDR_SIZE;
+			name_p = crc_p + (u64)crc_count * 8;
+			*dest = buf;
+			*dest_size = (uint)total;
+			crc_count = name_count = 0;
+		}
+		bool names = false;
+		const char *p = text, *end = text + text_len;
+		while (p < end)
+		{
+			const char *nl = memchr (p, '\n', end - p);
+			char line[512];
+			uint len = nl ? (uint)(nl - p) : (uint)(end - p);
+			len = len < sizeof (line) - 1 ? len : sizeof (line) - 1;
+			memcpy (line, p, len);
+			line[len] = 0;
+			if (!strncmp (line, "[name]", 6))
+				names = true;
+			else if (!strncmp (line, "[hash]", 6))
+				names = false;
+			else
+			{
+				char key[300];
+				u32 val;
+				if (rstb_parse_line (line, key, sizeof (key), &val))
+				{
+					if (names)
+					{
+						if (pass)
+						{
+							u8 *e = name_p + (u64)name_count * (name_size + 4);
+							memcpy (e, key, strlen (key) < name_size ? strlen (key) : name_size);
+							wr_le32 (e + name_size, val);
+						}
+						name_count++;
+					}
+					else
+					{
+						if (pass)
+						{
+							wr_le32 (crc_p + (u64)crc_count * 8, (u32)strtoul (key, 0, 0));
+							wr_le32 (crc_p + (u64)crc_count * 8 + 4, val);
+						}
+						crc_count++;
+					}
+				}
+			}
+			p = nl ? nl + 1 : end;
+		}
+	}
+	return ERR_OK;
+}

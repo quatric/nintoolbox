@@ -80,6 +80,26 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
+		const bool rstb_is_rstb = arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".rstb.txt");
+		const uint rstb_sfx = rstb_is_rstb || (arg_len > 15 && !strcasecmp (arg + arg_len - 15, ".rsizetable.txt")) ? 4 : 0;
+		if (create && rstb_sfx)
+		{
+			char y_dest[PATH_MAX];
+			if (opt_dest)
+				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, rstb_is_rstb ? ".rstb" : ".rsizetable", false);
+			else
+			{
+				snprintf (y_dest, sizeof (y_dest), "%s", arg);
+				y_dest[arg_len - rstb_sfx] = 0;
+			}
+			const enumError y_err = create_rstb_text_file (arg, y_dest);
+			if (verbose >= 0 || testmode)
+				fprintf (stdlog, "%s%sCREATE RSTB %s -> %s\n", verbose > 0 ? "\n" : "",
+					testmode ? "WOULD " : "", arg, y_dest);
+			if (max_err < y_err)
+				max_err = y_err;
+			continue;
+		}
 		// <name>.<ext>.yml / .yaml / .csv sidecars written by the text dumps of AROC, AACL, AADR, DAPG, GBIN
 		const uint aal_sfx = is_ext (arg, ".yaml") ? 5 : is_ext (arg, ".yml") ? 4 : is_ext (arg, ".csv") ? 4 : 0;
 		const uint aal_extlen = aal_sfx && arg_len > aal_sfx + 5 && arg[arg_len - aal_sfx - 5] == '.'

@@ -5,6 +5,7 @@
 #include "lib-create-extra.h"
 #include "lib-aal.h"
 #include "lib-ctrres.h"
+#include "lib-rstb.h"
 
 typedef enumError (*pack_func) (u8 **out, u64 *out_size, const nintendo_sarc_entry_t *e, uint n);
 
@@ -176,6 +177,31 @@ enumError create_aal_yaml_file (ccp src, ccp dest)
 		: strstr (text, "(GBIN)") ? EncodeCtrGbinYaml (&bin, &bin_size, text)
 								  : EncodeAALYaml (&bin, &bin_size, text);
 	FREE (text);
+	if (!err && !testmode)
+	{
+		File_t F;
+		err = CreateFileOpt (&F, true, dest, false, src);
+		if (F.f && fwrite (bin, 1, bin_size, F.f) != bin_size)
+			err = FILEERROR1 (&F, ERR_WRITE_FAILED, "Writing %u bytes failed: %s\n", bin_size, dest);
+		ResetFile (&F, opt_preserve);
+	}
+	FREE (bin);
+	return err;
+}
+
+// "<name>.rstb.txt" / "<name>.rsizetable.txt" -> binary (the listings written by `wszst xx`).
+enumError create_rstb_text_file (ccp src, ccp dest)
+{
+	u8 *raw = 0, *bin = 0;
+	size_t size = 0;
+	uint bin_size = 0;
+	enumError err = LoadFileAlloc (src, 0, 0, &raw, &size, 0, 0, 0, false);
+	if (err)
+		return err;
+	err = size > UINT_MAX ? ERR_FILE_TOO_BIG
+		: is_ext_match (src, ".rsizetable.txt") ? EncodeRESTBL_Text (&bin, &bin_size, (ccp)raw, (uint)size)
+												 : EncodeRSTB_Text (&bin, &bin_size, (ccp)raw, (uint)size, true);
+	FREE (raw);
 	if (!err && !testmode)
 	{
 		File_t F;

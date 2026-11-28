@@ -109,6 +109,26 @@ class CreateExtraTests(unittest.TestCase):
             run('CREATE', str(f) + '.yaml')
             self.assertEqual(f.read_bytes(), data)
 
+    def test_rstb_and_restbl_text_round_trip(self):
+        import struct
+
+        def name(text, width):
+            return text.encode().ljust(width, b'\0')
+        restbl = b'RESTBL' + struct.pack('<IIII', 1, 32, 3, 2)
+        restbl += struct.pack('<2I', 0x10203040, 111) + struct.pack('<2I', 0x20304050, 222)
+        restbl += struct.pack('<2I', 0xdeadbeef, 333)
+        restbl += name('Actor/Pack/Link.pack', 32) + struct.pack('<I', 4444) + name('x' * 32, 32) + struct.pack('<I', 5)
+        rstb = b'RSTB' + struct.pack('<II', 2, 1) + struct.pack('<2I', 0xabcdef01, 10)
+        rstb += struct.pack('<2I', 0xfedcba98, 20) + name('Some/Long/Name.bin', 128) + struct.pack('<I', 99)
+        with tempfile.TemporaryDirectory() as tmp:
+            for filename, data in (('t.rsizetable', restbl), ('t.rstb', rstb)):
+                f = Path(tmp) / filename
+                f.write_bytes(data)
+                run('XX', str(f))
+                f.unlink()
+                run('CREATE', str(f) + '.txt')
+                self.assertEqual(f.read_bytes(), data, filename)
+
 
 if __name__ == '__main__':
     unittest.main()
