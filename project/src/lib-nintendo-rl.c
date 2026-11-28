@@ -106,3 +106,41 @@ enumError EncodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_
 // the rest of DetectNintendoFormat() works: any file could coincidentally
 // have a plausible-looking footer, so this decoder is only invoked where
 // the caller already has other context that a file might be BLZ (an
+
+// "RLE!" block ({"RLE!", le32 unpacked size, le32 packed size, le32 0} + packed bytes):
+// control < 0x80 copies control+1 literals, otherwise repeats the next byte (control&0x7f)+1 times.
+enumError EncodeRLEBang (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!src || !src_size || !dest || !dest_size || src_size > 0x4000000)
+		return EINVAL;
+	u8 *out = MALLOC (16 + (size_t)src_size + src_size / 128 + 2);
+	if (!out)
+		return ERR_CANT_CREATE;
+	uint sp = 0, dp = 16;
+	while (sp < src_size)
+	{
+		uint run = 1;
+		while (run < 128 && sp + run < src_size && src[sp + run] == src[sp])
+			run++;
+		if (run >= 3)
+		{
+			out[dp++] = 0x80 | (run - 1);
+			out[dp++] = src[sp];
+			sp += run;
+			continue;
+		}
+		const uint start = sp++;
+		while (sp - start < 128 && sp < src_size
+			&& !(sp + 2 < src_size && src[sp] == src[sp + 1] && src[sp] == src[sp + 2]))
+			sp++;
+		out[dp++] = sp - start - 1;
+		memcpy (out + dp, src + start, sp - start);
+		dp += sp - start;
+	}
+	memcpy (out, "RLE!", 4);
+	for (uint i = 0; i < 4; i++)
+		out[4 + i] = src_size >> 8 * i, out[8 + i] = (dp - 16) >> 8 * i, out[12 + i] = 0;
+	*dest = out;
+	*dest_size = dp;
+	return ERR_OK;
+}

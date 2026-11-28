@@ -173,5 +173,24 @@ class InioLZOTests(unittest.TestCase):
                 self.assertEqual(back.read_bytes(), data)
 
 
+class MtxzRleBangTests(unittest.TestCase):
+    def test_round_trip(self):
+        import random
+        rng = random.Random(1)
+        data = bytes(rng.randrange(256) for _ in range(300)) + b'A' * 500 + b'xyz' * 40 + bytes(range(130))
+        for ext, expect in (('mz', lambda root: root / 'o.mz.dec'), ('rle', lambda root: root / 'x' / 'o.rle.bin')):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'in.bin').write_bytes(data)
+                packed = root / ('o.' + ext)
+                r = subprocess.run([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(packed)],
+                                   capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                args = [str(BIN), 'EXTRACT', str(packed)] + (['-d', str(root / 'x')] if ext == 'rle' else [])
+                r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(expect(root).read_bytes(), data, ext)
+
+
 if __name__ == '__main__':
     unittest.main()

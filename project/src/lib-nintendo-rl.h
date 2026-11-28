@@ -5,5 +5,6 @@
 
 enumError DecodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 enumError EncodeNintendoRL (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeRLEBang (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 #endif

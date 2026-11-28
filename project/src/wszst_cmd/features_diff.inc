@@ -1589,7 +1589,8 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc") && strcasecmp (ext, ".fzip")
 			&& strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
 			&& strcasecmp (ext, ".mvdk") && strcasecmp (ext, ".lze") && strcasecmp (ext, ".dad") && strcasecmp (ext, ".ibz")
-			&& strcasecmp (ext, ".bgw") && strcasecmp (ext, ".rz") && strcasecmp (ext, ".1ozl")))
+			&& strcasecmp (ext, ".bgw") && strcasecmp (ext, ".rz") && strcasecmp (ext, ".1ozl")
+			&& strcasecmp (ext, ".rle") && strcasecmp (ext, ".mz")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1629,10 +1630,29 @@ static enumError compress_nintendo_file (ccp arg)
 			? EncodeZlib (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".rz") ? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: !strcasecmp (ext, ".1ozl") ? EncodeInioLZO (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".rle") ? EncodeRLEBang (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".mz") ? EncodeZlib (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
-	if (!err && !strcasecmp (ext, ".ibz"))
+	if (!err && !strcasecmp (ext, ".mz"))
+	{
+		// "MTXZ", 0, BE decompressed size, 0, zlib stream
+		u8 *wrapped = MALLOC ((size_t)packed_size + 16);
+		if (!wrapped)
+			err = ERR_OUT_OF_MEMORY;
+		else
+		{
+			memset (wrapped, 0, 16);
+			memcpy (wrapped, "MTXZ", 4);
+			wr_be32 (wrapped + 8, (u32)file_size);
+			memcpy (wrapped + 16, packed, packed_size);
+			FREE (packed);
+			packed = wrapped;
+			packed_size += 16;
+		}
+	}
+	else if (!err && !strcasecmp (ext, ".ibz"))
 		err = prepend_size_header (&packed, &packed_size, file_size, false, 0);
 	else if (!err && !strcasecmp (ext, ".bgw"))
 		err = prepend_size_header (&packed, &packed_size, file_size, true, "ZLIB");
@@ -1671,6 +1691,8 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".bgw")	? "BGW"
 				: !strcasecmp (ext, ".rz")		? "RZ"
 				: !strcasecmp (ext, ".1ozl")	? "INIO-LZO"
+				: !strcasecmp (ext, ".rle")	? "RLE!"
+				: !strcasecmp (ext, ".mz")		? "MTXZ"
 				: !strcasecmp (ext, ".cmp")		? "CMP"
 				: !strcasecmp (ext, ".lz11")	? "LZ11"
 												: "LZ10",
