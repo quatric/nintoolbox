@@ -192,5 +192,22 @@ class MtxzRleBangTests(unittest.TestCase):
                 self.assertEqual(expect(root).read_bytes(), data, ext)
 
 
+class Lz4BfttfTests(unittest.TestCase):
+    def test_round_trip(self):
+        data = b'\x00\x01\x00\x00' + b'hello world ' * 200 + bytes(range(200))
+        for ext, verb, out in (('cmpbin', 'DECOMPRESS', 'back.bin'), ('lz4', 'DECOMPRESS', 'back.bin'),
+                               ('bfttf', 'EXTRACT', 'x/o.ttf')):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'in.bin').write_bytes(data)
+                packed = root / ('o.' + ext)
+                dest = root / out.split('/')[0]
+                for args in ([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(packed)],
+                             [str(BIN), verb, str(packed), '-d', str(dest)]):
+                    r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                    self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual((root / out).read_bytes(), data, ext)
+
+
 if __name__ == '__main__':
     unittest.main()
