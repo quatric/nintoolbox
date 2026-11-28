@@ -8,6 +8,7 @@
 #include "lib-lz10.h"
 #include "lib-rhgroove.h"
 #include "lib-zstd.h"
+#include "lib-xtx.h"
 
 typedef struct gxw_t
 {
@@ -1858,7 +1859,12 @@ bool GXWrapIsFile (ccp path)
 	size_t rn;
 	bool rz;
 	u8 *rh = raw ? rhtex_open (path, raw, sz, &rn, &rz) : 0;
-	const bool ok = raw && (rh || tp || (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g)));
+	xtx_t xt;
+	const bool isx = raw && has_ext (path, ".xtx") && !ScanXTX (&xt, raw, (uint)sz);
+	const bool xok = isx && xt.n_textures && (xt.textures->format == 0x25 || xt.textures->format == 0x38) && !xt.textures->is_orin;
+	if (isx)
+		ResetXTX (&xt);
+	const bool ok = raw && (xok || rh || tp || (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g)));
 	FREE (raw);
 	FREE (dec);
 	FREE (tp);
@@ -3147,6 +3153,34 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		}
 		FREE (raw);
 		return e;
+	}
+	if (raw && has_ext (dest, ".xtx"))
+	{
+		xtx_t xt;
+		uint w = 0, h = 0;
+		if (!ScanXTX (&xt, raw, (uint)sz))
+		{
+			if (xt.n_textures)
+				w = xt.textures->width, h = xt.textures->height;
+			ResetXTX (&xt);
+		}
+		if (w)
+		{
+			Transform2XIMG (img);
+			enumError e = ERR_OK;
+			if (img->iform != IMG_X_RGB)
+				e = ERR_NOTHING_TO_DO;
+			else if (img->width != w || img->height != h)
+				e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, w, h, dest);
+			else
+			{
+				u8 *rgba = pad_rgba (img, w, h);
+				e = rgba && EncodeXTXRGBA (raw, (uint)sz, rgba, w, h) ? store (dest, raw, sz) : ERR_NOTHING_TO_DO;
+				FREE (rgba);
+			}
+			FREE (raw);
+			return e;
+		}
 	}
 	if (raw)
 	{

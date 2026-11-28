@@ -1315,6 +1315,36 @@ class RhGrooveTex(unittest.TestCase):
                         self.assertEqual((tuple(rgba(x, y)) + (255,))[:4], want(x, y), (zst, x, y))
 
 
+class XtxWrap(unittest.TestCase):
+    def test_roundtrip(self):
+        hdr = bytearray(120)
+        struct.pack_into('<QIIIIIIII', hdr, 0, 1536, 0, 16, 16, 1, 1, 0x25, 2, 1536)
+        struct.pack_into('<II', hdr, 40, 0, 1024)
+        struct.pack_into('<I', hdr, 108, 1)
+        def blk(t, payload):
+            return b'HBvN' + struct.pack('<IQqI', 0x24, len(payload), 0x24, t) + bytes(8) + payload
+        raw = b'DFvN' + struct.pack('<III', 16, 1, 0) + blk(2, bytes(hdr)) + blk(3, bytes(1536))
+        want = lambda x, y: (x * 15, y * 15, 40, 255)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp, 'src.d'); src.mkdir()
+            (src / 'r.xtx').write_bytes(raw)
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+            run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+            png = Path(tmp, 'ex', 'r.xtx.png')
+            self.assertTrue(png.exists(), list(Path(tmp, 'ex').iterdir()))
+            time.sleep(1.1)
+            write_png(png, 16, 16, b''.join(bytes(want(x, y)) for y in range(16) for x in range(16)))
+            r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            run('xx', 'ex/r.xtx', '--decode', '-o')
+            ww, hh, ch, rgba = pngtool._read_png(png)
+            for y in range(16):
+                for x in range(16):
+                    self.assertEqual((tuple(rgba(x, y)) + (255,))[:4], want(x, y), (x, y))
+            self.assertEqual(len(Path(tmp, 'ex', 'r.xtx').read_bytes()), len(raw))
+
+
 class FmppWrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(i * 7 % 256, i * 13 % 256, i * 29 % 256) for i in range(256)]

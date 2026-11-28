@@ -389,6 +389,59 @@ void ResetXTX (xtx_t *xtx)
 	}
 }
 
+// Rewrite texture 0 of an RGBA8 / RGBA8_SRGB XTX (Switch 1 layout) in place; the mip chain is rebuilt with a 2x2 box filter. False when the file does not fit.
+bool EncodeXTXRGBA (u8 *raw, uint size, const u8 *rgba, uint width, uint height)
+{
+	xtx_t x;
+	if (ScanXTX (&x, raw, size) || !x.n_textures)
+		return false;
+	const xtx_texture_t *t = x.textures;
+	bool ok = (t->format == 0x25 || t->format == 0x38) && !t->is_orin && t->width == width && t->height == height && t->mip_count && t->mip_count <= 17
+		&& t->block_height_log2 <= 5;
+	u8 *dst = (u8 *)raw + (t->data - raw);
+	u8 *cur = ok ? MALLOC ((size_t)width * height * 4) : 0;
+	if (!cur)
+	{
+		ResetXTX (&x);
+		return false;
+	}
+	memcpy (cur, rgba, (size_t)width * height * 4);
+	uint lw = width, lh = height;
+	for (uint m = 0; ok && m < t->mip_count; m++)
+	{
+		const uint bhl = t->block_height_log2 > m ? t->block_height_log2 - m : 0, bh = 1u << bhl;
+		const size_t lsz = (size_t)((lw * 4 + 63) / 64) * (((size_t)lh + 8 * bh - 1) / (8 * bh)) * 512 * bh;
+		if (t->mip_offsets[m] + lsz > t->data_size)
+		{
+			ok = m > 0; // a truncated chain keeps the levels written so far
+			break;
+		}
+		u8 *d = dst + t->mip_offsets[m];
+		memset (d, 0, lsz);
+		BntxSwizzleSurface (d, cur, lw, lh, 4, bh);
+		const uint nw = lw > 1 ? lw / 2 : 1, nh = lh > 1 ? lh / 2 : 1;
+		u8 *next = MALLOC ((size_t)nw * nh * 4);
+		if (!next)
+		{
+			ok = false;
+			break;
+		}
+		for (uint y = 0; y < nh; y++)
+			for (uint xx = 0; xx < nw; xx++)
+				for (uint k = 0; k < 4; k++)
+				{
+					const uint x1 = 2 * xx + 1 < lw ? 2 * xx + 1 : 2 * xx, y1 = 2 * y + 1 < lh ? 2 * y + 1 : 2 * y;
+					next[((size_t)y * nw + xx) * 4 + k] = (u8)((cur[((size_t)2 * y * lw + 2 * xx) * 4 + k] + cur[((size_t)2 * y * lw + x1) * 4 + k]
+						+ cur[((size_t)y1 * lw + 2 * xx) * 4 + k] + cur[((size_t)y1 * lw + x1) * 4 + k] + 2) / 4);
+				}
+		FREE (cur);
+		cur = next, lw = nw, lh = nh;
+	}
+	FREE (cur);
+	ResetXTX (&x);
+	return ok;
+}
+
 enumError DecodeXTX_Mip_RGBA (
 	u8 **dest, uint *width, uint *height, const xtx_t *xtx, uint index, uint mip_level)
 {

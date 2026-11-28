@@ -54,6 +54,9 @@ enumError DecodeXTX_Mip_RGBA (
 	u8 **dest, uint *width, uint *height, const xtx_t *xtx, uint index, uint mip_level);
 enumError DecodeXTX_RGBA (u8 **dest, uint *width, uint *height, const xtx_t *xtx, uint index);
 
+// Re-encode texture 0 in place from RGBA pixels of its size (RGBA8 / RGBA8_SRGB, Switch 1 layout only); false otherwise.
+bool EncodeXTXRGBA (u8 *raw, uint size, const u8 *rgba, uint width, uint height);
+
 // Human-readable name for a raw NVN format word ("" for unknown).
 ccp GetXTXFormatName (uint format);
 
