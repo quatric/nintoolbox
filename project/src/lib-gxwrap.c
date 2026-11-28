@@ -1,5 +1,6 @@
 #include "lib-gf3ds.h"
 #include "lib-mtmob.h"
+#include "lib-dc2.h"
 #include <utime.h>
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
@@ -952,6 +953,17 @@ static bool pica_encode (uint fmt, const u8 *rgba, uint pw, uint ph, u8 *out, si
 	return true;
 }
 
+// Jakers! Kart Racing ".dct": GX CMPR / RGBA8 top mip behind the DC2 header (smaller mips are left as they are)
+static bool locate_dct (const u8 *raw, size_t sz, gxw_t *g)
+{
+	uint w, h, gx;
+	size_t doff, avail;
+	if (sz > UINT_MAX || !DCTInfo (raw, (uint)sz, &w, &h, &gx, &doff, &avail))
+		return false;
+	g->gx = gx, g->w = w, g->h = h, g->doff = doff, g->avail = avail, g->levels = 1;
+	return true;
+}
+
 // GFTexture (3DS): the texels follow a 0x80 byte header (see lib-gf3ds.c); Capcom MT Framework Mobile "TEX\\0" (see lib-mtmob.c) is
 // recognised by its stricter header check and keeps its 16 / 20 byte header
 static bool locate_pica (const u8 *raw, size_t sz, gxw_t *g)
@@ -1218,7 +1230,7 @@ static enumError reinject_fmpp (const Image_t *img, const u8 *raw, size_t sz, co
 static bool locate (const u8 *raw, size_t sz, ccp path, gxw_t *g)
 {
 	memset (g, 0, sizeof (*g));
-	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_fmpp (raw, sz, path, g) || locate_pica (raw, sz, g))
+	if (locate_tga (raw, sz, path, g) || locate_tim2 (raw, sz, path, g) || locate_dst1 (raw, sz, g) || locate_dst0 (raw, sz, g) || (has_ext (path, ".pak") && locate_oibb (raw, sz, g)) || (has_ext (path, ".gct") && locate_gct (raw, sz, g)) || (has_ext (path, ".tim") && locate_mtim (raw, sz, g)) || (has_ext (path, ".dat") && gxw_name[0] && locate_grph (raw, sz, path, g)) || (has_ext (path, ".tbb") && locate_tbb (raw, sz, path, g)) || (has_ext (path, ".rtex") && locate_rtex (raw, sz, g)) || locate_shpg (raw, sz, g) || ((has_ext (path, ".dbl") || has_ext (path, ".mdb")) && locate_dbl (raw, sz, g)) || locate_nbfc (raw, sz, path, g) || locate_tklt (raw, sz, g) || (has_ext (path, ".ivt") && locate_ivt (raw, sz, g)) || (has_ext (path, ".apx") && locate_apx (raw, sz, g)) || (has_ext (path, ".imy") && locate_imy (raw, sz, g)) || (has_ext (path, ".ltex") && locate_ltex (raw, sz, g)) || locate_ntft (raw, sz, path, g) || (has_ext (path, ".tex") && locate_glacier (raw, sz, g)) || (has_ext (path, ".txd") && locate_rwtxd (raw, sz, g)) || locate_fmpp (raw, sz, path, g) || (has_ext (path, ".dct") && locate_dct (raw, sz, g)) || locate_pica (raw, sz, g))
 		return true;
 	if (sz >= 0x40 && !memcmp (raw, "GCT0", 4))
 	{

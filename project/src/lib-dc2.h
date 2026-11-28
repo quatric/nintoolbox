@@ -25,6 +25,7 @@
 enumError ScanDCX (nintendo_sarc_entry_t **entries, uint *n_entries, const u8 *data, uint size);
 
 bool IsDCT (const u8 *data, uint size);
+bool DCTInfo (const u8 *data, uint size, uint *w, uint *h, uint *gx, size_t *doff, size_t *avail);
 enumError DecodeDCT (u8 **rgba, uint *width, uint *height, const u8 *data, uint size);
 
 #endif

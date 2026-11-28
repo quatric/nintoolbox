@@ -1312,3 +1312,45 @@ class NcfamRender(unittest.TestCase):
             self.assertEqual(len(old), len(new))
             self.assertEqual(old[:0x20], new[:0x20])
             self.assertNotEqual(old[0x20:0x20 + 128], new[0x20:0x20 + 128])
+
+
+class DctWrap(unittest.TestCase):
+    """Jakers! Kart Racing .dct: an edited PNG is re-encoded into the original file on CREATE."""
+
+    def test_cmpr_and_rgba8(self):
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest('Pillow is not installed')
+
+        def dct(w, h, top):
+            hdr = bytearray(0x3e)
+            hdr[0:4] = b'DC2\0'
+            for off, v in ((0x1b, w), (0x1f, h), (0x23, w), (0x27, h), (0x2b, 1), (0x3a, top)):
+                hdr[off:off + 4] = struct.pack('>I', v)
+            return bytes(hdr) + bytes(top) + b'\0' * 28
+        sizes = {'c': (16, 16, 128), 'r': (8, 8, 256)}  # CMPR, RGBA8
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp, 'work')
+            work.mkdir()
+            run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+            for name, (w, h, top) in sizes.items():
+                (work / (name + '.dct')).write_bytes(dct(w, h, top))
+                run('xx', 'work/%s.dct' % name)
+            time.sleep(1.1)
+            want = {}
+            for name, (w, h, top) in sizes.items():
+                img = Image.new('RGBA', (w, h))
+                img.putdata([((x // 4) * 60 % 256 // 8 * 8, (y // 4) * 60 % 256 // 8 * 8,
+                              ((x // 4 + y // 4) * 50) % 256 // 8 * 8, 255 if name == 'c' else (x * 30) % 256)
+                             for y in range(h) for x in range(w)])
+                img.save(work / (name + '.png'))
+                want[name] = img
+            r = run('create', 'work', '--u8', '--dest', 'out.arc', '-o')
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            for name, img in want.items():
+                run('xx', 'work/%s.dct' % name, '-o')
+                got = Image.open(work / (name + '.png')).convert('RGBA')
+                self.assertEqual(got.size, img.size)
+                tol = 8 if name == 'c' else 0
+                self.assertTrue(all(abs(a - b) <= tol for p, q in zip(got.tobytes(), img.tobytes()) for a, b in [(p, q)]), name)

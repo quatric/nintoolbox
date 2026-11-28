@@ -365,7 +365,7 @@ XOBJ_IMAGE	= lib-image-core.o lib-image-convert.o lib-image-load.o lib-image-gen
 		lib-smdh.o \
 		lib-gtx.o lib-sharc-edit.o \
 		lib-nitro.o \
-		lib-retro-txtr.o lib-gxwrap.o \
+		lib-retro-txtr.o lib-gxwrap.o lib-dc2.o \
 			$(LATTE_CXX_OBJS) $(BCN_CXX_OBJS) \
 			lib-quicklz.o qlz120.o qlz140.o src/ajpg/odh_core.o lib-bflyt.o \
 			src/astc/astc_decomp.o src/astc/astc_wrapper.o lib-at7.o lib-ash0.o lib-camelot.o lib-rnc.o \

@@ -132,6 +132,16 @@ static bool dct_parse (dct_t *t, const u8 *d, uint size)
 	return true;
 }
 
+// Where the top mip lives (for re-encoding): GX format 14 (CMPR) or 6 (RGBA8), `avail` bytes at `doff`.
+bool DCTInfo (const u8 *data, uint size, uint *w, uint *h, uint *gx, size_t *doff, size_t *avail)
+{
+	dct_t t;
+	if (!dct_parse (&t, data, size))
+		return false;
+	*w = t.w, *h = t.h, *gx = t.fmt, *doff = (size_t)(t.img - data), *avail = t.img_size;
+	return true;
+}
+
 bool IsDCT (const u8 *data, uint size)
 {
 	dct_t t;
