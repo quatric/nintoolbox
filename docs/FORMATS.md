@@ -12,10 +12,10 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **ADJB** | Switch / Model sidecar | ✅ | ❌ | Smash Ultimate mesh triangle adjacency (model.adjb): per-mesh id + u16 index lists, sized like Adjb.cs |
 | **AFS** | Wii / Archive | ✅ | ❌ | Sega/CRI-style flat archive reused by Spike Co.'s engine for *Dragon Ball Z: Budokai Tenkaichi 3* (`wzs3us0/1/2.afs`); magic `AFS\0` + u32 LE file count, then that many `{offset,size}` u32 LE pairs, one trailing pair pointing at a 48-byte-per-entry name/date metadata table; decode-only, verified against retail samples by direct hexdump |
 | **SCB / IMB / PLB** | DS / Background | ✅ | ❌ | Luminous Arc 2 screen maps with same-stem tiles and palette; 250 retail PNGs checked, [audit](FORMAT_AUDIT.md) |
-| **LZE** | DS / Compression | ✅ | ❌ | Luminous Arc 2 `Le` streams, four token forms; 1,275 retail resources verified against CUE, [audit](FORMAT_AUDIT.md) |
+| **LZE** | DS / Compression | ✅ | ✅ | Luminous Arc 2 `Le` streams, four token forms, re-encoded greedily by `wszst compress <file> -d <name>.lze`; 1,275 retail resources verified against CUE, [audit](FORMAT_AUDIT.md) |
 | **IEAR** | DS / Archive | ✅ | ❌ | Luminous Arc MAIN/JTBL typed resource archives; indexed payload extraction, [retail audit](FORMAT_AUDIT.md) |
 | **ALAR** | DS / Archive | ✅ | ❌ | Jump Stars type 2 / type 3 named archives, including nested DSCP wrappers; [retail audit](FORMAT_AUDIT.md) |
-| **DAD** | DS / Compression | ✅ | ❌ | Monolith Soft / Procyon Studio *Soma Bringer* LZSS compression (`DAD\x01`); 20/20 retail archives decompressed cleanly, [retail audit](FORMAT_AUDIT.md) |
+| **DAD** | DS / Compression | ✅ | ✅ | Monolith Soft / Procyon Studio *Soma Bringer* LZSS compression (`DAD\x01`), re-encoded greedily by `wszst compress <file> -d <name>.dad`; 20/20 retail archives decompressed cleanly, [retail audit](FORMAT_AUDIT.md) |
 | **OBP** | DS / Graphics | ✅ | ❌ | Monolith Soft *Soma Bringer* sprite/object tile banks with RGB555 palette (`OBP1`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |
 | **BGP** | DS / Graphics | ✅ | ❌ | Monolith Soft *Soma Bringer* 256x192 background tile maps with RGB555 palette (`BGP1`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |
 | **PCS** | DS / Animation | ✅ | ❌ | Monolith Soft *Soma Bringer* 2D layout and animation keyframe sequence (`pcs\0`); structured inspection via `wszst text` / `dump`, [retail audit](FORMAT_AUDIT.md) |

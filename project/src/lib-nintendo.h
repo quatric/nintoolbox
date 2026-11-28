@@ -216,6 +216,7 @@ bool IsTex3DS (const u8 *d, u32 avail, u32 total_size);
 ccp GetNintendoFormatName (nfmt_type_t type);
 
 enumError DecodeLZE (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeLZE (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 enumError AllocOutput (u8 **dest, uint *dest_size, u32 size);
 

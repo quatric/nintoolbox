@@ -1569,7 +1569,7 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc") && strcasecmp (ext, ".rnc1")
 			&& strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc") && strcasecmp (ext, ".fzip")
 			&& strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
-			&& strcasecmp (ext, ".mvdk")))
+			&& strcasecmp (ext, ".mvdk") && strcasecmp (ext, ".lze") && strcasecmp (ext, ".dad")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1603,6 +1603,8 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".deflate")
 			? EncodeZlib (&packed, &packed_size, data, file_size, true)
 			: !strcasecmp (ext, ".mvdk") ? EncodeMVDK (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".lze") ? EncodeLZE (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".dad") ? EncodeSomaDad (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
@@ -1635,6 +1637,8 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".zlib")	? "Zlib"
 				: !strcasecmp (ext, ".deflate") ? "Deflate"
 				: !strcasecmp (ext, ".mvdk")	? "MVDK"
+				: !strcasecmp (ext, ".lze")	? "LZE"
+				: !strcasecmp (ext, ".dad")	? "DAD"
 				: !strcasecmp (ext, ".cmp")		? "CMP"
 				: !strcasecmp (ext, ".lz11")	? "LZ11"
 												: "LZ10",

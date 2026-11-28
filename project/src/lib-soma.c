@@ -328,3 +328,47 @@ enumError DecodeSomaPcs_Text (FILE *f, const u8 *data, size_t size)
 
 	return ERR_OK;
 }
+
+// Greedy DAD\x01 encoder (flag bit 1 = literal, 0 = 2-byte ref of 3-18 bytes at distance 1-4095).
+// shortcut: brute-force window scan; upgrade to a hash chain for large inputs.
+enumError EncodeSomaDad (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size || src_size > 0x08000000)
+		return ERR_INVALID_DATA;
+	u8 *out = MALLOC (8 + (size_t)src_size + src_size / 8 + 16);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (out, "DAD\x01", 4);
+	out[4] = src_size, out[5] = src_size >> 8, out[6] = src_size >> 16, out[7] = src_size >> 24;
+	uint dp = 8, flag_pos = 0, nbits = 0, sp = 0;
+	while (sp < src_size)
+	{
+		uint best = 0, best_dist = 0;
+		const uint max_dist = sp < 4095 ? sp : 4095;
+		for (uint dist = 1; dist <= max_dist; dist++)
+		{
+			uint n = 0;
+			while (n < 18 && sp + n < src_size && src[sp + n] == src[sp + n - dist])
+				n++;
+			if (n > best)
+				best = n, best_dist = dist;
+		}
+		if (!(nbits++ & 7))
+		{
+			flag_pos = dp++;
+			out[flag_pos] = 0;
+		}
+		if (best < 3)
+		{
+			out[flag_pos] |= 1 << ((nbits - 1) & 7);
+			out[dp++] = src[sp++];
+			continue;
+		}
+		out[dp++] = best_dist;
+		out[dp++] = (best_dist >> 4 & 0xf0) | (best - 3);
+		sp += best;
+	}
+	*dest = out;
+	*dest_size = dp;
+	return ERR_OK;
+}

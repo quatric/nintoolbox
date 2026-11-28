@@ -18,6 +18,7 @@ enumError DecodeSomaBgp_Text (FILE *f, const u8 *data, size_t size, size_t file_
 bool IsSomaDad (const u8 *data, size_t size);
 enumError DecompressSomaDad (u8 *dst, size_t dst_len, const u8 *src, size_t src_len);
 enumError DecompressSomaDad_Alloc (u8 **dst_out, size_t *dst_len_out, const u8 *src, size_t src_len);
+enumError EncodeSomaDad (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 // (4) ".pcs" Monolith Soft 2D animation / layout sequence container
 bool IsSomaPcs (const u8 *data, size_t size);

@@ -74,3 +74,76 @@ enumError DecodeLZE (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
 	walk_lze (*dest, src, src_size, length);
 	return ERR_OK;
 }
+
+// Greedy encoder: mode 1 (back 1-4, 2-65 bytes), mode 0 (back 5-4100, 3-18
+// bytes), literals as mode 3 (three bytes) / mode 2 (one byte).
+// shortcut: brute-force window scan, fine for the small Luminous Arc resources; upgrade to a hash chain if large inputs matter.
+enumError EncodeLZE (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || (src_size && !src) || src_size > NFMT_MAX_OUTPUT)
+		return ERR_INVALID_DATA;
+	u8 *out = MALLOC (6 + (size_t)src_size * 2 + 16);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (out, "Le", 2);
+	out[2] = src_size, out[3] = src_size >> 8, out[4] = src_size >> 16, out[5] = src_size >> 24;
+	uint dp = 6, flag_pos = 0, ntok = 0, sp = 0, lit = 0;
+#define LZE_TOKEN(mode)                  \
+	do                                   \
+	{                                    \
+		if (!(ntok & 3))                 \
+		{                                \
+			flag_pos = dp++;             \
+			out[flag_pos] = 0;           \
+		}                                \
+		out[flag_pos] |= (mode) << ((ntok & 3) * 2); \
+		ntok++;                          \
+	} while (0)
+#define LZE_FLUSH_LITERALS(end)                                                   \
+	while (lit < (end))                                                           \
+	{                                                                             \
+		const uint n = (end) - lit >= 3 ? 3 : 1;                                  \
+		LZE_TOKEN (n == 3 ? 3 : 2);                                               \
+		memcpy (out + dp, src + lit, n);                                          \
+		dp += n, lit += n;                                                        \
+	}
+	while (sp < src_size)
+	{
+		uint best = 0, best_back = 0;
+		const uint max_back = sp < 4100 ? sp : 4100;
+		for (uint back = 1; back <= max_back; back++)
+		{
+			const uint cap = back <= 4 ? 65 : 18;
+			uint n = 0;
+			while (n < cap && sp + n < src_size && src[sp + n] == src[sp + n - back])
+				n++;
+			if (n > best && n >= (back <= 4 ? 2 : 3))
+				best = n, best_back = back;
+		}
+		if (!best)
+		{
+			sp++;
+			continue;
+		}
+		LZE_FLUSH_LITERALS (sp);
+		if (best_back <= 4)
+		{
+			LZE_TOKEN (1);
+			out[dp++] = (best - 2) << 2 | (best_back - 1);
+		}
+		else
+		{
+			LZE_TOKEN (0);
+			const uint v = (best - 3) << 12 | (best_back - 5);
+			out[dp++] = v, out[dp++] = v >> 8;
+		}
+		sp += best;
+		lit = sp;
+	}
+	LZE_FLUSH_LITERALS (src_size);
+#undef LZE_FLUSH_LITERALS
+#undef LZE_TOKEN
+	*dest = out;
+	*dest_size = dp;
+	return ERR_OK;
+}

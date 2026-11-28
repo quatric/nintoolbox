@@ -93,6 +93,46 @@ class LZETests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(dest.exists())
 
+    def test_compress_round_trip(self):
+        import random
+        rng = random.Random(7)
+        noisy = bytes(rng.randrange(256) for _ in range(300))
+        samples = [b'A', b'AB', b'ABC', b'C' * 100, b'ABCDEFABC' * 50, noisy,
+                   noisy * 20 + b'tail', bytes(range(256)) * 40]
+        for data in samples:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw, packed_file, back = root / 'in.bin', root / 'out.lze', root / 'back.bin'
+                raw.write_bytes(data)
+                result = subprocess.run([str(BIN), 'COMPRESS', str(raw), '-d', str(packed_file)],
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(packed_file.read_bytes()[:2], b'Le')
+                result = subprocess.run([str(BIN), 'DECOMPRESS', str(packed_file), '-d', str(back)],
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(back.read_bytes(), data)
+
+
+
+class DADTests(unittest.TestCase):
+    def test_compress_round_trip(self):
+        import random
+        rng = random.Random(3)
+        noisy = bytes(rng.randrange(256) for _ in range(500))
+        for data in (b'ABABAB', b'Z' * 1000, noisy, noisy * 10 + b'x', bytes(range(256)) * 30):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw, packed_file, back = root / 'in.bin', root / 'out.dad', root / 'back.bin'
+                raw.write_bytes(data)
+                for args, dest in (('COMPRESS', packed_file), ('DECOMPRESS', back)):
+                    src = raw if args == 'COMPRESS' else packed_file
+                    result = subprocess.run([str(BIN), args, str(src), '-d', str(dest)],
+                                            capture_output=True, text=True, timeout=60)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(packed_file.read_bytes()[:4], b'DAD\x01')
+                self.assertEqual(back.read_bytes(), data)
+
 
 if __name__ == '__main__':
     unittest.main()
