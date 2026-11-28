@@ -1612,6 +1612,9 @@ static enumError compress_nintendo_file (ccp arg)
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
 	uint packed_size = 0;
+	// Mario Strikers Charged "<name>.sanim.zlib": u32 BE size + zlib stream
+	const size_t dest_len = strlen (opt_dest);
+	const bool nl_zlib = !strcasecmp (ext, ".zlib") && dest_len > 11 && !strcasecmp (opt_dest + dest_len - 11, ".sanim.zlib");
 	enumError err = LoadFileAlloc (arg, 0, 0, &data, &file_size, 0, 0, 0, false);
 	if (!err && file_size > UINT_MAX)
 		err = ERR_FILE_TOO_BIG;
@@ -1664,7 +1667,9 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
-	if (!err && !strcasecmp (ext, ".blkbz2"))
+	if (!err && nl_zlib)
+		err = prepend_size_header (&packed, &packed_size, file_size, true, 0);
+	else if (!err && !strcasecmp (ext, ".blkbz2"))
 	{
 		// Brain Train block file: {1, unpacked, unpacked, stored size} then the bzip2 stream
 		wr_le32 (packed, 1);

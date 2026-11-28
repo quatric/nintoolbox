@@ -281,5 +281,19 @@ class Bzip2Tests(unittest.TestCase):
             self.assertEqual(next((root / 't.blk.bz2.d').iterdir()).read_bytes(), data)
 
 
+class NextLevelZlibTests(unittest.TestCase):
+    def test_sanim_zlib_round_trip(self):
+        data = b'anim' * 300 + bytes(range(256))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'in.bin').write_bytes(data)
+            for args in ([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(root / 'o.sanim.zlib')],
+                         [str(BIN), 'EXTRACT', str(root / 'o.sanim.zlib')]):
+                r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual((root / 'o.sanim.zlib').read_bytes()[:4], len(data).to_bytes(4, 'big'))
+            self.assertEqual((root / 'o.sanim.zlib.d' / 'o.sanim').read_bytes(), data)
+
+
 if __name__ == '__main__':
     unittest.main()
