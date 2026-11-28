@@ -1284,6 +1284,37 @@ class RwPiTxd(unittest.TestCase):
                         self.assertEqual(got, tuple(want[k](x, y)), (k, x, y))
 
 
+class RhGrooveTex(unittest.TestCase):
+    def test_roundtrip(self):
+        tr = struct.pack('<HHHHH', 99, 0, 8, 8, 2).ljust(0x1000, b'\0')
+        raw = bytes(1024) + tr
+        want = lambda x, y: (x * 30, y * 30, 9, 255)
+        for zst in (False, True):
+            if zst and not shutil.which('zstd'):
+                continue
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp, 'src.d'); src.mkdir()
+                Path(tmp, 'plain.tex').write_bytes(raw)
+                if zst:
+                    subprocess.run(['zstd', '-q', 'plain.tex', '-o', 'src.d/r.tex'], cwd=tmp, check=True)
+                else:
+                    (src / 'r.tex').write_bytes(raw)
+                run = lambda *a: subprocess.run([str(WSZST), *a], cwd=tmp, capture_output=True, text=True)
+                run('create', 'src.d', '--u8', '--dest', 'in.arc', '-o')
+                run('xx', 'in.arc', '--decode', '--dest', 'ex', '-o')
+                png = Path(tmp, 'ex', 'r.tex.png')
+                self.assertTrue(png.exists(), list(Path(tmp, 'ex').iterdir()))
+                time.sleep(1.1)
+                write_png(png, 8, 8, b''.join(bytes(want(x, y)) for y in range(8) for x in range(8)))
+                r = run('create', 'ex', '--u8', '--dest', 'out.arc', '-o')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                run('xx', 'ex/r.tex', '--decode', '-o')
+                ww, hh, ch, rgba = pngtool._read_png(png)
+                for y in range(8):
+                    for x in range(8):
+                        self.assertEqual((tuple(rgba(x, y)) + (255,))[:4], want(x, y), (zst, x, y))
+
+
 class FmppWrap(unittest.TestCase):
     def test_roundtrip(self):
         pal = [(i * 7 % 256, i * 13 % 256, i * 29 % 256) for i in range(256)]

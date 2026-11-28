@@ -6,6 +6,8 @@
 #include "lib-retro-txtr.h"
 #include "lib-excite.h"
 #include "lib-lz10.h"
+#include "lib-rhgroove.h"
+#include "lib-zstd.h"
 
 typedef struct gxw_t
 {
@@ -1821,6 +1823,30 @@ static u8 *load (ccp path, size_t *size)
 	return buf;
 }
 
+// Rhythm Heaven Groove ".tex" (RGBA8 only), plain or zstd packed: returns the plain surface + trailer (MALLOC'd) or 0
+static u8 *rhtex_open (ccp path, const u8 *raw, size_t sz, size_t *pn, bool *zst)
+{
+	if (!has_ext (path, ".tex") || sz < 4)
+		return 0;
+	u8 *plain = 0;
+	uint n = 0;
+	*zst = !memcmp (raw, "\x28\xb5\x2f\xfd", 4);
+	if (*zst)
+	{
+		if (DecodeZSTD (&plain, &n, raw, (uint)sz))
+			return 0;
+	}
+	else if ((plain = MALLOC (sz)) != 0)
+		memcpy (plain, raw, sz), n = (uint)sz;
+	if (plain && IsRHGrooveTex (plain, n) && plain[n - 0x1000] == 99)
+	{
+		*pn = n;
+		return plain;
+	}
+	FREE (plain);
+	return 0;
+}
+
 bool GXWrapIsFile (ccp path)
 {
 	size_t sz;
@@ -1829,10 +1855,14 @@ bool GXWrapIsFile (ccp path)
 	size_t dsz;
 	u8 *dec = raw ? gxw_refpack (raw, sz, &dsz) : 0;
 	u8 *tp = raw && !dec && has_ext (path, ".tplc") ? tplc_open (raw, sz, &dsz, &g) : 0;
-	const bool ok = raw && (tp || (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g)));
+	size_t rn;
+	bool rz;
+	u8 *rh = raw ? rhtex_open (path, raw, sz, &rn, &rz) : 0;
+	const bool ok = raw && (rh || tp || (dec ? locate_shpg (dec, dsz, &g) : locate (raw, sz, path, &g)));
 	FREE (raw);
 	FREE (dec);
 	FREE (tp);
+	FREE (rh);
 	return ok;
 }
 
@@ -3117,6 +3147,41 @@ enumError GXWrapReinject (Image_t *img, ccp dest)
 		}
 		FREE (raw);
 		return e;
+	}
+	if (raw)
+	{
+		size_t rn;
+		bool rz;
+		u8 *rh = rhtex_open (dest, raw, sz, &rn, &rz);
+		if (rh)
+		{
+			Transform2XIMG (img);
+			const uint w = gxw_le16 (rh + rn - 0x1000 + 4), h = gxw_le16 (rh + rn - 0x1000 + 6);
+			enumError e = ERR_OK;
+			if (img->iform != IMG_X_RGB)
+				e = ERR_NOTHING_TO_DO;
+			else if (img->width != w || img->height != h)
+				e = ERROR0 (ERR_INVALID_IFORM, "PNG is %ux%u but the texture is %ux%u: %s\n", img->width, img->height, w, h, dest);
+			else
+			{
+				u8 *rgba = pad_rgba (img, w, h);
+				if (!rgba || !EncodeRHGrooveTexRGBA (rh, rn, rgba, w, h))
+					e = ERR_NOTHING_TO_DO;
+				else if (rz)
+				{
+					u8 *z = 0;
+					uint zn = 0;
+					e = EncodeZSTD (&z, &zn, rh, (uint)rn, 0) ? ERR_NOTHING_TO_DO : store (dest, z, zn);
+					FREE (z);
+				}
+				else
+					e = store (dest, rh, rn);
+				FREE (rgba);
+			}
+			FREE (rh);
+			FREE (raw);
+			return e;
+		}
 	}
 	u8 *packed = 0, hdr0 = raw && sz ? raw[0] : 0;
 	size_t psz = 0;

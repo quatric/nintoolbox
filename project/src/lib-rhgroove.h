@@ -40,6 +40,9 @@ enumError ConvertRHGrooveWmbToYaml (const u8 *data, size_t size, char **text, si
 bool IsRHGrooveTex (const u8 *data, size_t size);
 enumError DecodeRHGrooveTex (const u8 *data, size_t size, u8 **rgba, uint *width, uint *height);
 
+// Re-encode an RGBA8 ".tex" (decompressed) in place from RGBA pixels of the stored size; false if it is not RGBA8 or the size differs.
+bool EncodeRHGrooveTexRGBA (u8 *data, size_t size, const u8 *rgba, uint width, uint height);
+
 bool IsRHGrooveSpr (const u8 *data, size_t size);
 enumError ConvertRHGrooveSprToYaml (const u8 *data, size_t size, char **text, size_t *text_size);
 

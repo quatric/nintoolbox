@@ -21,6 +21,8 @@ extern bool BntxIsOrin;
 //
 // Returns a malloc'd linear buffer of
 // DIV_ROUND_UP(width,blk_w)*DIV_ROUND_UP(height,blk_h)*bpp bytes.
+void BntxSwizzleSurface (u8 *dst, const u8 *lin, uint wb, uint hb, uint bpp, uint block_height);
+
 enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
 	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
 	bool round_pitch);

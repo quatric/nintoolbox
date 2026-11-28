@@ -184,6 +184,50 @@ bool IsRHGrooveTex (const u8 *d, size_t size)
 	return total == size - TEX_TRAILER;
 }
 
+// Rewrite an RGBA8 (format 99) ".tex" in place from a width x height RGBA image; the smaller mip levels are rebuilt with a 2x2 box filter.
+bool EncodeRHGrooveTexRGBA (u8 *d, size_t size, const u8 *rgba, uint width, uint height)
+{
+	if (!IsRHGrooveTex (d, size))
+		return false;
+	const u8 *t = d + size - TEX_TRAILER;
+	if (rd16 (t) != 99 || rd16 (t + 4) != width || rd16 (t + 6) != height)
+		return false;
+	const uint mips = rd16 (t + 8);
+	u8 *cur = MALLOC ((size_t)width * height * 4);
+	if (!cur)
+		return false;
+	memcpy (cur, rgba, (size_t)width * height * 4);
+	size_t off = 0;
+	uint lw = width, lh = height;
+	for (uint l = 0; l < mips; l++)
+	{
+		const uint gob_cols = (lw * 4 + 63) / 64, gob_rows = (lh + 7) / 8, bh = tex_block_height (gob_rows);
+		const size_t lsz = (size_t)gob_cols * ((gob_rows + bh - 1) / bh) * bh * 512;
+		memset (d + off, 0, lsz);
+		BntxSwizzleSurface (d + off, cur, lw, lh, 4, bh);
+		off += lsz;
+		const uint nw = lw > 1 ? lw / 2 : 1, nh = lh > 1 ? lh / 2 : 1;
+		u8 *next = MALLOC ((size_t)nw * nh * 4);
+		if (!next)
+		{
+			FREE (cur);
+			return false;
+		}
+		for (uint y = 0; y < nh; y++)
+			for (uint x = 0; x < nw; x++)
+				for (uint k = 0; k < 4; k++)
+				{
+					const uint x1 = 2 * x + 1 < lw ? 2 * x + 1 : 2 * x, y1 = 2 * y + 1 < lh ? 2 * y + 1 : 2 * y;
+					next[((size_t)y * nw + x) * 4 + k] = (u8)((cur[((size_t)2 * y * lw + 2 * x) * 4 + k] + cur[((size_t)2 * y * lw + x1) * 4 + k]
+						+ cur[((size_t)y1 * lw + 2 * x) * 4 + k] + cur[((size_t)y1 * lw + x1) * 4 + k] + 2) / 4);
+				}
+		FREE (cur);
+		cur = next, lw = nw, lh = nh;
+	}
+	FREE (cur);
+	return true;
+}
+
 enumError DecodeRHGrooveTex (const u8 *d, size_t size, u8 **rgba, uint *width, uint *height)
 {
 	*rgba = 0;

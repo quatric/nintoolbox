@@ -72,6 +72,14 @@ static u64 addr_block_linear (
 	return gob_address + (is_orin ? gob_offset_orin (xb, y) : gob_offset (xb, y));
 }
 
+// Inverse of BntxDeswizzle for one Tegra X1 surface: LIN is wb x hb elements of BPP bytes, DST gets the block-linear layout (BLOCK_HEIGHT GOBs, zero padded; DST_SIZE must hold it).
+void BntxSwizzleSurface (u8 *dst, const u8 *lin, uint wb, uint hb, uint bpp, uint block_height)
+{
+	for (uint y = 0; y < hb; y++)
+		for (uint x = 0; x < wb; x++)
+			memcpy (dst + addr_block_linear (x, y, wb, bpp, 0, block_height, false), lin + ((size_t)y * wb + x) * bpp, bpp);
+}
+
 enumError BntxDeswizzle (u8 **dest, uint *dest_size, const u8 *src, uint src_size, uint width,
 	uint height, uint blk_w, uint blk_h, uint bpp, uint tile_mode, uint block_height_log2,
 	bool round_pitch)
