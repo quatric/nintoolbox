@@ -1109,7 +1109,9 @@ class PicaWrap(unittest.TestCase):
             return b'TEX\0' + struct.pack('<III', 0x9d, w1, fmt << 8) + bytes(n)
         flat = lambda x, y: tuple(((x // 4) * 60 + 17 * ((y // 4) % 3)) % 256 // 17 * 17 for _ in range(3))
         cases = [('g565.img', gf(0x02, 512), 'g565', 0), ('g8888.img', gf(0x04, 1024), 'rgba', 0), ('getc.img', gf(0x2a, 128), 'flat', 8),
-                 ('getca.img', gf(0x2b, 256), 'flatA', 8), ('gl4.img', gf(0x28, 128), 'lum', 8)]
+                 ('getca.img', gf(0x2b, 256), 'flatA', 8), ('gl4.img', gf(0x28, 128), 'lum', 8),
+                 ('m8888.img', mt(0x03, 1024), 'rgba', 0), ('metc.img', mt(0x0b, 128), 'flat', 8), ('metca.img', mt(0x0c, 256), 'flatA', 8)]
+        ext = lambda n: '.mttex' if n.startswith('m') else '.gftex'
         def pix(kind, x, y):
             if kind == 'rgba': return ((x * 17) % 256, (y * 17) % 256, (x * y) % 256, 255 - x * 9)
             if kind == 'g565': return ((x * 8) * 255 // 255 // 8 * 8 * 0 + (x % 32) * 255 // 31, (y % 64) * 255 // 63, ((x + y) % 32) * 255 // 31, 255)
@@ -1120,19 +1122,19 @@ class PicaWrap(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             d = Path(tmp, 'work'); d.mkdir()
             for n, data, k, tol in cases:
-                (d / (n[:-4] + '.gftex')).write_bytes(data)
+                (d / (n[:-4] + ext(n))).write_bytes(data)
             wi = lambda *a: subprocess.run([str(wimgt), *a], cwd=tmp, capture_output=True, text=True)
             for n, data, k, tol in cases:
-                r = wi('decode', 'work/' + n[:-4] + '.gftex', '-o')
-                self.assertTrue(Path(d, n[:-4] + '.gftex.png').exists(), r.stdout + r.stderr)
+                r = wi('decode', 'work/' + n[:-4] + ext(n), '-o')
+                self.assertTrue(Path(d, n[:-4] + ext(n) + '.png').exists(), r.stdout + r.stderr)
             time.sleep(1.1)
             for n, data, k, tol in cases:
-                write_png(d / (n[:-4] + '.gftex.png'), W16, W16, b''.join(bytes(pix(k, x, y)) for y in range(W16) for x in range(W16)))
+                write_png(d / (n[:-4] + ext(n) + '.png'), W16, W16, b''.join(bytes(pix(k, x, y)) for y in range(W16) for x in range(W16)))
             r = subprocess.run([str(WSZST), 'create', 'work', '--u8', '--dest', 'out.arc', '-o'], cwd=tmp, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             for n, data, k, tol in cases:
-                wi('decode', 'work/' + n[:-4] + '.gftex', '-o')
-                w, h, ch, rgba = pngtool._read_png(d / (n[:-4] + '.gftex.png'))
+                wi('decode', 'work/' + n[:-4] + ext(n), '-o')
+                w, h, ch, rgba = pngtool._read_png(d / (n[:-4] + ext(n) + '.png'))
                 for y in range(W16):
                     for x in range(W16):
                         got = (tuple(rgba(x, y)) + (255,))[:4]

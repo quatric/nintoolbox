@@ -1,4 +1,5 @@
 #include "lib-gf3ds.h"
+#include "lib-mtmob.h"
 #include <utime.h>
 #include "lib-gxwrap.h"
 #include "lib-retro-txtr.h"
@@ -951,12 +952,13 @@ static bool pica_encode (uint fmt, const u8 *rgba, uint pw, uint ph, u8 *out, si
 	return true;
 }
 
-// GFTexture (3DS): the texels follow a 0x80 byte header (see lib-gf3ds.c); MT TEX is left alone, its \"TEX\" magic is shared with other decoders
+// GFTexture (3DS): the texels follow a 0x80 byte header (see lib-gf3ds.c); Capcom MT Framework Mobile "TEX\\0" (see lib-mtmob.c) is
+// recognised by its stricter header check and keeps its 16 / 20 byte header
 static bool locate_pica (const u8 *raw, size_t sz, gxw_t *g)
 {
 	uint w, h, f;
 	size_t doff, avail;
-	if (!GFTextureInfo (raw, sz, &w, &h, &f, &doff, &avail))
+	if (!GFTextureInfo (raw, sz, &w, &h, &f, &doff, &avail) && !MTTEXInfo (raw, sz, &w, &h, &f, &doff, &avail))
 		return false;
 	g->pica = true, g->gx = f, g->w = w, g->h = h, g->doff = doff, g->avail = avail;
 	return true;

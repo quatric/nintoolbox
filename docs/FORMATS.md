@@ -114,7 +114,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **MTMFX** | 3DS / Shader | ✅ | ❌ | Capcom MT Framework Mobile shader effects (SPICA MTShaderEffects): input-layout table (vertex attribute names/formats/offsets) as text; layouts drive `wmdlt` MOD decoding |
 | **MTMOD** | 3DS / Model | ✅ | ❌ | Capcom MT Framework Mobile model (SPICA MTModel): skeleton always; vertices via sibling `.mfx`/`.lfx` input layouts (else validated float fallback); materials/textures via sibling `.mrl` → GLB |
 | **MTMRL** | 3DS / Material | ✅ | ❌ | Capcom MT Framework Mobile materials (SPICA MTMaterials): CRC32-keyed texture bindings as text |
-| **MTTEX** | 3DS / Texture | ✅ | ✅ | Capcom MT Framework Mobile texture (SPICA MTTexture): PICA200 payloads incl. ETC1 → PNG; `wimgt copy <file>.png -d <name>.mttex` writes a new RGBA8 texture (version 0xa3 header, one mip; other formats such as ETC1 are not encoded) |
+| **MTTEX** | 3DS / Texture | ✅ | ✅ | Capcom MT Framework Mobile texture (SPICA MTTexture): PICA200 payloads incl. ETC1 → PNG; edited PNGs are re-encoded into the original file on `wszst create` (RGBA8, RGB8, ETC1, ETC1A4; header kept as is), and `wimgt copy <file>.png -d <name>.mttex` writes a new RGBA8 texture (version 0xa3 header, one mip) |
 | **GTX** | Wii U / Texture | ✅ | ✅ | Wii U GX2 texture container |
 | **GSH** | Wii U / Shader | ✅ | ✅ | Wii U Latte GPU shader container |
 | **HSD (.dat)** | GameCube / Model | ✅ | ✅ | HAL Laboratory sysdolphin object graph; also archive bundles (many archives in one file, `scene_data` roots, e.g. Doraemon `map*_dat.mdl`) merged into one GLB |
