@@ -185,3 +185,176 @@ bad:
 #undef LZO_COPY_LITERALS
 #undef LZO_NEED_OUT
 }
+
+// LZO1X encoder: literal runs plus M3 matches only (distance <= 16384),
+// so the instruction state machine stays trivial. Output is valid LZO1X but
+// compresses a little worse than the reference encoder.
+static uint lzo_hash3 (const u8 *p)
+{
+	return ((uint)p[0] | (uint)p[1] << 8 | (uint)p[2] << 16) * 2654435761u >> 18;
+}
+
+enumError EncodeLZO1X (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	if (!dest || !dest_size || !src || !src_size)
+		return ERR_INVALID_DATA;
+	u8 *out = MALLOC ((size_t)src_size + src_size / 16 + 64);
+	uint *head = MALLOC (sizeof (uint) * 16384), *prev = MALLOC (sizeof (uint) * src_size);
+	if (!out || !head || !prev)
+	{
+		FREE (out), FREE (head), FREE (prev);
+		return ERR_OUT_OF_MEMORY;
+	}
+	memset (head, 0xff, sizeof (uint) * 16384);
+	uint dp = 0, sp = 0, lit = 0;
+	bool first = true; // literal run at stream start uses the t>17 form
+	// emit literals [lit, end) as a stand-alone run; `after_match` = state-0 context
+	#define LZO_LITERALS(end)                                                    \
+		do                                                                       \
+		{                                                                        \
+			const uint n = (end) - lit;                                          \
+			if (n)                                                               \
+			{                                                                    \
+				if (first && n <= 238)                                           \
+					out[dp++] = 17 + n;                                          \
+				else                                                             \
+				{                                                                \
+					if (n - 3 <= 15 && n >= 3)                                   \
+						out[dp++] = n - 3;                                       \
+					else                                                         \
+					{                                                            \
+						uint e = n - 3 - 15;                                     \
+						out[dp++] = 0;                                           \
+						while (e > 255)                                          \
+							out[dp++] = 0, e -= 255;                             \
+						out[dp++] = e;                                           \
+					}                                                            \
+				}                                                                \
+				memcpy (out + dp, src + lit, n);                                 \
+				dp += n;                                                         \
+				lit = (end);                                                     \
+			}                                                                    \
+			first = false;                                                       \
+		} while (0)
+	uint pend_match = 0, pend_dist = 0; // match waiting for its trailing-literal count
+	#define LZO_EMIT_MATCH(s)                                                    \
+		do                                                                       \
+		{                                                                        \
+			const uint d = pend_dist - 1;                                        \
+			if (pend_match - 2 <= 31)                                            \
+				out[dp++] = 32 | (pend_match - 2);                               \
+			else                                                                 \
+			{                                                                    \
+				uint e = pend_match - 2 - 31;                                    \
+				out[dp++] = 32;                                                  \
+				while (e > 255)                                                  \
+					out[dp++] = 0, e -= 255;                                     \
+				out[dp++] = e;                                                   \
+			}                                                                    \
+			out[dp++] = (d & 63) << 2 | (s);                                     \
+			out[dp++] = d >> 6;                                                  \
+			pend_match = 0;                                                      \
+		} while (0)
+	while (sp < src_size)
+	{
+		uint best = 0, best_dist = 0;
+		if (sp + 3 <= src_size)
+		{
+			const uint h = lzo_hash3 (src + sp);
+			uint cand = head[h];
+			for (int depth = 0; cand != 0xffffffffu && depth < 32 && sp - cand <= 16384; depth++)
+			{
+				uint n = 0;
+				while (sp + n < src_size && src[sp + n] == src[cand + n])
+					n++;
+				if (n > best)
+					best = n, best_dist = sp - cand;
+				cand = prev[cand];
+			}
+			prev[sp] = head[h];
+			head[h] = sp;
+		}
+		if (best < 3)
+		{
+			sp++;
+			continue;
+		}
+		// flush the match before this one, taking up to 3 literals as its trailer
+		const uint gap = sp - lit;
+		if (pend_match)
+		{
+			if (gap <= 3)
+			{
+				LZO_EMIT_MATCH (gap);
+				memcpy (out + dp, src + lit, gap);
+				dp += gap, lit = sp;
+			}
+			else
+			{
+				LZO_EMIT_MATCH (0);
+				LZO_LITERALS (sp);
+			}
+		}
+		else
+			LZO_LITERALS (sp);
+		pend_match = best, pend_dist = best_dist;
+		sp += best;
+		lit = sp;
+		first = false;
+		// index skipped positions cheaply
+		for (uint k = sp - best + 1; k < sp && k + 3 <= src_size; k++)
+		{
+			const uint h = lzo_hash3 (src + k);
+			prev[k] = head[h];
+			head[h] = k;
+		}
+	}
+	if (pend_match)
+	{
+		const uint gap = src_size - lit;
+		if (gap <= 3)
+		{
+			LZO_EMIT_MATCH (gap);
+			memcpy (out + dp, src + lit, gap);
+			dp += gap;
+		}
+		else
+		{
+			LZO_EMIT_MATCH (0);
+			LZO_LITERALS (src_size);
+		}
+	}
+	else
+		LZO_LITERALS (src_size);
+	out[dp++] = 0x11, out[dp++] = 0, out[dp++] = 0;
+	#undef LZO_LITERALS
+	#undef LZO_EMIT_MATCH
+	FREE (head), FREE (prev);
+	*dest = out;
+	*dest_size = dp;
+	return ERR_OK;
+}
+
+// iNiS "1OZL" container: magic, LE raw size, LE LZO payload size, payload.
+enumError EncodeInioLZO (u8 **dest, uint *dest_size, const u8 *src, uint src_size)
+{
+	u8 *lzo = 0;
+	uint lzo_size = 0;
+	enumError err = EncodeLZO1X (&lzo, &lzo_size, src, src_size);
+	if (err)
+		return err;
+	u8 *out = MALLOC ((size_t)lzo_size + 12);
+	if (!out)
+	{
+		FREE (lzo);
+		return ERR_OUT_OF_MEMORY;
+	}
+	memcpy (out, "1OZL", 4);
+	for (uint i = 0; i < 4; i++)
+		out[4 + i] = src_size >> 8 * i, out[8 + i] = lzo_size >> 8 * i;
+	memcpy (out + 12, lzo, lzo_size);
+	FREE (lzo);
+	*dest = out;
+	*dest_size = lzo_size + 12;
+	return ERR_OK;
+}

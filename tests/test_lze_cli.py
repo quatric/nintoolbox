@@ -154,5 +154,24 @@ class WrapperCompressTests(unittest.TestCase):
                 self.assertEqual(got.read_bytes(), data, ext)
 
 
+class InioLZOTests(unittest.TestCase):
+    def test_compress_round_trip(self):
+        import random
+        rng = random.Random(5)
+        noise = bytes(rng.randrange(256) for _ in range(1000))
+        for data in (b'abcd', b'x' * 5000, noise, noise * 5 + b'zz', noise[:300] + b'Q' * 700 + noise[:50],
+                     bytes(range(256)) * 70, noise[:240] + noise[:240]):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw, packed_file, back = root / 'in.bin', root / 'out.1ozl', root / 'back.bin'
+                raw.write_bytes(data)
+                for verb, src, dest in (('COMPRESS', raw, packed_file), ('DECOMPRESS', packed_file, back)):
+                    r = subprocess.run([str(BIN), verb, str(src), '-d', str(dest)],
+                                       capture_output=True, text=True, timeout=60)
+                    self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(packed_file.read_bytes()[:4], b'1OZL')
+                self.assertEqual(back.read_bytes(), data)
+
+
 if __name__ == '__main__':
     unittest.main()

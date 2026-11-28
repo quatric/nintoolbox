@@ -4,5 +4,7 @@
 #include "lib-nintendo.h"
 
 enumError DecodeLZO1XGrow (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeLZO1X (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
+enumError EncodeInioLZO (u8 **dest, uint *dest_size, const u8 *src, uint src_size);
 
 #endif
