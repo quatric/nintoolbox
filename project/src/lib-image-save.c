@@ -431,6 +431,7 @@ enumError SaveIMG (Image_t *img, // pointer to valid img
 		case FF_BTGA:
 		case FF_DMPBM:
 		case FF_STEX:
+		case FF_MTTEX:
 		case FF_CMB:
 			return SavePica3DSTexture (img, fform, f, fname, overwrite);
 		case FF_SMDH:

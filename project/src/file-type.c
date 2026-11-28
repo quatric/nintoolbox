@@ -1794,7 +1794,7 @@ const file_type_t FileTypeTab[FF_N + 1] = {
 
 	// FF_MTTEX = 339 (Capcom MT Framework Mobile texture, SPICA MTTexture)
 	{ FF_MTTEX, FF_MTTEX, 0, "MTTEX", ".mttex", ".png", ".tex",
-		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE, 4, { 'T', 'E', 'X', 0 }, 0, MinusString,
+		FFT_VALID | FFT_GRAPHIC | FFT_CUT | FFT_DECODE | FFT_ENCODE, 4, { 'T', 'E', 'X', 0 }, 0, MinusString,
 		MinusString, "Capcom MT Framework Mobile texture (.tex / TEX\\0, 3DS)" },
 
 	// FF_MTMRL = 340 (Capcom MT Framework Mobile materials, SPICA MTMaterials)

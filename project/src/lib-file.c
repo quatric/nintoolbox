@@ -3017,6 +3017,7 @@ file_format_t IsImageFF (
 		case FF_BTGA:
 		case FF_DMPBM:
 		case FF_STEX:
+		case FF_MTTEX:
 		case FF_CMB:
 		case FF_SMDH:
 		case FF_NUT:

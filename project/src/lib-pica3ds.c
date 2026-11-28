@@ -218,6 +218,9 @@ enumError SavePica3DSTexture (Image_t *img, file_format_t fform, FILE *fo, ccp p
 		case FF_CMB:
 			head_size = 0x80;
 			break;
+		case FF_MTTEX:
+			head_size = 16;
+			break;
 		default:
 			FREE (raw);
 			return ERR_INVALID_DATA;
@@ -246,6 +249,21 @@ enumError SavePica3DSTexture (Image_t *img, file_format_t fform, FILE *fo, ccp p
 		out[5] = 3;
 		wr_le32 (out + 6, img->width);
 		wr_le32 (out + 10, img->height);
+	}
+	else if (fform == FF_MTTEX)
+	{
+		// Capcom MT Framework Mobile "TEX\0": version 0xa3 (16-byte header), width/height in w1 (13 bits each
+		// from bits 6/19, mip count in the low 6 bits), PICA RGBA8 (0x03) in bits 8-15 of w2.
+		if (img->width > 4095 || img->height > 4095)
+		{
+			FREE (raw);
+			FREE (out);
+			return ERR_INVALID_DATA;
+		}
+		memcpy (out, "TEX", 3);
+		wr_le32 (out + 4, 0xa3);
+		wr_le32 (out + 8, 1 | (u32)img->width << 6 | (u32)img->height << 19);
+		wr_le32 (out + 12, 0x03 << 8);
 	}
 	else if (fform == FF_STEX)
 	{
