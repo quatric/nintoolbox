@@ -68,6 +68,38 @@ static enumError pack_ctrpack (u8 **out, u64 *out_size, const nintendo_sarc_entr
 	return ERR_OK;
 }
 
+// JUPITER-PCK: u32 header length (8 + 4n), u32 count, u32 sizes[n], payloads back to back.
+// Members are packed in name order (EXTRACT writes file_NNN<ext>).
+static enumError pack_jupiter (u8 **out, u64 *out_size, const nintendo_sarc_entry_t *e, uint n)
+{
+	if (!n || n > 1024)
+		return ERR_INVALID_DATA;
+	const u64 hdr = 8 + 4 * (u64)n;
+	u64 total = hdr;
+	for (uint i = 0; i < n; i++)
+	{
+		if (!e[i].size)
+			return ERR_INVALID_DATA;
+		total += e[i].size;
+	}
+	if (total > UINT_MAX)
+		return ERR_FILE_TOO_BIG;
+	u8 *d = MALLOC (total);
+	if (!d)
+		return ERR_CANT_CREATE;
+	wr_le32 (d, (u32)hdr);
+	wr_le32 (d + 4, n);
+	u64 pos = hdr;
+	for (uint i = 0; i < n; i++)
+	{
+		wr_le32 (d + 8 + 4 * i, e[i].size);
+		memcpy (d + pos, e[i].data, e[i].size);
+		pos += e[i].size;
+	}
+	*out = d, *out_size = total;
+	return ERR_OK;
+}
+
 static const struct
 {
 	ccp ext, label;
@@ -75,6 +107,7 @@ static const struct
 } extra_formats[] = {
 	{ ".afs", "AFS", pack_afs },
 	{ ".pack", "CTR-PACK", pack_ctrpack },
+	{ ".pck", "JUPITER-PCK", pack_jupiter },
 	{ 0 },
 };
 

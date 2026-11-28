@@ -36,6 +36,19 @@ class CreateExtraTests(unittest.TestCase):
         self.roundtrip('pack', {'a.bin': b'abc', 'b.cam': b'x' * 100},
                        {'a.bin': b'abc', 'b.cam': b'x' * 100})
 
+    def test_jupiter_pck(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / 'in.pck.d'
+            src.mkdir()
+            members = [b'MODL' + b'1' * 30, b'MOTN' + b'2' * 77]
+            for i, m in enumerate(members):
+                (src / ('file_%03u.bin' % i)).write_bytes(m)
+            run('CREATE', str(src), '-d', str(root / 'new.pck'))
+            run('EXTRACT', str(root / 'new.pck'), '-d', str(root / 'out'))
+            got = [p.read_bytes() for p in sorted((root / 'out').iterdir())]
+            self.assertEqual(got, members)
+
 
 if __name__ == '__main__':
     unittest.main()
