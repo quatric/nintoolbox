@@ -134,5 +134,25 @@ class DADTests(unittest.TestCase):
                 self.assertEqual(back.read_bytes(), data)
 
 
+class WrapperCompressTests(unittest.TestCase):
+    def test_ibz_bgw_rz_round_trip(self):
+        data = b'hello world ' * 300 + bytes(range(200))
+        for ext, verb, out_name in (('ibz', 'EXTRACT', 'sample.ibz.bin'), ('bgw', 'EXTRACT', 'sample.bin'),
+                                    ('rz', 'DECOMPRESS', 'back.bin')):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw, packed_file = root / 'in.bin', root / ('sample.' + ext)
+                raw.write_bytes(data)
+                r = subprocess.run([str(BIN), 'COMPRESS', str(raw), '-d', str(packed_file)],
+                                   capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                dest = root / ('x' if verb == 'EXTRACT' else out_name)
+                r = subprocess.run([str(BIN), verb, str(packed_file), '-d', str(dest)],
+                                   capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                got = next(dest.rglob('*.bin')) if verb == 'EXTRACT' else dest
+                self.assertEqual(got.read_bytes(), data, ext)
+
+
 if __name__ == '__main__':
     unittest.main()

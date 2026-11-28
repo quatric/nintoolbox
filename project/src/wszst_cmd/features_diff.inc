@@ -1543,6 +1543,25 @@ static enumError DecodeZlib (
 	return ERR_OK;
 }
 
+// Prefix `hdr_len` bytes (and optionally a size word) to a packed stream: .ibz = LE size, .bgw = "ZLIB" + BE size.
+static enumError prepend_size_header (u8 **packed, uint *packed_size, uint raw_size, bool be, ccp magic)
+{
+	const uint hl = (magic ? 4 : 0) + 4;
+	u8 *out = MALLOC ((size_t)*packed_size + hl);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	if (magic)
+		memcpy (out, magic, 4);
+	u8 *w = out + (magic ? 4 : 0);
+	for (uint i = 0; i < 4; i++)
+		w[i] = raw_size >> (be ? 24 - 8 * i : 8 * i);
+	memcpy (out + hl, *packed, *packed_size);
+	FREE (*packed);
+	*packed = out;
+	*packed_size += hl;
+	return ERR_OK;
+}
+
 static enumError compress_nintendo_file (ccp arg)
 {
 	if (!opt_dest)
@@ -1569,7 +1588,8 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".camelot") && strcasecmp (ext, ".rnc") && strcasecmp (ext, ".rnc1")
 			&& strcasecmp (ext, ".rnc2") && strcasecmp (ext, ".romc") && strcasecmp (ext, ".fzip")
 			&& strcasecmp (ext, ".zlib") && strcasecmp (ext, ".deflate")
-			&& strcasecmp (ext, ".mvdk") && strcasecmp (ext, ".lze") && strcasecmp (ext, ".dad")))
+			&& strcasecmp (ext, ".mvdk") && strcasecmp (ext, ".lze") && strcasecmp (ext, ".dad") && strcasecmp (ext, ".ibz")
+			&& strcasecmp (ext, ".bgw") && strcasecmp (ext, ".rz")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1605,9 +1625,16 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".mvdk") ? EncodeMVDK (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".lze") ? EncodeLZE (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".dad") ? EncodeSomaDad (&packed, &packed_size, data, file_size)
+			: !strcasecmp (ext, ".ibz") || !strcasecmp (ext, ".bgw")
+			? EncodeZlib (&packed, &packed_size, data, file_size, false)
+			: !strcasecmp (ext, ".rz") ? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
+	if (!err && !strcasecmp (ext, ".ibz"))
+		err = prepend_size_header (&packed, &packed_size, file_size, false, 0);
+	else if (!err && !strcasecmp (ext, ".bgw"))
+		err = prepend_size_header (&packed, &packed_size, file_size, true, "ZLIB");
 	FREE (data);
 	if (err)
 	{
@@ -1639,6 +1666,9 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".mvdk")	? "MVDK"
 				: !strcasecmp (ext, ".lze")	? "LZE"
 				: !strcasecmp (ext, ".dad")	? "DAD"
+				: !strcasecmp (ext, ".ibz")	? "IBZ"
+				: !strcasecmp (ext, ".bgw")	? "BGW"
+				: !strcasecmp (ext, ".rz")		? "RZ"
 				: !strcasecmp (ext, ".cmp")		? "CMP"
 				: !strcasecmp (ext, ".lz11")	? "LZ11"
 												: "LZ10",
