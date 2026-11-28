@@ -1562,6 +1562,19 @@ static enumError prepend_size_header (u8 **packed, uint *packed_size, uint raw_s
 	return ERR_OK;
 }
 
+static enumError prepend_bytes (u8 **packed, uint *packed_size, const u8 *hdr, uint hl)
+{
+	u8 *out = MALLOC ((size_t)*packed_size + hl);
+	if (!out)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (out, hdr, hl);
+	memcpy (out + hl, *packed, *packed_size);
+	FREE (*packed);
+	*packed = out;
+	*packed_size += hl;
+	return ERR_OK;
+}
+
 static enumError compress_nintendo_file (ccp arg)
 {
 	if (!opt_dest)
@@ -1592,7 +1605,8 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".bgw") && strcasecmp (ext, ".rz") && strcasecmp (ext, ".1ozl")
 			&& strcasecmp (ext, ".rle") && strcasecmp (ext, ".mz") && strcasecmp (ext, ".cmpbin")
 			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")
-			&& strcasecmp (ext, ".brtex")))
+			&& strcasecmp (ext, ".brtex") && strcasecmp (ext, ".ngr") && strcasecmp (ext, ".packlz")
+			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1636,6 +1650,9 @@ static enumError compress_nintendo_file (ccp arg)
 			? EncodeLZ4 (&packed, &packed_size, data, file_size, 0)
 			: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf")
 			? EncodeBFTTF (&packed, &packed_size, data, file_size, BFTTF_KEY_NX)
+			: !strcasecmp (ext, ".ngr") ? EncodeZlib (&packed, &packed_size, data, file_size, false)
+			: !strcasecmp (ext, ".packlz") || !strcasecmp (ext, ".crfnt") || !strcasecmp (ext, ".lpf2")
+			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".brtex")
 			? EncodeLZMA (&packed, &packed_size, false, 6, false, data, file_size, 0)
 			: !strcasecmp (ext, ".rle") ? EncodeRLEBang (&packed, &packed_size, data, file_size)
@@ -1643,7 +1660,43 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
-	if (!err && !strcasecmp (ext, ".brtex"))
+	if (!err && !strcasecmp (ext, ".ngr"))
+	{
+		u8 h[8] = "LMPK";
+		wr_le32 (h + 4, (u32)file_size);
+		err = prepend_bytes (&packed, &packed_size, h, 8);
+	}
+	else if (!err && !strcasecmp (ext, ".packlz"))
+	{
+		u8 h[16] = "PACK"; // flags 0, then the unpacked size twice
+		wr_le32 (h + 8, (u32)file_size);
+		wr_le32 (h + 12, (u32)file_size);
+		err = prepend_bytes (&packed, &packed_size, h, 16);
+	}
+	else if (!err && !strcasecmp (ext, ".crfnt"))
+	{
+		u8 h[0x20] = "created by ntcompress2";
+		err = prepend_bytes (&packed, &packed_size, h, 0x20);
+	}
+	else if (!err && !strcasecmp (ext, ".lpf2"))
+	{
+		// LevelPackV2: Huffman layer over the LZ10 layer; the word at 0x1c is unused by the loader
+		u8 *huff = 0;
+		uint huff_size = 0;
+		err = EncodeNintendoHuff (&huff, &huff_size, packed, packed_size, false);
+		if (!err)
+		{
+			u8 h[0x20] = "LevelPackV2";
+			memcpy (h + 12, "00020001", 8);
+			wr_be32 (h + 0x14, (u32)file_size);
+			wr_be32 (h + 0x18, packed_size);
+			FREE (packed);
+			packed = huff;
+			packed_size = huff_size;
+			err = prepend_bytes (&packed, &packed_size, h, 0x20);
+		}
+	}
+	else if (!err && !strcasecmp (ext, ".brtex"))
 		memcpy (packed, "\xff" "LZMA\0", 6);
 	else if (!err && !strcasecmp (ext, ".cmpbin"))
 		err = prepend_size_header (&packed, &packed_size, file_size, false, 0);
@@ -1705,6 +1758,10 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".1ozl")	? "INIO-LZO"
 				: !strcasecmp (ext, ".rle")	? "RLE!"
 				: !strcasecmp (ext, ".brtex")	? "LZMA-BRTEX"
+				: !strcasecmp (ext, ".ngr")		? "LMPK"
+				: !strcasecmp (ext, ".packlz")	? "PACK-LZ10"
+				: !strcasecmp (ext, ".crfnt")	? "ntcompress2"
+				: !strcasecmp (ext, ".lpf2")	? "LevelPackV2"
 				: !strcasecmp (ext, ".cmpbin")	? "HAL-LZ4"
 				: !strcasecmp (ext, ".lz4")	? "LZ4"
 				: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf") ? "BFTTF"

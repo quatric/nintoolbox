@@ -223,5 +223,23 @@ class LzmaBrtexTests(unittest.TestCase):
             self.assertEqual((root / 'o.brtex.brres').read_bytes(), data)
 
 
+class WrapperGroup2Tests(unittest.TestCase):
+    def test_ngr_packlz_crfnt_lpf2(self):
+        import random
+        rng = random.Random(2)
+        data = b'RFNT' + bytes(rng.randrange(256) for _ in range(200)) + b'ab' * 600 + bytes(range(100))
+        found = {'ngr': 'o.ngr.d/o.bin', 'packlz': 'o.packlz.d/o.packlz.bin',
+                 'crfnt': 'o.brfnt', 'lpf2': 'o.lpf2.d/o.bin'}
+        for ext, rel in found.items():
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'in.bin').write_bytes(data)
+                for args in ([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(root / ('o.' + ext))],
+                             [str(BIN), 'EXTRACT', str(root / ('o.' + ext))]):
+                    r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                    self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual((root / rel).read_bytes(), data, ext)
+
+
 if __name__ == '__main__':
     unittest.main()
