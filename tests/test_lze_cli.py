@@ -263,5 +263,23 @@ class DspEncodeTests(unittest.TestCase):
             self.assertLess(max(abs(a - b) for a, b in zip(src, got)), 600)
 
 
+class Bzip2Tests(unittest.TestCase):
+    def test_plain_and_block_wrapper(self):
+        import bz2
+        data = b'BLKDATA' + b'hello ' * 400 + bytes(range(256))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'in.blk').write_bytes(data)
+            for ext in ('bz2', 'blkbz2'):
+                r = subprocess.run([str(BIN), 'COMPRESS', str(root / 'in.blk'), '-d', str(root / ('o.' + ext))],
+                                   capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(bz2.decompress((root / 'o.bz2').read_bytes()), data)
+            (root / 'o.blkbz2').rename(root / 't.blk.bz2')
+            r = subprocess.run([str(BIN), 'EXTRACT', str(root / 't.blk.bz2')], capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(next((root / 't.blk.bz2.d').iterdir()).read_bytes(), data)
+
+
 if __name__ == '__main__':
     unittest.main()

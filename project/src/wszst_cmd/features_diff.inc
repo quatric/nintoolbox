@@ -1606,7 +1606,8 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".rle") && strcasecmp (ext, ".mz") && strcasecmp (ext, ".cmpbin")
 			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")
 			&& strcasecmp (ext, ".brtex") && strcasecmp (ext, ".ngr") && strcasecmp (ext, ".packlz")
-			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2") && strcasecmp (ext, ".dsp")))
+			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2") && strcasecmp (ext, ".dsp") && strcasecmp (ext, ".bz2")
+			&& strcasecmp (ext, ".blkbz2")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1650,6 +1651,8 @@ static enumError compress_nintendo_file (ccp arg)
 			? EncodeLZ4 (&packed, &packed_size, data, file_size, 0)
 			: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf")
 			? EncodeBFTTF (&packed, &packed_size, data, file_size, BFTTF_KEY_NX)
+			: !strcasecmp (ext, ".bz2") ? EncodeBZIP2 (&packed, &packed_size, false, 0, false, data, file_size, 0)
+			: !strcasecmp (ext, ".blkbz2") ? EncodeBZIP2 (&packed, &packed_size, false, 16, false, data, file_size, 0)
 			: !strcasecmp (ext, ".dsp") ? EncodeDSPFromWAV (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".ngr") ? EncodeZlib (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".packlz") || !strcasecmp (ext, ".crfnt") || !strcasecmp (ext, ".lpf2")
@@ -1661,7 +1664,15 @@ static enumError compress_nintendo_file (ccp arg)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
-	if (!err && !strcasecmp (ext, ".ngr"))
+	if (!err && !strcasecmp (ext, ".blkbz2"))
+	{
+		// Brain Train block file: {1, unpacked, unpacked, stored size} then the bzip2 stream
+		wr_le32 (packed, 1);
+		wr_le32 (packed + 4, (u32)file_size);
+		wr_le32 (packed + 8, (u32)file_size);
+		wr_le32 (packed + 12, packed_size - 16);
+	}
+	else if (!err && !strcasecmp (ext, ".ngr"))
 	{
 		u8 h[8] = "LMPK";
 		wr_le32 (h + 4, (u32)file_size);
@@ -1760,6 +1771,8 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".rle")	? "RLE!"
 				: !strcasecmp (ext, ".brtex")	? "LZMA-BRTEX"
 				: !strcasecmp (ext, ".dsp")		? "DSP-ADPCM"
+				: !strcasecmp (ext, ".bz2")		? "BZIP2"
+				: !strcasecmp (ext, ".blkbz2")	? "BLK-BZ2"
 				: !strcasecmp (ext, ".ngr")		? "LMPK"
 				: !strcasecmp (ext, ".packlz")	? "PACK-LZ10"
 				: !strcasecmp (ext, ".crfnt")	? "ntcompress2"
