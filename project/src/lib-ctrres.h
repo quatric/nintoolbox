@@ -39,6 +39,7 @@ enumError ExtractCtrPack (ccp arg, ccp basedir, uint depth);
 enumError ExtractCtrResource (ccp arg, ccp basedir, uint depth);
 
 char *DumpCtrGbin (const u8 *data, size_t size, ccp source);
+enumError EncodeCtrGbinYaml (u8 **dest, uint *dest_size, ccp text);
 char *DumpCtrBankOrWsd (const u8 *data, size_t size, ccp source);
 
 #endif

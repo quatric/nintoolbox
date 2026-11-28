@@ -38,7 +38,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **AT7** | PS2/Wii / Archive | ✅ | ✅ | Koei Tecmo container |
 | **BCBNK** | 3DS / Audio | ✅ | ❌ | NW4C bank: wave table and instrument slot list to YAML |
 | **3DS Camera PACK** | 3DS / Archive | ✅ | ✅ | `.pack` table of 0x40-byte `{name[0x38], offset, size}` records; the LZ11 members are extracted as they are; CREATE repacks `<name>.pack.d` (16-byte aligned members) |
-| **GBIN** | 3DS / Data | ✅ | ❌ | Camera guide table (`GUID` records with named parts) to YAML |
+| **GBIN** | 3DS / Data | ✅ | ✅ | Camera guide table (`GUID` records with named parts) to YAML; `wszst create <file>.gbin.yaml` rebuilds the binary (names up to 16 characters; trailing bytes of the original are not kept) |
 | **BCFNT** | 3DS / Font | ✅ | ✅ | 3DS bitmap font to PNG atlas |
 | **BCH** | 3DS / Model | ✅ | ✅ | CTR H3D model container |
 | **BCLAN** | 3DS / Layout | ✅ | ✅ | 3DS layout animation |

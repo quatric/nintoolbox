@@ -4,6 +4,7 @@
 #include "lib-archive-util.h"
 #include "lib-create-extra.h"
 #include "lib-aal.h"
+#include "lib-ctrres.h"
 
 typedef enumError (*pack_func) (u8 **out, u64 *out_size, const nintendo_sarc_entry_t *e, uint n);
 
@@ -171,7 +172,9 @@ enumError create_aal_yaml_file (ccp src, ccp dest)
 	FREE (raw);
 	u8 *bin = 0;
 	uint bin_size = 0;
-	err = is_ext_match (src, ".csv") ? EncodeDAPGCsv (&bin, &bin_size, text) : EncodeAALYaml (&bin, &bin_size, text);
+	err = is_ext_match (src, ".csv")	 ? EncodeDAPGCsv (&bin, &bin_size, text)
+		: strstr (text, "(GBIN)") ? EncodeCtrGbinYaml (&bin, &bin_size, text)
+								  : EncodeAALYaml (&bin, &bin_size, text);
 	FREE (text);
 	if (!err && !testmode)
 	{

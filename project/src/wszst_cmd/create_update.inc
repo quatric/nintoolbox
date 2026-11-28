@@ -80,21 +80,26 @@ static enumError cmd_create (bool create)
 				max_err = y_err;
 			continue;
 		}
-		const bool is_aal_sidecar = (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baroc.yml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baacl.yml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baadr.yml"))
-			|| (arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".dapg.csv"));
-		if (create && is_aal_sidecar)
+		// <name>.<ext>.yml / .yaml / .csv sidecars written by the text dumps of AROC, AACL, AADR, DAPG, GBIN
+		const uint aal_sfx = is_ext (arg, ".yaml") ? 5 : is_ext (arg, ".yml") ? 4 : is_ext (arg, ".csv") ? 4 : 0;
+		const uint aal_extlen = aal_sfx && arg_len > aal_sfx + 5 && arg[arg_len - aal_sfx - 5] == '.'
+				&& (!strncasecmp (arg + arg_len - aal_sfx - 5, ".dapg", 5) || !strncasecmp (arg + arg_len - aal_sfx - 5, ".gbin", 5))
+			? 5
+			: aal_sfx && arg_len > aal_sfx + 6 && arg[arg_len - aal_sfx - 6] == '.'
+					&& (!strncasecmp (arg + arg_len - aal_sfx - 6, ".baroc", 6) || !strncasecmp (arg + arg_len - aal_sfx - 6, ".baacl", 6)
+						|| !strncasecmp (arg + arg_len - aal_sfx - 6, ".baadr", 6))
+				? 6
+				: 0;
+		if (create && aal_extlen)
 		{
 			char y_dest[PATH_MAX], aal_ext[8];
-			const bool is_csv = is_ext (arg, ".csv");
-			snprintf (aal_ext, sizeof (aal_ext), is_csv ? "%.5s" : "%.6s", arg + arg_len - (is_csv ? 9 : 10));
+			snprintf (aal_ext, sizeof (aal_ext), "%.*s", (int)aal_extlen, arg + arg_len - aal_sfx - aal_extlen);
 			if (opt_dest)
 				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, aal_ext, false);
 			else
 			{
 				snprintf (y_dest, sizeof (y_dest), "%s", arg);
-				y_dest[arg_len - 4] = 0;
+				y_dest[arg_len - aal_sfx] = 0;
 			}
 			const enumError y_err = create_aal_yaml_file (arg, y_dest);
 			if (verbose >= 0 || testmode)

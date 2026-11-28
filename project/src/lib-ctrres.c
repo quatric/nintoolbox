@@ -310,3 +310,91 @@ enumError ExtractCtrResource (ccp arg, ccp basedir, uint depth)
 	free (text);
 	return err;
 }
+
+//-----------------------------------------------------------------------------
+// GBIN from the YAML written by DumpCtrGbin(); names are limited to 15 characters + NUL
+// (the dump can't tell a 16-character name from a NUL-terminated one) and trailing bytes of
+// the original file, if any, are not kept.
+
+static bool gbin_name (ccp q, u8 *dst)
+{
+	ccp a = strchr (q, '"');
+	ccp b = a ? strchr (a + 1, '"') : 0;
+	if (!b || b - a - 1 > 16)
+		return false;
+	memcpy (dst, a + 1, b - a - 1);
+	return true;
+}
+
+enumError EncodeCtrGbinYaml (u8 **dest, uint *dest_size, ccp text)
+{
+	if (!dest || !dest_size || !text || !strstr (text, "(GBIN)"))
+		return ERR_INVALID_DATA;
+	uint n_guides = 0, n_parts = 0;
+	for (ccp p = text; *p; p = strchr (p, '\n') ? strchr (p, '\n') + 1 : p + strlen (p))
+	{
+		if (!strncmp (p, "  - name:", 9))
+			n_guides++;
+		else if (!strncmp (p, "      - { name:", 15))
+			n_parts++;
+	}
+	if (!n_guides)
+		return ERR_INVALID_DATA;
+	const size_t total = GBIN_HDR + (size_t)n_guides * GBIN_GUID + (size_t)n_parts * 20;
+	u8 *d = CALLOC (1, total);
+	if (!d)
+		return ERR_OUT_OF_MEMORY;
+	memcpy (d, "GBIN", 4);
+	d[4] = n_guides, d[5] = n_guides >> 8, d[6] = n_guides >> 16, d[7] = n_guides >> 24;
+	u8 *g = 0; // current GUID record
+	size_t pos = GBIN_HDR;
+	uint parts = 0;
+	bool ok = true;
+	for (ccp p = text; ok && *p; p = strchr (p, '\n') ? strchr (p, '\n') + 1 : p + strlen (p))
+	{
+		if (!strncmp (p, "  - name:", 9))
+		{
+			if (g)
+				g[4] = parts, g[5] = parts >> 8;
+			g = d + pos;
+			parts = 0;
+			memcpy (g, "GUID", 4);
+			ok = gbin_name (p + 9, g + 32);
+			pos += GBIN_GUID;
+		}
+		else if (g && !strncmp (p, "    flags: [", 12))
+		{
+			ccp q = p + 12;
+			for (uint w = 0; w < 6 && ok; w++)
+			{
+				char *end;
+				const u32 v = strtoul (q, &end, 10);
+				ok = end != q;
+				for (uint b = 0; b < 4; b++)
+					g[8 + 4 * w + b] = v >> (8 * b);
+				q = end + (*end == ',');
+			}
+		}
+		else if (g && !strncmp (p, "      - { name:", 15))
+		{
+			u8 *rec = d + pos;
+			ccp v = strstr (p, "value:");
+			ok = gbin_name (p + 15, rec) && v;
+			const u32 val = v ? strtoul (v + 6, 0, 10) : 0;
+			for (uint b = 0; b < 4; b++)
+				rec[16 + b] = val >> (8 * b);
+			pos += 20;
+			parts++;
+		}
+	}
+	if (ok && g)
+		g[4] = parts, g[5] = parts >> 8;
+	if (!ok || pos != total)
+	{
+		FREE (d);
+		return ERR_INVALID_DATA;
+	}
+	*dest = d;
+	*dest_size = (uint)total;
+	return ERR_OK;
+}

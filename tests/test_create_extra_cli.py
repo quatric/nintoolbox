@@ -92,6 +92,23 @@ class CreateExtraTests(unittest.TestCase):
             run('CREATE', str(f) + '.csv')
             self.assertEqual(f.read_bytes(), data)
 
+    def test_gbin_yaml_round_trip(self):
+        import struct
+
+        def name(text):
+            return text.encode().ljust(16, b'\0')
+        data = b'GBIN' + struct.pack('<I', 2)
+        data += b'GUID' + struct.pack('<I', 2) + struct.pack('<6I', 1, 0, 3, 4, 5, 6) + name('Camera01')
+        data += name('left') + struct.pack('<I', 7) + name('right') + struct.pack('<I', 9)
+        data += b'GUID' + struct.pack('<I', 0) + struct.pack('<6I', 0, 0, 0, 0, 0, 1) + name('Empty')
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / 't.gbin'
+            f.write_bytes(data)
+            run('XX', str(f))
+            f.unlink()
+            run('CREATE', str(f) + '.yaml')
+            self.assertEqual(f.read_bytes(), data)
+
 
 if __name__ == '__main__':
     unittest.main()
