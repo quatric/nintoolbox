@@ -678,6 +678,7 @@
 #include "extract/rsf_g721.inc"
 #include "extract/bwav.inc"
 #include "extract/rhgroove.inc"
+#include "extract/gen5text.inc"
 #include "extract/xlnk.inc"
 #include "extract/asb.inc"
 #include "extract/bphcl.inc"

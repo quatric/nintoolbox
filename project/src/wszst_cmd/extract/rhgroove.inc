@@ -1,6 +1,7 @@
 #include "lib-tera.h"
 #include "lib-zstd.h"
 #include "lib-rhgroove.h"
+#include "lib-gen5text.h"
 // Rhythm Heaven Groove (Switch): ".cwv" DPCM sound -> "<name>.wav" (PCM16, loop in a 'smpl' chunk),
 // ".wmb" tempo map -> "<file>.yml", ".tex" (zstd) texture atlas -> "<file>.png", ".spr" sprite set
 // ->

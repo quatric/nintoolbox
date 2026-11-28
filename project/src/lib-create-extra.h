@@ -11,4 +11,6 @@ ccp create_extra_name (ccp ext);
 enumError create_aal_yaml_file (ccp src, ccp dest);
 enumError create_rstb_text_file (ccp src, ccp dest);
 
+enumError create_gen5_text_file (ccp src, ccp dest);
+
 #endif

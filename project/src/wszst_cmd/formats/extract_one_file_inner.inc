@@ -1107,6 +1107,9 @@ static enumError extract_one_file_inner (ccp arg, ccp basedir, uint depth)
 	err = extract_rhgroove_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;
+	err = extract_gen5text_file (arg, basedir, depth);
+	if (err != ERR_NOTHING_TO_DO)
+		return err;
 	err = extract_xlnk_file (arg, basedir, depth);
 	if (err != ERR_NOTHING_TO_DO)
 		return err;

@@ -1,5 +1,6 @@
 """CREATE round trips for flat archives handled by lib-create-extra (AFS, 3DS Camera PACK)."""
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -132,3 +133,40 @@ class CreateExtraTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Gen5Text(unittest.TestCase):
+    @staticmethod
+    def build(strings):
+        def enc(i, ws):
+            key = (0x7c89 + 0x2983 * i) & 0xffff
+            out = b''
+            for w in ws + [0xffff]:
+                out += struct.pack('<H', w ^ key)
+                key = ((key << 3) | (key >> 13)) & 0xffff
+            return out, len(ws) + 1
+        tab, st, off = b'', b'', 4 + 8 * len(strings)
+        for i, s in enumerate(strings):
+            e, n = enc(i, [ord(c) for c in s])
+            tab += struct.pack('<IHH', off, n, 0)
+            st += e
+            off += len(e)
+        body = tab + st
+        body += b'\0' * (-(4 + len(body)) % 4)
+        blk = struct.pack('<I', 4 + len(body)) + body
+        return struct.pack('<HHII', 1, len(strings), len(blk), 0) + struct.pack('<I', 16) + blk
+
+    def test_roundtrip(self):
+        raw = self.build(['Hello', 'Caf\u00e9 \\ ok', ''])
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp, 'file_0000.bin')
+            f.write_bytes(raw)
+            run('xx', str(f), '--decode', '-o')
+            t = Path(tmp, 'file_0000.bin.gen5.txt')
+            text = t.read_text()
+            self.assertIn('0\tHello', text)
+            self.assertIn('\\u005c', text)
+            t.write_text(text.replace('Hello', 'Howdy!'))
+            run('create', str(t), '--dest', str(Path(tmp, 'new.bin')), '-o')
+            new = Path(tmp, 'new.bin').read_bytes()
+            self.assertEqual(new, self.build(['Howdy!', 'Caf\u00e9 \\ ok', '']))
