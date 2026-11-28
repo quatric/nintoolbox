@@ -71,6 +71,27 @@ class CreateExtraTests(unittest.TestCase):
                 run('CREATE', str(f) + '.yml')
                 self.assertEqual(f.read_bytes(), data, name)
 
+    def test_dapg_csv_round_trip(self):
+        import random
+        import struct
+        rng = random.Random(4)
+        n = 4
+        cells = [0, 1, 0, 2, 3, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3]
+        recs = b''
+        for k in range(3):
+            rec = struct.pack('<2f2H4f', rng.random() * 10, -rng.random(), k, 7, *[rng.random() for _ in range(4)])
+            for _ in range(12):
+                rec += struct.pack('<fI', rng.random() * 100, rng.randrange(1 << 32))
+            recs += rec
+        data = struct.pack('<I', n) + struct.pack('<%dH' % (n * n), *cells) + recs
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / 'g.dapg'
+            f.write_bytes(data)
+            run('XX', str(f))
+            f.unlink()
+            run('CREATE', str(f) + '.csv')
+            self.assertEqual(f.read_bytes(), data)
+
 
 if __name__ == '__main__':
     unittest.main()

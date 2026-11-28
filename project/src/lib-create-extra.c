@@ -171,7 +171,7 @@ enumError create_aal_yaml_file (ccp src, ccp dest)
 	FREE (raw);
 	u8 *bin = 0;
 	uint bin_size = 0;
-	err = EncodeAALYaml (&bin, &bin_size, text);
+	err = is_ext_match (src, ".csv") ? EncodeDAPGCsv (&bin, &bin_size, text) : EncodeAALYaml (&bin, &bin_size, text);
 	FREE (text);
 	if (!err && !testmode)
 	{

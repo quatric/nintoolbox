@@ -679,3 +679,111 @@ enumError EncodeAALYaml (u8 **dest, uint *dest_size, ccp text)
 	*dest_size = size;
 	return ERR_OK;
 }
+
+// DAPG CSV -> binary, the inverse of ConvertDAPGToCsv(). Fails unless the rows are in cell order and
+// every record index 1..max is present (the CSV carries a record only where a cell references it).
+enumError EncodeDAPGCsv (u8 **dest, uint *dest_size, ccp text)
+{
+	if (!dest || !dest_size || !text)
+		return ERR_INVALID_DATA;
+	ccp p = strchr (text, '\n');
+	if (!p || strncmp (text, "x,z,probe,", 10))
+		return ERR_INVALID_DATA;
+	size_t cells = 0;
+	for (ccp q = p + 1; *q; q = strchr (q, '\n') ? strchr (q, '\n') + 1 : q + strlen (q))
+		if (*q != '\n' && *q != '\r')
+			cells++;
+	uint n = 0;
+	while ((size_t)n * n < cells)
+		n++;
+	if (!n || (size_t)n * n != cells || n > 1024)
+		return ERR_INVALID_DATA;
+	u16 *idx = CALLOC (cells, sizeof (u16));
+	u8 *recs = CALLOC (cells, 0x7c);
+	bool *seen = CALLOC (cells + 1, sizeof (bool));
+	enumError err = (idx && recs && seen) ? ERR_OK : ERR_OUT_OF_MEMORY;
+	uint max_idx = 0;
+	size_t cell = 0;
+	for (p++; !err && *p; p = strchr (p, '\n') ? strchr (p, '\n') + 1 : p + strlen (p))
+	{
+		if (*p == '\n' || *p == '\r')
+			continue;
+		char line[1024];
+		size_t ll = strcspn (p, "\r\n");
+		if (ll >= sizeof (line))
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		memcpy (line, p, ll);
+		line[ll] = 0;
+		char *f[40];
+		uint nf = 0;
+		for (char *s = line; nf < 40;)
+		{
+			f[nf++] = s;
+			s = strchr (s, ',');
+			if (!s)
+				break;
+			*s++ = 0;
+		}
+		if ((nf != 3 && nf != 35) || strtoul (f[0], 0, 10) != cell % n || strtoul (f[1], 0, 10) != cell / n)
+		{
+			err = ERR_INVALID_DATA;
+			break;
+		}
+		const uint k = (uint)strtoul (f[2], 0, 10);
+		idx[cell] = k;
+		if (k)
+		{
+			if (nf != 35 || k > cells)
+			{
+				err = ERR_INVALID_DATA;
+				break;
+			}
+			if (!seen[k])
+			{
+				u8 *r = recs + (size_t)(k - 1) * 0x7c;
+				float v;
+				v = strtof (f[3], 0), memcpy (r, &v, 4);
+				v = strtof (f[4], 0), memcpy (r + 4, &v, 4);
+				const u32 u0 = strtoul (f[5], 0, 10), u1 = strtoul (f[6], 0, 10);
+				r[8] = u0, r[9] = u0 >> 8, r[10] = u1, r[11] = u1 >> 8;
+				for (uint j = 0; j < 4; j++)
+					v = strtof (f[7 + j], 0), memcpy (r + 12 + 4 * j, &v, 4);
+				for (uint j = 0; j < 12; j++)
+				{
+					v = strtof (f[11 + 2 * j], 0), memcpy (r + 0x1c + 8 * j, &v, 4);
+					const u32 tag = strtoul (f[12 + 2 * j], 0, 16);
+					for (uint b = 0; b < 4; b++)
+						r[0x20 + 8 * j + b] = tag >> (8 * b);
+				}
+				seen[k] = true;
+			}
+			if (k > max_idx)
+				max_idx = k;
+		}
+		cell++;
+	}
+	for (uint k = 1; !err && k <= max_idx; k++)
+		if (!seen[k])
+			err = ERR_INVALID_DATA;
+	if (!err)
+	{
+		const size_t total = 4 + 2 * cells + (size_t)max_idx * 0x7c;
+		u8 *out = CALLOC (1, total);
+		if (!out)
+			err = ERR_OUT_OF_MEMORY;
+		else
+		{
+			out[0] = n, out[1] = n >> 8;
+			for (size_t i = 0; i < cells; i++)
+				out[4 + 2 * i] = idx[i], out[5 + 2 * i] = idx[i] >> 8;
+			memcpy (out + 4 + 2 * cells, recs, (size_t)max_idx * 0x7c);
+			*dest = out;
+			*dest_size = (uint)total;
+		}
+	}
+	FREE (idx), FREE (recs), FREE (seen);
+	return err;
+}

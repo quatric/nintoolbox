@@ -82,11 +82,13 @@ static enumError cmd_create (bool create)
 		}
 		const bool is_aal_sidecar = (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baroc.yml"))
 			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baacl.yml"))
-			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baadr.yml"));
+			|| (arg_len > 10 && !strcasecmp (arg + arg_len - 10, ".baadr.yml"))
+			|| (arg_len > 9 && !strcasecmp (arg + arg_len - 9, ".dapg.csv"));
 		if (create && is_aal_sidecar)
 		{
 			char y_dest[PATH_MAX], aal_ext[8];
-			snprintf (aal_ext, sizeof (aal_ext), "%.6s", arg + arg_len - 10);
+			const bool is_csv = is_ext (arg, ".csv");
+			snprintf (aal_ext, sizeof (aal_ext), is_csv ? "%.5s" : "%.6s", arg + arg_len - (is_csv ? 9 : 10));
 			if (opt_dest)
 				SubstDest (y_dest, sizeof (y_dest), arg, opt_dest, 0, aal_ext, false);
 			else
