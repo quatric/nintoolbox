@@ -1591,8 +1591,10 @@ static enumError compress_nintendo_file (ccp arg)
 			return ERR_OK;
 		return wux_compress (arg, dest) ? ERR_OK : ERR_WRITE_FAILED;
 	}
+	const bool tron_lz = ext && strlen (ext) > 2 && ext[strlen (ext) - 1] == '_';
 	if (!ext
-		|| (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".cmp")
+		|| (!tron_lz
+			&& (strcasecmp (ext, ".lz10") && strcasecmp (ext, ".lz11") && strcasecmp (ext, ".cmp")
 			&& strcasecmp (ext, ".rl") && strcasecmp (ext, ".yay0") && strcasecmp (ext, ".ash")
 			&& strcasecmp (ext, ".ash0") && strcasecmp (ext, ".lzh8") && strcasecmp (ext, ".lh")
 			&& strcasecmp (ext, ".qlz") && strcasecmp (ext, ".at7") && strcasecmp (ext, ".at7p")
@@ -1607,7 +1609,7 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")
 			&& strcasecmp (ext, ".brtex") && strcasecmp (ext, ".ngr") && strcasecmp (ext, ".packlz")
 			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2") && strcasecmp (ext, ".dsp") && strcasecmp (ext, ".bz2")
-			&& strcasecmp (ext, ".blkbz2")))
+			&& strcasecmp (ext, ".blkbz2"))))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;

@@ -295,5 +295,19 @@ class NextLevelZlibTests(unittest.TestCase):
             self.assertEqual((root / 'o.sanim.zlib.d' / 'o.sanim').read_bytes(), data)
 
 
+class TrailingUnderscoreLz10Tests(unittest.TestCase):
+    def test_tron_evolution_extension(self):
+        data = b'tron' * 300 + bytes(range(256))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'in.bin').write_bytes(data)
+            for args in ([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(root / 'light_ramp.tpl_')],
+                         [str(BIN), 'DECOMPRESS', str(root / 'light_ramp.tpl_'), '-d', str(root / 'back.bin')]):
+                r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual((root / 'light_ramp.tpl_').read_bytes()[0], 0x10)
+            self.assertEqual((root / 'back.bin').read_bytes(), data)
+
+
 if __name__ == '__main__':
     unittest.main()
