@@ -160,3 +160,69 @@ enumError ExtractDSPAudio (ccp arg, ccp basedir, uint depth, const u8 *data, siz
 	FREE (wav);
 	return err;
 }
+
+// Mono 16-bit PCM WAV -> standalone .dsp (0x60-byte header + ADPCM frames, no loop).
+// shortcut: mono only, no loop points, gain 0; stereo needs the two-header layout.
+enumError EncodeDSPFromWAV (u8 **dest, uint *dest_size, const u8 *wav, uint wav_size)
+{
+	if (!dest || !dest_size || !wav || wav_size < 44 || memcmp (wav, "RIFF", 4) || memcmp (wav + 8, "WAVE", 4))
+		return ERR_INVALID_DATA;
+	u32 rate = 0, nbytes = 0;
+	const u8 *pcm = 0;
+	bool fmt_ok = false;
+	for (u64 p = 12; p + 8 <= wav_size;)
+	{
+		const u32 len = rd_le32 (wav + p + 4);
+		const u8 *body = wav + p + 8;
+		if (!memcmp (wav + p, "fmt ", 4) && len >= 16 && p + 8 + len <= wav_size)
+		{
+			fmt_ok = rd_le16 (body) == 1 && rd_le16 (body + 2) == 1 && rd_le16 (body + 14) == 16;
+			rate = rd_le32 (body + 4);
+		}
+		else if (!memcmp (wav + p, "data", 4))
+		{
+			pcm = body;
+			nbytes = (u64)len > wav_size - p - 8 ? wav_size - p - 8 : len;
+			break;
+		}
+		p += 8 + (u64)len + (len & 1);
+	}
+	const uint n = nbytes / 2;
+	if (!fmt_ok || !pcm || !n || !rate)
+		return ERR_INVALID_DATA; // only mono PCM16 is supported
+	s16 *samples = MALLOC (sizeof (s16) * n);
+	if (!samples)
+		return ERR_OUT_OF_MEMORY;
+	for (uint i = 0; i < n; i++)
+		samples[i] = (s16)rd_le16 (pcm + 2 * i);
+
+	const uint frames = (uint)DspAdpcmFrameCount (n), nibbles = (uint)DspAdpcmNibbleCount (n);
+	u8 *out = CALLOC (1, 0x60 + (size_t)frames * 8);
+	if (!out)
+	{
+		FREE (samples);
+		return ERR_OUT_OF_MEMORY;
+	}
+	s16 coefs[16];
+	DspAdpcmCorrelateCoefs (samples, n, coefs);
+	wr_be32 (out, n);
+	wr_be32 (out + 4, nibbles);
+	wr_be32 (out + 8, rate);
+	wr_be32 (out + 20, nibbles ? nibbles - 1 : 0); // loop end (unused: loop flag 0)
+	wr_be32 (out + 24, 2);						  // first nibble address
+	for (int i = 0; i < 16; i++)
+		wr_be16 (out + 28 + 2 * i, (u16)coefs[i]);
+	int h1 = 0, h2 = 0;
+	for (uint f = 0; f < frames; f++)
+	{
+		const uint cnt = n - f * DSP_ADPCM_SAMPLES_PER_FRAME < DSP_ADPCM_SAMPLES_PER_FRAME
+			? n - f * DSP_ADPCM_SAMPLES_PER_FRAME
+			: DSP_ADPCM_SAMPLES_PER_FRAME;
+		DspAdpcmEncodeBlock (samples + f * DSP_ADPCM_SAMPLES_PER_FRAME, cnt, out + 0x60 + 8 * f, coefs, &h1, &h2);
+	}
+	wr_be16 (out + 62, out[0x60]); // initial predictor/scale
+	FREE (samples);
+	*dest = out;
+	*dest_size = 0x60 + frames * 8;
+	return ERR_OK;
+}

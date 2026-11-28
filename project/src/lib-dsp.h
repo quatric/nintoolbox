@@ -10,6 +10,7 @@
 
 bool IsDSP (const u8 *data, size_t size);
 enumError DecodeDSPToWAV (const u8 *data, size_t size, u8 **wav_out, size_t *wav_size_out);
+enumError EncodeDSPFromWAV (u8 **dest, uint *dest_size, const u8 *wav, uint wav_size);
 enumError ExtractDSPAudio (ccp arg, ccp basedir, uint depth, const u8 *data, size_t size);
 
 #endif // SZS_LIB_DSP_H

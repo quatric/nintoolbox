@@ -241,5 +241,27 @@ class WrapperGroup2Tests(unittest.TestCase):
                 self.assertEqual((root / rel).read_bytes(), data, ext)
 
 
+class DspEncodeTests(unittest.TestCase):
+    def test_wav_to_dsp_round_trip(self):
+        import math, struct, wave
+        n = 3000
+        src = [int(12000 * math.sin(i * 0.07) + 4000 * math.sin(i * 0.31)) for i in range(n)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with wave.open(str(root / 'in.wav'), 'wb') as w:
+                w.setnchannels(1), w.setsampwidth(2), w.setframerate(32000)
+                w.writeframes(struct.pack('<%dh' % n, *src))
+            for args in ([str(BIN), 'COMPRESS', str(root / 'in.wav'), '-d', str(root / 'o.dsp')],
+                         [str(BIN), 'EXTRACT', str(root / 'o.dsp'), '-d', str(root / 'x.wav')]):
+                r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(len((root / 'o.dsp').read_bytes()), 0x60 + (n + 13) // 14 * 8)
+            with wave.open(str(root / 'x.wav')) as w:
+                self.assertEqual(w.getframerate(), 32000)
+                got = struct.unpack('<%dh' % w.getnframes(), w.readframes(w.getnframes()))
+            self.assertEqual(len(got), n)
+            self.assertLess(max(abs(a - b) for a, b in zip(src, got)), 600)
+
+
 if __name__ == '__main__':
     unittest.main()

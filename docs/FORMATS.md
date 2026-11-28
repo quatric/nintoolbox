@@ -93,7 +93,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **CTPK** | 3DS / Texture | ✅ | ✅ | CTR texture container |
 | **DARC** | 3DS / Archive | ✅ | ✅ | Differential archive container |
 | **DSB (TXTR)** | DS / Texture | ✅ | ✅ | Animal Crossing: Wild World menu texture (RGB555 palette + A3I5 texels); retail regression covers decode → encode → decode pixels |
-| **DSP** | GameCube / Wii / Audio | ✅ | ❌ | Nintendo GameCube/Wii DSP-ADPCM standalone audio stream (`.dsp`): mono/stereo ADPCM coefficients, nibble predictor/scale decoding → 16-bit PCM WAV |
+| **DSP** | GameCube / Wii / Audio | ✅ | ✅ | Nintendo GameCube/Wii DSP-ADPCM standalone audio stream (`.dsp`): mono/stereo ADPCM coefficients, nibble predictor/scale decoding → 16-bit PCM WAV; `wszst compress <mono 16-bit>.wav -d <name>.dsp` encodes a mono, unlooped stream (stereo and loop points not supported) |
 | **Retro TXTR** | Wii / Texture | ✅ | ✅ | Retro Studios texture (*Metroid Prime 1-3*, *DKCR*): GX-tiled, indexed + direct |
 | **Tropical TXTR** | Wii U / Texture | ✅ | ❌ | Retro Studios texture (*Tropical Freeze*): RFRM form, GX2 detile |
 | **DAT (Star Fox Zero)** | Wii U / Archive | ✅ | 🟡 | Big-endian flat archive |

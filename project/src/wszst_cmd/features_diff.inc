@@ -1606,7 +1606,7 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".rle") && strcasecmp (ext, ".mz") && strcasecmp (ext, ".cmpbin")
 			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")
 			&& strcasecmp (ext, ".brtex") && strcasecmp (ext, ".ngr") && strcasecmp (ext, ".packlz")
-			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2")))
+			&& strcasecmp (ext, ".crfnt") && strcasecmp (ext, ".lpf2") && strcasecmp (ext, ".dsp")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1650,6 +1650,7 @@ static enumError compress_nintendo_file (ccp arg)
 			? EncodeLZ4 (&packed, &packed_size, data, file_size, 0)
 			: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf")
 			? EncodeBFTTF (&packed, &packed_size, data, file_size, BFTTF_KEY_NX)
+			: !strcasecmp (ext, ".dsp") ? EncodeDSPFromWAV (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".ngr") ? EncodeZlib (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".packlz") || !strcasecmp (ext, ".crfnt") || !strcasecmp (ext, ".lpf2")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false)
@@ -1758,6 +1759,7 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".1ozl")	? "INIO-LZO"
 				: !strcasecmp (ext, ".rle")	? "RLE!"
 				: !strcasecmp (ext, ".brtex")	? "LZMA-BRTEX"
+				: !strcasecmp (ext, ".dsp")		? "DSP-ADPCM"
 				: !strcasecmp (ext, ".ngr")		? "LMPK"
 				: !strcasecmp (ext, ".packlz")	? "PACK-LZ10"
 				: !strcasecmp (ext, ".crfnt")	? "ntcompress2"
