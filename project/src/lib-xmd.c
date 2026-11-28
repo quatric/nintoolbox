@@ -57,14 +57,73 @@ bool IsXMD (const u8 *data, uint size)
 	return IsXTD (data + geo_end, size - geo_end);
 }
 
+static enumError extract_xmd_bank (const u8 *d, uint size, ccp arg, ccp dest);
+
+// Generic "XMD\1" bank (the .mdl car banks, .gsf, .dat, .xmd ... of the game): the header is "XMD\1", "001\0", u32 flags and u32 count n, then n
+// big-endian offsets in ascending order; member i runs up to the next offset (the last one to the end of the file). Whatever lies
+// before the first member (the table plus the format specific header words) is kept as "xmd-header.bin".
+bool IsXMDBank (const u8 *d, uint size)
+{
+	if (!d || size < 0x14 || memcmp (d, "XMD\x01", 4))
+		return false;
+	const u32 n = rd_be32 (d + 12);
+	if (!n || n > 4096 || 16 + 4 * (u64)n > size)
+		return false;
+	u32 prev = 16 + 4 * n - 1;
+	for (u32 i = 0; i < n; i++)
+	{
+		const u32 o = rd_be32 (d + 16 + 4 * i);
+		if (o <= prev || o >= size)
+			return false;
+		prev = o;
+	}
+	return true;
+}
+
+static enumError extract_xmd_bank (const u8 *d, uint size, ccp arg, ccp dest)
+{
+	const u32 n = rd_be32 (d + 12), first = rd_be32 (d + 16);
+	if (verbose >= 0 || testmode)
+		fprintf (stdlog, "%s%sEXTRACT XMD-BANK:%s (%u members) -> %s/\n", verbose > 0 ? "\n" : "", testmode ? "WOULD " : "", arg, n, dest);
+	if (testmode)
+		return ERR_OK;
+	CreatePath (dest, true);
+	char path[PATH_MAX];
+	snprintf (path, sizeof (path), "%s/xmd-header.bin", dest);
+	enumError err = SaveFile (path, 0, 0, d, first, 0);
+	for (u32 i = 0; !err && i < n; i++)
+	{
+		const u32 o = rd_be32 (d + 16 + 4 * i), e = i + 1 < n ? rd_be32 (d + 20 + 4 * i) : size;
+		ccp ext = !memcmp (d + o, "RESOURCE:GX", 11) ? "r3d" : !memcmp (d + o, "XTD\0", 4) ? "xtd" : "bin";
+		snprintf (path, sizeof (path), "%s/%04u.%s", dest, i, ext);
+		err = SaveFile (path, 0, 0, d + o, e - o, 0);
+	}
+	return err;
+}
+
 enumError ExtractXMDArchive (ccp arg, ccp basedir, uint depth)
 {
-	if (!is_ext_match (arg, ".mdl"))
-		return ERR_NOTHING_TO_DO;
-
 	u8 *raw = 0;
 	size_t raw_size = 0;
 	enumError err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
+	if (err || !raw)
+	{
+		FREE (raw);
+		return ERR_NOTHING_TO_DO;
+	}
+	if (raw_size <= UINT_MAX && IsXMDBank (raw, (uint)raw_size))
+	{
+		char bdest[PATH_MAX];
+		get_dest_dir (bdest, sizeof (bdest), arg, basedir);
+		err = extract_xmd_bank (raw, (uint)raw_size, arg, bdest);
+		FREE (raw);
+		return err;
+	}
+	FREE (raw);
+	if (!is_ext_match (arg, ".mdl"))
+		return ERR_NOTHING_TO_DO;
+
+	err = LoadFileAlloc (arg, 0, 0, &raw, &raw_size, 0, 0, 0, false);
 	if (err)
 		return ERR_NOTHING_TO_DO;
 

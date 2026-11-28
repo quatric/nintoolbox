@@ -1023,7 +1023,7 @@ static enumError cmd_create (bool create)
 			ResetSetupParam (&sp);
 			continue;
 		}
-		if (create && ext && create_extra_name (ext))
+		if (create && ext && create_extra_match (ext, source_dir))
 		{
 			enumError err = ERR_OK;
 			create_extra_dir (ext, source_dir, dest, &err);

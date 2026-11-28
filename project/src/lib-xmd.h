@@ -12,6 +12,8 @@
 // texture table layout; the geometry container's own display-list/vertex
 // format is not yet decoded.
 bool IsXMD (const u8 *data, uint size);
+// Any "XMD\1" file made of an ascending big-endian offset table (see lib-xmd.c); EXTRACT writes xmd-header.bin and one file per member.
+bool IsXMDBank (const u8 *data, uint size);
 enumError ExtractXMDArchive (ccp arg, ccp basedir, uint depth);
 
 #endif // LIB_XMD_H

@@ -1,6 +1,7 @@
 // CREATE glue for flat archives that EXTRACT writes as one file per member.
 
 #include "lib-std.h"
+#include <sys/stat.h>
 #include "lib-archive-util.h"
 #include "lib-create-extra.h"
 #include "lib-gen5text.h"
@@ -104,14 +105,59 @@ static enumError pack_jupiter (u8 **out, u64 *out_size, const nintendo_sarc_entr
 	return ERR_OK;
 }
 
+// Genki XMD bank (see lib-xmd.c): "xmd-header.bin" (everything before the first member, its offset table is rewritten) + the members
+// in name order; a member (other than the last) whose size is no multiple of 0x10 is padded to 0x20 (members keep the alignment they came with).
+static enumError pack_xmd (u8 **out, u64 *out_size, const nintendo_sarc_entry_t *e, uint n)
+{
+	const nintendo_sarc_entry_t *hdr = 0;
+	uint nm = 0;
+	for (uint i = 0; i < n; i++)
+		if (!strcmp (leaf_name (e[i].name), "xmd-header.bin"))
+			hdr = e + i;
+		else
+			nm++;
+	if (!hdr || !nm || nm > 4096 || hdr->size < 16 + 4 * (u64)nm)
+		return ERR_INVALID_DATA;
+	u64 total = hdr->size;
+	uint seen = 0;
+	for (uint i = 0; i < n; i++)
+		if (e + i != hdr)
+			total += ++seen < nm && e[i].size % 0x10 ? align_up (e[i].size, 0x20) : e[i].size;
+	if (total > UINT_MAX)
+		return ERR_FILE_TOO_BIG;
+	u8 *d = CALLOC (1, total);
+	if (!d)
+		return ERR_CANT_CREATE;
+	memcpy (d, hdr->data, hdr->size);
+	wr_be32 (d + 12, nm);
+	u64 pos = hdr->size;
+	uint k = 0;
+	for (uint i = 0; i < n; i++)
+	{
+		if (e + i == hdr)
+			continue;
+		wr_be32 (d + 16 + 4 * k, (u32)pos);
+		memcpy (d + pos, e[i].data, e[i].size);
+		pos += ++k < nm && e[i].size % 0x10 ? align_up (e[i].size, 0x20) : e[i].size;
+	}
+	*out = d, *out_size = total;
+	return ERR_OK;
+}
+
 static const struct
 {
 	ccp ext, label;
 	pack_func pack;
+	bool needs_xmd_header; // only sources holding xmd-header.bin (shared extensions)
 } extra_formats[] = {
 	{ ".afs", "AFS", pack_afs },
 	{ ".pack", "CTR-PACK", pack_ctrpack },
 	{ ".pck", "JUPITER-PCK", pack_jupiter },
+	{ ".mdl", "XMD", pack_xmd, true },
+	{ ".gsf", "XMD", pack_xmd, true },
+	{ ".xmd", "XMD", pack_xmd, true },
+	{ ".dat", "XMD", pack_xmd, true },
+	{ ".new", "XMD", pack_xmd, true },
 	{ 0 },
 };
 
@@ -123,9 +169,30 @@ ccp create_extra_name (ccp ext)
 	return 0;
 }
 
+// Like create_extra_name(), but formats that share their extension with others only match a source folder that holds their marker file.
+ccp create_extra_match (ccp ext, ccp source)
+{
+	for (uint i = 0; ext && extra_formats[i].ext; i++)
+		if (!strcasecmp (ext, extra_formats[i].ext))
+		{
+			if (extra_formats[i].needs_xmd_header)
+			{
+				char marker[PATH_MAX];
+				snprintf (marker, sizeof (marker), "%s/xmd-header.bin", source);
+				struct stat st;
+				if (stat (marker, &st))
+					return 0;
+			}
+			return extra_formats[i].label;
+		}
+	return 0;
+}
+
 bool create_extra_dir (ccp ext, ccp source, ccp dest, enumError *err)
 {
 	pack_func pack = 0;
+	if (!create_extra_match (ext, source))
+		return false;
 	for (uint i = 0; ext && extra_formats[i].ext; i++)
 		if (!strcasecmp (ext, extra_formats[i].ext))
 			pack = extra_formats[i].pack;

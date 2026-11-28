@@ -170,3 +170,26 @@ class Gen5Text(unittest.TestCase):
             run('create', str(t), '--dest', str(Path(tmp, 'new.bin')), '-o')
             new = Path(tmp, 'new.bin').read_bytes()
             self.assertEqual(new, self.build(['Howdy!', 'Caf\u00e9 \\ ok', '']))
+
+
+class XmdBank(unittest.TestCase):
+    def test_roundtrip(self):
+        a = b'RESOURCE:GX' + bytes(21)
+        b = b'XTD\0' + bytes(60)
+        hdr = b'XMD\x01001\0' + struct.pack('>III', 0, 2, 0x20) + struct.pack('>I', 0x20 + len(a)) + bytes(8)
+        raw = hdr + a + b
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp, 't.gsf')
+            f.write_bytes(raw)
+            run('xx', str(f), '--dest', str(Path(tmp, 't.gsf.d')), '-o')
+            d = Path(tmp, 't.gsf.d')
+            self.assertEqual(sorted(x.name for x in d.iterdir()), ['0000.r3d', '0001.xtd', 'xmd-header.bin'])
+            run('create', str(d), '--dest', str(Path(tmp, 'new.gsf')), '-o')
+            self.assertEqual(Path(tmp, 'new.gsf').read_bytes(), raw)
+            run('xx', str(f), '--dest', str(d), '-o')
+            (d / '0000.r3d').write_bytes(a + b'xyz')
+            run('create', str(d), '--dest', str(Path(tmp, 'new2.gsf')), '-o')
+            new = Path(tmp, 'new2.gsf').read_bytes()
+            self.assertEqual(struct.unpack('>I', new[0x14:0x18])[0], 0x20 + 0x40)
+            self.assertEqual(new[0x20:0x20 + len(a) + 3], a + b'xyz')
+            self.assertEqual(new[0x60:], b)
