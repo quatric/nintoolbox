@@ -209,5 +209,19 @@ class Lz4BfttfTests(unittest.TestCase):
                 self.assertEqual((root / out).read_bytes(), data, ext)
 
 
+class LzmaBrtexTests(unittest.TestCase):
+    def test_round_trip(self):
+        data = b'bres' * 500 + bytes(range(256)) * 4
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'in.bin').write_bytes(data)
+            for args in ([str(BIN), 'COMPRESS', str(root / 'in.bin'), '-d', str(root / 'o.brtex')],
+                         [str(BIN), 'EXTRACT', str(root / 'o.brtex')]):
+                r = subprocess.run(args, capture_output=True, text=True, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual((root / 'o.brtex').read_bytes()[:6], b'\xffLZMA\x00')
+            self.assertEqual((root / 'o.brtex.brres').read_bytes(), data)
+
+
 if __name__ == '__main__':
     unittest.main()

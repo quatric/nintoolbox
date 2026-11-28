@@ -1591,7 +1591,8 @@ static enumError compress_nintendo_file (ccp arg)
 			&& strcasecmp (ext, ".mvdk") && strcasecmp (ext, ".lze") && strcasecmp (ext, ".dad") && strcasecmp (ext, ".ibz")
 			&& strcasecmp (ext, ".bgw") && strcasecmp (ext, ".rz") && strcasecmp (ext, ".1ozl")
 			&& strcasecmp (ext, ".rle") && strcasecmp (ext, ".mz") && strcasecmp (ext, ".cmpbin")
-			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")))
+			&& strcasecmp (ext, ".lz4") && strcasecmp (ext, ".bfttf") && strcasecmp (ext, ".bfotf")
+			&& strcasecmp (ext, ".brtex")))
 		return ERR_NOTHING_TO_DO;
 	u8 *data = 0, *packed = 0;
 	size_t file_size = 0;
@@ -1635,12 +1636,16 @@ static enumError compress_nintendo_file (ccp arg)
 			? EncodeLZ4 (&packed, &packed_size, data, file_size, 0)
 			: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf")
 			? EncodeBFTTF (&packed, &packed_size, data, file_size, BFTTF_KEY_NX)
+			: !strcasecmp (ext, ".brtex")
+			? EncodeLZMA (&packed, &packed_size, false, 6, false, data, file_size, 0)
 			: !strcasecmp (ext, ".rle") ? EncodeRLEBang (&packed, &packed_size, data, file_size)
 			: !strcasecmp (ext, ".mz") ? EncodeZlib (&packed, &packed_size, data, file_size, false)
 			: !strcasecmp (ext, ".cmp") || !strcasecmp (ext, ".lz11")
 			? EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, true)
 			: EncodeLZ10LZ11 (&packed, &packed_size, data, file_size, false);
-	if (!err && !strcasecmp (ext, ".cmpbin"))
+	if (!err && !strcasecmp (ext, ".brtex"))
+		memcpy (packed, "\xff" "LZMA\0", 6);
+	else if (!err && !strcasecmp (ext, ".cmpbin"))
 		err = prepend_size_header (&packed, &packed_size, file_size, false, 0);
 	else if (!err && !strcasecmp (ext, ".mz"))
 	{
@@ -1699,6 +1704,7 @@ static enumError compress_nintendo_file (ccp arg)
 				: !strcasecmp (ext, ".rz")		? "RZ"
 				: !strcasecmp (ext, ".1ozl")	? "INIO-LZO"
 				: !strcasecmp (ext, ".rle")	? "RLE!"
+				: !strcasecmp (ext, ".brtex")	? "LZMA-BRTEX"
 				: !strcasecmp (ext, ".cmpbin")	? "HAL-LZ4"
 				: !strcasecmp (ext, ".lz4")	? "LZ4"
 				: !strcasecmp (ext, ".bfttf") || !strcasecmp (ext, ".bfotf") ? "BFTTF"
