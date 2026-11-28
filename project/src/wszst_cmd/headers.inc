@@ -58,6 +58,7 @@
 #include "lib-arcv.h"
 #include "lib-cod-pak.h"
 #include "lib-bigf.h"
+#include "lib-create-extra.h"
 #include "lib-mpbin.h"
 #include "lib-zmb.h"
 #include "lib-gtx.h"

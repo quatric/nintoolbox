@@ -10,7 +10,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 |---|---|---|---|---|
 | **AJJPG / AJPG** | GBA / Still Image | ✅ | ✅ | GBA-era still image container |
 | **ADJB** | Switch / Model sidecar | ✅ | ❌ | Smash Ultimate mesh triangle adjacency (model.adjb): per-mesh id + u16 index lists, sized like Adjb.cs |
-| **AFS** | Wii / Archive | ✅ | ❌ | Sega/CRI-style flat archive reused by Spike Co.'s engine for *Dragon Ball Z: Budokai Tenkaichi 3* (`wzs3us0/1/2.afs`); magic `AFS\0` + u32 LE file count, then that many `{offset,size}` u32 LE pairs, one trailing pair pointing at a 48-byte-per-entry name/date metadata table; decode-only, verified against retail samples by direct hexdump |
+| **AFS** | Wii / Archive | ✅ | ✅ | Sega/CRI-style flat archive reused by Spike Co.'s engine for *Dragon Ball Z: Budokai Tenkaichi 3* (`wzs3us0/1/2.afs`); magic `AFS\0` + u32 LE file count, then that many `{offset,size}` u32 LE pairs, one trailing pair pointing at a 48-byte-per-entry name/date metadata table; decode-only, verified against retail samples by direct hexdump; CREATE repacks `<name>.afs.d` (names from the `NNNN_name` prefix, 0x800 alignment, zeroed timestamps) |
 | **SCB / IMB / PLB** | DS / Background | ✅ | ❌ | Luminous Arc 2 screen maps with same-stem tiles and palette; 250 retail PNGs checked, [audit](FORMAT_AUDIT.md) |
 | **LZE** | DS / Compression | ✅ | ✅ | Luminous Arc 2 `Le` streams, four token forms, re-encoded greedily by `wszst compress <file> -d <name>.lze`; 1,275 retail resources verified against CUE, [audit](FORMAT_AUDIT.md) |
 | **IEAR** | DS / Archive | ✅ | ❌ | Luminous Arc MAIN/JTBL typed resource archives; indexed payload extraction, [retail audit](FORMAT_AUDIT.md) |
@@ -37,7 +37,7 @@ This document contains detailed technical notes, reverse-engineering findings, a
 | **AGI** | Wii / Archive | ✅ | ❌ | Toys for Bob "AGI" archive (`\x1AAGI`, *Skylanders: Swap Force* `files/*.pak`): big-endian header + backslash-path name table; extract-only. Two entry-table record layouts, tried in order: plain 2-word `(offset,size)` pairs (pure audio-bank `.pak` files) and 4-word `(0, offset, unk, flag)` groups whose on-disk size is derived from the gap to the next block-aligned offset (mixed audio + `.igz`/`.igx` model/material `.pak` files). Verified against all 2339 retail `.pak` files sampled from the Swap Force DATA partition: 100% parse successfully (1559 via the 2-word layout, 780 via the 4-word layout). Raw `FSB5` audio members are tagged `.fsb` and auto-decoded to WAV via the existing FSB4/FSB5 decoder; `.igz`/`.igx` model/material members are extracted raw (IGZ internals out of scope) |
 | **AT7** | PS2/Wii / Archive | ✅ | ✅ | Koei Tecmo container |
 | **BCBNK** | 3DS / Audio | ✅ | ❌ | NW4C bank: wave table and instrument slot list to YAML |
-| **3DS Camera PACK** | 3DS / Archive | ✅ | ❌ | `.pack` table of 0x40-byte `{name[0x38], offset, size}` records; the LZ11 members are extracted as they are |
+| **3DS Camera PACK** | 3DS / Archive | ✅ | ✅ | `.pack` table of 0x40-byte `{name[0x38], offset, size}` records; the LZ11 members are extracted as they are; CREATE repacks `<name>.pack.d` (16-byte aligned members) |
 | **GBIN** | 3DS / Data | ✅ | ❌ | Camera guide table (`GUID` records with named parts) to YAML |
 | **BCFNT** | 3DS / Font | ✅ | ✅ | 3DS bitmap font to PNG atlas |
 | **BCH** | 3DS / Model | ✅ | ✅ | CTR H3D model container |

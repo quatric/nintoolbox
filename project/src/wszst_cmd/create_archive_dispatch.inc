@@ -229,6 +229,11 @@ static enumError create_archive_from_dir (ccp source_dir, ccp dest, int known_lz
 		return create_bin_dir (source_dir, dest);
 	if (!strcasecmp (ext, ".big"))
 		return create_bigf_dir (source_dir, dest);
+	{
+		enumError extra_err;
+		if (create_extra_dir (ext, source_dir, dest, &extra_err))
+			return extra_err;
+	}
 	if (!strcasecmp (ext, ".arc") && looks_like_arcv_dir (source_dir))
 		return create_arcv_dir (source_dir, dest);
 
